@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
-            _seedSatchel.InterruptShooter();
+            _seedShooter.InterruptShooter();
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
             _inventory.GiveTreasure(TreasureId.Shooter, 1);
             _inventory.GiveTreasure(item, 0x50);
@@ -45,6 +45,10 @@ public sealed partial class ValidationRoot
                 .OrderBy(p => p.DistanceTo(enemy.Position + Vector2.Down * 28)).First() : new Vector2(124, 88);
             _player.WarpTo(start);
             FailIf(_collision.Collides(start), "Native seed fixture must start outside obstacles on the actual room floor.");
+            // checkLinkVulnerable's native lock excludes Link contacts after
+            // the item scan, preserving the seed/enemy path under test.
+            byte contactLock = _runtimeState.ReadField("wDisableLinkCollisionsAndMenu");
+            _entities.DisableLinkCollisionsAndMenu();
             EmberSeedEffect? hit = null;
             var sounds = new List<int>();
             _entities.SoundRequested += sounds.Add;
@@ -57,7 +61,7 @@ public sealed partial class ValidationRoot
                     Vector2 delta = enemy.Position - _player.Position;
                     Vector2 aim = directions.OrderByDescending(d => d.Normalized().Dot(delta)).First();
                     bool ready = bat is null || bat.State == 12 && bat.Counter <= 20 || bat.ZFixed >= -9 * 256;
-                    if (!_seedSatchel.ShooterActive && !_entities.HasActiveShooterSeed && ready)
+                    if (!_seedShooter.ShooterActive && !_entities.HasActiveShooterSeed && ready)
                     {
                         Step(movement: aim, attack: true);
                         if (item == 0x24) SetDiggingRoll(_random, selected);
@@ -68,7 +72,7 @@ public sealed partial class ValidationRoot
                     {
                         Vector2 move = delta.Length() > 30 ? aim : delta.Length() < 18 ? -aim : Vector2.Zero;
                         sounds.Clear();
-                        Step(movement: _seedSatchel.ShooterActive ? Vector2.Zero : move);
+                        Step(movement: _seedShooter.ShooterActive ? Vector2.Zero : move);
                     }
                     hit = _entities.Entities<EmberSeedEffect>().FirstOrDefault(s => s.HasPendingNativeCollision);
                 }
@@ -146,7 +150,11 @@ public sealed partial class ValidationRoot
                         "The update following stun zero must resume the enemy's native state handler.");
                 }
             }
-            finally { _entities.SoundRequested -= sounds.Add; }
+            finally
+            {
+                _entities.SoundRequested -= sounds.Add;
+                _runtimeState.SetField("wDisableLinkCollisionsAndMenu", contactLock);
+            }
             var result = (_inventory.HealthQuarters, _entities.RandomCalls, _player.Position);
             if (lethal) FailIf(_entities.Entities<GibdoCharacter>().Count != 1,
                 "A lethal Scent hit must remove its Gibdo after the JUST_HIT update.");

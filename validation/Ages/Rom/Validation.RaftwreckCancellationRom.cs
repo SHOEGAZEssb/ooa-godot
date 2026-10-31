@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         foreach(bool batched in new[]{false,true})
         {
             ReinitializeGameplayForValidation();
-            CompanionRuntimeState.Begin(_runtimeState,0x13,0xa8,new(96,118),3);
+            StageRidingRaftForValidation(new(96,118),3);
             LoadValidationRoom(1,0xa8);_inventory.SetScriptedEquippedItems(0,0);
             var owner=_roomEvents.Get<RaftwreckEvent>();
             var runner=SomariaPrivate<CutsceneCommandRunner>(owner,"_runner");

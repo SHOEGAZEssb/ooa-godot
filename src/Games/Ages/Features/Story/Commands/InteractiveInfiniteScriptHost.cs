@@ -8,7 +8,7 @@ namespace Oracles;
 /// predicate, dialogue, reward, animation validation, and native operation.
 /// </summary>
 internal abstract class InteractiveInfiniteScriptHost<TActor> :
-    InteractiveCutsceneCommandHost, IRoomEvent, ICutsceneCommandHost
+    RoomCutsceneCommandHost, IRoomEvent, ICutsceneCommandHost
     where TActor : NpcCharacter
 {
     private readonly RoomEventContext _context;
@@ -40,7 +40,7 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
 
     public abstract void UpdateFrame();
 
-    public bool TryInteractNpc(NpcCharacter npc) =>
+    public virtual bool TryInteractNpc(NpcCharacter npc) =>
         _runner.Active && !InputControlHeld && _binding.QueueButton(npc);
 
     public void Cancel()

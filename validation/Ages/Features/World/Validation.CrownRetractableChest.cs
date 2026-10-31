@@ -59,7 +59,7 @@ public partial class ValidationRoot
             _saveData.SetRoomFlag(4,0xbc,OracleSaveData.RoomFlagItem,false);
             LoadValidationRoom(4,0xbc);
             var outgoing=_entities.Entities<RetractableTriggerChestRoomEntity>().Single();
-            var outgoingPuff=_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(120,88),SoundId.SndPoof));
+            var outgoingPuff=_entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(120,88),SoundId.SndPoof));
             FailIf(outgoingPuff.Initialized || outgoingPuff.Visible,"INTERAC$05 allocation must wait for state0 before becoming visible.");
             Step();
             FailIf(!outgoingPuff.Initialized || !outgoingPuff.Visible || outgoingPuff.ElapsedUpdates!=1,
@@ -73,7 +73,7 @@ public partial class ValidationRoot
             Triggers(0x0f); Step();
             FailIf(!outgoing.Finished || _currentRoom.Layout[0x57]!=0xf1,
                 "Scrolling must delete the outgoing controller and dispatch incoming state0.");
-            var incomingPuff=_entities.Entities<PuzzlePuffEffect>().Single();
+            var incomingPuff=_entities.Entities<StationaryDebrisEffect>().Single();
             FailIf(incomingPuff.ElapsedUpdates!=0 || incomingPuff.Visible || outgoingPuff.ElapsedUpdates!=2 ||
                 _entities.InteractionSlot(incomingPuff)!=2 || _sound.PlayRequestsFor(SoundId.SndPoof)!=0,
                 "Incoming chest must reuse the deleted outgoing controller's lower slot $d2 and defer puff initialization until the next pass.");
@@ -85,13 +85,13 @@ public partial class ValidationRoot
                 incomingPuff.ElapsedUpdates!=17 || incomingPuff.AnimationFrame!=2,
                 "INTERAC$05 scrolling lost its source $06/$08/$04 animation boundaries.");
             Step();
-            FailIf(_entities.OutgoingEntities<PuzzlePuffEffect>().Count!=0 || incomingPuff.Finished || incomingPuff.ElapsedUpdates!=18,
+            FailIf(_entities.OutgoingEntities<StationaryDebrisEffect>().Count!=0 || incomingPuff.Finished || incomingPuff.ElapsedUpdates!=18,
                 "Outgoing puff must delete one update after terminal parameter while the newer incoming puff remains alive.");
             Step();
             FailIf(incomingPuff.Finished || incomingPuff.CurrentParameter!=0xff,
                 "Lower-slot puff must retain its terminal parameter until its next dispatch.");
             Step();
-            FailIf(_entities.Entities<PuzzlePuffEffect>().Count!=0 || _sound.PlayRequestsFor(SoundId.SndPoof)!=1,
+            FailIf(_entities.Entities<StationaryDebrisEffect>().Count!=0 || _sound.PlayRequestsFor(SoundId.SndPoof)!=1,
                 "Incoming puff must finish during scrolling without replaying initialization sound.");
             _entities.FinishScreenTransition();
             LoadValidationRoom(0,0x60);

@@ -61,11 +61,11 @@ public partial class ValidationRoot
         FailIf(incoming.UpdatesDuringDialogue || incoming.LinkRiding ||
             incoming.PrecisePosition != new Vector2(136,104) || _player.Position != new Vector2(136,89),
             "Crown $a1:$0a preload must check zero-radius riding, initialize without moving, then push Link using initialized radii.");
-        for (int i = 0; i < 16; i++) _entities.Update(1.0 / 60.0,_player);
+        for (int i = 0; i < 16; i++) _entities.AdvanceEntityFrames(1.0 / 60.0,_player);
         FailIf(incoming.PrecisePosition != new Vector2(136,104) || incoming.CommandIndex != 0,
             "Initialized Crown platform must remain frozen throughout scrolling.");
         _entities.FinishScreenTransition();
-        _entities.Update(1.0 / 60.0,_player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0,_player);
         FailIf(incoming.PrecisePosition != new Vector2(136,103.5f),
             "Crown platform must move on the first post-scroll update, without repeating state0.");
         foreach (bool batch in new[] { false,true })
@@ -75,7 +75,7 @@ public partial class ValidationRoot
             _player.SetScriptedPosition(new(136.5f,5.25f));
             // Isolate a single edge transition, including the source clamp
             // and fractional scrolling arithmetic; no dungeon progression.
-            _transitions.BeginScroll(_player,Vector2I.Up,0x95);
+            _transitions.BeginValidationScroll(_player,Vector2I.Up,0x95);
             var scrollingPlatform = _entities.Entities<MovingSideScrollPlatformRoomEntity>().Single();
             FailIf(_player.PrecisePosition != new Vector2(136.5f,6.25f) || scrollingPlatform.UpdatesDuringDialogue,
                 "Crown scroll must retain low coordinate bytes and initialize destination $a1 before scrolling.");

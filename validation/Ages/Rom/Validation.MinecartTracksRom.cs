@@ -42,17 +42,17 @@ public sealed partial class ValidationRoot
             static Vector2 Point(int packed) => new((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8);
             _currentRoom.SetPositionTileAndCollision(Point(center), (byte)row.Tile, 0, 0);
             _currentRoom.SetPositionTileAndCollision(Point(center + row.Offset), (byte)next, 0, 0);
-            MinecartRuntimeState.Reset(_runtimeState, []);
-            MinecartRuntimeState.BeginRide(_runtimeState, 0, 0x00, Point(center), row.Direction);
+            ResetMinecartsForValidation(_runtimeState, []);
+            MinecartValidationView.PrepareMountedBody(_runtimeState, Point(center), row.Direction);
             Vector2? soundPosition = null;
             MinecartRoomEntity cart = null!;
             cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, row.Direction, true),
-                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
+                _currentRoom, _runtimeState,
                 new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), sound =>
                 {
                     if (sound == 0x80) soundPosition = cart.Position; // SND_MINECART.
                     _sound.PlaySound(sound);
-                });
+                }, _entities);
             _entities.AddEntity(cart);
             byte[] observedVelocity = new byte[4], expectedVelocity = new byte[4];
             var observer = new PartMovementScratchProbe(() =>
@@ -72,6 +72,7 @@ public sealed partial class ValidationRoot
             rom[0xd108] = (byte)row.Direction; rom[0xd109] = (byte)(row.Direction * 8);
             rom[0xd10b] = 72; rom[0xd10d] = 88;
             rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
+            MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
             var sounds = _sound.AttachPlayRequestAudit();
             int update = 0;
             void Step(int count)
@@ -79,7 +80,7 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(count, Vector2.Zero, [], [], batched, () =>
                 {
                     Vector2 before = new(rom.Word(0xd10c) / 256f, rom.Word(0xd10a) / 256f);
-                    rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter - 1,
+                    rom.UpdateGameplay(0, 0, 0xff, _saveData.ReadField("wPlaytimeCounter"),
                         afterLink: () => { for (int i = 0; i < 4; i++) expectedVelocity[i] = rom[0xcec0 + i]; });
                     update++;
                     string context = $"Minecart track dir={row.Direction}, tile=${row.Tile:x2}, next=${next:x2}, update={update}, batch={batched}";

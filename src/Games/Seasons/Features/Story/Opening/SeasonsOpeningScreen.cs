@@ -24,10 +24,10 @@ internal partial class SeasonsOpeningScreen : Control
     internal void Initialize(SeasonsOpeningData data)
     {
         _data = data;
-        data.Palettes.Changed += PaletteChanged;
+        data.World.Palettes.Changed += PaletteChanged;
     }
     private void PaletteChanged() { if (Visible && _dance is null) Rebuild(); }
-    public override void _ExitTree() { if (_data is not null) _data.Palettes.Changed -= PaletteChanged; }
+    public override void _ExitTree() { if (_data is not null) _data.World.Palettes.Changed -= PaletteChanged; }
     internal void SetRegisters(int index)
     {
         byte[] registers = _data.Registers(index);
@@ -46,9 +46,9 @@ internal partial class SeasonsOpeningScreen : Control
         int cameraX = CameraX, cameraY = CameraY;
         _dance = null; CastleCleared = false; _animationHeaders = []; SetRegisters(registers);
         if (preserveCamera) { CameraX = cameraX; CameraY = cameraY; }
-        _data.Palettes.Restore(OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + $"opening/{palette}-bg.bin"));
-        _data.SpritePalettes = OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + $"opening/{palette}-spr.bin");
-        foreach (var upload in _data.Graphics(header))
+        _data.World.Palettes.Restore(OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + $"opening/{palette}-bg.bin"));
+        _data.World.SpritePalettes = OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + $"opening/{palette}-spr.bin");
+        foreach (var upload in _data.World.Graphics(header))
         {
             int address = upload.Address & 0xfffe, bank = upload.Address & 1;
             if (address >= 0x9800)
@@ -73,17 +73,17 @@ internal partial class SeasonsOpeningScreen : Control
     internal void Rebuild()
     {
         if (_dance is not null) { QueueRedraw(); return; }
-        _background = OracleTileRenderer.BuildTileMapTexture(_maps[0], _attributes[0], _tiles, _data.Palettes.Capture(), rows: 32);
-        _window = OracleTileRenderer.BuildTileMapTexture(_maps[1], _attributes[1], _tiles, _data.Palettes.Capture(), rows: 32);
+        _background = OracleTileRenderer.BuildTileMapTexture(_maps[0], _attributes[0], _tiles, _data.World.Palettes.Capture(), rows: 32);
+        _window = OracleTileRenderer.BuildTileMapTexture(_maps[1], _attributes[1], _tiles, _data.World.Palettes.Capture(), rows: 32);
         QueueRedraw();
     }
     internal void Animate(int group, int updates)
     {
-        int[] headers = _data.Animations.GetActiveHeadersAfterDirectLoad(group, updates);
+        int[] headers = _data.World.Animations.GetActiveHeadersAfterDirectLoad(group, updates);
         if (System.Linq.Enumerable.SequenceEqual(headers, _animationHeaders)) return;
         _animationHeaders = headers;
         for (int tile = 0; tile < 256; tile++)
-            if (_data.Animations.TryGetOverride(headers, tile, out Image source, out int sourceTile))
+            if (_data.World.Animations.TryGetOverride(headers, tile, out Image source, out int sourceTile))
                 _tiles.MapTile(source, sourceTile, (tile + 0x80) & 0xff, 1);
         Rebuild();
     }
@@ -92,22 +92,22 @@ internal partial class SeasonsOpeningScreen : Control
         CastleCleared = true;
         Array.Clear(_maps[0]); Array.Fill(_attributes[0], (byte)0x81);
         SetRegisters(0x0d);
-        var colors = _data.Palettes.Capture();
+        var colors = _data.World.Palettes.Capture();
         for (int palette = 1; palette < 8; palette++)
         for (int shade = 0; shade < 4; shade++) colors[palette, shade] = Colors.White;
-        _data.Palettes.Restore(colors); Rebuild();
+        _data.World.Palettes.Restore(colors); Rebuild();
     }
     internal void RestoreCastle()
     {
         CastleCleared = false;
         // UNCMP_GFXH_0e restores the saved maps without replacing animated tiles.
-        foreach (var upload in _data.Graphics("GFXH_SCENE_INSIDE_ONOX_CASTLE"))
+        foreach (var upload in _data.World.Graphics("GFXH_SCENE_INSIDE_ONOX_CASTLE"))
         {
             if (upload.Address < 0x9800) continue;
             OracleAssetCache.ReadBytes(upload.Asset).CopyTo((upload.Address & 1) == 0 ? _maps[0] : _attributes[0], 0);
         }
         SetRegisters(0x0d);
-        _data.Palettes.Restore(OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + "opening/PALH_SEASONS_97-bg.bin"));
+        _data.World.Palettes.Restore(OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + "opening/PALH_SEASONS_97-bg.bin"));
         Rebuild();
     }
     internal void UploadRoom(OracleRoomData room, Image graphics, int offset)

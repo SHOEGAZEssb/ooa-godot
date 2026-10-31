@@ -62,7 +62,7 @@ function ConvertTo-NpcProgramRows {
                 }
                 'xorcfc0bit' {
                     if ($c.Operands -ne '1') { throw "$($c.Path):$($c.Line): unsupported cfc0 bit." }
-                    $binding=@{Opcode='native';Payload='ClearCfc0Bit1'}
+                    $binding=@{Opcode='nativeyield';Payload='ClearCfc0Bit1'}
                 }
             }
             if ($null -ne $binding) { $bindings[$c.Index.ToString()+'|'+$c.Opcode+'|'+$c.Operands]=$binding }
@@ -137,7 +137,7 @@ function ConvertTo-CutsceneCommandRows {
             $arg0 = $binding.Arg0; $arg1 = $binding.Arg1; $payload = $binding.Payload
         } else {
             switch ($opcode) {
-                { $_ -in @('disableinput','enableinput','scriptend','showloadedtext') } { & $arity 0 }
+                { $_ -in @('disableinput','enableinput','scriptend','showloadedtext','checktext') } { & $arity 0 }
                 { $_ -in @('initcollisions','makeabuttonsensitive','checkabutton') } {
                     & $arity 0; $commandActor = $actor
                 }
@@ -165,6 +165,9 @@ function ConvertTo-CutsceneCommandRows {
                     }
                 }
                 'wait' { & $arity 1; $arg0 = (& $number $operands[0]).ToString() }
+                { $_ -in @('setglobalflag','orroomflag') } {
+                    & $arity 1; $arg0 = (& $number $operands[0]).ToString('x2')
+                }
                 { $_ -in @('setspeed','setangle','applyspeed') } {
                     & $arity 1; $commandActor = $actor
                     $arg0 = (& $number $operands[0]).ToString('x2')
@@ -206,6 +209,12 @@ function ConvertTo-CutsceneCommandRows {
                     $payload = [string]$symbols[$operands[0]]
                     $arg0 = (& $number $operands[1]).ToString('x2')
                     if ($opcode -eq 'checkobjectbyteeq') { $opcode = 'checkmemoryeq' }
+                }
+                'jumpifmemoryeq' {
+                    & $arity 3
+                    if (-not $symbols.ContainsKey($operands[0])) { throw "$where unbound memory '$($operands[0])'." }
+                    $payload = [string]$symbols[$operands[0]]
+                    $arg0 = (& $number $operands[1]).ToString('x2'); $arg1 = & $target $operands[2]
                 }
                 default { throw "$where unsupported command '$opcode $($command.Operands)'." }
             }

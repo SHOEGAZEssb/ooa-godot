@@ -48,6 +48,7 @@ public partial class ValidationRoot
                     camera.UpdateScreenShake();
                     string context = $"Crown$0:$0a owned={owned}, batch={batch}, update={++update}";
                     CompareSomariaMotionRom(rom,context);
+                    CompareKeyholeControlBytesRom(rom,context);
                     FailIf(allocation.Initialized != (rom[0xd244] != 0) || allocation.Finished || rom[0xd240] == 0,
                         context + ": placed $90:$11 initialization/lifetime differs.");
                     FailIf(_keyholes.RemainingPushFrames != rom[0xcc6a] ||
@@ -79,7 +80,7 @@ public partial class ValidationRoot
                             key.Position != new Vector2(rom[slot+0xd],rom[slot+0xb]) ||
                             key.Visible != ((rom[slot+0x1a] & 0x80) != 0),context + ": key slot/state/clock/XYZ/speed/visibility differs.");
                     }
-                    var puffs = _entities.Entities<PuzzlePuffEffect>();
+                    var puffs = _entities.Entities<StationaryDebrisEffect>();
                     var puffSlots = slots.Where(slot => rom[slot+1] == 0x05).ToArray();
                     FailIf(puffs.Count != puffSlots.Length,context + ": opening puff lifetime differs.");
                     for (int i = 0; i < puffSlots.Length; i++)

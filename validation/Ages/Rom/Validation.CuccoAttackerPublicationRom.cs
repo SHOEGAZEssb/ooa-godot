@@ -70,6 +70,7 @@ public sealed partial class ValidationRoot
                 }
                 Step(12);_dialogue.ShowMessage("Cucco flight hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;
                 _runtimeState.SetWramByte(0xcc8a,12);native[0xcc8a]=12;Step(3);_runtimeState.SetWramByte(0xcc8a,4);native[0xcc8a]=4;
+                StageDeferredNativeObjectPassCaller();
                 _runtimeState.SetWramByte(0xcd00,8);native[0xcd00]=8;Step(3);_runtimeState.SetWramByte(0xcd00,4);native[0xcd00]=4;
                 while(!actor.IsDead&&updates<260)Step(1);
                 Step(2);FailIf(!actor.IsDead||moves<24,"Cucco flight must preserve all24 entry movements and retire through the original screen predicate.");

@@ -61,45 +61,46 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         Visible=false;
     }
 
+    internal void PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        // enemyStandardUpdate initializes var3d before enemyCode3f checks
+        // relatedObj1.health, including a newly born child of a dying parent.
+        if (_initialized) return;
+        _initialized=true;
+        _random.Next();
+        if (FinishForDeadOwner(spawns)) return;
+        Vector2 offset=_behavior.GiantGhiniChildSpawnOffsets[_index].Vector;
+        Position=new Vector2(
+            (OracleObjectPosition.HighByte(Position.X)+(int)offset.X)&0xff,
+            (OracleObjectPosition.HighByte(Position.Y)+(int)offset.Y)&0xff)+Position-Position.Floor();
+        _zHigh=-4;
+        if (!_intro)
+        {
+            _state=ChildState.SpawnDelay;
+            _counter=30;
+            Visible=true;
+            spawns.Add(new PuzzlePuffSpawn(Position.Floor(),SoundId.SndPoof,ZHigh:_zHigh));
+        }
+    }
+
+    private bool FinishForDeadOwner(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_owner.Defeated) return false;
+        if (IsDead) { ReportFinished(); return true; }
+        Finish();
+        ReportFinished();
+        spawns.Add(new EnemyDeathPuffSpawn(Position,EnemyId:Record.Id,DecrementsRoomCount:true));
+        return true;
+    }
+
     internal void UpdateFrame(
         Player player,
         bool anyButtonJustPressed,
         int frameCounter,
         ICollection<RoomEntitySpawn> spawns)
     {
-        // enemyStandardUpdate initializes var3d before enemyCode3f checks
-        // relatedObj1.health, including a newly born child of a dying parent.
-        if (!_initialized)
-        {
-            _initialized=true;
-            _random.Next();
-            if (!_owner.Defeated)
-            {
-                Vector2 offset=_behavior.GiantGhiniChildSpawnOffsets[_index].Vector;
-                Position=new Vector2(
-                    (OracleObjectPosition.HighByte(Position.X)+(int)offset.X)&0xff,
-                    (OracleObjectPosition.HighByte(Position.Y)+(int)offset.Y)&0xff)+Position-Position.Floor();
-                _zHigh=-4;
-                if (!_intro)
-                {
-                    _state=ChildState.SpawnDelay;
-                    _counter=30;
-                    Visible=true;
-                    spawns.Add(new PuzzlePuffSpawn(Position.Floor(),SoundId.SndPoof,ZHigh:_zHigh));
-                }
-                return;
-            }
-        }
-        if (_owner.Defeated && !IsDead)
-        {
-            Finish();
-            ReportFinished();
-            spawns.Add(new EnemyDeathPuffSpawn(
-                Position,
-                EnemyId: Record.Id,
-                DecrementsRoomCount: true));
-            return;
-        }
+        if (!_initialized) { PrepareForScreenTransition(spawns); return; }
+        if (FinishForDeadOwner(spawns)) return;
         if (IsDead)
         {
             ReportFinished();

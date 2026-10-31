@@ -351,11 +351,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         float collisionRadiusX,
         int pointOffset)
     {
-        Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
-        Vector2 target = OracleObjectMath.ToPixelPosition(Position);
-        Vector2 point = link + (Vector2)player.FacingVector * pointOffset;
-        return Mathf.Abs(target.Y - point.Y) < collisionRadiusY &&
-            Mathf.Abs(target.X - point.X) < collisionRadiusX;
+        return NativeAButtonProbe.Contains(player, Position, collisionRadiusY, collisionRadiusX, pointOffset);
     }
 
     public void FaceToward(Vector2 target)
@@ -564,6 +560,13 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     }
 
     internal void ClearFixedDrawPriority() => _fixedDrawPriority = null;
+
+    internal void SetTerrainEffectsEnabled(bool enabled)
+    {
+        if (_terrainEffectsEnabled == enabled) return;
+        _terrainEffectsEnabled = enabled;
+        QueueRedraw();
+    }
 
     internal void SetScriptDrawOffset(Vector2 offset)
     {
@@ -866,14 +869,14 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         QueueRedraw();
     }
 
-    internal void AppendScriptGraphics(string spriteName)
+    internal void AppendScriptGraphics(string spriteName, bool invertExtra = false)
     {
         // Each loaded-object graphics slot occupies $20 8x8 tiles, or 128
         // pixels in the disassembly PNG representation. Short compressed
         // sheets leave the remainder of their VRAM slot blank; the next
         // chained header still begins on the following slot boundary.
         _sourceImage = OracleGraphicsCache.AppendGraphics(
-            _sourceImage, AssetRoot + $"gfx/{spriteName}.png");
+            _sourceImage, AssetRoot + $"gfx/{spriteName}.png", invertExtra);
     }
 
     internal void SetActive(bool active)

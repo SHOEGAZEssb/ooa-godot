@@ -104,6 +104,20 @@ internal partial class BraceletLiftedObject : Node2D
     internal Vector2 GroundPosition =>
         new(GroundX / 256.0f, GroundY / 256.0f);
 
+    internal bool Bounce(BombRecord throwing)
+    {
+        int rebound = (-_speedZ) >> 1;
+        if (rebound > -0x80) return true;
+        _speedZ = rebound;
+        SpeedRaw = throwing.ReducedBounceSpeed(SpeedRaw);
+        return false;
+    }
+
+    internal void StopLateral()
+    {
+        Angle = 0xff;
+    }
+
     internal bool CanPassSolidTile(OracleRoomData room, Vector2 point) =>
         (_tilePassage ??= new ItemTilePassage(room.AssetRoot)).CanPass(room, point, Angle);
 

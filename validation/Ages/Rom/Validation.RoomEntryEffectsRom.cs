@@ -70,6 +70,8 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
             _saveData.SetGlobalFlag(AgesGlobalFlag.FinishedGame);
+            // Finished progression includes Vire's source room-$40 gate.
+            _saveData.SetRoomFlag(4, 0xe6, 0x40);
             _saveData.SetGlobalFlag(AgesGlobalFlag.SavedNayru, false);
             void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
             int entryMusic = -1, entryActive = -1;
@@ -135,7 +137,7 @@ public sealed partial class ValidationRoot
             _saveData.SetGlobalFlag(AgesGlobalFlag.RalphEnteredPortal, completed);
             LoadValidationRoom(0, 0x38);
             _sound.SetNativeActiveMusic(0xff);
-            _transitions.BeginScroll(_player, direction, 0x39);
+            _transitions.BeginValidationScroll(_player, direction, 0x39);
             for (int update = 0; IsTransitioning && update < 300; update += 2)
                 StepGameplayUpdates(2, Vector2.Zero, batched: batched);
             int expected = !completed && direction == Vector2I.Right ? 0x35 : 0x03;

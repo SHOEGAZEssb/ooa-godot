@@ -35,8 +35,8 @@ public sealed partial class ValidationRoot
             int rng = _entities.RandomCalls;
             void Objects(int count)
             {
-                if (batch) _entities.Update(count / 60.0, _player);
-                else for (int i = 0; i < count; i++) _entities.Update(1.0 / 60, _player);
+                if (batch) _entities.AdvanceEntityFrames(count / 60.0, _player);
+                else for (int i = 0; i < count; i++) _entities.AdvanceEntityFrames(1.0 / 60, _player);
             }
             // smasher_ball_updateRespawnTimer expires at 180 even updates.
             // Keep allocation blocked close to that boundary: failed state$00
@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
             {
                 Objects((180 - ball.ExpirationCounter) * 2);
                 FailIf(ball.State != 14 || ball.Counter1 != 60 || ball.Visible || ball.CollisionEnabled ||
-                    _entities.Entities<PuzzlePuffEffect>().Count != 1,
+                    _entities.Entities<StationaryDebrisEffect>().Count != 1,
                     "Unlinked state0 expiry during scrolling must allocate one puff and disappear in the same update.");
                 Objects(2);
                 FailIf(ball.Counter1 != 60, "Initialized unlinked disappearance must freeze during the remaining scroll.");

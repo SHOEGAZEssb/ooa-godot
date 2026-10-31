@@ -228,7 +228,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 controller.State != 3 ||
                 controller.Counter != record.PuffDelay ||
-                _entities.Entities<PuzzlePuffEffect>().Count != 10,
+                _entities.Entities<StationaryDebrisEffect>().Count != 10,
                 "The pitch warning did not spawn all ten source-order puffs.");
             StepRoomEventFrames(record.PuffDelay);
             FailIf(

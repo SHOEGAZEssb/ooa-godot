@@ -67,9 +67,9 @@ public sealed partial class ValidationRoot
             RaftRoomEntity? raftEntity = null;
             if (raft)
             {
-                raftEntity = new RaftRoomEntity(new RaftSpawn(new(80, 56), 0, 1, 0xa7),
-                    _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState);
-                _entities.AddEntity(raftEntity);
+                _entities.AddEntity(new RaftInteractionRoomEntity(new RaftInteractionSpawn(new(80, 56), 1, 0xa7, SubId: 1),
+                    _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState, _entities));
+                _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
             }
             MinecartRoomEntity? cart = null;
             Vector2I[] cartDirections = [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];
@@ -80,11 +80,11 @@ public sealed partial class ValidationRoot
                 _currentRoom.SetPositionTileAndCollision(center, track, 0, 0);
                 _currentRoom.SetPositionTileAndCollision(center + (Vector2)cartDirections[cartDirection] * 16, track, 0, 0);
                 _currentRoom.SetPositionTileAndCollision(center - (Vector2)cartDirections[cartDirection] * 16, 0x5f, 0, 0);
-                MinecartRuntimeState.Reset(_runtimeState, []);
-                MinecartRuntimeState.BeginRide(_runtimeState, 0, 0x00, center, cartDirection);
+                ResetMinecartsForValidation(_runtimeState, []);
+                MinecartValidationView.PrepareMountedBody(_runtimeState, center, cartDirection);
                 cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, cartDirection, true),
-                    _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
-                    new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
+                    _currentRoom, _runtimeState,
+                    new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound, _entities);
                 _entities.AddEntity(cart);
             }
             SeedShooterEyeStatueRoomEntity? eye = null;
@@ -126,7 +126,7 @@ public sealed partial class ValidationRoot
             }
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, minecart ? cartDirection : 0, (int)linkPosition.X, (int)linkPosition.Y)
-                { HostilePartsEnabled = eyes || reflectors, CompanionDispatchEnabled = raft || minecart };
+                { HostilePartsEnabled = eyes || reflectors, CompanionDispatchEnabled = raft || minecart, NativeGameKeysEnabled = true };
             rom[0xd00a] = 0x80; rom[0xd00c] = 0x40; rom.InitializeLinkGameplay();
             if (raft)
             {
@@ -143,6 +143,7 @@ public sealed partial class ValidationRoot
                 rom[0xd108] = (byte)cartDirection; rom[0xd109] = (byte)(cartDirection * 8);
                 rom[0xd10b] = 72; rom[0xd10d] = 88;
                 rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
+                MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
             }
             if (eyes)
             {
@@ -160,7 +161,7 @@ public sealed partial class ValidationRoot
             int button = primary ? 1 : 2, update = 0, hits = 0;
             if (capacity)
             {
-                var bombs = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+                var bombs = new BombDatabase(AgesGameContent.AssetRoot).Data;
                 for (int index = 0; index < 5; index++)
                 {
                     _entities.Spawn<BombEffect>(new BombSpawn(_player, bombs, 0, _ => { }));
@@ -174,12 +175,13 @@ public sealed partial class ValidationRoot
                 Vector2 movement = angle == 0xff ? Vector2.Zero : OracleObjectMovement.Shared.Direction(angle);
                 int directions = (movement.X > 0 ? 0x10 : movement.X < 0 ? 0x20 : 0) |
                     (movement.Y > 0 ? 0x80 : movement.Y < 0 ? 0x40 : 0);
-                int itemsHeld = (held ? button : 0) | (feather ? primary ? 2 : 1 : 0);
+                int itemsHeld = (held || press ? button : 0) | (feather ? primary ? 2 : 1 : 0);
                 int edge = (press ? button : 0) | (feather ? primary ? 2 : 1 : 0) | (directionEdge ? directions : 0);
                 StepGameplayUpdates(count, movement, MenuRomActions(itemsHeld | directions), MenuRomActions(edge), batched, () =>
                 {
                     rom.UpdateGameplay(edge, itemsHeld | directions, angle, _entities.FrameCounter - (raft || minecart ? 1 : 0)); edge = 0;
                     string context = $"Shooter ITEM${seedItem:x2} A={primary} angle={initialAngle} walls={walls} raft={raft} minecart={minecart}/{cartDirection} jumpUpdates={jumpUpdates} update={++update}";
+                    CompareParentAnimationPublicationRom(_player, address => rom[address], context);
                     int parent = Enumerable.Range(0xd2, 4).Select(page => page << 8)
                         .SingleOrDefault(slot => rom[slot] != 0 && rom[slot + 1] == 0x0f);
                     FailIf(_player.IsUsingSeedShooter != (parent != 0) ||
@@ -206,8 +208,8 @@ public sealed partial class ValidationRoot
                             $"{context}: PART$33:$03 child runtime={child.Position}/{child.CollisionRadii}/{child.SeedBounceOrientation}, native={rom.Word(0xd1cc) / 256f},{rom.Word(0xd1ca) / 256f}/{rom[0xd1e7]},{rom[0xd1e6]}/{rom[0xd1e1]}/z{rom[0xd1cf]:x2}, id={rom[0xd1c1]:x2}/{rom[0xd1c2]:x2}.");
                     }
                     if (parent != 0)
-                        FailIf(_seedSatchel.ShooterAngle != rom[parent + 9] ||
-                            (rom[parent + 4] == 1 ? _seedSatchel.ShooterAimCounter : _seedSatchel.ShooterPostShotCounter) != rom[parent + 7],
+                        FailIf(_seedShooter.ShooterAngle != rom[parent + 9] ||
+                            (rom[parent + 4] == 1 ? _seedShooter.ShooterAimCounter : _seedShooter.ShooterPostShotCounter) != rom[parent + 7],
                             context + ": eight-way aim counter/angle or post-shot counter differs.");
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f) ||
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008],
@@ -221,6 +223,7 @@ public sealed partial class ValidationRoot
                         FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
                             context + ": full Feather/Shooter sound order differs.");
                     }
+                    raftEntity = _entities.Entities<RaftRoomEntity>().SingleOrDefault();
                     if (raftEntity is not null)
                     {
                         FailIf(_player.RaftRideActive != (rom[0xcc2c] == 0xd1) || _player.TopDownSwimming || _player.IsDrowning,
@@ -335,7 +338,7 @@ public sealed partial class ValidationRoot
                 if (cart is not null && repeat == 0)
                 {
                     Step(32, true, angle: initialAngle * 4);
-                    FailIf(!cart.Dismounting || !_player.IsUsingSeedShooter,
+                    FailIf(!cart.Finished || !_player.IsUsingSeedShooter,
                         "Cart must reach its platform while retaining the held aiming parent across dismount.");
                 }
                 Step(4, true, angle: (reflectors ? initialAngle : (initialAngle + 2) & 7) * 4);
@@ -343,9 +346,10 @@ public sealed partial class ValidationRoot
                 Step(6, true);
                 _dialogue.Close(); rom[0xcba0] = 0;
                 Step(12, true, angle: (reflectors ? initialAngle : (initialAngle + 2) & 7) * 4);
-                Step(1, true, angle: (reflectors ? initialAngle : (initialAngle + 4) & 7) * 4, directionEdge: true);
+                Step(1, true, angle: (eyes ? 2 : reflectors ? initialAngle : (initialAngle + 4) & 7) * 4, directionEdge: true);
+                FailIf(eyes && _seedShooter.ShooterAngle != 2, "Eye contact must release rightward through the source $37 collision geometry.");
                 Step(); // Release creates the selected projectile.
-                FailIf(_seedSatchel.ShooterPostShotCounter != 12, "Shooter release did not begin its twelve-update post-shot wait.");
+                FailIf(_seedShooter.ShooterPostShotCounter != 12, "Shooter release did not begin its twelve-update post-shot wait.");
                 if (cart is not null && repeat == 0)
                 {
                     FailIf(!_player.MinecartJumpActive || _entities.Entities<EmberSeedEffect>().Count != 1,

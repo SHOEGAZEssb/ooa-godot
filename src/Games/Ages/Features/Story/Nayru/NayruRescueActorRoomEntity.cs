@@ -133,7 +133,7 @@ internal sealed partial class NayruRescueActorRoomEntity : CutsceneCommandHost, 
             if(_actor.CurrentAnimationFrame!=_noteFrame)
             {
                 _noteFrame=_actor.CurrentAnimationFrame;int parameter=_actor.CurrentAnimationParameter;
-                if(parameter!=0)NayruRescueMusicNoteRoomEntity.Spawn(_context,_precise.Floor()+new Vector2(parameter==1?-6:8,-4),parameter==1);
+                if(parameter!=0)FloatingMusicNoteRoomEntity.Spawn(_context.Entities,_precise.Floor()+new Vector2(parameter==1?-6:8,-4),parameter==1);
             }
             AnimateMotion();AdvanceScript();return;
         }
@@ -331,7 +331,7 @@ internal sealed partial class NayruRescueActorRoomEntity : CutsceneCommandHost, 
         {
             case "Reveal":if(CreditsMakuActor)_actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);_actor.Visible=true;break;
             case "CreditsJump":Substate++;break;
-            case "CreditsExclaim":if(_context.Entities.InteractionSlotAvailable)_context.Entities.CreatePalaceExclamation(_precise.Floor()+new Vector2(13,-13),40);break;
+            case "CreditsExclaim":if(_context.Entities.InteractionSlotAvailable)_context.Entities.TryCreateExclamation(_precise.Floor()+new Vector2(13,-13),40);break;
             case "LinkDirection":_context.Player.RequestNativeScriptFacing(this,int.Parse(pieces[1]));break;
             case "FaceTarget":if((FrameCounter&3)==0) {_direction=(((OracleObjectMovement.Shared.RelativeAngle(_precise.Floor(),new(Read(0xcfd6),Read(0xcfd5)))+4)&0x18)>>3);SetAnimation(_direction);}break;
             case "PublishTarget":PublishTarget(pieces.Length==1?0:unchecked((sbyte)int.Parse(pieces[1])));break;

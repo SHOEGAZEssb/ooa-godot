@@ -26,7 +26,6 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool BlockMovement { get; set; }
     public bool BlockHorizontalMovement { get; set; }
     public bool BlockVerticalMovement { get; set; }
-    public bool PushingAgainstWall { get; set; }
     public int TilePushingDirection { get; set; } = 0xff;
     public int SwordHitCalls { get; private set; }
     public bool AcceptSwordHits { get; set; }
@@ -84,20 +83,41 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
             BlockHorizontalMovement ? 0.0f : movement.X,
             BlockVerticalMovement ? 0.0f : movement.Y);
     }
-    public bool IsPushingAgainstWall(Vector2 playerPosition, Vector2I facing, Vector2 movementInput) => PushingAgainstWall;
     public bool UpdatePushableBlocks(Vector2 playerPosition, Vector2I facing, Vector2 movementInput)
     {
         return false;
     }
 
     public ActiveTerrainInfo ActiveTerrain { get; set; }
+    internal OracleRuntimeState? TileMemory { get; set; }
+    public byte UpdateActiveLinkTile(Vector2 position, bool airborne)
+    {
+        if (TileMemory is not { } memory) return 0;
+        byte previous = memory.ReadField("wActiveTilePos");
+        memory.SetField("wIsTileSlippery",0);
+        if (airborne)
+        {
+            memory.SetField("wActiveTileType",0); memory.SetField("wStandingOnTileCounter",0);
+            return previous;
+        }
+        int count = previous == ActiveTerrain.PackedPosition && memory.ReadField("wActiveTileIndex") == ActiveTerrain.Terrain.Tile
+            ? memory.ReadField("wStandingOnTileCounter") : 0;
+        memory.SetField("wStandingOnTileCounter",unchecked((byte)(count + 1)));
+        memory.SetField("wLastActiveTileType",memory.ReadField("wActiveTileType"));
+        memory.SetField("wActiveTilePos",(byte)ActiveTerrain.PackedPosition);
+        memory.SetField("wActiveTileIndex",ActiveTerrain.Terrain.Tile);
+        memory.SetField("wActiveTileType",(byte)ActiveTerrain.Terrain.Type);
+        return previous;
+    }
     public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition) =>
         ActiveTerrain;
     public SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition) =>
         SideScrollTerrain;
+    public SideScrollActiveTiles SideScrollActiveTiles => new(
+        SideScrollTerrain.ActiveTile, SideScrollTerrain.ActiveType, SideScrollTerrain.BelowType);
     public int GetAdjacentWallsBitset(Vector2 playerPosition) =>
         AdjacentWallsBitset;
-    public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement) => false;
+    public bool TryStartTerrainJump(Player player, Vector2 from, Vector2 attemptedMovement, int objectAngle) => false;
     public bool ApplyLandedTileHit(Vector2 playerPosition) => false;
     public void BeginLedgeScreenTransition(Player player)
     {

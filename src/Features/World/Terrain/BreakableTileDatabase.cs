@@ -167,9 +167,12 @@ public readonly record struct BreakableTileRecord(int ActiveCollisions, int Tile
 
     public byte ReplacementFor(OracleRoomData room, Vector2 tilePoint)
     {
-        bool useUnderlyingLayout =
-            Tile == 0xdb ||
-            (Tile == 0x10 && room.ActiveCollisions is 1 or 2);
+        // breakableTiles.s selects diamond/pots by collision set in Ages;
+        // Seasons selects moving pots by active group instead.
+        bool ages = OracleAssetPack.GameFor(room.AssetRoot) == OracleGame.Ages;
+        bool useUnderlyingLayout = ages
+            ? Tile == 0xdb || Tile == 0x10 && room.ActiveCollisions is 1 or 2
+            : Tile == 0x10 && room.Group >= 3;
         if (useUnderlyingLayout)
         {
             byte original = room.GetUnderlyingMetatile(tilePoint);

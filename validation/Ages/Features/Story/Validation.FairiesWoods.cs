@@ -1,12 +1,91 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Oracles;
 
 public sealed partial class ValidationRoot
 {
     private const double FairiesFrame = 1.0 / 60.0;
+
+    private void ValidateFairiesWoodsNativeControl()
+    {
+        foreach (bool batched in new[] { false, true })
+        {
+            InitializeCompletedIntroRoom(0, 0x11);
+            _saveData.WriteWramByte(0xc6a2, 1); // TREASURE_ESSENCE bit0.
+            var fairies = _roomEvents.Get<FairiesWoodsEvent>();
+            var record = fairies.Database.Event;
+            _runtimeState.SetWramByte(record.ActiveAddress, 1);
+            _runtimeState.SetWramByte(record.FoundAddress, 7);
+            LoadValidationRoom(record.Group, record.StartRoom);
+            _player.WarpTo(new(80, 112));
+            for (int update = 0; update < 4 && !_dialogue.IsOpen; update++)
+                StepGameplayUpdates(1, Vector2.Zero);
+            FailIf(fairies.Stage != FairiesWoodsStage.CompletionWaitInitial ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x21 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
+                _player.CutsceneControlled ||
+                _entities.Entities<NpcCharacter>().Count(npc => npc.Name.ToString().StartsWith("FairiesWoods_01_", StringComparison.Ordinal)) != 3,
+                "Interaction $6c:$00 must publish $21/$80 and create three discovered fairies before cutscene $13.");
+            CompareFairyCompletionWithNative(fairies, record, batched);
+            StepGameplayUpdates(1, Vector2.Zero, held: ["inventory"], pressed: ["inventory"]);
+            FailIf(_inventoryMenu.IsActive || !((IGameplayForegroundPhases)this).StatusBarUpdatesAllowed,
+                "The normal handler must resume after cutscene $13, while TX_110b still blocks Start.");
+            _dialogue.Close();
+            StepGameplayUpdates(1, Vector2.Zero);
+            StepGameplayUpdates(1, Vector2.Zero, held: ["inventory"], pressed: ["inventory"]);
+            StepGameplayUpdates(22, Vector2.Zero, batched: batched);
+            FailIf(!_inventoryMenu.IsOpen || !_gameplayPause.IsLeased,
+                "Releasing TX_110b must restore the shared Start menu without a private fairy control owner.");
+            StepGameplayUpdates(1, Vector2.Zero, held: ["inventory"], pressed: ["inventory"]);
+            StepGameplayUpdates(22, Vector2.Zero, batched: batched);
+            FailIf(_inventoryMenu.IsActive || _gameplayPause.IsLeased,
+                "The shared Start menu must release its normal pause after fairy completion.");
+        }
+
+        foreach (bool replace in new[] { false, true })
+        {
+            InitializeCompletedIntroRoom(0, 0x11);
+            _saveData.WriteWramByte(0xc6a2, 1);
+            var fairies = _roomEvents.Get<FairiesWoodsEvent>();
+            var record = fairies.Database.Event;
+            _runtimeState.SetWramByte(record.ActiveAddress, 1);
+            LoadValidationRoom(0, 0x81);
+            _player.WarpTo(new(72, 88));
+            FailIf(_collision.Collides(_player.Position),
+                "Hidden fairy cancellation must start Link on actual forest floor.");
+            StepGameplayUpdates(1, Vector2.Zero); // $6c:$01 state0 captures the unchanged tile.
+            Vector2 hidden = new(88, 40); // $6c:$01 table position $25.
+            byte tile = _currentRoom.GetMetatile(hidden);
+            FailIf(!_currentRoom.ReplaceMetatile(hidden, tile, (byte)(tile ^ 1), (long)_animationTicks),
+                "Hidden fairy cancellation requires its actual changed metatile.");
+            StepGameplayUpdates(12, Vector2.Zero, batched: true);
+            FailIf(fairies.Stage != FairiesWoodsStage.RevealScript ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x21 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
+                _runtimeState.ReadField("wDisableScreenTransitions") != 1,
+                "Hidden fairy update $0c must own the shared object, menu and transition controls.");
+            var successor = new NativeScriptInputControl(_runtimeState);
+            if (replace)
+            {
+                successor.SetDisabledObjects(0x21);
+                successor.SetMenuDisabled(0x80);
+                successor.SetScreenTransitionsDisabled(1);
+            }
+            fairies.Cancel();
+            FailIf(_runtimeState.ReadField("wDisabledObjects") != (replace ? 0x21 : 0) ||
+                _runtimeState.ReadField("wMenuDisabled") != (replace ? 0x80 : 0) ||
+                _runtimeState.ReadField("wDisableScreenTransitions") != (replace ? 1 : 0),
+                "Fairy cancellation must release its controls and retain later identical writes.");
+            successor.Cancel();
+            Vector2 before = _player.PrecisePosition;
+            StepGameplayUpdates(2, Vector2.Down);
+            FailIf(_player.PrecisePosition.Y <= before.Y || _player.CutsceneControlled,
+                "Cancellation must return Link to ordinary movement on the actual forest floor.");
+        }
+    }
 
     private void ValidateFairiesWoodsSequence()
     {
@@ -280,13 +359,13 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(0, record.StartRoom);
         FailIf(
-            !_transitions.TryGetScreenTransitionDestinationForValidation(
+            !_transitions.TryGetScreenTransitionDestination(
                 Vector2I.Up, out int scrambled) ||
             scrambled != 0x70,
             "Room $0:$82 did not use the pre-completion scrambled north exit.");
         _saveData.SetGlobalFlag(record.UnscrambledFlag);
         FailIf(
-            !_transitions.TryGetScreenTransitionDestinationForValidation(
+            !_transitions.TryGetScreenTransitionDestination(
                 Vector2I.Up, out int ordinary) ||
             ordinary != 0x72,
             "The completed forest did not restore room $0:$82's ordinary north exit.");
@@ -299,6 +378,10 @@ public sealed partial class ValidationRoot
         OracleRuntimeState runtime)
     {
         LoadValidationRoom(record.Group, record.StartRoom);
+        var controller = _entities.EntityAdapters<FairyHidingMinigameRoomEntity>().Single();
+        FailIf(controller.State != 0 || _entities.NativeInteractionSlot(controller) != 2 || fairies.Flights.Count != 0,
+            "Room $0:$82 must allocate its leading $6c:$00 in slot $d2 before state0 or children.");
+        AdvanceFairiesWoodsFrame();
         FailIf(
             fairies.Stage != FairiesWoodsStage.StartPending ||
             fairies.FoundFairies != 0 ||
@@ -306,15 +389,19 @@ public sealed partial class ValidationRoot
             "Room $0:$82 did not arm the untouched fairy hide-and-seek intro.");
 
         AdvanceFairiesWoodsFrame();
+        FailIf(controller.State != 2 || fairies.Flights.Count != 0 || runtime.ReadWramByte(record.ActiveAddress) != 1,
+            "$6c:$00 state1 must install its script without executing its first spawn command.");
+        AdvanceFairiesWoodsFrame();
         FailIf(
             fairies.Stage != FairiesWoodsStage.IntroScript ||
             fairies.Flights.Count != 1 ||
             fairies.Flights[0].PresetIndex != 0 ||
             !fairies.BlocksGameplay ||
-            !_player.CutsceneControlled ||
+            _player.CutsceneControlled || runtime.ReadField("wDisabledObjects") != 0x21 ||
+            runtime.ReadField("wMenuDisabled") != 0x80 ||
             runtime.ReadWramByte(record.ActiveAddress) != 1,
             "The fairy intro did not create preset $00 and lock Link on " +
-            "its first update.");
+            "its first script update.");
 
         HashSet<int> viewedRooms = [];
         bool[] reachedHidingSpots = [false, false, false];
@@ -369,8 +456,8 @@ public sealed partial class ValidationRoot
                 FairiesWoodsMovementRecord movement =
                     fairies.Database.Movements[
                         fairies.Database.HidingRooms[arrivedIndex].Preset];
-                PuzzlePuffEffect? puff =
-                    _entities.Entities<PuzzlePuffEffect>().Find(candidate =>
+                StationaryDebrisEffect? puff =
+                    _entities.Entities<StationaryDebrisEffect>().Find(candidate =>
                         !candidate.Finished &&
                         candidate.Position ==
                             new Vector2(movement.TargetX, movement.TargetY));
@@ -510,16 +597,16 @@ public sealed partial class ValidationRoot
     private void ScrollFairiesWoods(Vector2I direction, int expectedRoom)
     {
         FailIf(
-            !_transitions.TryGetScreenTransitionDestinationForValidation(
+            !_transitions.TryGetScreenTransitionDestination(
                 direction, out int target) ||
             target != expectedRoom,
             $"The live fairy route expected room ${expectedRoom:x2}, " +
             $"got ${target:x2}.");
-        _transitions.BeginScroll(_player, direction, target);
+        _transitions.BeginValidationScroll(_player, direction, target);
         for (int frame = 0; frame < 60 && _transitions.ScrollActive; frame++)
         {
             _transitions.UpdateScroll(FairiesFrame);
-            _entities.Update(FairiesFrame, _player);
+            _entities.AdvanceEntityFrames(FairiesFrame, _player);
             _roomEvents.Update(FairiesFrame);
         }
         FailIf(
@@ -546,23 +633,32 @@ public sealed partial class ValidationRoot
         OracleRuntimeState runtime)
     {
         LoadValidationRoom(record.Group, record.ExitRoom);
-        _player.WarpTo(new Vector2(record.ExitX, record.ExitY));
-        AdvanceUntilFairyDialogue(fairies, 60, "initial forest-exit prompt");
+        _player.WarpTo(new Vector2(record.ExitX - 24, record.ExitY));
+        ApproachFairyExit(fairies, "initial forest-exit prompt");
+        Vector2 before = _player.PrecisePosition;
         _dialogue.SubmitChoiceForValidation(1);
         AdvanceFairiesWoodsFrame();
         FailIf(
             !fairies.HasState ||
             runtime.ReadWramByte(record.ActiveAddress) != 1 ||
-            !_player.CutsceneControlled,
+            _player.CutsceneControlled || _player.PrecisePosition != before ||
+            runtime.ReadField("wDisabledObjects") != 0 || runtime.ReadField("wMenuDisabled") != 0,
             "Answering No at TX_110c did not force Link back into the forest.");
-        for (int frame = 0; frame < 20; frame++)
+        AdvanceFairiesWoodsFrame(); // checkLinkForceState consumes the request.
+        FailIf(_player.PrecisePosition != before || !_player.NativeForcedMovementActive,
+            "The forest exit's state $0b request must be consumed before movement initializes.");
+        for (int frame = 1; frame <= 8; frame++)
+        {
             AdvanceFairiesWoodsFrame();
+            FailIf(_player.PrecisePosition != before - new Vector2(Math.Min(frame, 7), 0) ||
+                _player.NativeForcedMovementActive != (frame < 8),
+                $"Forest exit state $0b update{frame}: parameter $08 must make seven SPEED_100 moves before normal Link resumes.");
+        }
         FailIf(
             runtime.ReadWramByte(record.ActiveAddress) != 1,
             "The No branch incorrectly cleared fairy search state.");
 
-        _player.WarpTo(new Vector2(record.ExitX, record.ExitY));
-        AdvanceUntilFairyDialogue(fairies, 60, "repeated forest-exit prompt");
+        ApproachFairyExit(fairies, "repeated forest-exit prompt");
         _dialogue.SubmitChoiceForValidation(0);
         AdvanceFairiesWoodsFrame();
         for (int offset = 0; offset < 0x10; offset++)
@@ -574,6 +670,17 @@ public sealed partial class ValidationRoot
         FailIf(
             fairies.HasState || _player.CutsceneControlled,
             "The accepted forest-exit prompt did not retire its controller.");
+    }
+
+    private void ApproachFairyExit(FairiesWoodsEvent fairies, string description)
+    {
+        FailIf(_collision.Collides(_player.Position),
+            "The fairy exit prompt must be approached through actual room $0:$92 floor.");
+        for (int update = 0; update < 60 && !_dialogue.IsOpen; update++)
+            StepGameplayUpdates(1, Vector2.Right, held: ["move_right"]);
+        FailIf(!_dialogue.IsOpen || fairies.Stage != FairiesWoodsStage.ExitScript ||
+            _player.InvincibilityFrames >= 0 || _player.KnockbackFrames != 0,
+            $"Fairies' Woods did not reach the {description} through its native collision/func_0c_4177 handoff.");
     }
 
     private void ValidateFairiesWoodsRoom93Reset(
@@ -601,6 +708,7 @@ public sealed partial class ValidationRoot
         bool lastFairy)
     {
         LoadValidationRoom(record.Group, room);
+        AdvanceFairiesWoodsFrame(); // Source state0 captures the tile before it changes.
         FailIf(
             fairies.Stage != FairiesWoodsStage.HiddenWatch ||
             fairies.HiddenCounter != record.HiddenDelay,
@@ -623,8 +731,8 @@ public sealed partial class ValidationRoot
             $"Hidden fairy ${fairyIndex:x2} did not preserve the 12-update delay.");
         AdvanceFairiesWoodsFrame();
         FailIf(
-            fairies.Stage != FairiesWoodsStage.HiddenSpawn ||
-            !fairies.ScreenTransitionsDisabled,
+            fairies.Stage != FairiesWoodsStage.RevealScript ||
+            runtime.ReadField("wDisableScreenTransitions") != 1,
             $"Hidden fairy ${fairyIndex:x2} did not lock on update 12.");
         FailIf(
             !_currentRoom.ReplaceMetatile(
@@ -637,11 +745,9 @@ public sealed partial class ValidationRoot
             fairies.Flights[0].PresetIndex != fairyIndex,
             $"Fairy spot ${packedPosition:x2} did not spawn preset ${fairyIndex:x2}.");
 
-        FairiesWoodsStage expectedStage = lastFairy
-            ? FairiesWoodsStage.CompletionShowInitial
-            : FairiesWoodsStage.Inactive;
+        FairiesWoodsStage expectedStage = FairiesWoodsStage.Inactive;
         for (int frame = 0;
-             frame < 2000 && fairies.Stage != expectedStage;
+             frame < 2000 && (lastFairy ? !_transitions.IsTransitioning : fairies.Stage != expectedStage);
              frame++)
         {
             if (_dialogue.IsOpen)
@@ -664,7 +770,7 @@ public sealed partial class ValidationRoot
             $"signal=${fairies.SignalValue:x2}).");
         FailIf(
             !lastFairy && (fairies.BlocksGameplay ||
-            fairies.ScreenTransitionsDisabled ||
+            runtime.ReadField("wDisableScreenTransitions") != 0 ||
             _player.CutsceneControlled),
             $"Fairy ${fairyIndex:x2} reveal did not release gameplay.");
     }
@@ -676,6 +782,7 @@ public sealed partial class ValidationRoot
         int textId)
     {
         LoadValidationRoom(record.Group, record.StartRoom);
+        AdvanceFairiesWoodsFrames(2); // Parent allocation, then discovered actors' script setup.
         List<NpcCharacter> discovered =
             _entities.Entities<NpcCharacter>().FindAll(npc =>
                 npc.Name.ToString().StartsWith(
@@ -684,13 +791,33 @@ public sealed partial class ValidationRoot
             fairies.Stage != FairiesWoodsStage.SearchRoom ||
             discovered.Count != expectedCount,
             $"Room $0:$82 did not restore {expectedCount} discovered fairies.");
-        FailIf(
-            !_roomEvents.Get<FairiesWoodsEvent>().TryInteractNpc(discovered[0]) ||
-            !_dialogue.IsOpen ||
-            _dialogue.CurrentMessage != DialogueBox.PlainText(
-                fairies.Database.Text(textId).Message),
-            $"The {expectedCount}-fairy reunion did not show TX_{textId:x4}.");
-        _dialogue.Close();
+        NpcCharacter first = discovered.Single(npc => npc.Record.Var03 == 0);
+        byte originalFound = _runtimeState.ReadWramByte(record.FoundAddress);
+        try
+        {
+            // The source chooses its script in state0, retaining TX_1108 even
+            // if the live found count changes before this actor is replaced.
+            if (expectedCount == 1) _runtimeState.SetWramByte(record.FoundAddress, 3);
+            _player.WarpTo(first.Position + new Vector2(0, 32));
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                FailIf(_collision.Collides(_player.Position) || _entities.BlocksLink(_player.Position),
+                    "The discovered fairy approach must start on actual floor outside its collision box.");
+                StepGameplayUpdates(32, Vector2.Up, held: ["move_up"]);
+                FailIf(_collision.Collides(_player.Position) || _entities.BlocksLink(_player.Position) ||
+                    _entities.FindTalkTarget(_player) != first,
+                    $"The discovered fairy cannot be approached through room $0:$82 floor; Link={_player.Position}.");
+                StepGameplayUpdates(1, Vector2.Zero, held: ["attack"], pressed: ["attack"]);
+                FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != DialogueBox.PlainText(fairies.Database.Text(textId).Message) ||
+                    _player.InvincibilityFrames != -128 || _player.KnockbackFrames != 0 || _player.CutsceneControlled ||
+                    _runtimeState.ReadField("wDisabledObjects") != 0 || _runtimeState.ReadField("wMenuDisabled") != 0,
+                    $"Discovered fairy repeat{repeat} must consume A in its slot, run func_0c_4177 and show captured TX_{textId:x4} without an input mask.");
+                _dialogue.Close();
+                StepGameplayUpdates(128, Vector2.Zero);
+                StepGameplayUpdates(16, Vector2.Down, held: ["move_down"]);
+            }
+        }
+        finally { _runtimeState.SetWramByte(record.FoundAddress, originalFound); }
         ValidateDiscoveredFairyScrollRetention(
             fairies, record, expectedCount);
     }
@@ -701,12 +828,12 @@ public sealed partial class ValidationRoot
         int expectedCount)
     {
         FailIf(
-            !_transitions.TryGetScreenTransitionDestinationForValidation(
+            !_transitions.TryGetScreenTransitionDestination(
                 Vector2I.Up, out int target) ||
             target != 0x70,
             "Room $0:$82 did not retain its imported upward forest route.");
 
-        _transitions.BeginScroll(_player, Vector2I.Up, target);
+        _transitions.BeginValidationScroll(_player, Vector2I.Up, target);
         for (int frame = 0; frame < 60 && _transitions.ScrollActive; frame++)
         {
             List<NpcCharacter> outgoing =
@@ -719,7 +846,7 @@ public sealed partial class ValidationRoot
                 $"Room $0:$82 lost one of its {expectedCount} discovered " +
                 "fairies while the source screen was still scrolling.");
             _transitions.UpdateScroll(FairiesFrame);
-            _entities.Update(FairiesFrame, _player);
+            _entities.AdvanceEntityFrames(FairiesFrame, _player);
             _roomEvents.Update(FairiesFrame);
         }
         FailIf(
@@ -747,8 +874,8 @@ public sealed partial class ValidationRoot
         FairiesWoodsEventRecord record)
     {
         FailIf(!_transitions.IsTransitioning, "The third fairy did not start the room-$82 warp.");
-        for (int frame = 0; frame < 120 && _transitions.IsTransitioning; frame++)
-            UpdateRoomWarpTransition(FairiesFrame);
+        for (int frame = 0; frame < 120 && (_transitions.IsTransitioning || fairies.Stage != FairiesWoodsStage.CompletionWaitInitial); frame++)
+            AdvanceFairiesWoodsFrame();
         FailIf(
             _transitions.IsTransitioning ||
             _activeGroup != record.Group ||
@@ -757,82 +884,83 @@ public sealed partial class ValidationRoot
             !_dialogue.IsOpen ||
             _saveData.HasGlobalFlag(record.CompletionFlag) ||
             _saveData.HasGlobalFlag(record.UnscrambledFlag),
-            "The third fairy warp did not open TX_110a before committing flags.");
+            $"The third fairy warp did not open TX_110a before committing flags (stage={fairies.Stage}, transition={_transitions.IsTransitioning}, palette={_transitions.PaletteFadeActive}, Link={_player.Position}).");
 
-        _dialogue.Close();
-        AdvanceFairiesWoodsFrame();
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionFastFade1,
-            "The first 11-update fairy fade did not start.");
-        AdvanceFairiesWoodsFrame();
-        AssertFairyFadeAlpha(29.0f / 31.0f, "fast-fade first palette step");
-        AdvanceFairiesWoodsFrames(record.FastFadeIn - 2);
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionFastFade1,
-            "The first fairy fade stopped before update 11.");
-        AssertFairyFadeAlpha(2.0f / 31.0f, "fast-fade tenth palette step");
-        AdvanceFairiesWoodsFrame();
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionHold1,
-            "The first fairy fade was not exactly 11 updates.");
-        AssertFairyFadeAlpha(0.0f, "fast-fade completion");
-        AdvanceFairiesWoodsFrames(record.CompletionHold - 1);
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionHold1,
-            "The first fairy hold ended before update 12.");
-        AdvanceFairiesWoodsFrame();
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionFastFade2,
-            "The second fairy fade did not start on hold 12.");
-        AdvanceFairiesWoodsFrames(record.FastFadeIn);
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionHold2,
-            "The second fairy fade was not exactly 11 updates.");
-        AdvanceFairiesWoodsFrames(record.CompletionHold - 1);
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionHold2,
-            "The second fairy hold ended before update 12.");
-        AdvanceFairiesWoodsFrame();
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionSlowFade,
-            "The 257-update delayed fade did not start.");
-        AssertFairyFadeAlpha(1.0f, "delayed-fade initialization");
-        AdvanceFairiesWoodsFrames(248);
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionSlowFade,
-            "The delayed fairy fade stopped before update 257.");
-        AssertFairyFadeAlpha(1.0f / 31.0f, "delayed-fade update 248");
-        AdvanceFairiesWoodsFrame();
-        AssertFairyFadeAlpha(0.0f, "delayed-fade visible completion");
-        AdvanceFairiesWoodsFrames(record.DelayedFadeIn - 250);
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionSlowFade,
-            "The delayed fairy fade retired during its final counter delay.");
-        AdvanceFairiesWoodsFrame();
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.CompletionFinalize ||
-            !_dialogue.IsOpen ||
-            _saveData.HasGlobalFlag(record.CompletionFlag) ||
-            _saveData.HasGlobalFlag(record.UnscrambledFlag),
-            "TX_110b or the final flag boundary diverged after the delayed fade.");
-        FailIf(_dialogue.Position.Y != 96,
-            $"Fairies' Woods TX_110b must retain its source bottom position, got Y={_dialogue.Position.Y}.");
-        AdvanceFairiesWoodsFrame();
-        FailIf(
-            fairies.Stage != FairiesWoodsStage.Inactive ||
-            fairies.BlocksGameplay ||
-            _player.CutsceneControlled ||
-            !_saveData.HasGlobalFlag(record.CompletionFlag) ||
-            !_saveData.HasGlobalFlag(record.UnscrambledFlag),
-            "Fairy completion did not set both global flags and release Link.");
+        CompareFairyCompletionWithNative(fairies, record, batched: false);
         _dialogue.Close();
 
         LoadValidationRoom(record.Group, record.StartRoom);
         FailIf(
-            !_transitions.TryGetScreenTransitionDestinationForValidation(
+            !_transitions.TryGetScreenTransitionDestination(
                 Vector2I.Up, out int north) ||
             north != 0x72,
             "The completed hide-and-seek game did not permanently unscramble the forest.");
+    }
+
+    private void CompareFairyCompletionWithNative(FairiesWoodsEvent fairies, FairiesWoodsEventRecord record, bool batched)
+    {
+        var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0,
+            Mathf.FloorToInt(_player.Position.X), Mathf.FloorToInt(_player.Position.Y));
+        int stateAddress = _runtimeState.FieldAddress("wCutsceneState");
+        const int indexAddress = 0xc2ef; // wThreadStateBuffer+$0f, wCutsceneIndex.
+        int paletteAddress = _runtimeState.FieldAddress("wPaletteThread_mode");
+        int counterAddress = _runtimeState.FieldAddress("wTmpcbb6");
+        var palette = native.CreateMenuView();
+        palette.SeedRetainedSpritePalette(7, [0, 0, 0, 0]);
+        native[0xffa7] = 0x80;
+        native.LatchDisplayedObjectPalettes();
+        native[0xcfd0] = 1; native[0xcfd1] = 7;
+        native[0xcc8a] = 0x21; native[0xcc02] = 0x80;
+        native[stateAddress] = 0; native[indexAddress] = 0x13;
+        native.AdvanceFairyHidingCutscene();
+        FailIf(native[stateAddress] != 1 || native.TextGeneration != 1,
+            "Native fairy completion must open TX_110a and enter state1 before the text wait.");
+        int initialMysterySounds = _sound.PlayRequestsFor(record.MysterySound);
+        _dialogue.Close(); native[0xcba0] = 0;
+        bool active = true;
+        int updates = 0;
+        void Compare()
+        {
+            if (!active) return;
+            native.AdvancePaletteThread();
+            native.AdvanceFairyHidingCutscene();
+            native.LatchDisplayedObjectPalettes();
+            updates++;
+            int expectedState = fairies.Stage switch
+            {
+                FairiesWoodsStage.CompletionFastFade1 or FairiesWoodsStage.CompletionHold1 => 2,
+                FairiesWoodsStage.CompletionFastFade2 or FairiesWoodsStage.CompletionHold2 => 3,
+                FairiesWoodsStage.CompletionSlowFade => 4,
+                FairiesWoodsStage.CompletionFinalize or FairiesWoodsStage.Inactive => 5,
+                _ => -1
+            };
+            active = native[indexAddress] == 0x13;
+            FailIf(expectedState != native[stateAddress] || fairies.NativeActive != active ||
+                _transitions.NativePaletteThreadMode != native[paletteAddress] ||
+                fairies.CompletionCounter != native[counterAddress] ||
+                _runtimeState.ReadField("wDisabledObjects") != native[0xcc8a] ||
+                _runtimeState.ReadField("wMenuDisabled") != native[0xcc02] ||
+                _runtimeState.ReadWramByte(record.ActiveAddress) != native[0xcfd0] ||
+                ((IGameplayForegroundPhases)this).StatusBarUpdatesAllowed || _inventoryMenu.IsActive,
+                $"Fairy global update{updates}: native state/counter/palette/control/dispatch differs (state={fairies.Stage}/{native[stateAddress]}, counter={fairies.CompletionCounter}/{native[counterAddress]}, mode={_transitions.NativePaletteThreadMode:x2}/{native[paletteAddress]:x2}).");
+            // A black probe measures the actual uploaded white offset. Stopping
+            // clears the thread register without uploading a new palette.
+            AssertFairyFadeAlpha((palette.DisplayedObjectColor(7, 1) & 31) / 31f,
+                $"native global update{updates}");
+            foreach (int flag in new[] { 0x0e, 0x2b })
+                FailIf(_saveData.HasGlobalFlag(flag) != ((native[_runtimeState.FieldAddress("wGlobalFlags") + flag / 8] & (1 << (flag & 7))) != 0),
+                    $"Fairy global update{updates}: global flag${flag:x2} differs.");
+            if (native.TextGeneration == 2)
+                FailIf(!_dialogue.IsOpen || _dialogue.Position.Y != 96,
+                    "Native TX_110b must retain the bottom position before and during the final flag commit.");
+        }
+        while (active && updates < 400)
+            StepGameplayUpdates(batched ? 3 : 1, Vector2.Zero,
+                held: ["inventory"], pressed: ["inventory"], batched:batched, afterUpdate:Compare);
+        FailIf(active || updates != 303 || native.TextGeneration != 2 || fairies.BlocksGameplay ||
+            _sound.PlayRequestsFor(record.MysterySound) - initialMysterySounds != 3 ||
+            native.Sounds.Count(sound => sound == record.MysterySound) != 3,
+            $"Fairy completion must finish on native update303 with two text requests and three mystery cues (updates={updates}).");
     }
 
     private void AssertFairyFadeAlpha(float expected, string boundary)
@@ -843,18 +971,6 @@ public sealed partial class ValidationRoot
             $"got {_warpFade.Color.A}.");
     }
 
-    private void AdvanceUntilFairyDialogue(
-        FairiesWoodsEvent fairies,
-        int frameLimit,
-        string description)
-    {
-        for (int frame = 0; frame < frameLimit && !_dialogue.IsOpen; frame++)
-            AdvanceFairiesWoodsFrame();
-        FailIf(
-            !_dialogue.IsOpen || fairies.Stage != FairiesWoodsStage.ExitScript,
-            $"Fairies' Woods did not reach the {description}.");
-    }
-
     private void AdvanceFairiesWoodsFrames(int frames)
     {
         for (int frame = 0; frame < frames; frame++)
@@ -863,8 +979,7 @@ public sealed partial class ValidationRoot
 
     private void AdvanceFairiesWoodsFrame()
     {
-        _entities.Update(FairiesFrame, _player);
-        _roomEvents.Update(FairiesFrame);
+        StepGameplayUpdates(1, Vector2.Zero);
     }
 
     private static void ClearFairiesWoodsTransient(

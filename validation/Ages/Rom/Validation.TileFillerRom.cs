@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
                 for (int slot = 2; slot < 14; slot++)
                 {
                     // Declare frozen retained capacity; its execution is excluded.
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144), SoundId.MusNone, AlwaysUpdates:false));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144), SoundId.MusNone, AlwaysUpdates:false));
                     int address = (0xd0+slot)*256+0x40;
                     rom[address] = 2; rom[address+1] = 5; rom[address+4] = 1; rom[address+6] = 60;
                     rom[address+0xb] = 144; rom[address+0xd] = 224;
@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
                 string context = $"Tile filler$25 room$4:${room:x2}, mode={mode}, batch={batched}, update{++update}";
                 int[] nativePuffs = Enumerable.Range(0xd2,14).Select(page => page*256+0x40)
                     .Where(address => rom[address] != 0 && rom[address+1] == 5).ToArray();
-                var puffs = _entities.Entities<PuzzlePuffEffect>().OrderBy(_entities.InteractionSlot).ToArray();
+                var puffs = _entities.Entities<StationaryDebrisEffect>().OrderBy(_entities.InteractionSlot).ToArray();
                 FailIf(filler.Endpoint != rom[fillerSlot+0x30] || filler.UpdatesDuringDialogue != (rom[fillerSlot+4] == 0) ||
                     Enumerable.Range(0, 0xb0).Any(index => _currentRoom.Layout[index] != rom[0xcf00+index]) ||
                     _rooms.PendingTileGraphics != ((rom[0xcce0]-rom[0xccdf])&31) ||
@@ -119,7 +119,7 @@ public sealed partial class ValidationRoot
             if (room == 0x6f)
                 foreach (int packed in new[] { 0x3c, 0x4c, 0x5c, 0x6c, 0x6d }) Walk(packed);
             Step(28);
-            FailIf(_entities.Entities<PuzzlePuffEffect>().Count != 0 || chest.Finished,
+            FailIf(_entities.Entities<StationaryDebrisEffect>().Count != 0 || chest.Finished,
                 "Initialization puff must expire independently while remaining blue cells block the chest.");
             // Declare the other completed floor writes after actual movement.
             // This isolates findTileInRoom's storage scan, not a full-room walk.
@@ -145,7 +145,7 @@ public sealed partial class ValidationRoot
             FailIf(!chest.Finished || (_currentRoom.Layout[chestPosition] == 0xf1) != (room == 0x87),
                 "No-blue chest must attempt one queued tile write before puff/deletion, including full-queue rejection.");
             Step(32);
-            FailIf(_entities.Entities<PuzzlePuffEffect>().Count != 0 ||
+            FailIf(_entities.Entities<StationaryDebrisEffect>().Count != 0 ||
                 sounds.Requests.Count(cue => cue == SoundId.SndSolvePuzzle) != 1,
                 "Completed or rejected chest must not retry its write/cue after queue drain and puff expiry.");
             LoadValidationRoom(4, 0x91);

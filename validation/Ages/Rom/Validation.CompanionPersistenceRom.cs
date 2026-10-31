@@ -33,7 +33,27 @@ public sealed partial class ValidationRoot
             foreach (int address in new[] { 0xc631, 0xc632, 0xc633, 0xc634, 0xc636, 0xc637 })
                 FailIf(_saveData.ReadWramByte(address) != checkpoint[address], $"Companion death checkpoint byte ${address:x4} differs.");
 
-            LoadValidationRoom(0, 0x2b);
+            FailIf(_runtimeState.ReadWramByte(0xd100) != 1 || ((IRoomEntityLifetime)actor).Finished,
+                "Dismount must retain the original live animal with enabled $01.");
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
+            int sourceUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
+                (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x2b);
+            FailIf(_runtimeState.ReadWramByte(0xd100) != 2 ||
+                !_entities.OutgoingEntities<Node2D>().Contains(actor.Node),
+                "Scroll admission must mark the same idle animal $02 before destination allocation.");
+            int unique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
+                (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
+            var scroll = new ScrollRom(false, 1, (int)(_player.PrecisePosition.X * 256),
+                (int)(_player.PrecisePosition.Y * 256), unique, sourceUnique);
+            for (int offset = 0; offset < 0x40; offset++) scroll[0xd100 + offset] = _runtimeState.ReadWramByte(0xd100 + offset);
+            StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batched, afterUpdate: () =>
+            {
+                scroll.Update();
+                for (int offset = 0; offset < 0x40; offset++)
+                    FailIf(_runtimeState.ReadWramByte(0xd100 + offset) != scroll[0xd100 + offset],
+                        $"Companion ${id:x2} idle scroll: live byte$d1{offset:x2} differs from native clearObjectsWithEnabled2.");
+            });
             FailIf(_entities.EntityAdapters<IRoomEntity>().Any(e => e is IRoomInitializedCompanion), "A remembered companion followed Link into a different room.");
             FailIf(CompanionRuntimeState.ReadRemembered(_runtimeState) != remembered, "Leaving the room changed remembered coordinates.");
             // Recreate live remembered state from the checkpoint, then use
@@ -69,7 +89,7 @@ public sealed partial class ValidationRoot
         {
             foreach (int animal in new[] { 0x0b, 0x0c, 0x0d }) CompanionRuntimeState.Clear(_runtimeState, animal);
             CompanionRuntimeState.Remember(_runtimeState, id, group, room, new(72, 64));
-            if (occupied != 0) CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, occupied, 0x2a, new(40, 40), 1);
+            if (occupied != 0) CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, occupied, new(40, 40), 1);
             var native = new CompanionSpawnRom(_currentRoom, 0, new(8, 8));
             for (int address = 0xcc24; address <= 0xcc28; address++) native.Memory[address] = _runtimeState.ReadWramByte(address);
             native.Memory[0xd100] = occupied == 0 ? (byte)0 : (byte)1; native.Memory[0xd101] = (byte)occupied;

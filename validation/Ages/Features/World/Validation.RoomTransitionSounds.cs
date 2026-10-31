@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(0, 0x11);
         _sound.ClearPlayRequestAudit();
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x12);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x12);
         FinishActiveScrollingTransitionForValidation();
         FailIf(_sound.PlayRequestsFor(SoundId.SndEnterCave) != 0,
             "An ordinary room scroll acquired a cave-entry sound.");

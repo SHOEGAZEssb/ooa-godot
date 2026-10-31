@@ -20,10 +20,20 @@ public sealed partial class ValidationRoot
             rom.WaitForMount(_player.PrecisePosition);
             int saveWrites = _saveWriteRequests;
             int update = 0;
+            bool finalized = false;
             void Compare(Vector2 movement, byte buttons)
             {
                 rom.Update(CompanionMovement.AngleForInput(movement), buttons); update++;
+                if(id==0x0b)
+                    foreach(int address in new[]{0xd104,0xd105})
+                        FailIf(_runtimeState.ReadWramByte(address)!=rom[address],
+                            $"Ricky mount/dismount update{update}: native state alias${address:x4} runtime${_runtimeState.ReadWramByte(address):x2}/ROM${rom[address]:x2} differs.");
                 bool riding = rom[0xcc2c] == 0xd1;
+                finalized |= riding;
+                if (finalized)
+                    foreach (int address in new[] { 0xd100, 0xd101, 0xd108, 0xd10a, 0xd10b, 0xd10c, 0xd10d })
+                        FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                            $"Companion ${id:x2} mount/dismount update{update}: native slot byte${address:x4} differs.");
                 FailIf(_player.CompanionRideActive != riding || _player.CompanionJumpActive != (rom[0xcc5c] != 0) ||
                     _player.Position != rom.LinkPixels,
                     $"ROM companion ${id:x2} mount update {update}: native ride={riding}, air=${rom[0xcc5c]:x2}, pos={rom.LinkPixels}; runtime ride={_player.CompanionRideActive}, air={_player.CompanionJumpActive}, pos={_player.Position}.");
@@ -92,7 +102,8 @@ public sealed partial class ValidationRoot
                 0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(initial, 1, 0, 0x2a, Riding: true)),
                 _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(initial, 1, 0, 0x2a, Riding: true))
             };
-            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, id, 0x2a, initial, 1);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, id, initial, 1);
+            if(id==0x0b)_runtimeState.SetWramByte(0xd139,0x10);
             var rom = new CompanionRom(id, initial, 1, _currentRoom);
             int update = 0;
             Vector2 Position() => actor switch
@@ -109,6 +120,9 @@ public sealed partial class ValidationRoot
                         $"ROM companion ${id:x2} gameplay update {update}, wall={wall}, batch={batched}: native={rom.Position}/{rom.LinkPixels}/dir{rom[0xd108]}, runtime={Position()}/{_player.Position}/dir{Direction()}.");
                     FailIf(!_player.CompanionRideActive || !((IPlayerRideableRoomEntity)actor).LinkRiding,
                         "Ground movement lost mounted Link ownership.");
+                    foreach (int address in new[] { 0xd100, 0xd101, 0xd108, 0xd10a, 0xd10b, 0xd10c, 0xd10d })
+                        FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                            $"Companion ${id:x2} gameplay update{update}: live native byte${address:x4} differs from original object motion.");
                 });
             }
             Step(1, Vector2.Zero);

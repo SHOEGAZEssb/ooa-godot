@@ -40,7 +40,8 @@ public sealed class SingleTileChangeDatabase
                 row.RequiredString(5));
             if (record.Group is < 0 or > 7 || record.Room is < 0 or > 0xff ||
                 record.Mask == 0 ||
-                (record.Mask > 0x80 && record.Mask is not (0xf0 or 0xf1 or 0xf2)))
+                (OracleAssetPack.GameFor(assetRoot) == OracleGame.Ages &&
+                 record.Mask > 0x80 && record.Mask is not (0xf0 or 0xf1 or 0xf2)))
             {
                 throw new InvalidOperationException(
                     $"Invalid single-tile change at {record.Source}: " +
@@ -86,7 +87,7 @@ public sealed class SingleTileChangeDatabase
         byte mask,
         int group,
         int room,
-        OracleSaveData save) => mask switch
+        OracleSaveData save) => (save.Game == OracleGame.Ages ? mask : 0) switch
     {
         0xf0 => !save.IsLinkedGame,
         0xf1 => save.IsLinkedGame,

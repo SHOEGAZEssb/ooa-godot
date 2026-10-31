@@ -5,16 +5,13 @@ namespace Oracles;
 
 internal sealed class SubterrorBossRoomEntity
     : CombatEnemyRoomEntityAdapter<SubterrorBoss>, IFixedRoomEntity,
-        IShovelHittableRoomEntity, IPlayerRestriction, IPlayerForcedMovement,
+        IShovelHittableRoomEntity, IPlayerRestriction,
         IScreenTransitionPreloadRoomEntity
 {
-    private readonly BossEntryMovement _entryMovement;
-    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
-    private bool _initialized;
+    protected override int GaleCollisionMode => ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
 
     internal SubterrorBossRoomEntity(
-        SubterrorBoss boss,
-        Vector2I entryDirection)
+        SubterrorBoss boss)
         : base(
             boss,
             boss.SetTransitionDrawOffset,
@@ -33,7 +30,6 @@ internal sealed class SubterrorBossRoomEntity
                 completedOutcome: () =>
                     RoomEnemyOutcome.BossTeardown(0)))
     {
-        _entryMovement = new BossEntryMovement(entryDirection);
     }
 
     public bool DisablesSword => Entity.IntroActive || Entity.Defeated;
@@ -46,14 +42,8 @@ internal sealed class SubterrorBossRoomEntity
         ICollection<RoomEntitySpawn> spawns)
     {
         Entity.UpdateFrame(frame.Player, spawns);
-        if (_initialized)
-            return;
-        _initialized = true;
-        _entryMovement.Arm();
     }
 
-    public void UpdatePlayerForcedMovement(Player player) =>
-        _entryMovement.Update(player);
 
     public ScreenTransitionPresentation PrepareForScreenTransition(
         ICollection<RoomEntitySpawn> spawns)

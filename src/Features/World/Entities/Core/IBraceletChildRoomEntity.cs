@@ -1,10 +1,10 @@
 namespace Oracles;
 
-// The reserved bracelet item runs before enemies; the carried native object's
-// own handler still runs in its ordinary object slot later in the update.
+// Reserved ITEM C follows Link and item parents. Its related object retains
+// its own native category and update gates.
 internal interface IBraceletChildRoomEntity
 {
     bool ReservedBraceletChildActive { get; }
     void WriteReservedBraceletAngle(int angle);
-    void UpdateBraceletChild(Player player);
+    void UpdateBraceletChild(Player player, bool frozen = false);
 }

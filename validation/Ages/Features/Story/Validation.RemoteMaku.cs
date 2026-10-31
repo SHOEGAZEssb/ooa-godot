@@ -256,7 +256,8 @@ public sealed partial class ValidationRoot
 
             StepRoomEventFrames(1);
             FailIf(
-                !_player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 cutscene.TextboxFlags != 0x04 ||
                 cutscene.CommandInstruction != 3 ||
                 _sound.ActiveMusic != SoundId.MusMakuTree,
@@ -521,7 +522,8 @@ public sealed partial class ValidationRoot
 
             StepRoomEventFrames(1);
             FailIf(
-                !_player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 cutscene.CommandInstruction != 3 ||
                 _sound.ActiveMusic != SoundId.MusMakuTree,
                 "Room 0:3a post-Harp lane lost the shared first-update " +

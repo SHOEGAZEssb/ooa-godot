@@ -9,10 +9,15 @@ internal sealed class MakuSeedTreeRoomEntity(NpcCharacter actor, MakuSeedEvent o
         IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
         IPlayerInteractable, IRoomBlocker
 {
+    private bool _initialized;
     public bool Finished => !Entity.Active;
     public bool UpdatesDuringDialogue => true;
     public bool UpdatesDuringRoomEntityFreeze => true;
-    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => owner.AdvanceTree();
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_initialized) { _initialized = true; owner.InitializeTreeSlot(); }
+        owner.AdvanceTree();
+    }
     public bool TryInteract(Player player) => owner.TryInteractTree(player);
     public bool BlocksLink(Vector2 center) => Entity.BlocksLinkCenter(center);
 }

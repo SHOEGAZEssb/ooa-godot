@@ -10,6 +10,24 @@ public partial class Player
     internal bool NativeContactSignal => _nativeContactSignal;
     internal int PendingContactDamageRaw => _pendingContactDamageRaw;
 
+    internal void TransferNativeCompanionContact()
+    {
+        // raft.s:@transferKnockbackToLink copies the pending collision before
+        // either raft or Link decrements recoil. Only var2a/2b are cleared.
+        OracleRuntimeState memory = _inventory.RuntimeState;
+        if (_enemyInvincibilityFrames == 0 && !_nativeContactSignal)
+        {
+            if (memory.ReadWramByte(0xd12a) == 0) return;
+            _nativeContactSignal = true;
+            _enemyInvincibilityFrames = unchecked((sbyte)memory.ReadWramByte(0xd12b));
+            _enemyKnockbackAngle = memory.ReadWramByte(0xd12c);
+            _enemyKnockbackFrames = memory.ReadWramByte(0xd12d);
+            _pendingContactDamageRaw = memory.ReadWramByte(0xd125);
+        }
+        memory.SetWramByte(0xd12a, 0);
+        memory.SetWramByte(0xd12b, 0);
+    }
+
     private void ClearContactDamage()
     {
         // clearLinkObject/full room loading and resetLinkInvincibility clear
@@ -33,13 +51,17 @@ public partial class Player
         {
             if (_deathPending || _deathAnimationActive || _getItemStatePhase >= 2 ||
                 _forcedRespawnPhase >= 2 || _forcedState08Phase >= 2 ||
-                _forcedRoomEntryMovement || _spinnerControlled ||
+                _nativeForcedMovementSelected ||
                 _ledgeJumpState != LedgeJumpState.None || _squishAnimation is not null ||
-                _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0 ||
+                RespawnWaiting || RespawnRecovering ||
                 _fallingInHole || _drowning && _topDownDrownPhase >= 2 ||
                 _newGameSlowFalling || _roomWarpFallActive || _roomWarpFallCollapsed ||
                 _cutsceneControlled || GaleActive && _galePending < 2)
                 return false;
+            // Normal Link writes this before its palette/scroll return. Other
+            // special-object IDs call damage without that state01 publication.
+            if (_activeTransformation == 0 && !_companionRideControlled && !_world.LinkDisabled)
+                SetNativePushAnimationOverride(0x80);
             if (_world.NativePaletteChanging || _world.ScreenScrolling && !_companionRideControlled)
                 return true; // Native handler returns before damage, input and parents.
         }

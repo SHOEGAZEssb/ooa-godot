@@ -8,8 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookSandCrab()
     {
-        var collisions = SwitchHookCollisionDatabase.Shared;
-        FailIf(!collisions.EnemyEnabled(0x1a) || collisions.Effect(0x10) != 0x2e,
+        var collisions = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
+        FailIf(!collisions.EnemyEnabled(0x1a, ItemCollisionType.SwitchHook) || collisions.Effect(0x10, ItemCollisionType.SwitchHook) != 0x2e,
             "ENEMY_SAND_CRAB $1a mode $10 must enable ITEMCOLLISION_SWITCH_HOOK $0d and exchange effect $2e.");
         foreach (bool batched in new[] { false, true })
         foreach (int level in new[] { 1, 2 })

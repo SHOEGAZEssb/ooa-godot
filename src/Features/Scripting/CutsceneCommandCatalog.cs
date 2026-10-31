@@ -80,6 +80,7 @@ internal static class CutsceneCommandCatalog
         {
             "disableinput" => new CutsceneDisableInputCommand(source),
             "disablemenu" => new CutsceneDisableMenuCommand(source),
+            "enablemenu" => new CutsceneEnableMenuCommand(source),
             "setdisabledobjects" => new CutsceneSetDisabledObjectsCommand(
                 source, Hex(path, physicalLine, "arg0", arg0)),
             "setdisabledobjectscontinue" =>
@@ -146,6 +147,9 @@ internal static class CutsceneCommandCatalog
                     Required(path, physicalLine, "payload", payload),
                     Hex(path, physicalLine, "arg0", arg0),
                     Decimal(path, physicalLine, "arg1", arg1)),
+            "jumpifmemoryeqyield" => new CutsceneMemoryBranchYieldCommand(
+                source, Required(path, physicalLine, "payload", payload),
+                Hex(path, physicalLine, "arg0", arg0), Decimal(path, physicalLine, "arg1", arg1)),
             "jumptablememory" => ParseMemoryJumpTable(
                 path, physicalLine, source, payload),
             "jumptablememoryyield" => ParseMemoryJumpTable(
@@ -525,12 +529,16 @@ internal sealed record CutsceneApplySpeedCommand(
     public CutsceneActorId ActorId { get; } = new(Actor);
 }
 
-internal sealed record CutsceneMemoryBranchCommand(
+internal record CutsceneMemoryBranchCommand(
     CutsceneCommandSource Source,
     string Binding,
     int Value,
     int TargetCommand)
     : CutsceneCommand(Source);
+
+internal sealed record CutsceneMemoryBranchYieldCommand(
+    CutsceneCommandSource Source, string Binding, int Value, int TargetCommand)
+    : CutsceneMemoryBranchCommand(Source, Binding, Value, TargetCommand);
 
 internal sealed record CutsceneMemoryBranchYieldOnMissCommand(
     CutsceneCommandSource Source,
@@ -609,6 +617,9 @@ internal sealed record CutsceneEnableInputCommand(CutsceneCommandSource Source)
     : CutsceneCommand(Source);
 
 internal sealed record CutsceneDisableMenuCommand(CutsceneCommandSource Source)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneEnableMenuCommand(CutsceneCommandSource Source)
     : CutsceneCommand(Source);
 
 internal sealed record CutsceneDisableInputCommand(CutsceneCommandSource Source)

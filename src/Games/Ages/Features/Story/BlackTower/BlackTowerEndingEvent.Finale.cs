@@ -31,7 +31,7 @@ internal sealed partial class BlackTowerEndingEvent
                 State=1;RestoreEndingInventory();context.Entities.ClearDynamicInteractions();
                 if(context.Rooms.SaveData.IsLinkedGame)
                 {
-                    Screens.ApplyPalette(0xaa,context.Rooms.World.BackgroundPalettes,context.Entities);
+                    Screens.ApplyPalette(0xaa,context.Rooms.BackgroundPalettes,context.Entities);
                     Screen.Load("credits-linked-end",retainGraphics:true);Screen.InstallObjectGraphics(Data.ActorRecord(0xd4,0));
                     foreach(var actor in Data.Placements("objectData5574"))
                         context.Entities.AddEntity(new CreditsShipRoomEntity(context,Data,Screen,actor.SubId,actor.Position));
@@ -57,7 +57,7 @@ internal sealed partial class BlackTowerEndingEvent
             case 4:
                 if(context.Transitions.NativePaletteFadeActive)return;
                 State=5;var text=(_transferSecrets??=new(AgesGameContent.AssetRoot)).GenerateGameTransferSecretText(context.Rooms.SaveData);Write(0xcbba,255);
-                Screens.ApplyPalette(5,context.Rooms.World.BackgroundPalettes,context.Entities);
+                Screens.ApplyPalette(5,context.Rooms.BackgroundPalettes,context.Entities);
                 Screen.Load("ending-secret",extraProfile:context.Rooms.SaveData.IsLinkedGame?"hero-secret-text":null);
                 Screen.UploadSecretText(text);context.Entities.ClearDynamicInteractions();
                 Write(0xcbb3,60);Screen.DrawFileDecorations(this);context.Transitions.BeginNativeWhiteFade(false);return;

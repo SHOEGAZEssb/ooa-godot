@@ -95,12 +95,13 @@ public sealed partial class ValidationRoot
                 keeper.Position != new Vector2(0x78, 0x28), "Room 5:c8 source book/giver position or postgame existence differs.");
             ApproachLibraryActor(keeper, batched); Press();
             FailIf(!_dialogue.IsOpen || !_dialogue.CurrentMessage.Replace("\n", " ").Contains("Book of Seals", StringComparison.Ordinal) ||
-                !_player.CutsceneControlled || _inventory.HasTreasure(TreasureId.BookOfSeals), "TX_3308 did not hold input before the Book of Seals reward.");
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
+                _inventory.HasTreasure(TreasureId.BookOfSeals), "TX_3308 did not hold input before the Book of Seals reward.");
             _dialogue.Close(); Step();
             var host = _entities.EntityAdapters<LibraryActorRoomEntity>().Single(e => e.Npc == keeper).Host!;
             if (!talked)
             {
-                FailIf(!_player.CutsceneControlled,
+                FailIf(_runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                     "Book giver's copied-buffer jump must yield before enabling input.");
                 Step();
                 FailIf(_player.CutsceneControlled || _saveData.HasRoomFlag(5, 0xc8, 0x20) ||
@@ -180,7 +181,7 @@ public sealed partial class ValidationRoot
                 .CreateDelegate<Func<IRoomEntity, IRoomEntity>>(_entities);
             while (_entities.InteractionSlotAvailable)
             {
-                var puff = new PuzzlePuffEffect(); puff.Initialize(AgesGameContent.AssetRoot, new(24, 24), SoundId.MusNone);
+                var puff = new StationaryDebrisEffect(); puff.Initialize(AgesGameContent.AssetRoot, new(24, 24), SoundId.MusNone);
                 add(new InteractionSlotValidationEntity(puff, _ => { }));
             }
             StepGameplayUpdates(30, Vector2.Zero, batched: batched);
@@ -219,7 +220,7 @@ public sealed partial class ValidationRoot
                 readers[3].ObjectCollisionBounds.Size != new Vector2(12, 24) ||
                 readers[4].ObjectCollisionBounds.Size != new Vector2(12, 12),
                 "Library state zero must leave $3b/$ab/$3c hitboxes clear until script initcollisions, preserving $2a/$9a native radii.");
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(readers.Any(n => n.ScriptButtonSensitive != (n.Record.Id == 0x9a)), "Scrolling must run only carpenter $09's always-update script.");
         }
         GD.Print("Validated Book of Seals cancellation before/after committed flag $20, failed native reward allocation and independent reader mask/scroller eligibility in split/batched gameplay.");

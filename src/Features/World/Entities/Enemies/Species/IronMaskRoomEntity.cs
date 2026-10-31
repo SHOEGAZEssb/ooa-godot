@@ -28,7 +28,7 @@ internal sealed class IronMaskRoomEntity : CombatEnemyRoomEntityAdapter<IronMask
 
     internal IronMaskRoomEntity(IronMaskCharacter actor,EnemyCombatSourceDescriptor source,Action<int> sound)
         :base(actor,actor.SetTransitionDrawOffset,EnemyCombatDescriptor.WithContactDamage(source,actor,actor.Record.DamageQuarters,
-            actor.TakeSwordHit,actor.TakeBurnHit,actor.ApplySwordKnockback,sound,EnemySwordResponse.Knockback,
+            actor.TakeSwordHit,actor.TakeBurnHit,actor.ApplySwordKnockback,sound,
             completedOutcome:()=>actor.MaskExpired ? RoomEnemyOutcome.SilentDeletion(false) :
                 actor.DiedInHazard ? RoomEnemyOutcome.HazardDeletion(source.CountsAsEnemy) : RoomEnemyOutcome.EnemyDie(source.KillableEnemyIndex)),
             collisionZ:()=>actor.ZFixed>>8) => Source=source;

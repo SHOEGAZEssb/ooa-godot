@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
                     "Boot Din must dance using her own animation without Nayru's note emitters.");
                 root.AdvanceHost(1.0/60.0);
                 FailIf(loading.Progress != 0, "Seasons boot must present a frame before starting resource work.");
-                if (!batched) await CaptureSeasonsOpeningScreen("seasons-loading");
+                if (!batched) await CaptureSeasonsOpeningScreen("seasons-loading",root.GetViewport());
                 root.CompleteBootLoading();
                 const BindingFlags fields = BindingFlags.NonPublic | BindingFlags.Instance;
                 var prepared = (SeasonsOpeningSession)typeof(GameRoot).GetField("_preparedSeasonsOpening",fields)!.GetValue(root)!;
@@ -89,14 +89,14 @@ public sealed partial class ValidationRoot
                 root.Step(32,batched);
                 FailIf(!root._mainMenuScreen.TitleBlinkVisible || root._random.Calls != 33,
                     "Seasons title blinking must follow bit 5 of the descending native idle counter.");
-                if (!batched) await CaptureSeasonsOpeningScreen("seasons-title");
+                if (!batched) await CaptureSeasonsOpeningScreen("seasons-title",root.GetViewport());
                 root.Step(1,batched,"inventory"); root.Step(31,batched);
                 FailIf(root._mainMenu.CurrentPage != Page.Title || root._seasonsOpening is not null,
                     "Start must retain the title during its first 31 fade updates.");
                 root.Step(1,batched);
                 FailIf(root._mainMenu.CurrentPage != Page.FileSelect || root._mainMenuScreen.WhiteFadeOffset != 0 || root._random.Calls != 66,
                     "The 32nd title fade update must publish Seasons file select with its palettes restored.");
-                if (!batched) await CaptureSeasonsOpeningScreen("seasons-files");
+                if (!batched) await CaptureSeasonsOpeningScreen("seasons-files",root.GetViewport());
                 CreateSeasonsFileForValidation(root,batched);
                 FailIf(!OracleSaveData.TryDeserialize(root.FileSlotSnapshot(0,OracleGame.Seasons), OracleGame.Seasons,out var fresh) ||
                     fresh!.LinkName != "A" || fresh.Game != OracleGame.Seasons,
@@ -123,7 +123,7 @@ public sealed partial class ValidationRoot
                     "Unimplemented linked Seasons games must stay explicitly unavailable.");
                 Press("item"); Press("item"); Cursor(0); Press("attack");
                 for (int speed=0;speed<4;speed++) Press("move_right");
-                if (!batched) await CaptureSeasonsOpeningScreen("seasons-speed");
+                if (!batched) await CaptureSeasonsOpeningScreen("seasons-speed",root.GetViewport());
                 Press("attack"); root.Step(31,batched);
                 var session = root._seasonsOpening;
                 FailIf(!ReferenceEquals(prepared,session) || session!.Phase!=SeasonsOpeningPhase.Pregame || session.Save.LinkName!="A" ||

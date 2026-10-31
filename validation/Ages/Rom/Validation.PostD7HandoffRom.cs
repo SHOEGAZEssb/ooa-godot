@@ -33,6 +33,7 @@ public sealed partial class ValidationRoot
             void Compare()
             {
                 update++;
+                rom[0xcc00] = _saveData.ReadField("wPlaytimeCounter");
                 rom.AdvanceWarpPalette();
                 if (rom[0xcc4b] != 0)
                 {

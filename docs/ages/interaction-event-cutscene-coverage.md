@@ -29,7 +29,7 @@ rather than a separate inventory of all combat and item behavior.
 
 | Inventory | R | P | M | D | N | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e6` | 217 | 1 | 0 | 9 | 4 | 231 |
+| Interaction IDs `$00-$e6` | 213 | 5 | 0 | 9 | 4 | 231 |
 | Native cutscene states `$00-$21` | 33 | 0 | 0 | 0 | 1 | 34 |
 | Room-specific code handlers `$00-$0c` | 13 | 0 | 0 | 0 | 0 | 13 |
 | Room-specific tile-change handlers `$00-$37` | 56 | 0 | 0 | 0 | 0 | 56 |
@@ -45,7 +45,7 @@ rather than a separate inventory of all combat and item behavior.
 | Distinct literal object-data ID/subid pairs | 740 |
 | Room-specific code bindings | 14 |
 | Room-specific tile-change bindings | 58 |
-| Open implementation checklist items | 2 |
+| Open implementation checklist items | 5 |
 
 These inventories overlap. A cutscene can create several interaction IDs;
 a checklist item can affect several dispatch entries. Do not sum their counts.
@@ -75,6 +75,10 @@ Visual-only import or a directly stepped helper does not close an item.
 - [ ] **INT-14** — `2:ee`, `$89:$01`: Blue Snake successful cable fortune and ring transfer; the no-cable timeout remains supported.
 - [x] **INT-15** — `4:55`, `$20:$02`: D3 chest script when exactly two torches are lit.
 - [x] **INT-16** — `0:09`, `$80:$01`: King Moblin's Keep flag decoration and its destruction-flag visibility gate.
+- [x] **INT-17** — `$6c:$00-$02`: Placed hide-and-seek controllers, native interaction-slot scripts and children, partial-allocation retries and queued main-thread cutscene requests.
+- [ ] **INT-18** — `$49:$03/$04`: Preserve companion-script producer occupancy, unchecked child-admission effects, source birth timing and signal exchange through the native interaction walk.
+- [ ] **INT-19** — `$71:$08-$0c`, `$67:$04/$05`: Remaining placed controller/spawner initialization and retirement in source slot order, including pre-mount companion births, `$0c` side effects and the `$0a` controller's same-slot flute graphic and native Link-state handoff.
+- [ ] **INT-20** — `$b8:$01/$02`: Vire's lower and upper rescue-minigame placements, projectile production, Zelda child and completion handoff.
 
 ### Hero's Cave
 
@@ -197,7 +201,7 @@ the corresponding family and are not bounded by this literal-row column.
 | `$46` | [shopkeeper](../../external/oracles-disasm/object_code/common/interactions/shopkeeper.s) | $00-$02 | R | — |
 | `$47` | [shopItem](../../external/oracles-disasm/object_code/common/interactions/shopItem.s) | $00-$04, $0e-$10, $15 | R | — |
 | `$48` | [tokay](../../external/oracles-disasm/object_code/ages/interactions/tokay.s) | $00-$1f | R | — |
-| `$49` | [forestFairy](../../external/oracles-disasm/object_code/ages/interactions/forestFairy.s) | $05-$10 | R | — |
+| `$49` | [forestFairy](../../external/oracles-disasm/object_code/ages/interactions/forestFairy.s) | $00-$10 | P | INT-18 |
 | `$4a` | [introSprites1](../../external/oracles-disasm/object_code/common/interactions/introSprites1.s) | — | R | — |
 | `$4b` | [rabbit](../../external/oracles-disasm/object_code/ages/interactions/rabbit.s) | $00, $02-$07 | R | — |
 | `$4c` | [bird](../../external/oracles-disasm/object_code/ages/interactions/bird.s) | $00-$04 | R | — |
@@ -227,17 +231,17 @@ the corresponding family and are not bounded by this literal-row column.
 | `$64` | [raftwreckCutsceneHelper](../../external/oracles-disasm/object_code/ages/interactions/raftwreckCutsceneHelper.s) | — | R | — |
 | `$65` | [comedian](../../external/oracles-disasm/object_code/ages/interactions/comedian.s) | $00 | R | — |
 | `$66` | [goron](../../external/oracles-disasm/object_code/ages/interactions/goron.s) | $00-$01, $04-$10 | R | — |
-| `$67` | [companionSpawner](../../external/oracles-disasm/object_code/common/interactions/companionSpawner.s) | $00-$05 | R | — |
+| `$67` | [companionSpawner](../../external/oracles-disasm/object_code/common/interactions/companionSpawner.s) | $00-$05 | P | INT-19 |
 | `$68` | [rosa](../../external/oracles-disasm/object_code/ages/interactions/rosa.s) | $00-$01 | R | — |
 | `$69` | [rafton](../../external/oracles-disasm/object_code/ages/interactions/rafton.s) | $00-$01 | R | — |
 | `$6a` | [cheval](../../external/oracles-disasm/object_code/ages/interactions/cheval.s) | $00 | R | — |
 | `$6b` | [miscellaneous1](../../external/oracles-disasm/object_code/ages/interactions/miscellaneous1.s) | $00-$03, $05-$06, $08, $0a-$15 | R | — |
-| `$6c` | [fairyHidingMinigame](../../external/oracles-disasm/object_code/ages/interactions/fairyHidingMinigame.s) | $00-$02 | R | — |
+| `$6c` | [fairyHidingMinigame](../../external/oracles-disasm/object_code/ages/interactions/fairyHidingMinigame.s) | $00-$02 | R | INT-17 |
 | `$6d` | [possessedNayru](../../external/oracles-disasm/object_code/ages/interactions/possessedNayru.s) | $00 | R | — |
 | `$6e` | [nayruSavedCutscene](../../external/oracles-disasm/object_code/ages/interactions/nayruSavedCutscene.s) | — | R | — |
 | `$6f` | [bombFlower](../../external/oracles-disasm/object_code/common/interactions/bombFlower.s) | — | D | — |
 | `$70` | [wildTokayController](../../external/oracles-disasm/object_code/ages/interactions/wildTokayController.s) | — | R | — |
-| `$71` | [companionScripts](../../external/oracles-disasm/object_code/ages/interactions/companionScripts.s) | $00-$0d | R | — |
+| `$71` | [companionScripts](../../external/oracles-disasm/object_code/ages/interactions/companionScripts.s) | $00-$0d | P | INT-19 |
 | `$72` | [kingMoblinDefeated](../../external/oracles-disasm/object_code/ages/interactions/kingMoblinDefeated.s) | $00 | R | — |
 | `$73` | [ghiniHarassingMoosh](../../external/oracles-disasm/object_code/ages/interactions/ghiniHarassingMoosh.s) | $00-$02 | R | — |
 | `$74` | [rickysGloveSpawner](../../external/oracles-disasm/object_code/ages/interactions/rickysGloveSpawner.s) | $00 | R | — |
@@ -308,7 +312,7 @@ the corresponding family and are not bounded by this literal-row column.
 | `$b5` | [finalDungeonEnergy](../../external/oracles-disasm/object_code/common/interactions/finalDungeonEnergy.s) | $00 | R | — |
 | `$b6` | [gashaSpot](../../external/oracles-disasm/object_code/common/interactions/gashaSpot.s) | $00-$0f | R | — |
 | `$b7` | [kissHeart](../../external/oracles-disasm/object_code/common/interactions/kissHeart.s) | — | R | — |
-| `$b8` | [vire](../../external/oracles-disasm/object_code/ages/interactions/vire.s) | $00-$02 | R | — |
+| `$b8` | [vire](../../external/oracles-disasm/object_code/ages/interactions/vire.s) | $00-$02 | P | INT-20 |
 | `$b9` | [horonDogCredits](../../external/oracles-disasm/object_code/common/interactions/horonDogCredits.s) | $00-$07 | R | — |
 | `$ba` | [childJabu](../../external/oracles-disasm/object_code/ages/interactions/childJabu.s) | $00 | R | — |
 | `$bb` | [humanVeran](../../external/oracles-disasm/object_code/ages/interactions/humanVeran.s) | — | R | — |

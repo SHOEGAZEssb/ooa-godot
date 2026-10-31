@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookKeese()
     {
-        FailIf(SwitchHookCollisionDatabase.Shared.Effect(EnemyCollisionMode.Keese) != 8,
+        FailIf(ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(EnemyCollisionMode.Keese, ItemCollisionType.SwitchHook) != 8,
             "Keese mode $1f must select hook damage effect $08.");
         void Step(int count = 1, Vector2 movement = default, bool fire = false) =>
             StepGameplayUpdates(count, movement, fire ? ["attack"] : [], fire ? ["attack"] : [], batched: true);

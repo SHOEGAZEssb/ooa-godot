@@ -281,12 +281,12 @@ public sealed partial class ValidationRoot
         tektites = _entities.Entities<TektiteCharacter>();
         var frozen = tektites.Select(e => (e.Position, e.Counter1, e.AnimationFrame)).ToArray();
         calls = _entities.RandomCalls;
-        for (int i = 0; i < 20; i++) _entities.Update(1.0 / 60.0, _player);
+        for (int i = 0; i < 20; i++) _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(tektites.Count != 2 || tektites.Any(e => e.State != TektiteState.Waiting) ||
             !tektites.Select(e => (e.Position, e.Counter1, e.AnimationFrame)).SequenceEqual(frozen) ||
             _entities.RandomCalls != calls, "Room 0:60 incoming Tektites advanced during scrolling.");
         _entities.FinishScreenTransition();
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(tektites.Select(e => e.Counter1).SequenceEqual(frozen.Select(e => e.Counter1)),
             "Room 0:60 incoming Tektites remained frozen after scrolling.");
 

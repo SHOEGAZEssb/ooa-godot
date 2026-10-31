@@ -4,16 +4,15 @@ using System.Collections.Generic;
 namespace Oracles;
 
 internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<ArmosWarriorActor>,
-    IFixedRoomEntity, IPlayerRestriction, IPlayerForcedMovement, IScreenTransitionPreloadRoomEntity,
+    IFixedRoomEntity, IPlayerRestriction, IScreenTransitionPreloadRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     ILinkSwordStateAwareRoomEntity, ISwordAttackerKnockbackRoomEntity, IItemCollisionHittableRoomEntity,
     IPostObjectMeleeCollisionRoomEntity, IExpertPunchHittableRoomEntity, ISeedCollisionTarget
 {
-    private readonly BossEntryMovement _entry;
     private int _swordCollision=ItemCollisionType.L1Sword;
     private int _attackerRecoil;
     public bool MeleeReportsContact { get; private set; }
-    internal ArmosWarriorRoomEntity(ArmosWarriorActor actor, BossEntryMovement entry)
+    internal ArmosWarriorRoomEntity(ArmosWarriorActor actor)
         : base(actor, actor.SetTransitionDrawOffset,
             EnemyCombatDescriptor.Special(EnemyCombatComponent.WithContactDamage(
                 () => actor.IsDead, () => actor.CollisionBounds, (_, _) => false, _ => false,
@@ -21,7 +20,7 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
                 countsAsEnemy: actor.SubId is 0 or 1, killableEnemyIndex: 0,
                 completedOutcome: () => actor.SubId == 1 ? RoomEnemyOutcome.BossTeardown(0) : RoomEnemyOutcome.SilentDeletion(false),
                 soundRequested: actor.RequestSound),
-            collisionZ: () => actor.ZFixed >> 8) { _entry = entry; }
+            collisionZ: () => actor.ZFixed >> 8) { }
 
     public override int DimitriCollisionType => 0x73;
     public override int DimitriCollisionMode => Entity.CollisionMode;
@@ -31,20 +30,15 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
     public bool DisablesItems => DisablesSword;
     public bool DisablesMovement => DisablesSword;
     public bool DisablesMenus => DisablesSword;
-    public void UpdatePlayerForcedMovement(Player player)
-    { if (Entity.SubId is 0 or 1 && !Finished) _entry.Update(player); }
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        bool starts = Entity.Initializing && Entity.SubId == 0;
         Entity.UpdateFrame(frame.Player, frame.Counter, spawns);
-        if (starts) _entry.Arm();
     }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.Initializing)
         {
             Entity.InitializeState();
-            if (Entity.SubId == 0) _entry.Arm();
         }
         return ScreenTransitionPresentation.Hidden;
     }

@@ -8,7 +8,7 @@ internal sealed partial class BuzzBlobCharacter : EnemyCharacter
     private BuzzBlobBehaviorProfile? _behaviorSourceCache;
     private BuzzBlobBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).BuzzBlob;
     private ScentSeedAttraction? _scentCache;
-    private ScentSeedAttraction _scent => _scentCache ??= new(AssetRoot);
+    private ScentSeedAttraction _scent => _scentCache ??= new();
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;

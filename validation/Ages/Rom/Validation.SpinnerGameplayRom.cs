@@ -10,7 +10,7 @@ public partial class ValidationRoot
     {
         var nativeImage = ValidationRom.LoadCleanUs();
         var nativeFrames = new Dictionary<int,string>();
-        var visual = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("spinner");
+        var visual = new DungeonSpinnerVisualDatabase(AgesGameContent.AssetRoot).Visual;
         foreach (int branch in new[] {0,1,2,3,4,5,6,7})
         foreach (bool batch in RomHostSchedules(branch is 5 or 6 ? 0 : branch))
         {
@@ -37,7 +37,7 @@ public partial class ValidationRoot
             FailIf(_entities.InteractionSlot(spinner) != 2,"The room-specific spinner must reserve original INTERACTION$d2.");
             if (fullPool) for (int slot = 3; slot < 16; slot++)
             {
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200,120),SoundId.MusNone));
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200,120),SoundId.MusNone));
                 int address = (0xd0+slot)*256+0x40;
                 rom[address] = 1; rom[address+1] = 5; rom[address+2] = 0x80; rom[address+0xb] = 120; rom[address+0xd] = 200;
             }

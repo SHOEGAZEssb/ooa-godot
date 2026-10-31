@@ -8,7 +8,10 @@ public partial class ValidationRoot
 {
     private void ValidateSomariaCollisionData()
     {
-        var data = SomariaCollisionDatabase.Shared;
+        var data = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
+        (int Swing, int Block) Effects(int mode) => (data.Effect(mode, ItemCollisionType.Harmless), data.Effect(mode, ItemCollisionType.SomariaBlock));
+        (bool Swing, bool Block) Enemy(int id) => (data.EnemyEnabled(id, ItemCollisionType.Harmless), data.EnemyEnabled(id, ItemCollisionType.SomariaBlock));
+        (bool Swing, bool Block) Part(int id) => (data.PartEnabled(id, ItemCollisionType.Harmless), data.PartEnabled(id, ItemCollisionType.SomariaBlock));
         // Independent transcription of objectCollisionTable column $15, ordered
         // by collision MODE (not enemy ID). Column $12 is zero in every mode.
         int[] effects = (
@@ -31,33 +34,33 @@ public partial class ValidationRoot
             .Split(' ').Select(value => Convert.ToInt32(value, 16)).ToArray();
         for (int id = 0; id < 128; id++)
         {
-            var enemy = data.Enemy((byte)id);
+            var enemy = Enemy(id);
             if (id < 0x7d)
             {
-                var effect = data.Effects((byte)id);
+                var effect = Effects(id);
                 FailIf(effect.Swing != 0 || effect.Block != effects[id],
                     $"Somaria objectCollisionTable mode ${id:x2} lost column $12/$15 effects.");
-                FailIf(data.Effects((byte)(id | 0x80)) != effect,
+                FailIf(Effects(id | 0x80) != effect,
                     $"Somaria mode ${id:x2} must strip the collision-enabled high bit.");
             }
             FailIf(enemy.Swing || enemy.Block != enabled.Contains(id),
                 $"Somaria enemyActiveCollisions type ${id:x2} eligibility differs from source.");
-            FailIf(data.Enemy((byte)(id | 0x80)) != enemy,
+            FailIf(Enemy(id | 0x80) != enemy,
                 $"Somaria mode/type ${id:x2} must strip the collision-enabled high bit.");
         }
         for (int id = 0; id < 0x5a; id++)
         {
-            var part = data.Part((byte)id);
+            var part = Part(id);
             FailIf(part.Swing != (id == 0x17) || part.Block != (id is 0x17 or 0x2a or 0x50) ||
-                data.Part((byte)(id | 0x80)) != part,
+                Part(id | 0x80) != part,
                 $"Somaria partActiveCollisions type ${id:x2} eligibility differs from source.");
         }
         bool rejected = false;
-        try { data.Effects(0x7d); }
+        try { Effects(0x7d); }
         catch (NotSupportedException error) { rejected = error.Message.Contains("$7d"); }
         FailIf(!rejected, "Vanilla objectCollisionTable ends at $7c; hack-base mode $7d must be rejected.");
         rejected = false;
-        try { data.Part(0x5a); }
+        try { Part(0x5a); }
         catch (NotSupportedException error) { rejected = error.Message.Contains("$5a"); }
         FailIf(!rejected, "partActiveCollisions ends at $59; missing $5a must report its source identity.");
         GD.Print("Validated Somaria collision effects and enemy/part masks; live damage dispatch remains separate.");

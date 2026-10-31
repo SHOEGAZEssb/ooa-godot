@@ -180,7 +180,7 @@ public sealed partial class ValidationRoot
                 int[] counters = rocks.Select(r => r.Counter).ToArray();
                 Func<bool> priorText = _entities.TextActiveSource;
                 _entities.TextActiveSource = static () => true;
-                try { _entities.Update(20.0 / 60, _player); }
+                try { _entities.AdvanceEntityFrames(20.0 / 60, _player); }
                 finally { _entities.TextActiveSource = priorText; }
                 FailIf(!rocks.Select(r => r.Counter).SequenceEqual(counters) || sounds.Count != 1,
                     "PART $45 advanced during dialogue.");
@@ -238,7 +238,7 @@ public sealed partial class ValidationRoot
         }
 
         LoadValidationRoom(1, 0x43);
-        _transitions.BeginScroll(_player, Vector2I.Up, 0x33);
+        _transitions.BeginValidationScroll(_player, Vector2I.Up, 0x33);
         UpdateScrollingTransition(8.0 / 60);
         FailIf(_entities.Entities<FallingBoulder>().Any(r => r.State != 1 || r.Visible || r.Counter != (r.SubId + 1) * 45),
             "Room 1:$33 destination rocks advanced during scrolling preload.");

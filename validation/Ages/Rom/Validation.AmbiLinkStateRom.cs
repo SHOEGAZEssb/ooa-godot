@@ -37,8 +37,9 @@ public sealed partial class ValidationRoot
                 if(rom[0xd030]==0x18)
                 {
                     int phase=rom[0xd031] switch {0xe4=>0,0xe8=>1,0xec=>2,0x80=>3,_=>throw new System.InvalidOperationException($"Link $09 unknown jump graphic ${rom[0xd031]:x2}.")};
-                    FailIf(_player.ScriptedLinkAnimationMode!=0x18||SomariaPrivate<int>(_player,"_topDownAirAnimationPhase")!=phase||
-                        phase<3&&SomariaPrivate<int>(_player,"_topDownAirAnimationCounter")!=rom[0xd020]||_player.ScriptedLinkAnimationPixelHash==0,
+                    FailIf(_player.ScriptedLinkAnimationMode!=0x18||
+                        LinkNativeAnimationDatabase.For(_player.AssetRoot).FrameIndex(_runtimeState,0x18,4)!=phase||
+                        _runtimeState.ReadWramByte(0xd020)!=rom[0xd020]||_player.ScriptedLinkAnimationPixelHash==0,
                         $"Link $09 jump animation/clock differs update {update}.");
                 }
             }

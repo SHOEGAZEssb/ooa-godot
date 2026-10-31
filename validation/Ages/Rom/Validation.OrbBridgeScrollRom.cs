@@ -32,7 +32,7 @@ public partial class ValidationRoot
             _entities.AddEntity(controller);
             rom[0xd240] = 1; rom[0xd241] = 0xdc; rom[0xd242] = 0x12; rom[0xd24b] = 0x13;
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Right,out int target) || target != 0xa6,"Original Crown scroll adjacency must be$a5 -> $a6.");
-            _transitions.BeginScroll(_player,Vector2I.Right,target);
+            _transitions.BeginValidationScroll(_player,Vector2I.Right,target);
             rom.SetOutgoingInteractions(); rom[0xcd00] = 8; rom[0xcc30] = 0xa6;
             rom[0xc9a6] = (byte)_saveData.GetRoomFlags(4,0xa6); // Destination load's visited bit.
             const BindingFlags flags = BindingFlags.Instance|BindingFlags.NonPublic;

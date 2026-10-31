@@ -12,9 +12,13 @@ public sealed class TerrainController
     private readonly RoomSession _rooms;
     private readonly BreakableTileDatabase _breakables;
     private readonly LedgeJumpDatabase _ledges;
-    private readonly SideScrollPlayerDatabase _sideScroll;
+    private SideScrollPlayerDatabase? _sideScrollSource;
+    private SideScrollPlayerDatabase _sideScroll => _sideScrollSource ??= SideScrollPlayerDatabase.For(AssetRoot);
+    private TreeStumpJumpDatabase? _stumpSource;
+    private TreeStumpJumpDatabase Stumps => _stumpSource ??= new(AssetRoot);
     private readonly Func<Vector2, int> _adjacentWallsBitset;
-    private readonly Action<Vector2, HazardType> _createSplash;
+    private bool OnStump => _rooms.SaveData.Game == OracleGame.Seasons &&
+        _rooms.RuntimeState.ReadField("wActiveTileType") == (byte)TerrainType.Stump;
     internal byte CurrentTilesetFlags => _rooms.CurrentRoom.TilesetFlags;
     internal SideScrollPlayerParameters SideScrollParameters =>
         _sideScroll.Parameters;
@@ -22,41 +26,49 @@ public sealed class TerrainController
     public TerrainController(
         RoomSession rooms,
         BreakableTileDatabase breakables,
-        Func<Vector2, int> adjacentWallsBitset,
-        Action<Vector2, HazardType> createSplash)
+        Func<Vector2, int> adjacentWallsBitset)
     {
         _rooms = rooms;
         _breakables = breakables;
         _ledges = new LedgeJumpDatabase(AssetRoot);
-        _sideScroll = new SideScrollPlayerDatabase(AssetRoot);
         _adjacentWallsBitset = adjacentWallsBitset;
-        _createSplash = createSplash;
     }
 
     public TerrainInfo GetTerrainInfo(Vector2 playerPosition)
     {
-        return _rooms.CurrentRoom.GetTerrainInfo(playerPosition + new Vector2(0, 5));
+        return GetActiveTerrain(playerPosition).Terrain;
     }
 
     public ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition)
     {
         OracleRoomData room = _rooms.CurrentRoom;
-        Vector2 sample = playerPosition + new Vector2(0, 5);
+        Vector2 sample = new(unchecked((byte)Mathf.FloorToInt(playerPosition.X)),
+            unchecked((byte)(Mathf.FloorToInt(playerPosition.Y) + 5)));
         int tileX = Mathf.FloorToInt(sample.X / OracleRoomData.MetatileSize);
         int tileY = Mathf.FloorToInt(sample.Y / OracleRoomData.MetatileSize);
         Vector2 center = new(
             tileX * OracleRoomData.MetatileSize + 8,
             tileY * OracleRoomData.MetatileSize + 8);
-        return new ActiveTerrainInfo(
-            room.GetTerrainInfo(sample), sample, center, (tileY << 4) | tileX);
+        byte packed = (byte)((tileY << 4) | tileX);
+        byte tile = room.ReadNativeLayoutByte(packed,_rooms.RuntimeState);
+        var types = TilePropertyDatabase.For(AssetRoot);
+        var terrain = room.GetTerrainInfo(sample) with
+        {
+            Tile = tile,Type = types.Type(room.ActiveCollisions,tile),Hazard = types.Hazard(room.ActiveCollisions,tile),
+            NativeTileType = types.NativeTileType(room.ActiveCollisions,tile),
+            NativeHazardFlags = types.NativeHazardFlags(room.ActiveCollisions,tile)
+        };
+        return new ActiveTerrainInfo(terrain,sample,center,packed);
     }
 
     internal SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition)
     {
         OracleRoomData room = _rooms.CurrentRoom;
-        byte activeTile = room.GetMetatile(playerPosition);
-        byte belowTile = room.GetMetatile(
-            playerPosition + new Vector2(0, _sideScroll.Parameters.BelowTileOffset));
+        Vector2 sample = new(unchecked((byte)Mathf.FloorToInt(playerPosition.X)),
+            unchecked((byte)Mathf.FloorToInt(playerPosition.Y)));
+        byte activeTile = room.ReadNativeLayoutByte((byte)room.GetPackedPosition(sample),_rooms.RuntimeState);
+        sample.Y = unchecked((byte)((int)sample.Y + _sideScroll.Parameters.BelowTileOffset));
+        byte belowTile = room.ReadNativeLayoutByte((byte)room.GetPackedPosition(sample),_rooms.RuntimeState);
         return new SideScrollTerrainState(
             activeTile,
             belowTile,
@@ -64,16 +76,21 @@ public sealed class TerrainController
             _sideScroll.TileType(belowTile));
     }
 
-    public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement)
+    internal int GetAdjacentWallsBitset(Vector2 position) => OnStump ? 0xff : _adjacentWallsBitset(position);
+
+    public bool TryStartTerrainJump(Player player, Vector2 from, Vector2 attemptedMovement, int objectAngle)
     {
-        if (!TryGetCardinalDirection(attemptedMovement, out Vector2I direction) ||
-            player.FacingVector != direction)
+        if (!player.CanStartTerrainJump || !TryGetCardinalDirection(attemptedMovement, out Vector2I direction))
         {
             return false;
         }
 
         OracleRoomData room = _rooms.CurrentRoom;
         LedgeJumpDirectionRecord directionRecord = _ledges.Direction(direction);
+        bool seasons = _rooms.SaveData.Game == OracleGame.Seasons;
+        bool stump = OnStump;
+        if (seasons && TryStartStumpJump(player,from,direction,stump)) return true;
+        if (stump || objectAngle != directionRecord.Angle) return false;
         int adjacentWalls = _adjacentWallsBitset(from);
         if ((adjacentWalls & directionRecord.WallMask) !=
             directionRecord.WallMask)
@@ -91,6 +108,13 @@ public sealed class TerrainController
                 directionRecord.Angle))
         {
             return false;
+        }
+
+        // ROM_SEASONS' indoor $05/$06 keep state01 and use its unblocked air path.
+        if (seasons && room.GetMetatile(highPosition + directionRecord.Probe2) is 0x05 or 0x06)
+        {
+            player.BeginTerrainAirJump(directionRecord.Angle,ObjectSpeed.Speed140,null,_ledges.InitialSpeedZ,null,false);
+            return true;
         }
 
         LedgeLandingScan landing = ScanForLanding(room, highPosition, direction);
@@ -116,6 +140,39 @@ public sealed class TerrainController
         return true;
     }
 
+    private bool TryStartStumpJump(Player player, Vector2 from, Vector2I direction, bool leaving)
+    {
+        if (!leaving && _rooms.ActiveGroup != 0) return false;
+        int index = leaving ? CarriedObjectMotion.DirectionIndex(direction) : CarriedObjectMotion.DirectionIndex(player.FacingVector);
+        var row = Stumps.Direction(leaving,index);
+        Vector2 probe = new(unchecked((byte)(Mathf.FloorToInt(from.X) + row.Probe.X)),
+            unchecked((byte)(Mathf.FloorToInt(from.Y) + row.Probe.Y)));
+        Vector2? target = null;
+        if (leaving)
+        {
+            if (probe.X >= _rooms.CurrentRoom.Width || probe.Y >= _rooms.CurrentRoom.Height || _rooms.CurrentRoom.IsSolid(probe)) return false;
+            if (player.CanTurnForTerrainJump) player.Face(direction);
+        }
+        else
+        {
+            if (direction != player.FacingVector ||
+                (_adjacentWallsBitset(from) & _ledges.Direction(player.FacingVector).WallMask) != _ledges.Direction(player.FacingVector).WallMask ||
+                _rooms.CurrentRoom.GetMetatile(probe) != 0x20) return false;
+            target = new Vector2(((int)probe.X & 0xf0) + Stumps.TargetOffset.X,((int)probe.Y & 0xf0) + Stumps.TargetOffset.Y);
+        }
+        player.BeginTerrainAirJump(index * 8,row.SpeedRaw,row.SpeedRaw,row.SpeedZ,target,!leaving);
+        return true;
+    }
+
+    internal void ApplyLedgeLandingPlacement(Player player)
+    {
+        if (_rooms.SaveData.Game != OracleGame.Seasons || _rooms.ActiveGroup != 0) return;
+        Vector2 position = player.PrecisePosition;
+        if (_rooms.CurrentRoom.GetMetatile(new(position.X,unchecked((byte)(Mathf.FloorToInt(position.Y) + 5)))) != 0x20) return;
+        player.SetScriptedPosition(new Vector2((Mathf.FloorToInt(position.X) & 0xf0) + Stumps.TargetOffset.X,
+            (Mathf.FloorToInt(position.Y) & 0xf0) + Stumps.TargetOffset.Y));
+    }
+
     internal void ResumeLedgeHopAfterScroll(Player player)
     {
         OracleRoomData room = _rooms.CurrentRoom;
@@ -136,12 +193,6 @@ public sealed class TerrainController
             landing.CliffLength);
     }
 
-    public void SpawnSplash(Vector2 position, HazardType hazard)
-    {
-        if (hazard is not (HazardType.Water or HazardType.Lava))
-            throw new ArgumentOutOfRangeException(nameof(hazard));
-        _createSplash(position, hazard);
-    }
 
     private bool IsCliffProbe(
         OracleRoomData room,

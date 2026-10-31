@@ -16,7 +16,7 @@ internal sealed partial class BlackTowerEndingEvent
     private void RitesRumble()
     {
         context.Entities.BeginScreenShake(4);
-        if(((context.Entities.FrameCounter+1)&15)==0)context.Sound.PlayNativeSound(SoundId.SndRumble2);
+        if((context.Entities.FrameCounter&15)==0)context.Sound.PlayNativeSound(SoundId.SndRumble2);
     }
     private void RitesBoulders()
     {
@@ -33,10 +33,10 @@ internal sealed partial class BlackTowerEndingEvent
                 State=1;context.Inventory.UnequipRing();
                 if(!context.Entities.InteractionSlotAvailable)throw new NotSupportedException("endgameCutsceneHandler_0f: unchecked Link exclamation allocation has no free INTERACTION slot.");
                 if(context.Entities.InteractionSlotAvailable)
-                    context.Entities.Spawn(new ExclamationMarkSpawn(context.Player.Position+new Vector2(-16,-8),Duration:40));
+                    context.Entities.TryCreateExclamation(context.Player.Position+new Vector2(-16,-8),40);
                 if(!context.Entities.InteractionSlotAvailable)throw new NotSupportedException("endgameCutsceneHandler_0f: unchecked Zelda exclamation allocation aliases an occupied INTERACTION slot.");
                 if(context.Entities.InteractionSlotAvailable)
-                    context.Entities.Spawn(new ExclamationMarkSpawn(new(0x78,0x30),Duration:40));
+                    context.Entities.TryCreateExclamation(new(0x78,0x30),40);
                 Write(0xcbb3,10);return;
             case 1:
                 if(!Decrement(0xcbb3))return;

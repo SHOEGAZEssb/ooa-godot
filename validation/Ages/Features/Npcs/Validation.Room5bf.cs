@@ -91,14 +91,14 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(group, roomId);
         pickup = _entities.Entities<GroundTreasurePickup>().Single();
         _player.WarpTo(new Vector2(0xbf, 0x23), recordSafe: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             pickup.State != PickupState.Waiting ||
             _inventory.HasTreasure(TreasureId.Flippers),
             "Room 5:bf's $6b:$0c collected at objectCheckLinkWithinDistance's " +
             "excluded Manhattan-distance $0e boundary.");
         _player.WarpTo(new Vector2(0xbf, 0x22), recordSafe: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             pickup.State != PickupState.Collected ||
             !pickup.Held ||
@@ -115,20 +115,22 @@ public sealed partial class ValidationRoot
             "Touching room 5:bf's $6b:$0c did not immediately grant and " +
             "display TREASURE_FLIPPERS $2e:$00 under the source input lease.");
 
+        StepGameplayUpdates(3, Vector2.Zero);
         _dialogue.Close();
-        _interactions.Update(frame, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             !pickup.Finished ||
             _entities.Entities<GroundTreasurePickup>().Count != 1,
             "Closing the room 5:bf Flippers textbox did not end the held " +
             "treasure while retaining its source 30-update script wait.");
+        StepGameplayUpdates(1, Vector2.Zero); // Producer installs wait30 after its child has retired.
         for (int update = 0; update < database.Constants.PostGrantWait - 1; update++)
-            _entities.Update(frame, _player);
+            StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _entities.Entities<GroundTreasurePickup>().Count != 1 ||
             !_entities.PlayerMovementDisabled,
             "Room 5:bf's $6b:$0c released input before wait 30 completed.");
-        _entities.Update(frame, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
             _entities.PlayerMovementDisabled ||
@@ -168,7 +170,7 @@ public sealed partial class ValidationRoot
                     itemButtonJustPressed: false),
                 "ITEM_BRACELET released room 5:bf's lever while its assigned " +
                 "button remained held.");
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
             _sound.Tick();
         }
 
@@ -224,11 +226,11 @@ public sealed partial class ValidationRoot
                 itemButtonJustPressed: false) ||
             _bracelet.State != BraceletState.Idle,
             "Releasing ITEM_BRACELET did not detach room 5:bf's lever.");
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             lever.PullDistance != 0xc0 || lever.Position.Y != 0x50,
             "Room 5:bf's lever retracted during its source release substate update.");
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             lever.PullDistance != 0x3f || lever.Position.Y != 0x4f,
             "Room 5:bf's lever did not begin SPEED_40 self-retraction on the " +
@@ -249,17 +251,17 @@ public sealed partial class ValidationRoot
             primaryHeld: false,
             secondaryHeld: false,
             itemButtonJustPressed: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
 
         int retractUpdates = 0;
         while (lever.PullDistance > 8 && retractUpdates++ < 260)
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             lever.PullDistance != 8,
             "Room 5:bf's lever did not retain byte-exact pull distance 8 " +
             "during SPEED_40 self-retraction.");
         _player.WarpTo(new Vector2(0xb8, 0x38), recordSafe: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             !_player.SideScrollSquished ||
             blocks[0].PullOffset != 2 ||
@@ -267,8 +269,8 @@ public sealed partial class ValidationRoot
             "Room 5:bf's left block did not apply the source $fe/$ff " +
             "horizontal squish window around $38,$b8.");
         while (lever.PullDistance != 0 && retractUpdates++ < 300)
-            _entities.Update(frame, _player);
-        _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             lever.PullDistance != 0 || lever.Position.Y != 0x10 ||
             blocks[0].Position.X != 0xb0 ||

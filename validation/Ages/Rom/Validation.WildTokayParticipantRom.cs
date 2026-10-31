@@ -25,8 +25,9 @@ public sealed partial class ValidationRoot
             if(!earlier)_entities.AddEntity(actor);
             F1Set(meat,"<State>k__BackingField",1);F1Set(meat,"<Substate>k__BackingField",2);
             FailIf(!meat.TryUseBracelet(_player,Vector2I.Zero)||!meat.TryUseBracelet(_player,Vector2I.Right),"Participant fixture must acquire and release its actual reserved Bracelet owner.");
+            meat.UpdateBraceletChild(_player);
             F1Set(meat,"_z",-5*256);F1Set(meat.ReservedThrow!,"<Position>k__BackingField",new Vector2(24+delta,64));
-            // Freeze the item phase so the catch helper sees an independently
+            // Initialize ITEM C before freezing it so the catch helper sees an independently
             // supplied rectangle at the inclusive $0a/$0b boundary. Full
             // moving ITEM C and game-loop handoffs are covered separately.
             _runtimeState.SetWramByte(0xcc8a,0x10);_runtimeState.SetWramByte(0xcfda,(byte)(0xd0+_entities.InteractionSlot(meat)));_runtimeState.SetWramByte(0xcfdb,0x45);
@@ -35,7 +36,7 @@ public sealed partial class ValidationRoot
             int a=0xd040+_entities.InteractionSlot(actor.Node)*256,m=0xd040+_entities.InteractionSlot(meat)*256;
             native[a]=1;native[a+1]=0x48;native[a+2]=0x0c;native[a+11]=64;native[a+13]=24;
             native[m]=1;native[m+1]=0x8c;native[m+4]=2;native[m+5]=2;native[m+15]=0xfb;
-            native[0xdc00]=1;native[0xdc0b]=64;native[0xdc0d]=(byte)(24+delta);native[0xcfda]=(byte)(m>>8);native[0xcfdb]=0x45;native[0xcfdf]=red?(byte)4:(byte)0;native[0xcc8a]=0x10;
+            native[0xdc00]=1;native[0xdc01]=0x16;native[0xdc04]=3;native[0xdc0b]=64;native[0xdc0d]=(byte)(24+delta);native[0xcfda]=(byte)(m>>8);native[0xcfdb]=0x45;native[0xcfdf]=red?(byte)4:(byte)0;native[0xcc8a]=0x10;
             int updates=0;string source=$"Wild participant/early{earlier}/red{red}/level{level}/distance{delta}/batch{batch}";
             StepGameplayUpdates(170,Vector2.Zero,batched:batch,afterUpdate:()=>
             {

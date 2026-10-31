@@ -22,7 +22,6 @@ internal sealed class CrowRoomEntity
                 damage => crow.TakeSwordHit(damage),
                 crow.ApplySwordKnockback,
                 soundRequested,
-                EnemySwordResponse.Knockback,
                 deathPuffPosition: () =>
                     crow.Position + Vector2.Down * crow.Z,
                 deathPuffAllowed: () => !crow.DeletedOutOfBounds,

@@ -12,7 +12,7 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
     internal FireKeeseRoomEntity(FireKeeseCharacter keese, EnemyCombatSourceDescriptor source, Action<int> sound, Func<bool> canSpawnPart, Func<byte> random)
         : base(keese, keese.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, keese, keese.Record.DamageQuarters,
-                keese.TakeSwordHit, _ => false, keese.ApplySwordKnockback, sound, EnemySwordResponse.Knockback),
+                keese.TakeSwordHit, _ => false, keese.ApplySwordKnockback, sound),
             collisionZ: () => keese.ZFixed >> 8)
     { _canSpawnPart = canSpawnPart; _random = random; }
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
@@ -40,7 +40,7 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
     {
         if (GaleCaught || Entity.HasPendingHit || !Entity.CollisionEnabled ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, player.EnemyContactZ, 7)) return;
-        if (player.IsUsingShield && CombatDescriptor.Source!.Value.ShieldBumpResponse(player.Inventory.ShieldLevel) is not null &&
+        if (player.IsUsingShield && CombatDescriptor.Source!.Value.ShieldBumpResponse(player.Inventory.ShieldLevel,DimitriCollisionMode,DimitriCollisionType) is not null &&
             CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
         {
             base.HandleLinkContact(player);

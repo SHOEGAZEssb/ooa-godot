@@ -1,0 +1,836 @@
+using Godot;
+using System;
+using System.Linq;
+
+namespace Oracles;
+
+// Constructs the imported enemy handler selected by the ordered room parser or
+// a native allocation. Slot admission, placement buffers and RNG order belong
+// to the manager and room parser, never to a second placement pass.
+internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabase enemies,
+    AgesRoomEntityResources resources, RoomSession? rooms)
+{
+    private string AssetRoot => enemies.AssetRoot;
+    private readonly OracleRandom _random = owner.Random;
+    private readonly OracleRuntimeState _runtimeState = owner.RuntimeState;
+    private readonly OracleSaveData? _saveData = owner.SaveData;
+    private readonly Func<long> _animationTick = owner.AnimationTick;
+    private readonly CommonRoomEntityFactory _common = new(owner);
+
+    internal IRoomEntity? CreateOrderedEnemy(
+        EnemyHandlerDescriptor handler,
+        RoomObjectRecord source,
+        OracleRoomData room,
+        Vector2 position,
+        int instance,
+        int killableEnemyIndex,
+        EnemyPlacementContext placementContext, int replacementZHigh = 0)
+    {
+        if (!handler.SupportsOrderedConstruction)
+            return null;
+        if (_common.TryCreateEnemy(handler,source,room,position,instance,killableEnemyIndex) is { } common)
+            return common;
+
+        if(handler.Handler==EnemyHandlerKind.TargetCartCrystal)
+        {
+            var visual=enemies.ImportedEnemy(AgesEnemyId.TargetCartCrystal);
+            string animation=visual.Animations[0];
+            var actor = NpcCharacter.CreateFromRecord(new(rooms!.ActiveGroup,room.Id,AgesInteractionId.Accessory,source.SubId,0,0,0,0,
+                visual.Sprites[0],visual.TileBase,visual.Palette,0,false,animation,animation,animation,animation,"",
+                NpcImplementationClassification.EventOwned), AssetRoot);
+            actor.SetSourceGrayscaleInverted(visual.SourceGrayscaleInverted);
+            return new TargetCartCrystalRoomEntity(actor,source.SubId,_runtimeState,new GoronCaveDatabase(),owner.OnSoundRequested,_random);
+        }
+
+        if (handler.Handler == EnemyHandlerKind.GreatFairy)
+        {
+            return new FountainFairyRoomEntity(enemies.ImportedEnemy(EnemyId.GreatFairy),
+                resources.FountainFairies, position, owner.OnSoundRequested, owner.OnRoomEntityDialogueRequested,
+                () => owner.OnSoundRequested(SoundId.MusFairyFountain), owner.ReadDisplayedHealth, owner.TryCreatePart, _random);
+        }
+
+        if (handler.Handler == EnemyHandlerKind.FireballShooter)
+            return new FireballShooterRoomEntity(room, position, source.SubId, source.Var03,
+                _random, owner.CanAllocateEnemies, () => owner.PartSlotAvailable, () => owner.RoomEnemyCount);
+
+        if (handler.Handler == EnemyHandlerKind.VineSprout)
+        {
+            if (_saveData is null)
+            {
+                throw new InvalidOperationException(
+                    $"{source.Source} cannot create ENEMY_VINE_SPROUT " +
+                    "without live save state.");
+            }
+            return new VineSproutRoomEntity(
+                enemies.VineSprouts,
+                enemies.VineSprouts.Record(source.SubId),
+                room,
+                _saveData,
+                position,
+                owner.OnSoundRequested,
+                owner.OnRoomTileChanged,
+                _animationTick,
+                _random,
+                owner.RuntimeState);
+        }
+        if (handler.Handler == EnemyHandlerKind.BabyCucco)
+        {
+            if (!enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition babyCuccoRecord))
+            {
+                throw MissingEnemyDefinition(handler, source);
+            }
+            var babyCucco = new BabyCuccoCharacter
+            {
+                Name = $"BabyCucco_{source.Order}_{instance}",
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
+            };
+            babyCucco.Initialize(
+                babyCuccoRecord,
+                room,
+                position,
+                _random,
+                resources.Bracelet.Data,
+                resources.Bomb.Data,
+                owner.OnSoundRequested,
+                owner.ApplyThrownObjectHit,
+                replacementZHigh);
+            return new BabyCuccoRoomEntity(babyCucco);
+        }
+        if (handler.Handler == EnemyHandlerKind.Cucco)
+        {
+            if (!enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition cuccoRecord))
+            {
+                throw MissingEnemyDefinition(handler, source);
+            }
+            var cucco = new CuccoCharacter
+            {
+                Name = $"Cucco_{source.Order}_{instance}",
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
+            };
+            cucco.Initialize(
+                cuccoRecord,
+                enemies.ImportedEnemy(
+                    EnemyBehaviorTables.For(AssetRoot).Cucco.GiantReplacementId),
+                room,
+                position,
+                _random,
+                resources.Bracelet.Data,
+                resources.Bomb.Data,
+                owner.OnSoundRequested,
+                owner.BeginScreenShake,
+                owner.ApplyThrownObjectHit);
+            return new CuccoRoomEntity(cucco, source);
+        }
+
+        if (handler.Handler == EnemyHandlerKind.Twinrova)
+        {
+            var world = new TwinrovaEnvironment(resources.Twinrova, owner,
+                point => (int)(point.Y - owner.WorldToScreen(point).Y),
+                cutscene => (owner.TwinrovaCutscene ?? throw new NotSupportedException($"twinrova.s: CUTSCENE ${cutscene:x2} native continuation is not implemented."))(cutscene),
+                (fadeOut, delay, speed) => (owner.TwinrovaFade ?? throw new NotSupportedException("twinrova.s: native merge palette continuation is not implemented."))(fadeOut, delay, speed),
+                parent => (owner.TwinrovaMerged ?? throw new NotSupportedException("twinrova.s: ENEMY_MERGED_TWINROVA $01 continuation is not implemented."))(parent),
+                mode => (owner.TwinrovaArena ?? throw new NotSupportedException("mergedTwinrova.s: func_131f arena reload has no room owner."))(mode));
+            return new TwinrovaRoomEntity(new(world, position, source.SubId, source.Var03), counted: (source.Flags & 2) == 0);
+        }
+        if(handler.Handler==EnemyHandlerKind.VeranFinal)
+        {
+            var world=new VeranFinalEnvironment(resources.VeranFinal,owner,room,
+                (parent,id,subid)=>
+                {
+                    if(!owner.PartSlotAvailable)return false;
+                    if(id==0x57){owner.AddEntity(new VeranAcidPoolRoomEntity(owner,resources.VeranFinal,parent.Position,rooms!.TrySetTile));return true;}
+                    if(id==0x56){owner.AddEntity(new VeranSpiderwebRoomEntity(owner,resources.VeranFinal,subid,parent.Slot,parent.Position,parent.ZFixed,parent.Angle));return true;}
+                    if(id==0x58){owner.AddEntity(new VeranBeeProjectileRoomEntity(owner,resources.VeranFinal,parent.Slot,parent.Position,parent.ZFixed));return true;}
+                    throw new NotSupportedException($"veranFinalForm.s: PART ${id:x2}:${subid:x2} continuation is not represented.");
+                },(parent,subid)=>
+                {
+                    if(owner.TryAllocateEnemy(_=>new VeranChildBeeRoomEntity(new(owner,resources.VeranFinal,subid,parent.Position,room),owner,resources.VeranFinal)) is not null)
+                        owner.OnSoundRequested(SoundId.SndBeam1);
+                },
+                parent=>owner.VeranFinalDeathFade?.Invoke(parent) ?? throw new InvalidOperationException("veranFinalForm.s: INTERAC_MISC_PUZZLES $90:$21 requires its palette owner."),
+                ()=> (owner.VeranFinalEscape??throw new InvalidOperationException("veranFinalForm.s: CUTSCENE_BLACK_TOWER_ESCAPE $09 requires its native controller."))());
+            return new VeranFinalRoomEntity(new(world,position));
+        }
+
+        EnemyCombatSourceDescriptor combatSource =
+            handler.CombatSource(source, killableEnemyIndex);
+
+        switch (handler.Handler)
+        {
+            case EnemyHandlerKind.AmbiGuard:
+                var guard = new AmbiGuardCharacter { Name = $"AmbiGuard_54_{source.SubId:x2}_{source.Order}_{instance}" };
+                guard.Initialize(enemies.ImportedEnemy(0x54), resources.AmbiGuards.Require(source.SubId), room, position, owner, source.SubId);
+                return new AmbiGuardRoomEntity(guard, resources.AmbiGuards, combatSource, owner.OnSoundRequested);
+            case EnemyHandlerKind.Candle:
+                CandleRoomEntity? candleOwner = null;
+                var candle = new CandleCharacter { Name = $"Candle_{source.Order}_{instance}" };
+                candle.Initialize(enemies.ImportedEnemy(AgesEnemyId.Candle), room, position, _random, _runtimeState,
+                    () => owner.TryCreateCandleFlame(candleOwner!, enemies.CandleFlame), owner.TryCreateCandleExplosion,
+                    owner.InteractionAnimationParameter, owner.ConsumeCandleExplosionSignal);
+                candleOwner = new CandleRoomEntity(candle, combatSource, owner.OnSoundRequested);
+                return candleOwner;
+            case EnemyHandlerKind.Floormaster:
+                FloormasterRoomEntity? floorOwner = null;
+                var floor = new FloormasterCharacter { Name = $"Floormaster_{source.Order}_{instance}" };
+                floor.Initialize(enemies.ImportedEnemy(EnemyId.Floormaster, source.SubId), room, position, _random,
+                    spawn: () => owner.TryAllocateEnemy(_ => CreateFloormasterChild(floorOwner!, room)) is not null);
+                floorOwner = new FloormasterRoomEntity(floor, combatSource, owner.OnSoundRequested, () => _random.Next().Value,
+                    () => owner.PartSlotAvailable);
+                return floorOwner;
+            case EnemyHandlerKind.Bari:
+                var bari = new BariCharacter { Name = $"Bari_{source.Order}_{instance}" };
+                bari.Initialize(enemies.ImportedEnemy(AgesEnemyId.Bari, source.SubId), room, position, _random);
+                return new BariRoomEntity(bari, combatSource, owner.OnSoundRequested, () => _random.Next().Value);
+            case EnemyHandlerKind.KingMoblin:
+                var king = new KingMoblinBoss();
+                king.Initialize(new KingMoblinEnvironment(resources.KingMoblin,room,_random,_saveData,
+                    owner.CanAllocateEnemies,() => owner.PartSlotAvailable,() => owner.InteractionSlotAvailable,owner.OnSoundRequested,
+                    owner.BeginScreenShake,() => owner.ScreenIsShaking,owner.EnableLinkCollisionsAndMenu,
+                    owner.OnRoomEntityDialogueRequested,owner.OnRoomWarpRequested,_animationTick,resources.Bracelet.Data,resources.Bomb.Data),position);
+                return new KingMoblinRoomEntity(king);
+            case EnemyHandlerKind.CheepCheep:
+                var cheepCheep = new CheepCheepCharacter
+                {
+                    Name = $"CheepCheep_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                cheepCheep.Initialize(enemies.ImportedEnemy(source.Id, source.SubId),
+                    room, position, source.Var03, _random);
+                return new CheepCheepRoomEntity(cheepCheep, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Crow:
+                if (!enemies.TryGetCrowDefinition(
+                    source, out CrowRecord crowRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var crow = new CrowCharacter
+                {
+                    Name = $"Crow_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
+                };
+                crow.Initialize(crowRecord, room, position, _random,
+                    () => owner.Entities<CrowCharacter>().Count(actor => actor.OccupiesAttackLane));
+                return new CrowRoomEntity(
+                    crow, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.RiverZora:
+                var zora = new RiverZoraCharacter
+                {
+                    Name = $"RiverZora_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
+                };
+                zora.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new RiverZoraRoomEntity(zora, combatSource, owner.OnSoundRequested,
+                    () => -owner.ToScreen(Vector2.Zero));
+
+            case EnemyHandlerKind.GopongaFlower:
+                var flower = new GopongaFlowerCharacter { Name = $"GopongaFlower_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex };
+                flower.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), position, _random);
+                return new GopongaFlowerRoomEntity(flower, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.BuzzBlob:
+                var buzzBlob = new BuzzBlobCharacter
+                {
+                    Name = $"BuzzBlob_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                buzzBlob.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new BuzzBlobRoomEntity(buzzBlob, combatSource, owner.OnSoundRequested,
+                    (id, _, origin) => owner.OnRoomEntityDialogueRequested(id, enemies.CukemanText(id), origin));
+
+            case EnemyHandlerKind.Gibdo:
+                var gibdo = new GibdoCharacter { Name = $"Gibdo_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+                gibdo.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new GibdoRoomEntity(gibdo, source, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable, () => _random.Next().Value);
+
+            case EnemyHandlerKind.IronMask:
+                return CreateIronMask(enemies.ImportedEnemy(source.Id,source.SubId),room,position,combatSource);
+            case EnemyHandlerKind.Pincer:
+                return CreatePincer(room,position,combatSource);
+
+            case EnemyHandlerKind.LikeLike:
+                var likeLike = new LikeLikeCharacter { Name = $"LikeLike_{source.Order}_{instance}" };
+                likeLike.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new LikeLikeRoomEntity(likeLike, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable,
+                    () => _random.Next().Value, () => owner.OnRoomEntityDialogueRequested(0x510b, enemies.LikeLikeShieldText, likeLike.Position));
+
+            case EnemyHandlerKind.BallChainSoldier:
+                var soldier = new BallChainSoldierCharacter { Name = $"BallChain_{source.Order}_{instance}" };
+                soldier.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new BallChainSoldierRoomEntity(soldier, combatSource, owner.OnSoundRequested, owner.CanAllocateEnemies, resources.SpikedBall);
+
+            case EnemyHandlerKind.FireKeese:
+                var fireKeese = new FireKeeseCharacter { Name = $"FireKeese_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+                fireKeese.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new FireKeeseRoomEntity(fireKeese, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable, () => _random.Next().Value);
+
+            case EnemyHandlerKind.Stalfos:
+                if (!enemies.TryGetStalfosDefinition(
+                    source, out StalfosRecord stalfosRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var stalfos = new StalfosCharacter
+                {
+                    Name = $"Stalfos_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                stalfos.Initialize(stalfosRecord, room, position, _random, owner.OnSoundRequested, replacementZHigh);
+                return new StalfosRoomEntity(
+                    stalfos, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable);
+
+            case EnemyHandlerKind.Zol:
+                if (!enemies.TryGetZolDefinition(
+                    source, out ZolRecord zolRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var zol = new ZolCharacter
+                {
+                    Name = $"Zol_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                zol.Initialize(zolRecord, room, position, _random, owner.OnSoundRequested);
+                return new ZolRoomEntity(
+                    zol, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.BoomerangMoblin:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition moblinRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var moblin = new BoomerangMoblinCharacter
+                {
+                    Name = $"BoomerangMoblin_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                moblin.Initialize(moblinRecord, room, position, _random);
+                return new BoomerangMoblinRoomEntity(
+                    moblin, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Leever:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition leeverRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var leever = new LeeverCharacter
+                {
+                    Name = $"Leever_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                leever.Initialize(leeverRecord, room, position, _random);
+                return new LeeverRoomEntity(
+                    leever, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.ArrowDarknut:
+                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition darknutRecord))
+                    throw MissingEnemyDefinition(handler, source);
+                var darknut = new ArrowDarknutCharacter { Name = $"ArrowDarknut_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+                darknut.Initialize(darknutRecord, room, position, _random);
+                return new ArrowDarknutRoomEntity(darknut, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Lynel:
+                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition lynelRecord))
+                    throw MissingEnemyDefinition(handler, source);
+                var lynel = new LynelCharacter { Name = $"Lynel_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+                lynel.Initialize(lynelRecord, room, position, _random);
+                return new LynelRoomEntity(lynel, combatSource, owner);
+
+            case EnemyHandlerKind.BladeTrap:
+                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition trapRecord))
+                    throw MissingEnemyDefinition(handler, source);
+                var trap = new BladeTrapCharacter { Name = $"BladeTrap_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+                trap.Initialize(trapRecord, room, position, _random, owner.OnSoundRequested);
+                return new BladeTrapRoomEntity(trap, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.PolsVoice:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition polsVoiceRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var polsVoice = new PolsVoiceCharacter
+                {
+                    Name = $"PolsVoice_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                polsVoice.Initialize(
+                    polsVoiceRecord, room, position, _random);
+                return new PolsVoiceRoomEntity(
+                    polsVoice, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Moldorm:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition moldormRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var moldorm = new MoldormSpawnerCharacter
+                {
+                    Name = $"Moldorm_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                moldorm.Initialize(moldormRecord, enemies, room, position, _random, combatSource,
+                    owner.CanAllocateEnemies, owner.KillMoldormRelatedParts, owner.OnSoundRequested);
+                return new MoldormSpawnerRoomEntity(moldorm);
+
+            case EnemyHandlerKind.Spark:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition sparkRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var spark = new SparkCharacter
+                {
+                    Name = $"Spark_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                spark.Initialize(sparkRecord, room, position);
+                spark.ConfigureTransformation(owner.TryCreateTransformationPuff, owner.InteractionAnimationParameter, owner.TryCreateSparkFairy);
+                return new SparkRoomEntity(
+                    spark, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Whisp:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition whispRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var whisp = new WhispCharacter
+                {
+                    Name = $"Whisp_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                whisp.Initialize(whispRecord, room, position, _random);
+                whisp.ConfigureTransformation(owner.TryCreateTransformationPuff, owner.InteractionAnimationParameter, owner.TryCreateSparkFairy);
+                return new WhispRoomEntity(
+                    whisp, combatSource, owner.OnSoundRequested, () => _random.Next().Value);
+
+            case EnemyHandlerKind.SandCrab:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition sandCrabRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var sandCrab = new SandCrabCharacter
+                {
+                    Name = $"SandCrab_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                sandCrab.Initialize(
+                    sandCrabRecord, room, position, _random);
+                return new SandCrabRoomEntity(
+                    sandCrab, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Thwomp:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition thwompRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var thwomp = new ThwompCharacter
+                {
+                    Name = $"Thwomp_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                thwomp.Initialize(thwompRecord, room, position);
+                return new ThwompRoomEntity(
+                    thwomp, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Peahat:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition peahatRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var peahat = new PeahatCharacter
+                {
+                    Name = $"Peahat_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                peahat.Initialize(peahatRecord, room, position, _random);
+                return new PeahatRoomEntity(
+                    peahat, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Tektite:
+                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition tektiteRecord))
+                    throw MissingEnemyDefinition(handler, source);
+                var tektite = new TektiteCharacter { Name = $"Tektite_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+                tektite.Initialize(tektiteRecord, room, position, _random, owner.OnSoundRequested);
+                return new TektiteRoomEntity(tektite, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.WaterTektite:
+                var waterTektite = new WaterTektiteCharacter { Name = $"WaterTektite_{source.Order}_{instance}" };
+                waterTektite.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new WaterTektiteRoomEntity(waterTektite, combatSource, owner.OnSoundRequested,
+                    owner.ActiveScentSeedTarget);
+
+            case EnemyHandlerKind.Wizzrobe:
+                var wizzrobe = new WizzrobeCharacter { Name = $"Wizzrobe_{source.Order}_{instance}" };
+                wizzrobe.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random,
+                    _runtimeState, () => -owner.ToScreen(Vector2.Zero));
+                return new WizzrobeRoomEntity(wizzrobe, combatSource, owner.OnSoundRequested,
+                    () => _random.Next().Value, () => owner.PartSlotAvailable);
+
+            case EnemyHandlerKind.GiantBladeTrap:
+                var giantTrap = new GiantBladeTrapCharacter { Name = $"GiantBladeTrap_{source.Order}_{instance}" };
+                giantTrap.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new GiantBladeTrapRoomEntity(giantTrap, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Bubble:
+                var bubble = new BubbleCharacter { Name = $"Bubble_{source.Order}_{instance}" };
+                bubble.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random, owner.RuntimeState);
+                return new BubbleRoomEntity(bubble, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.ColorChangingGel:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition colorGelRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var colorGel = new ColorChangingGelCharacter
+                {
+                    Name =
+                        $"ColorChangingGel_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                colorGel.Initialize(
+                    colorGelRecord,
+                    room,
+                    position,
+                    _random,
+                    enemies.ColorChangingGelPalettes, owner.OnSoundRequested);
+                return new ColorChangingGelRoomEntity(
+                    colorGel, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.SwordEnemy:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition swordEnemyRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var swordEnemy = new SwordEnemyCharacter
+                {
+                    Name =
+                        $"SwordEnemy_{source.Id:x2}_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                swordEnemy.Initialize(
+                    swordEnemyRecord, room, position, _random);
+                return new SwordEnemyRoomEntity(
+                    swordEnemy, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable, () => _random.Next().Value);
+
+
+            case EnemyHandlerKind.SpikedBeetle:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition spikedBeetleRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var spikedBeetle = new SpikedBeetleCharacter
+                {
+                    Name =
+                        $"SpikedBeetle_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                spikedBeetle.Initialize(
+                    spikedBeetleRecord,
+                    room,
+                    position,
+                    _random,
+                    owner.OnSoundRequested);
+                return new SpikedBeetleRoomEntity(
+                    spikedBeetle, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.SpinyBeetle:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition spinyBeetleRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var spinyBeetle = new SpinyBeetleCharacter
+                {
+                    Name =
+                        $"SpinyBeetle_{source.SubId:x2}_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
+                };
+                spinyBeetle.Initialize(
+                    spinyBeetleRecord,
+                    room,
+                    position,
+                    _random,
+                    resources.Bracelet.Data,
+                    resources.Bomb.Data,
+                    owner.ApplyThrownObjectHit,
+                    parent => owner.TryAllocateEnemy(_ => new SpinyBeetleCoverRoomEntity(
+                        new SpinyBeetleCoverCharacter(parent, _random, room, resources.Bracelet.Data,
+                            resources.Bomb.Data, owner.ApplyThrownObjectHit), owner.OnSoundRequested, () => owner.PartSlotAvailable)) is not null);
+                return new SpinyBeetleRoomEntity(
+                    spinyBeetle, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Wallmaster:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition wallmasterRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var wallmaster = new WallmasterCharacter
+                {
+                    Name = $"Wallmaster_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
+                };
+                wallmaster.Initialize(
+                    wallmasterRecord, room, position, source.Y);
+                (int destinationGroup, int destinationRoom) =
+                    ResolveWallmasterDestination(source);
+                return new WallmasterRoomEntity(
+                    wallmaster, owner.OnSoundRequested, owner.OnRoomWarpRequested,
+                    source.Group, source.Room,
+                    destinationGroup, destinationRoom,
+                    combatSource);
+
+            case EnemyHandlerKind.HardhatBeetle:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition hardhatBeetleRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var hardhatBeetle = new HardhatBeetleCharacter
+                {
+                    Name =
+                        $"HardhatBeetle_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                hardhatBeetle.Initialize(
+                    hardhatBeetleRecord, room, position);
+                return new HardhatBeetleRoomEntity(
+                    hardhatBeetle, combatSource, owner.OnSoundRequested, () =>
+                    {
+                        if (source.Id == 0x5f) owner.OnObjectFellInHole(ObjectFellInHoleKind.HarmlessHardhatBeetle);
+                    });
+
+            case EnemyHandlerKind.ArmMimic:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition armMimicRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var armMimic = new ArmMimicCharacter
+                {
+                    Name = $"ArmMimic_{source.Order}_{instance}",
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
+                };
+                armMimic.Initialize(
+                    armMimicRecord,
+                    room,
+                    position,
+                    placementContext.Kind is
+                        EnemyPlacementEntryKind.Scrolling or
+                        EnemyPlacementEntryKind.ScreenWarp
+                            ? placementContext.ScrollDirection
+                            : Vector2I.Zero);
+                return new ArmMimicRoomEntity(
+                    armMimic, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.FlyingTile:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition flyingTileRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                return new FlyingTileSpawnerRoomEntity(
+                    source.SubId,
+                    flyingTileRecord,
+                    combatSource.CountsAsEnemy,
+                    _random);
+
+            case EnemyHandlerKind.Gel:
+                return CreateGel(
+                    new GelSpawn(
+                        position, $"RoomGel_{source.Order}_{instance}"),
+                    room, combatSource);
+
+            default:
+                throw new InvalidOperationException(
+                    $"{handler.Source} classified {handler.EnemyName} " +
+                    $"${handler.Id:x2}:${handler.SubId:x2} as an ordered " +
+                    $"handler, but '{handler.Handler}' has no factory path.");
+        }
+    }
+
+    internal IRoomEntity? CreateStandaloneEnemy(
+        int id, int subId, OracleRoomData room, Vector2 position, string sourceLabel, out string error)
+    {
+        string origin = $"{sourceLabel}: enemy ${id:x2}:${subId:x2}";
+        EnemyHandlerDescriptor? handler = enemies.EnemyHandlers.Handlers
+            .FirstOrDefault(value => value.Id == id && value.SubId == subId);
+        if (handler is null || !handler.SupportsStandaloneConstruction)
+        {
+            error = $"{origin} has no standalone enemy factory. " +
+                (handler?.Source ?? "No imported handler.");
+            return null;
+        }
+
+        // Native allocation bypasses parseObjectData and its placement RNG.
+        // objectLoading.s:decEnemyCounterIfApplicable uses flags bit $02;
+        // index $00 also leaves the source room's recent-defeat bits alone.
+        var source = new RoomObjectRecord(
+            rooms!.ActiveGroup, room.Id, 0, RoomObjectKind.FixedEnemy,
+            id, subId, 0x02, 1, (int)position.Y, (int)position.X, 0, 0xff)
+        {
+            SourceOverride = $"{origin} via {handler.Source}"
+        };
+        if (handler.Handler == EnemyHandlerKind.Wallmaster)
+        {
+            // Check room metadata before allocating a node or consuming RNG.
+            try { _ = ResolveWallmasterDestination(source); }
+            catch (InvalidOperationException exception)
+            {
+                error = $"{origin}: {exception.Message}";
+                return null;
+            }
+        }
+        error = string.Empty;
+        if (_common.TryCreateStandaloneEnemy(handler,rooms!.ActiveGroup,room,position,origin) is { } common)
+            return common;
+        return CreateOrderedEnemy(handler, source, room, position, 0, 0,
+            EnemyPlacementContext.Unrestricted);
+    }
+
+    internal TwinrovaRoomEntity CreateTwinrova(Vector2 position, int var03, OracleRoomData room)
+    {
+        var source = new RoomObjectRecord(rooms!.ActiveGroup, room.Id, 0,
+            RoomObjectKind.FixedEnemy, 0x03, 0, 0, 1, (int)position.Y, (int)position.X, 0, 0xff)
+        { Var03 = var03, SourceOverride = "bank3Cutscenes.s:cutscene18_state5 ENEMY $03" };
+        return (TwinrovaRoomEntity)(CreateOrderedEnemy(enemies.EnemyHandlers.ResolveHandler(source), source,
+            room, position, 0, 0, EnemyPlacementContext.Unrestricted)
+            ?? throw new InvalidOperationException($"{source.Source}: missing native enemy factory."));
+    }
+
+    internal IRoomEntity CreateEnemyReplacement(RoomEnemyReplacement replacement, OracleRoomData room)
+    {
+        var source = replacement.Source;
+        if (source is not ({ Id: EnemyId.Stalfos, SubId: 2 } or { Id: EnemyId.BabyCucco, SubId: 0 }))
+            throw new InvalidOperationException($"{source.Source}: unsupported objectReplaceWithID/enemyReplaceWithID target ${source.Id:x2}:${source.SubId:x2}.");
+        var handler = enemies.EnemyHandlers.ResolveHandler(source);
+        return CreateOrderedEnemy(handler, source, room, new Vector2(source.X, source.Y), 0,
+            replacement.KillableEnemyIndex, EnemyPlacementContext.Unrestricted, replacement.ZHigh)
+            ?? throw MissingEnemyDefinition(handler, source);
+    }
+
+    private static InvalidOperationException MissingEnemyDefinition(
+        EnemyHandlerDescriptor handler,
+        RoomObjectRecord source) => new(
+            $"{source.Source} resolves through {handler.Source} to " +
+            $"'{handler.Handler}', but its typed definition is unavailable.");
+
+    internal IRoomEntity CreateGel(
+        GelSpawn spawn,
+        OracleRoomData room,
+        EnemyCombatSourceDescriptor? combatSource = null)
+    {
+        var gel = new GelCharacter { Name = spawn.Name, ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+        gel.Initialize(enemies.Gel, room, spawn.Position, _random);
+        EnemyCombatSourceDescriptor source = combatSource ??
+            enemies.EnemyHandlers.ResolveHandler(
+                enemies.Gel.Id,
+                enemies.Gel.SubId,
+                $"dynamic {spawn.Name} ENEMY_GEL")
+            .CombatSource(
+                objectFlags: 0,
+                killableEnemyIndex: spawn.KillableEnemyIndex,
+                source: $"dynamic {spawn.Name} ENEMY_GEL");
+        return new GelRoomEntity(
+            gel, source, owner.OnSoundRequested);
+    }
+
+    internal IRoomEntity CreateBariChild(BariChildSpawn spawn, OracleRoomData room)
+    {
+        var child = new BariCharacter { Name = "Biri" };
+        child.Initialize(enemies.ImportedEnemy(AgesEnemyId.Bari, 1), room, spawn.Position, _random, spawn.Angle, spawn.ZHigh);
+        var source = enemies.EnemyHandlers.ResolveHandler(AgesEnemyId.Bari, 1, "ENEMY_BARI split")
+            .CombatSource(spawn.ObjectFlags, spawn.KillableEnemyIndex,
+                "object_code/ages/enemies/bari.s:@spawnSmallBari/ecom_spawnEnemyWithSubid01");
+        return new BariRoomEntity(child, source, owner.OnSoundRequested, () => _random.Next().Value);
+    }
+
+    private IronMaskRoomEntity CreateIronMask(ImportedEnemyDefinition record,OracleRoomData room,Vector2 position,
+        EnemyCombatSourceDescriptor source,int knockbackAngle=0)
+    {
+        var actor=new IronMaskCharacter {Name=$"IronMask_1c_{record.SubId:x2}"};
+        actor.Initialize(record,room,position,_random,owner.OnSoundRequested,parent=>
+            owner.TryAllocateEnemy(_=>CreateIronMask(enemies.ImportedEnemy(0x1c,1),room,parent.Position.Floor(),
+                source with {SubId=1,CollisionMode=0xd3,Source=source.Source+" via ironMask_state_switchHook"},parent.KnockbackAngle)) is not null,knockbackAngle);
+        return new(actor,source,owner.OnSoundRequested) {RandomSource=()=>_random.Next().Value,PartSlotAvailable=()=>owner.PartSlotAvailable};
+    }
+
+    private PincerRoomEntity CreatePincer(OracleRoomData room,Vector2 position,EnemyCombatSourceDescriptor source,Func<PincerCharacter?>? parent=null)
+    {
+        var actor=new PincerCharacter {Name=$"Pincer_45_{source.SubId:x2}"};
+        actor.Initialize(enemies.ImportedEnemy(0x45,source.SubId),room,position,_random,()=>
+        {
+            if(!owner.CanAllocateEnemies(EnemyBehaviorTables.For(AssetRoot).PincerState[0].Value))return false;
+            var head=(PincerRoomEntity)owner.TryAllocateEnemy(_=>CreatePincer(room,actor.Position.Floor(),source with {SubId=1}))!;
+            int headSlot=((PincerCharacter)head.Node).NativeSlot;
+            for(int subid=2;subid<=4;subid++)
+            {
+                int childSubid=subid;
+                owner.TryAllocateEnemy(_=>CreatePincer(room,Vector2.Zero,source with {SubId=childSubid,ObjectFlags=2,KillableEnemyIndex=0},
+                    ()=>owner.ResolveEnemySlot(headSlot)?.Node as PincerCharacter));
+            }
+            return true;
+        },(point,spawns)=>
+        {
+            var breakables=new BreakableTileDatabase(AssetRoot);
+            if(breakables.TryBreak(room,BreakableTileDatabase.SourceShovel,point,_saveData,room.Group,_animationTick,null,out var tile)==BreakableTileBreakStatus.Broken)
+            {
+                tile.ApplyCommonEffects(owner.OnSoundRequested,owner.SpawnBreakableDrop);
+                if(BreakableTileEffectSpawn.Create(room,point,tile.Record.Effect) is {} effect)spawns.Add(effect);
+                owner.OnRoomTileChanged();
+            }
+            if(room.GetTerrainInfo(point).Hazard==HazardType.Water && owner.InteractionSlotAvailable)
+                spawns.Add(new EnemySplashSpawn(point+Vector2.Up*6,HazardType.Water));
+        },parent);
+        return new(actor,source,owner.OnSoundRequested) {PartSlotAvailable=()=>owner.PartSlotAvailable};
+    }
+
+    private IRoomEntity CreateFloormasterChild(FloormasterRoomEntity parent, OracleRoomData room)
+    {
+        var child = new FloormasterCharacter { Name = "FloormasterHand" };
+        var spawner = (FloormasterCharacter)parent.Node;
+        child.Initialize(enemies.ImportedEnemy(EnemyId.Floormaster, spawner.ChildSubId), room, Vector2.Zero, _random,
+            parent: () => parent.ResolveSlot(parent.Slot)?.Node as FloormasterCharacter ??
+                throw new InvalidOperationException($"floorMaster.s: relatedObj1 slot ${parent.Slot:x2} lost its spawner."));
+        var source = enemies.EnemyHandlers.ResolveHandler(EnemyId.Floormaster, spawner.ChildSubId, "floorMaster.s:floormaster_state1")
+            .CombatSource(2, 0, "object_code/common/enemies/floorMaster.s:ecom_spawnUncountedEnemyWithSubid01");
+        return new FloormasterRoomEntity(child, source, owner.OnSoundRequested, () => _random.Next().Value, () => owner.PartSlotAvailable);
+    }
+
+    private (int Group, int Room) ResolveWallmasterDestination(
+        RoomObjectRecord source)
+    {
+        int dungeon = rooms?.World.GetDungeonIndex(source.Group, source.Room) ?? -1;
+        DungeonInfo info;
+        if (dungeon >= 0)
+        {
+            info = resources.DungeonMaps.GetDungeon(dungeon);
+        }
+        else if (!resources.DungeonMaps.TryGetDungeonForRoom(
+            source.Group, source.Room, out info))
+        {
+            throw new InvalidOperationException(
+                $"Wallmaster room {source.Group:x1}:{source.Room:x2} has no " +
+                "unambiguous imported dungeon metadata.");
+        }
+        if (info.Group != source.Group)
+        {
+            throw new InvalidOperationException(
+                $"Wallmaster room {source.Group:x1}:{source.Room:x2} resolved " +
+                $"dungeon ${info.Index:x2} in group ${info.Group:x1}.");
+        }
+        return (info.Group, info.WallmasterDestinationRoom);
+    }
+}

@@ -270,7 +270,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
         Vector2 position = new(
             _record.DustX + xOffset,
             _record.DustY + yOffset);
-        PuzzlePuffEffect puff = _context.Entities.Spawn<PuzzlePuffEffect>(
+        StationaryDebrisEffect puff = _context.Entities.Spawn<StationaryDebrisEffect>(
             new PuzzlePuffSpawn(position, SoundId.SndPoof));
         // The source emitter precedes its new puff slot in updateAllObjects.
         puff.UpdateFrame();

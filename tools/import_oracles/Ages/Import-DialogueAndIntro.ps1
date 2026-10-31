@@ -191,13 +191,6 @@ if ($introSpinFrames.Count -ne 8 -or
     ($introSpinFrames | Where-Object Duration -ne '04').Count -ne 0) {
     throw 'Unexpected CUTSCENE_PREGAME_INTRO spin animation $08.'
 }
-$introArrivalFrames = @(Read-IntroAnimation 'animationData19ea9')
-if ($introArrivalFrames.Count -ne 3 -or
-    ($introArrivalFrames | Where-Object Duration -ne '04').Count -ne 0 -or
-    (($introArrivalFrames | ForEach-Object Graphic) -join ',') -ne
-        'e4,e8,ec') {
-    throw 'Unexpected LINK_ANIM_MODE_FALL animation used by warp transition $0b.'
-}
 $introVanishFrames = @(Read-IntroAnimation 'animationData19d84')
 if ($introVanishFrames.Count -ne 4) {
     throw 'Unexpected CUTSCENE_PREGAME_INTRO vanish animation $05.'
@@ -226,15 +219,6 @@ $introInitialWait =
     ([Convert]::ToInt32($introLinkInit.Groups['waitHi'].Value, 16) -shl 8) -bor
     [Convert]::ToInt32($introLinkInit.Groups['waitLo'].Value, 16)
 $introSpinGraphics = $introSpinFrames | ForEach-Object Graphic
-$introArrivalDurations = $introArrivalFrames | ForEach-Object Duration
-# Transition $0b runs on normal SPECIALOBJECT_LINK ($00), not
-# SPECIALOBJECT_LINK_CUTSCENE ($08). Link faces DIR_DOWN, and the normal Link
-# graphics loader adds that direction to graphic indices beginning at $54.
-$introArrivalGraphics = $introArrivalFrames | ForEach-Object {
-    $graphic = [Convert]::ToInt32($_.Graphic, 16)
-    if ($graphic -ge 0x54) { $graphic += 2 }
-    $graphic.ToString('x2')
-}
 $introVanishDurations = $introVanishFrames | ForEach-Object Duration
 $introVanishGraphics = $introVanishFrames | ForEach-Object Graphic
 $introColumns = @(
@@ -341,26 +325,22 @@ function Add-LinkIntroSpriteRows(
 $spinDurations = @(0..($introSpinGraphics.Count - 1) | ForEach-Object { '04' })
 Add-LinkIntroSpriteRows 'link-spin' $spinDurations $introSpinGraphics
 Add-LinkIntroSpriteRows 'link-vanish' $introVanishDurations $introVanishGraphics
-Add-LinkIntroSpriteRows 'link-arrival' $introArrivalDurations $introArrivalGraphics
-$galeFrames = @(Read-IntroAnimation 'animationData19e8f')
-if ($galeFrames.Count -ne 8) { throw 'LINK_ANIM_MODE_GALE $03 must contain eight frames.' }
-Add-LinkIntroSpriteRows 'link-gale' @($galeFrames | ForEach-Object Duration) @($galeFrames | ForEach-Object Graphic) $true
-# The credits retain SPECIALOBJECT_LINK_CUTSCENE $08, not ordinary Link's
+# These scenes retain SPECIALOBJECT_LINK_CUTSCENE $08, not ordinary Link's
 # direction-adjusted graphics. Reuse the same partial-upload/OAM resolver.
 $creditsLinkPointers=@(Read-AssemblyDataDirectives $introAnimationPath 'specialObject08AnimationDataPointers' '.dw'|ForEach-Object {$_.Operands[0]})
 # Link's animation $12 ignores its $ff frame parameter and follows the loop
 # after it. A terminal parameter is a caller signal, not a stream terminator.
 $creditsAnimations=Read-AssemblyAnimationDefinitions $introAnimationPath 'animation(?:Data|Loop)[A-Za-z0-9_]+' $false
 $creditsLoops=[Collections.Generic.List[string]]::new();$creditsLoops.Add("# index`tloop-start`tsource")
-foreach($index in @(0,1,2,3,6,0x0b,0x0d,0x0f,0x10,0x11,0x12)) {
+foreach($index in @(0,1,2,3,6,0x0b,0x0d,0x0f,0x10,0x11,0x12,0x15,0x16)) {
     $definition=$creditsAnimations[$creditsLinkPointers[$index]]
     $frames=@($definition.Frames)
     # The shield-equipped kiss pose ($11) is a single held source frame.
-    if($frames.Count -lt 1){throw "Credits Link animation `$${index}: missing native frames."}
-    Add-LinkIntroSpriteRows "link-credits-$($index.ToString('x2'))" @($frames|ForEach-Object {$_.Duration.ToString('x2')}) @($frames|ForEach-Object {$_.PointerOffset.ToString('x2')}) $true
+    if($frames.Count -lt 1){throw "Cutscene Link animation `$${index}: missing native frames."}
+    Add-LinkIntroSpriteRows "link-cutscene-$($index.ToString('x2'))" @($frames|ForEach-Object {$_.Duration.ToString('x2')}) @($frames|ForEach-Object {$_.PointerOffset.ToString('x2')}) $true
     $creditsLoops.Add("$($index.ToString('x2'))`t$($definition.LoopStart)`tdata/ages/specialObjectAnimationData.s:$($creditsLinkPointers[$index])")
 }
-Write-GeneratedTable((Join-Path $destination 'cutscenes/credits_link_loops.tsv'),$creditsLoops)
+Write-GeneratedTable((Join-Path $destination 'cutscenes/link_cutscene_loops.tsv'),$creditsLoops)
 $harpDurations = @($harpFrames | Select-Object -First 13 |
     ForEach-Object Duration)
 $harpGraphics = @($harpFrames | Select-Object -First 13 |
@@ -422,8 +402,8 @@ function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
 }
 Add-SparkleIntroSpriteRows 'orb-descend' 0x0d
 Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
-if ($introSpriteRows.Count -ne 106) {
-    throw "Expected 105 shared Link/intro/credits sprite frames, exported $($introSpriteRows.Count - 1)."
+if ($introSpriteRows.Count -ne 101) {
+    throw "Expected 100 shared Link/intro/cutscene sprite frames, exported $($introSpriteRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),

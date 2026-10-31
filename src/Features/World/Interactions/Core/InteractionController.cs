@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace Oracles;
 
-public sealed class InteractionController
+public sealed class InteractionController : IDisposable
 {
     private string AssetRoot => _rooms.AssetRoot;
 
@@ -23,22 +23,15 @@ public sealed class InteractionController
     private readonly InventoryState _inventory;
     private readonly Action<int> _playSound;
     private readonly Func<bool> _gashaCountersCaughtUp;
-    private readonly BipinBlossomFamilyStateResolver _familyState;
-    private readonly NpcInteractionScriptController _npcScripts;
+    private readonly INpcInteractionScripts? _npcScripts;
+    private readonly Func<bool> _priorGroundCollection, _priorTextActive;
+    private readonly Func<bool> _groundCollection, _textActive;
+    private bool _disposed;
     private readonly NpcInteractionRouter _npcInteractionRouter;
-    private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
     private double _chestSetupTicks;
-    private GroundTreasurePickup? _groundTreasure;
-    private Player? _groundTreasurePlayer;
-    private bool _groundTreasureCompletesHeartContainer;
-    private bool _groundTreasureShowingHeartContainer;
     private ChestRecord _pendingChest;
-    private FamilyNamingState _familyNamingState;
-    private string _pendingChildName = string.Empty;
-    private float _familyLinkScreenY;
-    private double _familyWaitTicks;
     private NpcInteractionTarget? _activeNpcTalkTarget;
     private bool _activeNpcDialoguePending;
     private GashaState _gashaState;
@@ -47,29 +40,14 @@ public sealed class InteractionController
     private bool _gashaCompletesHeartContainer;
     private bool _gashaShowingHeartContainer;
 
-    public bool DialogueOpen => _dialogue.BlocksPlayerInput ||
+    public bool DialogueOpen => !_disposed && (_dialogue.BlocksPlayerInput ||
         _chestTreasure is not null ||
-        _groundTreasure is not null ||
+        GroundTreasures.Active is not null ||
         _gashaState != GashaState.None ||
-        _npcScripts.BlocksGameplay ||
-        _familyNamingState != FamilyNamingState.None ||
-        _kidNameEntry.Active;
-    public bool GameplayMenuActive => _kidNameEntry.Active;
-    internal bool FreezesNonInteractionObjects => _npcScripts.BlocksGameplay;
+        _npcScripts?.BlocksGameplay == true);
     internal bool ChestRewardActive => _chestTreasure is not null;
     internal ChestTreasureEffect? ChestReward => _chestTreasure;
-    internal GroundTreasurePickup? GroundTreasureForValidation => _groundTreasure;
-    internal GroundTreasurePickup? PastBipinTreasureForValidation =>
-        _npcScripts.PastBipinTreasure;
-    internal GroundTreasurePickup? PostmanTreasureForValidation =>
-        _npcScripts.PostmanTreasure;
-    internal NpcInteractionScriptController NpcScriptsForValidation =>
-        _npcScripts;
-    internal void SetFaroreSecretMenuOpener(Func<Action<int?>, bool> opener) =>
-        _npcScripts.OpenFaroreSecretMenu = opener;
-    internal void SetSecretListOpener(Func<bool> opener) => _npcScripts.OpenSecretList = opener;
-    internal void BindFaroreTransitions(AgesRoomTransitionController transitions) => _npcScripts.FaroreTransitions = transitions;
-    internal void AdvanceFarorePaletteBeforeObjects() => _npcScripts.AdvanceFarorePaletteBeforeObjects();
+    internal GroundTreasureController GroundTreasures { get; }
 
     internal InteractionController(
         RoomSession rooms,
@@ -83,15 +61,14 @@ public sealed class InteractionController
         Func<Vector2, Vector2> worldToScreen,
         Func<long> animationTick,
         InventoryState inventory,
-        Node interfaceLayer,
+        INpcInteractionScripts? npcScripts,
+        GroundTreasureController groundTreasures,
         Action<int>? playSound = null,
         Func<bool>? gashaCountersCaughtUp = null,
-        IReadOnlyList<NpcInteractionHandler>? roomInteractionHandlers = null,
-        Func<bool>? rupeeDisplayUpdated = null)
+        IReadOnlyList<NpcInteractionHandler>? roomInteractionHandlers = null)
     {
         _rooms = rooms;
         _entities = entities;
-        _familyState = entities.FamilyStateResolver;
         _signs = signs;
         _chests = chests;
         _treasures = treasures;
@@ -102,26 +79,11 @@ public sealed class InteractionController
         _worldToScreen = worldToScreen;
         _animationTick = animationTick;
         _inventory = inventory;
+        GroundTreasures = groundTreasures;
         _playSound = playSound ?? (static _ => { });
         _gashaCountersCaughtUp = gashaCountersCaughtUp ?? (static () => true);
-        _kidNameEntry = new KidNameEntryController(AssetRoot, interfaceLayer, playSound);
-        _npcScripts = new NpcInteractionScriptController(
-            rooms,
-            entities,
-            dialogue,
-            treasures,
-            _familyState,
-            inventory,
-            rupeeDisplayUpdated ?? (static () => throw new InvalidOperationException(
-                "oldManScript_takesRupees requires the status bar rupee counter.")),
-            () => _roomView.QueueRedraw());
-        var interactionHandlers = new List<NpcInteractionHandler>
-        {
-            NpcInteractionHandler.ForNpc(
-                "blossom.s:MENU_KIDNAME",
-                (target, player) =>
-                    TryStartFamilyNaming(target.Npc, player))
-        };
+        _npcScripts = npcScripts;
+        var interactionHandlers = new List<NpcInteractionHandler>();
         if (roomInteractionHandlers is not null)
         {
             foreach (NpcInteractionHandler handler in roomInteractionHandlers)
@@ -130,8 +92,9 @@ public sealed class InteractionController
                     interactionHandlers.Add(handler);
             }
         }
-        foreach (NpcInteractionHandler handler in _npcScripts.Handlers)
-            interactionHandlers.Add(handler);
+        if (_npcScripts is not null)
+            foreach (NpcInteractionHandler handler in _npcScripts.Handlers)
+                interactionHandlers.Add(handler);
         interactionHandlers.Add(NpcInteractionHandler.ForNpc(
             "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
             TryStartOrdinaryNpcInteraction));
@@ -145,13 +108,10 @@ public sealed class InteractionController
         }
         _npcInteractionRouter = new NpcInteractionRouter(
             interactionHandlers);
-        _dialogue.SetHeartPieceCountProvider(() => _inventory.HeartPieces);
         _dialogue.HeartPieceSetFilled += OnHeartPieceSetFilled;
         _dialogue.HeartPieceSetAccepted += OnHeartPieceSetAccepted;
         _rooms.RoomChanged += OnRoomChanged;
         _entities.GroundTreasureCollected += OnGroundTreasureCollected;
-        _entities.GroundTreasureDialogueRequested +=
-            OnGroundTreasureDialogueRequested;
         _entities.GashaInteractionRequested += OnGashaInteractionRequested;
         _entities.GashaNutCaught += OnGashaNutCaught;
         _entities.MapleDialogueRequested += OnMapleDialogueRequested;
@@ -160,49 +120,37 @@ public sealed class InteractionController
         _entities.MapleItemCollected += OnMapleItemCollected;
         _entities.SeedTreeMessageRequested += OnSeedTreeMessageRequested;
         _entities.OwlStatueMessageRequested += OnOwlStatueMessageRequested;
-        _entities.GroundTreasureCollectionAllowed = () => !DialogueOpen;
+        _priorGroundCollection = _entities.GroundTreasureCollectionAllowed;
+        _groundCollection = () => !DialogueOpen;
+        _entities.GroundTreasureCollectionAllowed = _groundCollection;
         // wTextIsActive is narrower than this controller's aggregate
         // DialogueOpen gameplay lease: held rewards and naming/menu states do
         // not select the original reduced object dispatcher by themselves.
-        _entities.TextActiveSource = () => _dialogue.IsOpen ||
+        _priorTextActive = _entities.TextActiveSource;
+        _textActive = () => _dialogue.IsOpen ||
             _entities.RuntimeState.ReadField("wTextIsActive") != 0;
-        ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
+        _entities.TextActiveSource = _textActive;
     }
 
     public void Update(double delta, Player player)
     {
+        if (_disposed) return;
         if (_activeNpcTalkTarget is not null && !_activeNpcDialoguePending && !_dialogue.IsOpen)
         {
             _activeNpcTalkTarget.End();
             _activeNpcTalkTarget = null;
         }
-        _kidNameEntry.Update();
-        UpdateFamilyNaming(delta);
-        _npcScripts.Update(delta);
+        _npcScripts?.Update(delta);
         UpdateGasha();
 
-        if (_groundTreasure is not null)
-        {
-            if (_dialogue.IsOpen || !_groundTreasure.Held)
-                return;
-            if (_groundTreasureCompletesHeartContainer &&
-                !_groundTreasureShowingHeartContainer)
-                return;
-            _groundTreasure.Finish(_groundTreasurePlayer!);
-            // treasure.s:@setLinkAnimationAndDeleteIfTextClosed clears only
-            // DISABLE_LINK; an enclosing script can retain the other bits.
-            if (_groundTreasure.Record.GrabMode is TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands)
-                _entities.RuntimeState.SetField("wDisabledObjects",
-                    (byte)(_entities.RuntimeState.ReadField("wDisabledObjects") & ~0x01));
-            _groundTreasure = null;
-            _groundTreasurePlayer = null;
-            _groundTreasureCompletesHeartContainer = false;
-            _groundTreasureShowingHeartContainer = false;
-        }
+        if (GroundTreasures.Active is not null) return;
 
         if (_chestTreasure is null)
             return;
 
+        // treasure.s spawnMode3 writes this on every visit, including text
+        // and deletion; state0's record-loading visit does not enter that mode.
+        if (_chestSetupTicks < 2) player.SetNativePushAnimationOverride(0x80);
         if (!_chestTreasure.Finished)
         {
             // INTERAC$60 state0 loads the record on the opening update;
@@ -266,10 +214,6 @@ public sealed class InteractionController
             _inventory.ResetCompletedHeartPieceSet();
             return;
         }
-        if (_groundTreasure is null || !_groundTreasureCompletesHeartContainer ||
-            _groundTreasureShowingHeartContainer)
-            return;
-        _inventory.ResetCompletedHeartPieceSet();
     }
 
     private void OnSeedTreeMessageRequested(
@@ -311,25 +255,20 @@ public sealed class InteractionController
             _gashaShowingHeartContainer = true;
             return;
         }
-        if (_groundTreasure is null || !_groundTreasureCompletesHeartContainer ||
-            _groundTreasureShowingHeartContainer)
-            return;
-        _inventory.GiveCompletedHeartContainer(
-            _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
-        _playSound(SoundId.SndFilledHeartContainer);
-        _dialogue.ShowGameplayMessage(
-            _groundTreasure.Record.CompletionMessage,
-            _worldToScreen(_groundTreasurePlayer!.Position).Y);
-        _groundTreasureShowingHeartContainer = true;
     }
 
     public bool TryInteract(Player player)
     {
+        if (_disposed) return false;
         NpcInteractionTarget? target =
             _entities.FindNpcInteractionTarget(player);
         // Native A-sensitive selection grants invincibility before the
         // selected object's later script runs, including shopkeepers.
-        if (target is not null) player.ApplyObjectInteractionGrace();
+        if (target is not null)
+        {
+            player.ApplyObjectInteractionGrace();
+            if (_entities.TryInteractNativeSpecialObject(target.Npc, player)) return true;
+        }
         if (_npcInteractionRouter.TryBegin(target, player))
             return true;
 
@@ -361,7 +300,7 @@ public sealed class InteractionController
     }
 
     public bool TrySecondaryInteract(Player player) =>
-        _npcInteractionRouter.TryBegin(target: null, player);
+        !_disposed && _npcInteractionRouter.TryBegin(target: null, player);
 
     private bool TryStartOrdinaryNpcInteraction(
         NpcInteractionTarget target,
@@ -395,100 +334,8 @@ public sealed class InteractionController
     internal void ShowRoomInteractionMessage(string message, Player player) =>
         _dialogue.ShowGameplayMessage(message, _worldToScreen(player.Position).Y);
 
-    private bool TryStartFamilyNaming(NpcCharacter npc, Player player)
-    {
-        if (npc.Record is not { Id: InteractionId.Blossom, SubId: 0x00 } ||
-            _rooms.SaveData.ChildNamed ||
-            _familyNamingState != FamilyNamingState.None)
-        {
-            return false;
-        }
-
-        npc.FaceToward(player.Position);
-        _familyLinkScreenY = _worldToScreen(player.Position).Y;
-        _dialogue.ShowGameplayMessage(npc.Message, _familyLinkScreenY);
-        _familyNamingState = FamilyNamingState.AwaitOpeningClose;
-        return true;
-    }
-
-    private void UpdateFamilyNaming(double delta)
-    {
-        switch (_familyNamingState)
-        {
-            case FamilyNamingState.None:
-                return;
-
-            case FamilyNamingState.AwaitOpeningClose:
-                if (_dialogue.IsOpen)
-                    return;
-                _kidNameEntry.Open(_rooms.SaveData.ChildName);
-                _familyNamingState = FamilyNamingState.NameEntry;
-                return;
-
-            case FamilyNamingState.NameEntry:
-                if (!_kidNameEntry.TryTakeResult(out string name))
-                    return;
-                if (string.IsNullOrEmpty(name))
-                {
-                    Dialogue invalid = _familyState.Text(0x440a, _rooms.SaveData);
-                    _dialogue.ShowGameplayMessage(invalid.Message, _familyLinkScreenY);
-                    _familyNamingState = FamilyNamingState.AwaitInvalidClose;
-                    return;
-                }
-                _pendingChildName = name;
-                Dialogue confirmation = _familyState.Text(
-                    0x4407, _rooms.SaveData, _pendingChildName);
-                _dialogue.ShowGameplayChoiceMessage(
-                    confirmation.Message, _familyLinkScreenY);
-                _familyNamingState = FamilyNamingState.AwaitConfirmation;
-                return;
-
-            case FamilyNamingState.AwaitConfirmation:
-                if (!_dialogue.TryTakeChoiceResult(out int choice))
-                    return;
-                if (choice != 0)
-                {
-                    _kidNameEntry.Open(_pendingChildName);
-                    _familyNamingState = FamilyNamingState.NameEntry;
-                    return;
-                }
-                _rooms.SaveData.NameChild(_pendingChildName);
-                _familyWaitTicks = 0.0;
-                _familyNamingState = FamilyNamingState.ThanksDelay;
-                return;
-
-            case FamilyNamingState.AwaitInvalidClose:
-                if (!_dialogue.IsOpen)
-                    _familyNamingState = FamilyNamingState.None;
-                return;
-
-            case FamilyNamingState.ThanksDelay:
-                _familyWaitTicks += delta * 60.0;
-                if (_familyWaitTicks < 30.0)
-                    return;
-                Dialogue thanks = _familyState.Text(0x4408, _rooms.SaveData);
-                _dialogue.ShowGameplayMessage(thanks.Message, _familyLinkScreenY);
-                _familyNamingState = FamilyNamingState.AwaitThanksClose;
-                return;
-
-            case FamilyNamingState.AwaitThanksClose:
-                if (!_dialogue.IsOpen)
-                    _familyNamingState = FamilyNamingState.None;
-                return;
-        }
-    }
-
-    internal bool FamilyNamingActive =>
-        _familyNamingState != FamilyNamingState.None || _kidNameEntry.Active;
     internal IReadOnlyList<string> NpcInteractionHandlerSources =>
         _npcInteractionRouter.Sources;
-    internal MainMenuScreen? KidNameScreenForValidation =>
-        _kidNameEntry.ScreenForValidation;
-    internal void CommitKidNameForValidation(string name) =>
-        _kidNameEntry.CommitForValidation(name);
-    internal void UpdateFamilyNamingForValidation(double delta) =>
-        UpdateFamilyNaming(delta);
-
     public void ResetChestForTesting(int group, int roomId, int position) =>
         ResetChestForTesting(group, roomId, position, null);
 
@@ -511,7 +358,8 @@ public sealed class InteractionController
                 0,
                 treasure.Message);
         }
-        OracleRoomData room = _rooms.World.LoadRoom(group, roomId);
+        OracleRoomData room = _rooms.ActiveGroup == group && _rooms.CurrentRoom.Id == roomId
+            ? _rooms.CurrentRoom : _rooms.GetRoom(group, roomId);
         Vector2 point = PointForPackedPosition(position);
         byte current = room.GetMetatile(point);
         if (current != 0xf1)
@@ -532,9 +380,22 @@ public sealed class InteractionController
 
         OracleRoomData room = _rooms.CurrentRoom;
         int position = room.GetPackedPosition(tilePoint);
+        var runtime = _entities.RuntimeState;
+        bool inShop = runtime.ReadField("wInShop") != 0;
+        int scriptedChest = runtime.ReadField("wcca1");
+        if (inShop && scriptedChest == 0 && runtime.ReadField("wcca2") != 0)
+            return true;
+        if (!room.ReplaceMetatile(tilePoint, ChestDatabase.ClosedTile, ChestDatabase.OpenedTile, _animationTick()))
+            return true;
+        runtime.SetField("wcca2", (byte)position);
+        _roomView.QueueRedraw();
+        _playSound(SoundId.SndOpenChest);
+        // Shop/minigame and script owners consume the opened tile and position;
+        // nextToChestTile returns before reading contents or granting a reward.
+        if (inShop || scriptedChest != 0) return true;
         if (!_debugChestOverrides.TryGetValue(MakeChestKey(_rooms.ActiveGroup, room.Id, position),
                 out ChestRecord chest) &&
-            !_chests.TryGet(_rooms.ActiveGroup, room.Id, position, out chest))
+            !_chests.TryGetRoomChest(_rooms.ActiveGroup, room.Id, out chest))
         {
             chest = _tileFallbacks.ChestNoMatch.At(
                 _rooms.ActiveGroup,
@@ -543,7 +404,6 @@ public sealed class InteractionController
         }
         // nextToChestTile reads the shared override before getChestData.
         // Its first byte is the treasure ID, rather than a little-endian word.
-        var runtime = _entities.RuntimeState;
         int overrideId = runtime.ReadField("wChestContentsOverride");
         if (overrideId != 0)
         {
@@ -553,17 +413,8 @@ public sealed class InteractionController
                 Graphic = reward.Graphic, Message = reward.Message,
                 Amount = reward.TreasureId == TreasureId.Rupees ? _treasures.RupeeValue(reward.Parameter) : 0 };
         }
-        if (!room.ReplaceMetatile(tilePoint, 0xf1, 0xf0, _animationTick()))
-            return true;
-
-        // nextToChestTile publishes the packed position before creating the
-        // reserved treasure. Native reward controllers consume this same byte.
-        runtime.SetField("wcca2", (byte)position);
-
         _rooms.SaveData.SetRoomFlag(
             _rooms.ActiveGroup, room.Id, OracleSaveData.RoomFlagItem);
-        _roomView.QueueRedraw();
-        _playSound(SoundId.SndOpenChest);
         runtime.SetField("wChestContentsOverride", 0);
         runtime.SetField("wChestContentsOverride", 0, 1);
         // Native NONE contents still open the tile/set ROOMFLAG_ITEM, but do
@@ -581,22 +432,6 @@ public sealed class InteractionController
         return true;
     }
 
-    private void ApplyOpenedChestState(int group, OracleRoomData room)
-    {
-        if (!_rooms.SaveData.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlagItem))
-            return;
-
-        foreach (ChestRecord chest in _chests.GetRoomRecords(group, room.Id))
-        {
-            // loadChestData places the opened chest at every imported chest
-            // position when ROOMFLAG_ITEM is set. Trigger-created chests such
-            // as room 4:08 start over a floor tile, so this cannot require a
-            // closed $f1 tile in the source layout.
-            room.SetPositionTileAndCollision(
-                PointForPackedPosition(chest.Position), 0xf0, null, _animationTick());
-        }
-    }
-
     private void OnGroundTreasureCollected(
         GroundTreasurePickup treasure,
         Player player)
@@ -606,44 +441,10 @@ public sealed class InteractionController
         {
             return;
         }
-        if (_groundTreasure is not null || _chestTreasure is not null)
+        if (_chestTreasure is not null)
             throw new InvalidOperationException(
                 "A ground treasure was collected while another reward was active.");
 
-        TreasureObjectRecord treasureObject =
-            _treasures.GetObject(treasure.Record.TreasureObject);
-        _groundTreasureCompletesHeartContainer =
-            treasureObject.TreasureId == TreasureId.HeartPiece && _inventory.HeartPieces == 4;
-        _groundTreasureShowingHeartContainer = false;
-        _groundTreasure = treasure;
-        _groundTreasurePlayer = player;
-    }
-
-    private void OnGroundTreasureDialogueRequested(
-        GroundTreasurePickup treasure,
-        TreasureObjectRecord treasureObject,
-        Player player)
-    {
-        if (treasure.Record.TextboxFlags != 0)
-        {
-            _dialogue.ShowGameplayMessageWithFlags(
-                treasureObject.Message,
-                _worldToScreen(player.Position).Y,
-                treasure.Record.TextboxFlags,
-                treasure.Record.TextboxPosition);
-            return;
-        }
-        if (treasure.Record.TextboxPosition.HasValue)
-        {
-            _dialogue.ShowGameplayMessage(
-                treasureObject.Message,
-                _worldToScreen(player.Position).Y,
-                treasure.Record.TextboxPosition.Value);
-            return;
-        }
-        _dialogue.ShowGameplayMessage(
-            treasureObject.Message,
-            _worldToScreen(player.Position).Y);
     }
 
     private void OnRoomChanged(int group, OracleRoomData room)
@@ -651,18 +452,7 @@ public sealed class InteractionController
         _activeNpcTalkTarget?.Cancel();
         _activeNpcTalkTarget = null;
         _activeNpcDialoguePending = false;
-        _kidNameEntry.Cancel();
-        _familyNamingState = FamilyNamingState.None;
-        _pendingChildName = string.Empty;
-        _familyWaitTicks = 0.0;
-        if (_groundTreasure is not null && _groundTreasurePlayer is not null)
-            _groundTreasure.Finish(_groundTreasurePlayer);
-        _groundTreasure = null;
-        _groundTreasurePlayer = null;
-        _groundTreasureCompletesHeartContainer = false;
-        _groundTreasureShowingHeartContainer = false;
         ResetGashaInteraction();
-        ApplyOpenedChestState(group, room);
     }
 
     private void OnMapleDialogueRequested(
@@ -828,6 +618,32 @@ public sealed class InteractionController
 
     private static int MakeChestKey(int group, int room, int position) =>
         (group << 16) | (room << 8) | position;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _dialogue.HeartPieceSetFilled -= OnHeartPieceSetFilled;
+        _dialogue.HeartPieceSetAccepted -= OnHeartPieceSetAccepted;
+        _rooms.RoomChanged -= OnRoomChanged;
+        _entities.GroundTreasureCollected -= OnGroundTreasureCollected;
+        _entities.GashaInteractionRequested -= OnGashaInteractionRequested;
+        _entities.GashaNutCaught -= OnGashaNutCaught;
+        _entities.MapleDialogueRequested -= OnMapleDialogueRequested;
+        _entities.RoomEntityDialogueRequested -= OnRoomEntityDialogueRequested;
+        _entities.MapleItemCollected -= OnMapleItemCollected;
+        _entities.SeedTreeMessageRequested -= OnSeedTreeMessageRequested;
+        _entities.OwlStatueMessageRequested -= OnOwlStatueMessageRequested;
+        if (ReferenceEquals(_entities.GroundTreasureCollectionAllowed,_groundCollection))
+            _entities.GroundTreasureCollectionAllowed = _priorGroundCollection;
+        if (ReferenceEquals(_entities.TextActiveSource,_textActive)) _entities.TextActiveSource = _priorTextActive;
+        // Retirement discards presentation without executing gameplay completion
+        // or cancellation writes against state retained by a replacement session.
+        _activeNpcTalkTarget = null; _activeNpcDialoguePending = false;
+        ResetGashaInteraction();
+        if (GodotObject.IsInstanceValid(_chestTreasure)) _chestTreasure!.Free();
+        _chestTreasure = null;
+    }
 }
 
 internal enum GashaState
@@ -839,15 +655,4 @@ internal enum GashaState
     AwaitRewardClose,
     AwaitDisplayedCounters,
     AwaitDisappearance
-}
-
-internal enum FamilyNamingState
-{
-    None,
-    AwaitOpeningClose,
-    NameEntry,
-    AwaitConfirmation,
-    AwaitInvalidClose,
-    ThanksDelay,
-    AwaitThanksClose
 }

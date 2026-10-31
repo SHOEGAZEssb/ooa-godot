@@ -37,6 +37,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     private int _zFixed;
     private int _bugsAlive;
     private bool _initialized;
+    private Action _initializeBossRoom = null!;
     private bool _introActive = true;
     private bool _spawnFailed;
     private bool _dying;
@@ -73,7 +74,8 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         Action restoreRoomMusic,
         Action<int, string, Vector2> showDialogue,
         Func<bool> dialogueOpen,
-        string introMessage)
+        string introMessage,
+        Action initializeBossRoom)
     {
         AssetRoot = record.AssetRoot;
         Record = record;
@@ -87,6 +89,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         _showDialogue = showDialogue;
         _dialogueOpen = dialogueOpen;
         _introMessage = introMessage;
+        _initializeBossRoom = initializeBossRoom;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
@@ -99,9 +102,10 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     {
         if (_initialized)
             return;
+        _random.Next(); // enemyStandardUpdate's state-zero initialization.
         _initialized = true;
+        _initializeBossRoom();
         _angle = ObjectAngle.Left;
-        _playSound(SoundId.SndCtrlStopMusic);
         Visible = false;
         QueueRedraw();
     }

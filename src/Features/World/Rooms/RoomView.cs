@@ -159,7 +159,7 @@ public partial class RoomView : Node2D
         _roomLoadRevealLoadedColumns = Mathf.Clamp(
             loadedColumns,
             0,
-            AgesRoomTransitionController.RoomLoadRevealColumnUpdates);
+            RoomTransitionController.RoomLoadRevealColumnUpdates);
         QueueRedraw();
     }
 
@@ -170,7 +170,7 @@ public partial class RoomView : Node2D
         _roomLoadRevealLoadedColumns = Mathf.Clamp(
             loadedColumns,
             0,
-            AgesRoomTransitionController.RoomLoadRevealColumnUpdates);
+            RoomTransitionController.RoomLoadRevealColumnUpdates);
         QueueRedraw();
     }
 
@@ -233,7 +233,7 @@ public partial class RoomView : Node2D
     {
         DrawTextureRect(clearedTilemap, new Rect2(Vector2.Zero, texture.GetSize()), tile: true);
         (int left, int right) =
-            AgesRoomTransitionController.RoomLoadRevealBounds(
+            RoomTransitionController.RoomLoadRevealBounds(
                 _roomLoadRevealLoadedColumns);
         if (right <= left)
             return;

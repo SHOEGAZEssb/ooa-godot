@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             exterior.GetMetatile(exteriorDoor) != 0xdf ||
-            !warps.TryGetTileWarp(0, exterior, 0x32, 0xdf, out Warp entry) ||
+            !TryGetResolvedTileWarp(warps,0, exterior, 0x32, 0xdf, out Warp entry) ||
             entry is not
             {
                 SourcePosition: -1, EdgeMask: 0, SourceTransition: WarpSourceTransition.Instant,
@@ -32,9 +32,8 @@ public sealed partial class ValidationRoot
                 DestinationPosition: 0xff, DestinationParameter: 9,
                 DestinationTransition: WarpDestinationTransition.EnterScreen
             } ||
-            !warps.TryGetEdgeWarp(
-                3, 0xfb, Vector2I.Down, new Vector2(0x50, interior.Height + 2),
-                new Vector2(interior.Width, interior.Height), out Warp exit) ||
+            !TryGetResolvedEdgeWarp(warps,
+                3, 0xfb, Vector2I.Down, new Vector2(0x50, interior.Height + 2), out Warp exit) ||
             exit is not
             {
                 SourcePosition: -1, EdgeMask: 4, SourceTransition: WarpSourceTransition.LeaveScreen,
@@ -146,12 +145,12 @@ public sealed partial class ValidationRoot
             !IsTransitioning ||
             _player.Position != new Vector2(0x50, interior.Height),
             "Room 0:45's $df waterfall did not begin the source transition-4 entry into 3:fb.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         FailIf(
             !IsTransitioning ||
-            _player.Position != new Vector2(0x50, interior.Height - AgesRoomTransitionController.WarpEnterFrames),
+            _player.Position != new Vector2(0x50, interior.Height - RoomTransitionController.WarpEnterFrames),
             "Room 3:fb entry did not complete its 28-update upward walk.");
-        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpFadeInFrames - AgesRoomTransitionController.WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeInFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, "Room 3:fb entry fade did not finish on update 33.");
 
         NpcCharacter liveTroy = _entities.Entities<NpcCharacter>().Single(npc =>
@@ -195,11 +194,11 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || _activeGroup != 3 || _currentRoom.Id != 0xfb,
             "Room 3:fb's left-half bottom edge did not begin source transition 3.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != 0 || _currentRoom.Id != 0x45 || !IsTransitioning,
             "Room 3:fb did not load exterior 0:45 after its 16-update exit walk.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeInFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
         FailIf(
             IsTransitioning ||
             _player.Position != new Vector2(0x28, 0x58) ||

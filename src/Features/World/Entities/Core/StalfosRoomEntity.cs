@@ -23,8 +23,7 @@ internal sealed class StalfosRoomEntity
                 stalfos.TakeSwordHit,
                 damage => stalfos.TakeSwordHit(Vector2.Zero, damage),
                 stalfos.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback), collisionZ: () => stalfos.ZFixed >> 8)
+                soundRequested), collisionZ: () => stalfos.ZFixed >> 8)
     { _canSpawnPart = canSpawnPart ?? (static () => true); }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

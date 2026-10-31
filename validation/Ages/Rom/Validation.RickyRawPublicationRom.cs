@@ -42,6 +42,8 @@ public sealed partial class ValidationRoot
                 probes=0;Seed();
             });
             Seed();Step(4);
+            // Native counter1 remains authoritative across category/dialogue admission holds.
+            _runtimeState.SetWramByte(0xd106,2);rom[0xd106]=2;
             _dialogue.ShowGameplayMessage("Ricky cliff hold.",100);rom[0xcba0]=1;Step(3);_dialogue.Close();rom[0xcba0]=0;
             _runtimeState.SetWramByte(0xcc8a,0x20);rom[0xcc8a]=0x20;Step(3);
             _runtimeState.SetWramByte(0xcc8a,0);rom[0xcc8a]=0;

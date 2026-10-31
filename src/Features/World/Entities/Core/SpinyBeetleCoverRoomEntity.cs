@@ -24,9 +24,8 @@ internal sealed class SpinyBeetleCoverRoomEntity : CombatEnemyRoomEntityAdapter<
                 (_, _) => { }), false, 0,
             completedOutcome: () => RoomEnemyOutcome.SilentDeletion(decrementsRoomCount: false),
             soundRequested: sound,
-            source: new EnemyCombatSourceDescriptor(0x58, actor.Parent.Record.SubId,
-                0x80 | (actor.Rock ? EnemyCollisionMode.Rock : EnemyCollisionMode.Bush), 2, 0,
-                EnemyHandlerKind.None, "object_code/common/enemies/bushOrRock.s:enemyCode58")),
+            source: new EnemyCombatSourceDescriptor(actor.AssetRoot,0x58, actor.Parent.Record.SubId,
+                0x80 | (actor.Rock ? EnemyCollisionMode.Rock : EnemyCollisionMode.Bush), 2, 0, "object_code/common/enemies/bushOrRock.s:enemyCode58")),
             collisionZ: () => actor.ZHigh) { _freePart = freePart; }
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

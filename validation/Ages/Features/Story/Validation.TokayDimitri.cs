@@ -97,7 +97,7 @@ public sealed partial class ValidationRoot
     {
         _saveData.WriteWramByte(AgesWramAddress.wDimitriState,0);_inventory.GiveTreasure(TreasureId.Essence,2);
         _saveData.SetRoomFlag(0,0xba,0x40);LoadValidationRoom(0,0xba);
-        _player.WarpTo(new(24,4));_player.UpdatePushingState(Vector2.Up);CheckRoomExit(_player);
+        _player.WarpTo(new(24,4));UpdatePushingStateForValidation(_player,Vector2.Up);CheckRoomExit(_player);
         FailIf(!_transitions.ScrollActive||_rooms.CurrentRoom.Id!=0xaa,"Post-D3 room0:$ba must scroll north into0:$aa.");
         for(int i=0;i<90&&_transitions.ScrollActive;i++)
         {
@@ -116,12 +116,12 @@ public sealed partial class ValidationRoot
         FailIf(!_dialogue.IsOpen||_dialogue.Position.Y!=24||!_dialogue.CurrentMessage.Contains("Red fish"),"Second Tokay must present top TX_0a1e on wait30 zero.");
         _dialogue.Close();
         for(int i=0;i<4&&!_dialogue.IsOpen;i++)StepGameplayUpdates(1,Vector2.Zero);
-        var dimitri=_entities.Entities<DimitriCompanionRoomEntity>().Single();
+        var dimitri=_entities.EntityAdapters<AgesDimitriScriptedCompanionRoomEntity>().Single();
         // text.yaml: TX_2100 begins with explicit \\pos(2), unlike the
         // preceding Tokay messages which choose their position from Link Y.
-        FailIf(!_dialogue.IsOpen||_dialogue.Position.Y!=96||dimitri.Position!=new Vector2(48,72)||dimitri.AnimationIndex!=0x24||
-            _dialogue.CurrentMessage!=DialogueBox.PlainText(new DimitriDatabase(AgesGameContent.AssetRoot).Text(0x2100)),
-            $"The separate $71:$07 slot must observe var3e bit1 and present Dimitri's TX_2100: open{_dialogue.IsOpen}, pos{_dialogue.Position}, fish{dimitri.Position}/anim{dimitri.AnimationIndex:x2}, signal{CompanionRuntimeState.ReadScriptSignals(_runtimeState):x2}, text={_dialogue.CurrentMessage}.");
+        FailIf(!_dialogue.IsOpen||_dialogue.Position.Y!=96||dimitri.Npc.Position!=new Vector2(48,72)||_runtimeState.ReadWramByte(0xd130)!=0x24||
+            _dialogue.CurrentMessage!=DialogueBox.PlainText(new AgesDimitriStoryDatabase().Text(0x2100)),
+            $"The separate $71:$07 slot must observe var3e bit1 and present Dimitri's TX_2100: open{_dialogue.IsOpen}, pos{_dialogue.Position}, fish{dimitri.Npc.Position}/anim{_runtimeState.ReadWramByte(0xd130):x2}, signal{CompanionRuntimeState.ReadScriptSignals(_runtimeState):x2}, text={_dialogue.CurrentMessage}.");
         _dialogue.Close();StepGameplayUpdates(1,Vector2.Zero);
         FailIf((_saveData.ReadWramByte(AgesWramAddress.wDimitriState)&1)==0,"Companion script must remember its completed introduction.");
     }
@@ -170,25 +170,28 @@ public sealed partial class ValidationRoot
         _saveData.WriteWramByte(AgesWramAddress.wDimitriState, 3);
         LoadValidationRoom(0, 0xaa);
         StepGameplayUpdates(4, Vector2.Zero);
-        var dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
+        var pendingDimitri = _entities.EntityAdapters<AgesDimitriScriptedCompanionRoomEntity>().Single();
         var database = new DimitriDatabase(AgesGameContent.AssetRoot);
-        FailIf(database.Animations.Length != 40 || !database.CanSwallow(0x10) ||
+        var story = new AgesDimitriStoryDatabase();
+        FailIf(database.Visual.Animations.Length != 40 || !database.CanSwallow(0x10) ||
             database.CanSwallow(0x13), "Dimitri source animations or mouth collision modes are incorrect.");
-        _player.WarpTo(dimitri.Position + new Vector2(0, 16));
-        _player.Face(Vector2I.Up);
+        _player.WarpTo(pendingDimitri.Npc.Position + new Vector2(-24, 0));
+        FailIf(_collision.Collides(_player.Position), "Dimitri's A-sensitive approach must start on actual floor.");
+        StepGameplayUpdates(16, Vector2.Right, held: ["move_right"]);
+        _player.Face(Vector2I.Right);
         StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
         for (int frame = 0; frame < 4 && !_dialogue.IsOpen; frame++) StepGameplayUpdates(1, Vector2.Zero);
         FailIf(!_dialogue.IsOpen ||
-            _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x2101)),
+            _dialogue.CurrentMessage != DialogueBox.PlainText(story.Text(0x2101)),
             "Rescued Dimitri did not offer his first-meeting TX_2101 through $71:$07.");
         _dialogue.Close();
         for (int frame = 0; frame < 180 && !_dialogue.IsOpen; frame++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
-            StepRoomEventFrames(1);
+            StepGameplayUpdates(1, Vector2.Zero);
         }
+        var dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
         FailIf(!_dialogue.IsOpen || !dimitri.LinkRiding || !_player.CompanionRideActive ||
-            _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x2106)) ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(story.Text(0x2106)) ||
             (_saveData.ReadWramByte(AgesWramAddress.wDimitriState) & 0x20) != 0,
             $"Dimitri rescue failed its mount/tutorial gate: {dimitri.Phase}, Link={_player.Position}.");
         _dialogue.Close();
@@ -237,6 +240,7 @@ public sealed partial class ValidationRoot
             _runtimeState, SpecialObjectId.Dimitri, 0, 0xaa, out _), "Dimitri land dismount lost the remembered companion.");
         Vector2 rememberedPosition = dimitri.Position;
         LoadValidationRoom(0, 0xaa);
+        StepGameplayUpdates(2, Vector2.Zero);
         dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
         FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.Position != rememberedPosition,
             "Dimitri preset did not preserve the remembered companion after wDimitriState bit $20.");
@@ -254,20 +258,19 @@ public sealed partial class ValidationRoot
                 Enumerable.Range((int)point.X - 5, mainland.Width - (int)point.X + 5).All(x =>
                     !mainland.IsSolid(new Vector2(x, point.Y - 5)) &&
                     !mainland.IsSolid(new Vector2(x, point.Y + 8))));
-        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, SpecialObjectId.Dimitri, 0x98, landing, ObjectDirection.Right);
+        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, SpecialObjectId.Dimitri, landing, ObjectDirection.Right);
         LoadValidationRoom(0, 0x98);
         dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
         for (int frame = 0; frame < 180 && !_dialogue.IsOpen; frame++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
-            StepRoomEventFrames(1);
+            StepGameplayUpdates(1, Vector2.Zero);
         }
-        FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x2104)) ||
+        FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != DialogueBox.PlainText(story.Text(0x2104)) ||
             _player.CompanionRideActive || CompanionRuntimeState.ReadRemembered(_runtimeState).Id != 0,
             $"Mainland $71:$06 failed to dismount/forget Dimitri before TX_2104: {dimitri.Phase}.");
         _dialogue.Close();
         for (int frame = 0; frame < 240 && _entities.Entities<DimitriCompanionRoomEntity>().Any(); frame++)
-            StepRoomEventFrames(1);
+            StepGameplayUpdates(1, Vector2.Zero);
         FailIf(_entities.Entities<DimitriCompanionRoomEntity>().Any(),
             $"Dimitri's mainland departure did not finish walking offscreen: {dimitri.Phase}, {dimitri.Position}, landing={landing}.");
         GD.Print("Validated Dimitri source visuals, rescue mount/tutorial, eating item, land dismount, and preset re-entry predicates.");

@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             var world=new EyesoarEnvironment(_currentRoom,resources.Eyesoar,resources.DungeonBosses,
                 resources.DungeonVisuals.Visual("eyesoar-spawn"),_random,()=>false,()=>_entities.PartSlotAvailable,
                 _entities.CanAllocateEnemies,()=>_entities.InteractionSlotAvailable,_sound.PlaySound,
-                _entities.DisableLinkCollisionsAndMenu,_entities.EnableLinkCollisionsAndMenu,new BossEntryMovement(Vector2I.Zero));
+                _entities.DisableLinkCollisionsAndMenu,_entities.EnableLinkCollisionsAndMenu,_entities.InitializeBossRoom);
             var actor=new EyesoarActor();actor.Initialize(resources.DungeonBosses.Enemy(0x7b,1),world,new(80,80));
             var adapter=new EyesoarRoomEntity(actor);
             var before=new PartMovementScratchProbe(()=>
@@ -58,6 +58,7 @@ public sealed partial class ValidationRoot
             StartTarget();Step(2);
             _dialogue.ShowMessage("Eyesoar body hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;
             _runtimeState.SetWramByte(0xcc8a,4);native[0xcc8a]=4;Step(3);_runtimeState.SetWramByte(0xcc8a,0);native[0xcc8a]=0;
+            StageDeferredNativeObjectPassCaller();
             _runtimeState.SetWramByte(0xcd00,4);native[0xcd00]=4;Step(3);_runtimeState.SetWramByte(0xcd00,0);native[0xcd00]=0;
             int remaining=100;while(actor.State==11&&remaining-->0)Step(1);
             FailIf(actor.State!=10,"Eyesoar body must complete its source-selected target movement before waiting.");Step(2);

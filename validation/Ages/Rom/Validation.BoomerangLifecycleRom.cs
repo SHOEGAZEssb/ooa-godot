@@ -66,9 +66,9 @@ public sealed partial class ValidationRoot
             RaftRoomEntity? raftEntity = null;
             if (raft)
             {
-                raftEntity = new RaftRoomEntity(new RaftSpawn(new(80, 56), 0, 1, 0xa7),
-                    _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState);
-                _entities.AddEntity(raftEntity);
+                _entities.AddEntity(new RaftInteractionRoomEntity(new RaftInteractionSpawn(new(80, 56), 1, 0xa7, SubId: 1),
+                    _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState, _entities));
+                _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
             }
             Vector2I[] cartDirections = [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];
             MinecartRoomEntity? cart = null;
@@ -79,11 +79,11 @@ public sealed partial class ValidationRoot
                 _currentRoom.SetPositionTileAndCollision(center, track, 0, 0);
                 _currentRoom.SetPositionTileAndCollision(center + (Vector2)cartDirections[cartDirection] * 16, track, 0, 0);
                 _currentRoom.SetPositionTileAndCollision(center - (Vector2)cartDirections[cartDirection] * 16, 0x5f, 0, 0);
-                MinecartRuntimeState.Reset(_runtimeState, []);
-                MinecartRuntimeState.BeginRide(_runtimeState, 0, 0x00, center, cartDirection);
+                ResetMinecartsForValidation(_runtimeState, []);
+                MinecartValidationView.PrepareMountedBody(_runtimeState, center, cartDirection);
                 cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, cartDirection, true),
-                    _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
-                    new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
+                    _currentRoom, _runtimeState,
+                    new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound, _entities);
                 _entities.AddEntity(cart);
             }
             Vector2 linkPosition = minecart ? new(88.25f, 72.5f) : raft ? new(80.25f, 40.5f) :
@@ -110,6 +110,7 @@ public sealed partial class ValidationRoot
                     rom[0xd10b] = 72; rom[0xd10d] = 88;
                 }
                 rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
+                if (minecart) MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
             }
             var sounds = _sound.AttachPlayRequestAudit();
             int button = primary ? 1 : 2;
@@ -124,6 +125,7 @@ public sealed partial class ValidationRoot
                 {
                     rom.UpdateGameplay(edge, held | directions, inputAngle, _entities.FrameCounter - (raft || minecart ? 1 : 0)); edge = 0;
                     string context = $"Boomerang terrain={terrain} A={primary} ring=${ring:x2} angle=${angle:x2} jumpUpdates={jumpUpdates} raft={raft} cart={minecart}/{cartDirection} update={++update}";
+                    CompareParentAnimationPublicationRom(_player, address => rom[address], context);
                     FailIf(_player.NativeItemUseActive != (rom[0xcc5f] != 0),context + ": wLinkUsingItem1 must follow the live animation parent through return and repeat use.");
                     int[] nativeItems = Enumerable.Range(0xd7, 5).Select(page => page << 8)
                         .Where(slot => rom[slot] != 0 && rom[slot + 1] == 6).ToArray();
@@ -169,8 +171,9 @@ public sealed partial class ValidationRoot
                             context + ": shared RNG differs.");
                         FailIf(raft && (_player.RaftRideActive != (rom[0xcc2c] == 0xd1) ||
                             _player.TopDownSwimming || _player.IsDrowning), context + ": raft ownership/swimming differs.");
+                        raftEntity = _entities.Entities<RaftRoomEntity>().SingleOrDefault();
                         if (raftEntity is not null && _player.RaftRideActive)
-                            FailIf(Private<Vector2>(raftEntity, "_precisePosition") != new Vector2(rom.Word(0xd10c) / 256f, rom.Word(0xd10a) / 256f),
+                            FailIf(raftEntity.PrecisePosition != new Vector2(rom.Word(0xd10c) / 256f, rom.Word(0xd10a) / 256f),
                                 context + ": full fixed raft position differs.");
                         FailIf(minecart && (_player.MinecartRideActive != (rom[0xcc2c] == 0xd1) ||
                             _player.MinecartJumpActive != ((rom[0xcc5c] & 0x80) != 0)),
@@ -186,7 +189,7 @@ public sealed partial class ValidationRoot
                 // Five ordinary native ITEM_BOMB $03 children fill the actual
                 // dynamic pool. Failed throws must clear both movement bits
                 // and the start signal, then require another button edge.
-                var bombs = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+                var bombs = new BombDatabase(AgesGameContent.AssetRoot).Data;
                 for (int index = 0; index < 5; index++)
                 {
                     _entities.Spawn<BombEffect>(new BombSpawn(_player, bombs, 0, _ => { }));

@@ -36,8 +36,8 @@ internal sealed class FamilyNpcScriptDatabase
 
         _scripts = CutsceneCommandCatalog.LoadPrograms(
             AssetRoot + "cutscenes/family_npc_scripts.tsv");
-        if (_scripts.Count != 33)
-            throw new InvalidOperationException($"Expected 33 household scripts, got {_scripts.Count}.");
+        if (_scripts.Count != 34)
+            throw new InvalidOperationException($"Expected 34 household scripts, got {_scripts.Count}.");
 
         GeneratedTable actorScripts = GeneratedTable.Load(
             AssetRoot + "cutscenes/family_actor_scripts.tsv",
@@ -61,7 +61,7 @@ internal sealed class FamilyNpcScriptDatabase
 
     internal bool HasScript(NpcRecord record) => ScriptName(record) switch
     {
-        "blossomScript0" or "childScript00" => false,
+        "childScript00" => false,
         _ => true
     };
 

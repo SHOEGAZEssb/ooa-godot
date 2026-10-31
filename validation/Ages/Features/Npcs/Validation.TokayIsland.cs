@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
                 defaultVinePosition).GetImage());
         ulong logicalTile00Hash = OracleGraphicsCache.PixelHash(
             _rooms.CurrentRoom.BuildMimickedMetatileTexture(0x00).GetImage());
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         VineSproutRoomEntity vine =
             _entities.Entities<VineSproutRoomEntity>().Single();
         Vector2 sourcePosition = vine.Position;
@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
         }
 
         BeginCliffJump(sourcePosition + Vector2.Right * 7.0f, -0x1c0, 0x20);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<VineSproutRoomEntity>().Count != 1 ||
             _rooms.CurrentRoom.GetMetatile(sourcePosition) != originalVineTile ||
@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
             "Link overlap window.");
 
         _player.WarpTo(sourcePosition + Vector2.Right * 7.0f, recordSafe: false);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _rooms.CurrentRoom.GetMetatile(sourcePosition) != 0x00 ||
             _rooms.CurrentRoom.GetTerrainInfo(sourcePosition).Collision != 0x0f,
@@ -103,7 +103,7 @@ public sealed partial class ValidationRoot
             "restored overlap window.");
 
         BeginCliffJump(sourcePosition, -0x400, 0);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _player.LedgeZ != -4 ||
             _entities.Entities<VineSproutRoomEntity>().Count != 1 ||
@@ -112,13 +112,13 @@ public sealed partial class ValidationRoot
             "signed Z -3 through -1 cliff-landing window.");
 
         _player.WarpTo(sourcePosition + Vector2.Right * 7.0f, recordSafe: false);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         _saveData.WriteWramByte(
             VineSproutDatabase.PositionAddress + vineRecord.SubId,
             0x25);
         _sound.ClearPlayRequestAudit();
         BeginCliffJump(sourcePosition, -0x1c0, 0x20);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         RockDebrisEffect cliffDebris =
             _entities.Entities<RockDebrisEffect>().SingleOrDefault()!;
         FailIf(
@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
             "wVinePositions+$02 to default packed position $16.");
 
         LoadValidationRoom(1, 0xba);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         vine = _entities.Entities<VineSproutRoomEntity>().Single();
         sourcePosition = vine.Position;
 
@@ -161,7 +161,7 @@ public sealed partial class ValidationRoot
         }
         _player.WarpTo(resolvedLinkPosition, recordSafe: false);
         _player.Face(pushDirection);
-        _player.UpdatePushingState(pushDirection);
+        UpdatePushingStateForValidation(_player,pushDirection);
         FailIf(
             !_player.IsPushing,
             "ENEMY_VINE_SPROUT entity collision stopped Link before its `$0f " +
@@ -203,7 +203,7 @@ public sealed partial class ValidationRoot
             "updates.");
 
         LoadValidationRoom(1, 0xba);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<VineSproutRoomEntity>().Single().Position != destination,
             "Room 1:ba did not reload ENEMY_VINE_SPROUT from wVinePositions.");
@@ -214,19 +214,19 @@ public sealed partial class ValidationRoot
         Vector2 socketLinkPosition = slot.Position + Vector2.Down * 11.0f;
         _player.WarpTo(socketLinkPosition, recordSafe: false);
         _player.Face(Vector2I.Up);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(slot.PushCounter != 9,
             "Tokay Eyeball socket must decrement to nine even after a failed-push reset.");
         for (int update = 0; update < 8; update++)
         {
             slot.UpdatePushAttempt(socketLinkPosition, Vector2I.Up, Vector2I.Up);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             slot.State != TokayEyeballSlotState.Waiting || slot.PushCounter != 1,
             "Tokay Eyeball socket lost the reset-then-decrement boundary.");
         slot.UpdatePushAttempt(socketLinkPosition, Vector2I.Up, Vector2I.Up);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             slot.State != TokayEyeballSlotState.EyeWait || slot.Counter != 0 ||
             !_saveData.HasRoomFlag(1, 0xba, OracleSaveData.RoomFlag80) ||
@@ -234,17 +234,17 @@ public sealed partial class ValidationRoot
             !_entities.PlayerMovementDisabled || !_entities.PlayerMenusDisabled,
             "Tokay Eyeball insertion must publish `$80 and lock input before the yielding spawn/cue/wait commands.");
         for (int update = 0; update < 3; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(slot.Counter != 60 || _entities.Entities<TokayEntranceEyeRoomEntity>().Count != 2,
             "Socket spawn, cue and wait60 must occupy three subsequent source updates.");
         for (int update = 0; update < 61; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             slot.State != TokayEyeballSlotState.ShakeWait ||
             slot.Counter != 0 || _entities.ScreenShakeCounter != 0 || _entities.HorizontalScreenShakeCounter != 159,
             "Tokay Eyeball insertion must yield between opening cue, horizontal shake160 and wait120.");
         for (int update = 0; update < 122; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             slot.State != TokayEyeballSlotState.OpenWait || slot.Counter != 60 ||
             _rooms.CurrentRoom.GetMetatile(new Vector2(0x48, 0x58)) != 0xa2 ||
@@ -252,11 +252,11 @@ public sealed partial class ValidationRoot
             _rooms.CurrentRoom.GetMetatile(new Vector2(0x68, 0x58)) != 0xa4,
             "pirate_openEyeballCave did not write `$a2/`$ef/`$a4 after wait 120.");
         for (int update = 0; update < 60; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(!_inventory.HasTreasure(TreasureId.TokayEyeball) || !_entities.PlayerMovementDisabled,
             "The final wait must yield through solve cue and resetmusic before treasure consumption/control release.");
         for (int update = 0; update < 2; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _inventory.HasTreasure(TreasureId.TokayEyeball) ||
             _entities.Entities<TokayEyeballSlotRoomEntity>().Count != 0 ||
@@ -265,7 +265,7 @@ public sealed partial class ValidationRoot
             "the socket's input/menu restriction after the final wait 60.");
 
         LoadValidationRoom(1, 0xba);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<TokayEntranceEyeRoomEntity>().Count != 2 ||
             _entities.Entities<TokayEyeballSlotRoomEntity>().Count != 0 ||

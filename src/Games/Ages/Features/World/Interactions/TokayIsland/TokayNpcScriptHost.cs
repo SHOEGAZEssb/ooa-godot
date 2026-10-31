@@ -11,7 +11,6 @@ internal sealed class TokayNpcScriptHost : NpcInteractionCommandHost
     private readonly TokayInteractionDatabase _data;
     private readonly InventoryState _inventory;
     private readonly int _returnedItems;
-    private bool _ownsInput;
     private GroundTreasurePickup? _reward;
     private int _shopItemMatch;
     private Vector2 _precisePosition;
@@ -138,7 +137,7 @@ internal sealed class TokayNpcScriptHost : NpcInteractionCommandHost
     public override void ScriptEnded()
     {
         if(ScriptActor.Record.SubId is not (0x0b or 0x0f or 0x10))throw UnsupportedCommand("end this Tokay script");
-        _ownsInput=false;
+        RelinquishInputControl();
         _slot.DeleteActor();
     }
     public override void WriteObjectByte(string actor, int address, int value)
@@ -156,13 +155,6 @@ internal sealed class TokayNpcScriptHost : NpcInteractionCommandHost
         if (ScriptActor is TokayHoldingItemCharacter holder) holder.RemoveHeldItem();
         else if (((TokayCharacter)ScriptActor).Accessory is { } accessory) accessory.Retired=true;
     }
-    public override void SetInputEnabled(bool enabled)
-    {
-        NativeScriptInputControl.SetEnabled(Entities.RuntimeState, ScriptPlayer, enabled);
-        _ownsInput=!enabled;
-        if (enabled) base.SetInputEnabled(true);
-    }
-    public override void SetDisabledObjects(int value)=>Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,checked((byte)value));
     private int TakeChoice()=>Dialogue.TryTakeChoiceResult(out int choice)?choice:throw UnsupportedCommand("read a missing hungry Tokay text choice");
     public override void RunNativeHandler(string handler)
     {
@@ -270,7 +262,6 @@ internal sealed class TokayNpcScriptHost : NpcInteractionCommandHost
     }
     protected override void ResetHostState()
     {
-        if (_ownsInput) SetInputEnabled(true);
         _reward?.Finish(ScriptPlayer);
         _reward=null;
     }

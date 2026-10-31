@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
             F1Set(drop, "_state", MapleDroppedItemState.MapleRising); F1Set(drop, "_zFixed", -0x500); F1Set(drop, "_speedZ", -0x40);
             F1Set(drop, "_angle", 8); drop.Visible = true;
             F1Set(maple, "_targetItem", drop); F1Set(maple, "_targetItemIndex", 13);
-            var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 1, _ => { }));
+            var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot).Data, 1, _ => { }));
             F1Set(bomb, "_setupPending", false); F1Set(bomb, "_state", BombState.MaplePulling);
             F1Set(bomb, "_precisePosition", new Vector2(80, 72)); bomb.Position = new(80, 72); F1Set(bomb, "_zFixed", bombZ);
             native[0xd104] = 7; native[0xd128] = 1; native[0xd10b] = 72; native[0xd10d] = 80; native.Word(0xd10e, -0x1800);

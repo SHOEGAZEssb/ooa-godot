@@ -74,7 +74,8 @@ public sealed partial class ValidationRoot
             ApproachLibraryActor(npc, batched,
                 counterpartReachable: () => _entities.FindTalkTarget(_player) == npc);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-            FailIf(!_dialogue.ChoiceActive || !_player.CutsceneControlled ||
+            FailIf(!_dialogue.ChoiceActive || _player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 !PlainWords(_dialogue.CurrentMessage).Contains("Want to hear the rest?", StringComparison.Ordinal),
                 "Room 1:90 Deku Scrub $d6:$00 was unreachable or did not show TX_4d23.");
             int animationCounter = npc.CurrentAnimationCounter;
@@ -83,7 +84,8 @@ public sealed partial class ValidationRoot
                 afterUpdate: () => animatedDuringText |=
                     npc.CurrentAnimationCounter != animationCounter);
             FailIf(!animatedDuringText || !_dialogue.ChoiceActive ||
-                !_player.CutsceneControlled,
+                _player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80,
                 "Room 1:90 Deku Scrub $d6:$00 lost its always-update animation while TX_4d23 was open.");
             _dialogue.SubmitChoiceForValidation(1);
             StepGameplayUpdates(20, Vector2.Zero, batched: batched);
@@ -128,7 +130,8 @@ public sealed partial class ValidationRoot
                 "Room 1:90 Deku Scrub $d6:$00 Yes did not show TX_4d27.");
             _dialogue.Close();
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x57),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x57),
                 "Room 1:90 Deku Scrub $d6:$00 did not release Link or retain flag $57.");
             ApproachLibraryActor(npc, batched,
                 counterpartReachable: () => _entities.FindTalkTarget(_player) == npc);
@@ -138,7 +141,8 @@ public sealed partial class ValidationRoot
                 "Room 1:90 Deku Scrub $d6:$00 second A press did not repeat TX_4d23.");
             LoadValidationRoom(1, 0x91);
             _dialogue.Close();
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x57),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x57),
                 "Room 1:90 Deku Scrub $d6:$00 cancellation retained input or cleared flag $57.");
         }
         GD.Print("Validated room 1:90 Deku Scrub $d6:$00 linked admission, native $20 animation boundary, collision approach, TX_4d23-TX_4d27, secret $27, repeat, cancellation and split/batched updates.");

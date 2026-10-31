@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
             if (kind < 2)
             {
                 var source = new RoomObjectRecord(0, 0x33, 0, RoomObjectKind.FixedEnemy, id, 0, 2, 1, 72, 80, 0x45, 0);
-                actor = new RoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms)
+                actor = new AgesRoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms)
                     .CreateOrderedEnemy(database.EnemyHandlers.ResolveHandler(source), source, _currentRoom,
                         initial, 0, 0, EnemyPlacementContext.Unrestricted)
                     ?? throw new InvalidOperationException($"Missing movement-memory ENEMY ${id:x2}.");

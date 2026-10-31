@@ -18,6 +18,7 @@ public sealed class RoomCollision
     private readonly Func<OracleRoomData> _room;
     private readonly Func<Vector2, bool, bool> _blocksLink;
     private readonly OracleRuntimeState _memory;
+    internal OracleRuntimeState RuntimeState => _memory;
     private readonly bool _normalizeCornerWalls;
     private readonly Func<Vector2, bool> _hasNeighborFor;
 
@@ -25,12 +26,12 @@ public sealed class RoomCollision
         RoomSession rooms,
         RoomEntityManager entities,
         PushBlockController pushBlocks,
-        Func<Vector2, bool> hasNeighborFor)
+        Func<Vector2, bool> hasNeighborFor,bool normalizeCornerWalls = true)
         : this(() => rooms.CurrentRoom,
             (position, beforeInteractions) => beforeInteractions
                 ? entities.BlocksLink(position, beforeInteractions: true)
                 : entities.BlocksLink(position) || pushBlocks.BlocksLink(position),
-            entities.RuntimeState, hasNeighborFor, normalizeCornerWalls: true) { }
+            entities.RuntimeState, hasNeighborFor, normalizeCornerWalls) { }
 
     internal RoomCollision(Func<OracleRoomData> room,
         Func<Vector2, bool, bool> blocksLink, OracleRuntimeState memory,
@@ -61,15 +62,10 @@ public sealed class RoomCollision
         return _blocksLink(playerPosition, false);
     }
 
-    internal void UpdateLinkOnChest(Vector2 position, bool airborne)
+    internal void UpdateLinkOnChest()
     {
         OracleRoomData room = _room();
         OracleRuntimeState state = _memory;
-        // commonCode.s:linkApplyTileTypes retains the active tile while airborne.
-        // @linkGetActiveTileType samples byte-wrapped Y+$05, X before movement.
-        if (!airborne)
-            UpdateActiveLinkTile(position);
-
         // bank0.s:checkAndUpdateLinkOnChest. This is a shared collision-buffer
         // write, not a Link-only exception. Restore the current tile's collision
         // on departure, even if another writer replaced the chest meanwhile.
@@ -88,14 +84,42 @@ public sealed class RoomCollision
         }
     }
 
-    internal void UpdateActiveLinkTile(Vector2 position)
+    internal byte UpdateActiveLinkTile(Vector2 position, bool airborne)
     {
         OracleRoomData room = _room();
         OracleRuntimeState state = _memory;
+        byte previousPosition = state.ReadField("wActiveTilePos");
+        state.SetField("wIsTileSlippery",0);
+        if (airborne)
+        {
+            state.SetField("wActiveTileType",0);
+            state.SetField("wStandingOnTileCounter",0);
+            return previousPosition;
+        }
         Vector2 feet = new(unchecked((byte)Mathf.FloorToInt(position.X)),
             unchecked((byte)(Mathf.FloorToInt(position.Y)+5)));
-        state.SetField("wActiveTilePos",(byte)room.GetPackedPosition(feet));
-        state.SetField("wActiveTileIndex",room.GetMetatile(feet));
+        byte packed = (byte)room.GetPackedPosition(feet), tile = room.ReadNativeLayoutByte(packed,state);
+        int count = packed == previousPosition && tile == state.ReadField("wActiveTileIndex")
+            ? state.ReadField("wStandingOnTileCounter") : 0;
+        state.SetField("wActiveTilePos",packed);
+        state.SetField("wActiveTileIndex",tile);
+        state.SetField("wStandingOnTileCounter",unchecked((byte)(count + 1)));
+        state.SetField("wLastActiveTileType",state.ReadField("wActiveTileType"));
+        state.SetField("wActiveTileType",TilePropertyDatabase.For(room.AssetRoot).NativeTileType(room.ActiveCollisions,tile));
+        return previousPosition;
+    }
+
+    internal void UpdateSideScrollActiveTile(Vector2 position)
+    {
+        OracleRoomData room = _room();
+        var types = TilePropertyDatabase.For(room.AssetRoot);
+        Vector2 current = new(unchecked((byte)Mathf.FloorToInt(position.X)),unchecked((byte)Mathf.FloorToInt(position.Y)));
+        byte active = room.ReadNativeLayoutByte((byte)room.GetPackedPosition(current),_memory);
+        current.Y = unchecked((byte)((int)current.Y + 8));
+        _memory.SetField("wActiveTileIndex",active);
+        _memory.SetField("wActiveTileType",types.NativeTileType(room.ActiveCollisions,active));
+        _memory.SetField("wLastActiveTileType",types.NativeTileType(room.ActiveCollisions,
+            room.ReadNativeLayoutByte((byte)room.GetPackedPosition(current),_memory)));
     }
 
     public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide)
@@ -149,8 +173,8 @@ public sealed class RoomCollision
         return resolved;
     }
 
-    public bool IsPushingAgainstWall(
-        Vector2 playerPosition,
+    internal static bool IsPushingAgainstWall(
+        int walls,
         Vector2I facing,
         Vector2 movementInput)
     {
@@ -165,7 +189,6 @@ public sealed class RoomCollision
             : facing == Vector2I.Right ? 0x03
             : facing == Vector2I.Down ? 0x30
             : 0x0c;
-        int walls = CalculateAdjacentWallsBitset(playerPosition);
         return (walls & requiredWalls) == requiredWalls;
     }
 

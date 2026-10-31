@@ -7,7 +7,7 @@ namespace Oracles;
 
 /// <summary>
 /// Typed Link, parent-item presentation, sword geometry, and sword-tile data
-/// imported from the supported Ages disassembly. Gameplay state machines
+/// imported from the selected clean-US disassembly. Gameplay state machines
 /// remain in their owning controllers.
 /// </summary>
 internal sealed class LinkItemDatabase
@@ -37,6 +37,12 @@ internal sealed class LinkItemDatabase
     private readonly byte[] _parentAnimationFlags = new byte[32];
 
     internal LinkItemConstants Constants { get; }
+    internal ObjectSpriteFrame[] GaleFrames { get; }
+    internal ObjectSpriteFrame[] FallFrames { get; }
+    internal bool FallReadsLandingTile { get; }
+    internal int FallTrampolineTile { get; }
+    internal int FallTrampolineGroupMask { get; }
+    internal int FallTrampolineGroupValue { get; }
     internal IReadOnlyList<SwordArc> SwordArcs => _swordArcs;
     internal IReadOnlyList<ClinkTileRecord> ClinkRows { get; private set; } = [];
 
@@ -58,6 +64,13 @@ internal sealed class LinkItemDatabase
         }
         LoadOffsets(assetRoot + "metadata/link_item_offsets.tsv");
         LoadGraphics(assetRoot + "metadata/link_item_graphics.tsv");
+        GaleFrames = LoadLinkFrames(assetRoot + "metadata/link_gale_animation.tsv",8,1);
+        FallFrames = LoadLinkFrames(assetRoot + "metadata/link_fall_animation.tsv",3,4);
+        var landing = GeneratedTable.Load(assetRoot + "metadata/link_fall_landing.tsv",
+            new("native fall landing",GeneratedTableKeySemantics.Ordered,
+                ["reads-tile","trampoline-tile","group-mask","group-value","source"],headerRequired:true)).SingleRow();
+        FallReadsLandingTile = landing.Boolean01(0);
+        FallTrampolineTile = landing.HexByte(1); FallTrampolineGroupMask = landing.HexByte(2); FallTrampolineGroupValue = landing.HexByte(3);
         LoadSwordPresentation(assetRoot + "metadata/sword_presentation.tsv");
         LoadClinkTiles(assetRoot + "metadata/sword_clink_tiles.tsv");
         ValidateCanonicalShape();
@@ -75,13 +88,17 @@ internal sealed class LinkItemDatabase
         {
             throw new ArgumentOutOfRangeException(
                 nameof(direction),
-                $"No imported Link graphic for {kind}/{variant}/{phase}/{direction}.");
+                $"{AssetRoot}metadata/link_item_graphics.tsv: no native Link graphic for {kind}/{variant}/{phase}/{direction}.");
         }
         return record;
     }
 
     internal bool ParentAnimationSignalsItemUse(int itemId) =>
         itemId is >= 0 and < 32 && (_parentAnimationFlags[itemId] & 0x80) != 0;
+
+    internal int ParentAnimationPriority(int itemId) => itemId is >= 0 and < 32
+        ? (_parentAnimationFlags[itemId] >> 4) & 7
+        : throw new ArgumentOutOfRangeException(nameof(itemId));
 
     internal Vector2 AttackPoseOffset(int direction) =>
         Directional(_attackPoseOffsets, direction);
@@ -275,7 +292,7 @@ internal sealed class LinkItemDatabase
                 ["kind", "variant", "phase", "direction"],
                 headerRequired: true));
         List<(string Kind, int Variant, int Phase, int Direction)> expected =
-            ExpectedGraphicKeys();
+            ExpectedGraphicKeys(OracleAssetPack.GameFor(AssetRoot));
         if (table.Rows.Count != expected.Count)
         {
             throw new InvalidOperationException(
@@ -305,6 +322,32 @@ internal sealed class LinkItemDatabase
                 row.RequiredString(8));
             _graphics.Add(key, record);
         }
+    }
+
+    private static ObjectSpriteFrame[] LoadLinkFrames(string path, int count, int graphicStep)
+    {
+        var table = GeneratedTable.Load(path,
+            new GeneratedTableSchema("native Link animation", GeneratedTableKeySemantics.Unique,
+                ["index", "duration", "graphics-index", "source-offset", "oam", "source"], ["index"], headerRequired: true));
+        if (table.Rows.Count != count) throw new InvalidOperationException($"{path}: expected {count} native Link frames.");
+        var frames = new ObjectSpriteFrame[count];
+        int firstGraphic = table.Rows[0].HexByte(2);
+        for (int index = 0; index < frames.Length; index++)
+        {
+            var row = table.Rows[index];
+            if (row.UnsignedDecimal(0) != index || row.UnsignedDecimal(1) != 4 || row.HexByte(2) != firstGraphic + index * graphicStep)
+                throw row.Invalid(0, "ordered native Link frame graphics/durations");
+            var parts = row.RequiredString(4).Split(';').Select(value =>
+            {
+                string[] fields = value.Split(',');
+                if (fields.Length != 4 || !int.TryParse(fields[0], out int y) || !int.TryParse(fields[1], out int x) ||
+                    !int.TryParse(fields[2], out int tile) || !int.TryParse(fields[3], out int flags))
+                    throw row.Invalid(4, "native y,x,source-tile,flags cells");
+                return new ObjectSpritePart(y,x,tile,flags);
+            }).ToArray();
+            frames[index] = new(row.UnsignedDecimal(1),row.HexWord(3),0,parts);
+        }
+        return frames;
     }
 
     private void LoadSwordPresentation(string path)
@@ -494,19 +537,21 @@ internal sealed class LinkItemDatabase
                 $"Invalid Link/item action boundaries imported from {Constants.Source}.");
         }
 
-        string[] expectedAliases =
-            ["overworld", "indoors", "indoors", "sidescrolling", "overworld", "indoors"];
-        if (!_clinkListIds.SequenceEqual(expectedAliases) ||
-            !_bombableClinkTiles[0].SequenceEqual(_bombableClinkTiles[4]) ||
-            !_silentClinkTiles[0].SequenceEqual(_silentClinkTiles[4]) ||
-            !_bombableClinkTiles[1].SequenceEqual(_bombableClinkTiles[2]) ||
-            !_bombableClinkTiles[1].SequenceEqual(_bombableClinkTiles[5]) ||
-            !_silentClinkTiles[1].SequenceEqual(_silentClinkTiles[2]) ||
-            !_silentClinkTiles[1].SequenceEqual(_silentClinkTiles[5]))
+        bool ages = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages;
+        string[] expectedAliases = ages
+            ? ["overworld", "indoors", "indoors", "sidescrolling", "overworld", "indoors"]
+            : ["overworld", "subrosia", "makutree", "indoors", "indoors", "sidescrolling"];
+        if (!_clinkListIds.SequenceEqual(expectedAliases))
         {
             throw new InvalidOperationException(
-                "Ages collision-mode aliases changed in sword_clink_tiles.tsv.");
+                $"{AssetRoot}: native collision-mode aliases changed in sword_clink_tiles.tsv.");
         }
+        for (int collision = 0; collision < 6; collision++)
+        for (int previous = 0; previous < collision; previous++)
+            if (_clinkListIds[collision] == _clinkListIds[previous] &&
+                (!_bombableClinkTiles[collision].SequenceEqual(_bombableClinkTiles[previous]) ||
+                 !_silentClinkTiles[collision].SequenceEqual(_silentClinkTiles[previous])))
+                throw new InvalidOperationException($"{AssetRoot}: aliased clink lists differ at collision set ${collision:x2}.");
     }
 
     private static GeneratedTableRow OrderedRow(
@@ -538,19 +583,22 @@ internal sealed class LinkItemDatabase
     }
 
     private static List<(string Kind, int Variant, int Phase, int Direction)>
-        ExpectedGraphicKeys()
+        ExpectedGraphicKeys(OracleGame game)
     {
         var result =
             new List<(string Kind, int Variant, int Phase, int Direction)>();
         for (int phase = 0; phase < 3; phase++)
         for (int direction = 0; direction < 4; direction++)
             result.Add(("attack", 0, phase, direction));
-        for (int variant = 0; variant < 3; variant++)
-        for (int angle = ObjectAngle.Up; angle < 8; angle++)
-            result.Add(("shooter", variant, 0, angle));
-        for (int phase = 0; phase < 3; phase++)
-        for (int direction = 0; direction < 4; direction++)
-            result.Add(("underwater-attack", 0, phase, direction));
+        if (game == OracleGame.Ages)
+        {
+            for (int variant = 0; variant < 3; variant++)
+            for (int angle = ObjectAngle.Up; angle < 8; angle++)
+                result.Add(("shooter", variant, 0, angle));
+            for (int phase = 0; phase < 3; phase++)
+            for (int direction = 0; direction < 4; direction++)
+                result.Add(("underwater-attack", 0, phase, direction));
+        }
         for (int phase = 0; phase < 4; phase++)
         for (int direction = 0; direction < 4; direction++)
             result.Add(("minecart-attack", 0, phase, direction));
@@ -567,6 +615,9 @@ internal sealed class LinkItemDatabase
         for (int phase = 0; phase < 2; phase++)
         for (int direction = 0; direction < 4; direction++)
             result.Add(("shield", variant, phase, direction));
+        if (game == OracleGame.Seasons)
+            for (int phase = 0; phase < 3; phase++)
+            for (int direction = 0; direction < 4; direction++) result.Add(("cape",0,phase,direction));
         return result;
     }
 

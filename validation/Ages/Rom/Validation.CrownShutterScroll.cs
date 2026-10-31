@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
             var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
-            _transitions.BeginScroll(_player,Vector2I.Right,target);
+            _transitions.BeginValidationScroll(_player,Vector2I.Right,target);
             var incoming = _entities.Entities<DungeonDoorRoomEntity>().Single();
             FailIf(incoming.SubId != 7 || incoming.PackedPosition != 0x50 || !incoming.EnteredThroughThisDoor ||
                 _entities.InteractionSlot(incoming) != 4 || SomariaPrivate<DoorState>(incoming,"_state") != DoorState.Initialize,
@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
             rom[0xd440] = 1; rom[0xd441] = 0x1e; rom[0xd442] = 7; rom[0xd44b] = 0x50;
             rom[0xd540] = 1; rom[0xd541] = 0xc7; rom[0xd542] = 8; rom[0xd54b] = 6; rom[0xd54d] = 0x10;
             var sounds = _sound.AttachPlayRequestAudit();
-            PuzzlePuffEffect? puff = null; int puffSlot = 0;
+            StationaryDebrisEffect? puff = null; int puffSlot = 0;
             void Step(int count = 1) => StepGameplayUpdates(count,Vector2.Zero,batched:batch,afterUpdate:() => {
                 bool frozen = scroll[0xcd04] != 2;
                 if (frozen)
@@ -106,7 +106,7 @@ public sealed partial class ValidationRoot
             int total = _transitions.ScrollTotalFrames; Step();
             FailIf(outgoing.Finished == initialized || initialized && SomariaPrivate<int>(outgoing,"_counter") != counter,
                 "First native scroll pass must delete outgoing state0 and hold an initialized shutter.");
-            puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+            puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
             puffSlot = 0xd000+_entities.InteractionSlot(puff)*256+0x40;
             var native = SomariaPrivate<FrontendRom>(rom,"_rom");
             int linkX = rom.Word(0xd00c),linkY = rom.Word(0xd00a);

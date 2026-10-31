@@ -9,7 +9,7 @@ internal sealed record SmogRoomEnvironment(
     Action<SmogEnemySpawn> SpawnEnemy, Func<Vector2,bool> CreatePuff, Func<bool> PartSlotAvailable,
     Action<int,int> WriteInteractionCounter, Action<int,int> SetTile,
     Action DisableLinkCollisionsAndMenu, Action RestoreRoomMusic,
-    Func<bool,int>? InitializeBossRoom = null, BossEntryMovement? Entry = null,
+    Func<bool,int>? InitializeBossRoom = null,
     Func<int>? FrameCounter = null,
     Action<Vector2, int>? WriteFailedProjectile = null);
 

@@ -60,6 +60,16 @@ public sealed partial class ValidationRoot
             Step();
             FailIf(_player.IsFloorDoorRespawning || !_player.Visible || !_player.NativeNormalStateForInteraction,
                 "An explicit warp must cancel the pending floor-door respawn.");
+            // linkState01 tests the palette before checkLinkForceState, but text/$81 after it.
+            _player.RequestForcedRespawn();_runtimeState.SetField("wPaletteThread_mode",1);
+            Step(3);
+            FailIf(_runtimeState.ReadField("wLinkForceState")!=2 || !_player.NativeNormalStateForInteraction || !_player.Visible,
+                "A palette hold must retain the native state02 request without initializing its presentation.");
+            _runtimeState.SetField("wPaletteThread_mode",0);
+            Step();
+            FailIf(_runtimeState.ReadField("wLinkForceState")!=0 || _player.NativeNormalStateForInteraction || !_player.Visible,
+                "Releasing the palette must consume the shared request on exactly the next eligible update.");
+            _player.WarpTo(new(136,136));Step();
         }
         foreach (bool batched in new[] { false, true })
         foreach (bool shield in new[] { false, true })
@@ -74,6 +84,9 @@ public sealed partial class ValidationRoot
             for (int repeat = 0; repeat < 2; repeat++)
             {
                 _player.WarpTo(new(136, 136));
+                // State02 publishes held keys$ff through its completion visit.
+                // Give the next normal visit a release before requesting a fresh A edge.
+                StepGameplayUpdates(1, Vector2.Zero, batched: batched);
                 StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
                 FailIf(shield ? !_player.IsUsingShield : !_player.IsAttacking,
                     "The respawn item fixture must create its parent through normal button input.");

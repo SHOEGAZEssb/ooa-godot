@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 namespace Oracles;
 
@@ -10,7 +9,6 @@ public partial class ValidationRoot
 {
     private void ValidateWallSquish()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var record = new CrownDungeonDatabase().GetRoomRecords(4,0x9b).Single(row => row.Kind == DungeonObjectKind.WallSquish);
         FailIf(record.Order != 3 || record.Id != 0xdc || record.SubId != 0x17,
             "Crown requires INTERAC $dc:$17 at main-stream order $03.");
@@ -81,7 +79,7 @@ public partial class ValidationRoot
                     "Detected squish must initialize local respawn on the next dispatch.");
                 FailIf(_currentRoom.GetMetatile(new(136,136)) != 0xa0,
                     "Instant respawn must execute source$05 tile break after copying local coordinates.");
-                FailIf((int)typeof(AgesRoomTransitionController).GetField("_deactivatedWarpPosition",flags)!.GetValue(_transitions)! != 0x88,
+                FailIf(_runtimeState.ReadField("wEnteredWarpPosition") != 0x88,
                     "Instant respawn must replace the old warp marker with local anchor$88 before its invisible wait.");
                 _currentRoom.SetPositionTileAndCollision(new(136,136),0x44,0,(long)_animationTicks);
                 FailIf(_entities.WarpTilesDisabled || _transitions.CheckTileWarp(_player) || IsTransitioning,

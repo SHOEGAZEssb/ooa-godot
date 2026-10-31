@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previousDirections; previousDirections = held;
                 StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1); edge = 0; update++;
+                    rom.UpdateGameplay(edge, held, angle, _saveData.ReadField("wPlaytimeCounter")); edge = 0; update++;
                     string context = $"Ledge {group:x1}:{roomId:x2} tile=${tile:x2} angle=${direction:x2} thickness={thickness} repeat={repeat} update={update} batch={batched}";
                     Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     int z = unchecked((short)rom.Word(0xd00e));

@@ -44,13 +44,13 @@ internal sealed class GoronTargetCartsController(GoronCaveScriptHost host)
     internal void SpawnCart()
     {
         if(!Context.Entities.InteractionSlotAvailable) return;
-        int slot=MinecartRuntimeState.FinishRide(Wram,Context.Rooms.CurrentRoom.Id,new(0x38,0x78));
-        Context.Entities.Spawn<MinecartRoomEntity>(new GoronMinecartSpawn(new(slot,Context.Rooms.CurrentRoom.Id,0x78,0x38,-1,false)));
+        Context.Entities.TryCreateInteractionEntity(new MinecartInteractionSpawn(new(0x38,0x78)));
     }
     internal void DeleteCart()
     {
         foreach(var cart in Context.Entities.Entities<MinecartRoomEntity>()) cart.DeleteForScript();
-        MinecartRuntimeState.Reset(Wram,[]);
+        foreach(var cart in Context.Entities.Entities<MinecartInteractionRoomEntity>()) cart.DeleteForScript();
+        StaticObjectState.Clear(Wram);
     }
     internal void Begin()
     {

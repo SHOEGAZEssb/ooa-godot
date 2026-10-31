@@ -9,7 +9,8 @@ namespace Oracles;
 // post pass. Graphics are resident; every called instruction is original.
 internal sealed class BombRom
 {
-    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom;
+    private readonly OracleGame _game;
     private readonly byte[] _memory = new byte[0x10000];
     private readonly byte[] _wram3 = new byte[0x1000];
     private byte[] _caller = [];
@@ -23,15 +24,17 @@ internal sealed class BombRom
         .Select(page => page * 256)
         .Where(slot => this[slot] != 0 && this[slot + 1] == 3).ToArray();
 
-    internal BombRom(int direction = 0, int ring = 0xff, int bombs = 0x10, int seed = 0x1234)
+    internal BombRom(int direction = 0, int ring = 0xff, int bombs = 0x10, int seed = 0x1234, OracleGame game = OracleGame.Ages)
     {
+        _game = game;
+        _rom = ValidationRom.LoadCleanUs(game);
         this[0xcc2c] = 0xd0;
         this[0xcc2b] = 0xff;
         this[0xc6cb] = (byte)ring;
         this[0xc6b0] = (byte)bombs;
         this[0xc6b1] = 0x10;
         this[0xc6aa] = this[0xc6ab] = 12;
-        this[0xcc08] = 0x78; // itemData: resident common item graphics.
+        this[0xcc08] = (byte)(game == OracleGame.Ages ? 0x78 : 0x5c); // Native itemData: resident common item graphics.
         this[0xcc09] = 1;
         this[0xffb5] = 0xa0;
         this[0xff94] = (byte)seed;
@@ -49,7 +52,24 @@ internal sealed class BombRom
             (pc, detail) => new InvalidDataException($"Bomb ROM ${_bank:x2}:${pc:x4}: {detail}."));
     }
 
-    internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
+    // Keep existing Ages fixture inputs stable; only the wrapper translates
+    // independently traced native fields. CPU reads/writes use actual addresses.
+    private int Address(int address) => _game == OracleGame.Ages ? address : address switch
+    {
+        0xc688 => 0xc680, 0xc689 => 0xc681, // Inventory B/A.
+        0xc6aa => 0xc6a2, 0xc6ab => 0xc6a3, // Link health/max.
+        0xc6b0 => 0xc6aa, 0xc6b1 => 0xc6ab, 0xc6cb => 0xc6c5, // Bombs/max, active ring.
+        0xcc08 => 0xcc07, 0xcc09 => 0xcc08, // Resident graphics slots.
+        0xcc29 => 0xcc45, 0xcc2a => 0xcc46, 0xcc2b => 0xcc47, // Keys/edge/angle.
+        0xcc2c => 0xcc48, 0xcc2d => 0xcc49, 0xcc2e => 0xcc4a, 0xcc30 => 0xcc4c, // Link/group/large/room.
+        0xcc33 => 0xcc4f, 0xcc34 => 0xcc50, // Collision set/tileset flags.
+        0xcc5a => 0xcc75, 0xcc61 => 0xcc7c, // Grab state/immobilized.
+        0xcc86 => 0xcca0, 0xcc87 => 0xcca1, // Room edges.
+        0xffae => 0xffac, 0xffaf => 0xffad, // Active object type/page.
+        0xffb5 => 0xffb3, // hMusicQueueTail.
+        _ => address
+    };
+    internal byte this[int address] { get => _memory[Address(address)]; set => _memory[Address(address)] = value; }
     internal int Word(int address) => this[address] | this[address + 1] << 8;
     internal byte Underlying(int offset) => _wram3[0xf00 + offset];
     internal void SetUnderlying(int offset, byte tile) => _wram3[0xf00 + offset] = tile;
@@ -81,6 +101,7 @@ internal sealed class BombRom
 
     internal void Call(int bank, int address)
     {
+        address = Entry(bank,address);
         _bank = bank;
         this[0xff97] = (byte)bank;
         // Native tile breaking selects WRAM3, so keep the execution stack
@@ -91,6 +112,7 @@ internal sealed class BombRom
 
     private void CallLinkMovement(int address)
     {
+        address = Entry(5,address);
         _bank = 5;
         this[0xff97] = 5;
         this[0xffae] = 0;
@@ -109,6 +131,17 @@ internal sealed class BombRom
         if (Allowed(address)) return _memory[address];
         throw new InvalidDataException($"Bomb ROM ${_bank:x2}:${_cpu.InstructionAddress:x4}: undeclared read ${address:x4}.");
     }
+
+    private int Entry(int bank, int address) => _game == OracleGame.Ages ? address : (bank,address) switch
+    {
+        (6,0x48b3) => 0x4865, // checkUseItems.
+        (7,0x4872) => 0x485a, // updateItems.
+        (6,0x54df) => 0x5429, // updateGrabbedObjectPosition.
+        (7,0x491a) => 0x4902, // updateItemsPost.
+        (5,0x5e62) => 0x5d53, // specialObjectUpdateAdjacentWallsBitset.
+        (5,0x5d9f) => 0x5c90, // specialObjectUpdatePositionGivenVelocity.
+        _ => throw new NotSupportedException($"Seasons Bomb ROM wrapper has no traced entry for bank ${bank:x2}:${address:x4}.")
+    };
 
     private void Write(int address, int value)
     {

@@ -22,8 +22,7 @@ internal sealed class ColorChangingGelRoomEntity
                 gel.TakeSwordHit,
                 gel.TakeBurnHit,
                 (_, _) => { },
-                soundRequested,
-                EnemySwordResponse.NoKnockback, acceptedHitSound: 0),
+                soundRequested, acceptedHitSound: 0),
             collisionZ: () => gel.ZHigh)
     { }
 

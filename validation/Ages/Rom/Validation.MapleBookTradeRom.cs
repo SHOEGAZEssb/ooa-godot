@@ -115,7 +115,7 @@ public sealed partial class ValidationRoot
             for (int address = 0xc5b0; address < 0xcb00; address++) native[address] = _saveData.ReadWramByte(address);
             if (lowerHole)
             {
-                var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(144, 104), SoundId.MusNone));
+                var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(144, 104), SoundId.MusNone));
                 int slot = 0xd040 + _entities.InteractionSlot(puff) * 256;
                 native[slot] = 1; native[slot + 1] = 5; native[slot + 2] = 0x80;
             }

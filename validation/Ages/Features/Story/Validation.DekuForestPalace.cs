@@ -146,7 +146,7 @@ public sealed partial class ValidationRoot
                 UpdateScrollingTransition(1.0 / 60.0);
                 Vector2 linkAfterTransitionUpdate = _player.PrecisePosition;
                 bool scrollStillActive = IsTransitioning;
-                _entities.Update(1.0 / 60.0, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
                 _roomEvents.Update(1.0 / 60.0);
                 _sound.Tick();
                 scrollingUpdates++;

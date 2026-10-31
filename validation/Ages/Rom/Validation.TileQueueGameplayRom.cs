@@ -79,16 +79,26 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x33); _entities.Clear();
             _player.WarpTo(new(155, 64));
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
+            int sourceUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
+                (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             var rom = new TileQueueRom(); rom.Reset(); rom.SeedRoom(_currentRoom);
             _rooms.TrySetTile(0x11, 0x1d); rom.SetTile(0x11, 0x1d);
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x34); _entities.Clear();
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x34); _entities.Clear();
+            int unique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
+                (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
+            var scroll = new ScrollRom(false, 1, (int)(_player.PrecisePosition.X * 256),
+                (int)(_player.PrecisePosition.Y * 256), unique, sourceUnique);
             rom.Clear(scrolling: true);
             FailIf(_rooms.PendingTileGraphics != rom.Count, "Scroll entry did not clear the source tile queue.");
             rom.SeedRoom(_currentRoom);
             for (int i = 0; i < 5; i++) { _rooms.TrySetTile(0x11, (byte)(0x20 + i)); rom.SetTile(0x11, (byte)(0x20 + i)); }
-            void Compare(bool frozen)
+            void Compare()
             {
-                rom.Drain(frozen ? (byte)8 : (byte)1);
+                // bank1.func_4000 precedes tilesets.updateChangedTileQueue;
+                // its final update releases the queue before destination AI.
+                if (scroll[0xcd04] != 2) scroll.Update();
+                rom.Drain(scroll[0xcd00]);
                 FailIf(_rooms.PendingTileGraphics != rom.Count, "Scroll update drained the changed-tile queue at the wrong phase.");
                 for (int q = 0; q < 4; q++)
                 {
@@ -98,9 +108,10 @@ public sealed partial class ValidationRoot
                         "Scroll freeze/release tile graphics differ from the ROM.");
                 }
             }
-            StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batched, afterUpdate: () => Compare(true));
-            FailIf(_transitions.ScrollActive || rom.Count != 5, "Final frozen scroll update must retain all five writes.");
-            StepGameplayUpdates(2, Vector2.Zero, batched: batched, afterUpdate: () => Compare(false));
+            StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batched, afterUpdate: Compare);
+            FailIf(_transitions.ScrollActive || scroll[0xcd04] != 2 || rom.Count != 1,
+                "The native scroll finisher releases four queued writes on its final update, after destination AI remained frozen.");
+            StepGameplayUpdates(2, Vector2.Zero, batched: batched, afterUpdate: Compare);
             FailIf(rom.Count != 0, "Post-scroll updates did not finish draining destination writes.");
         }
         GD.Print("Validated actual scroll-entry queue clearing, frozen destination graphics, final-update gating and post-scroll draining against native queue routines.");

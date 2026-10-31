@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
         void StepEntities(int count = 1)
         {
             for (int frame = 0; frame < count; frame++)
-                _entities.Update(update, _player);
+                _entities.AdvanceEntityFrames(update, _player);
         }
 
         var data = new SpiritsGraveDatabase();
@@ -185,7 +185,7 @@ public sealed partial class ValidationRoot
         foreach ((int room, int position, string treasure) in expectedChests)
         {
             FailIf(
-                !chests.TryGet(4, room, position, out ChestRecord chest) ||
+                !chests.TryGetRecord(4, room, position, out ChestRecord chest) ||
                 chest.TreasureObject != treasure,
                 $"Spirit's Grave chest 4:{room:x2}/${position:x2} is not {treasure}.");
         }
@@ -250,7 +250,7 @@ public sealed partial class ValidationRoot
             "A direct room 4:1d load did not restore solid layout shutter $79.");
         PrepareRoom(0x1e);
         _player.WarpTo(new Vector2(0x06, 0x58));
-        _transitions.BeginScroll(_player, Vector2I.Left, 0x1d);
+        _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x1d);
         FailIf(
             !_transitions.ScrollActive ||
             _currentRoom.Id != 0x1d ||
@@ -557,19 +557,22 @@ public sealed partial class ValidationRoot
         int keysBeforePickup = _inventory.GetDungeonSmallKeys(1);
         _sound.ClearPlayRequestAudit();
         _player.WarpTo(fallingKey.Position, recordSafe: false);
-        StepEntities();
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _inventory.GetDungeonSmallKeys(1) != keysBeforePickup + 1 ||
             _sound.PlayRequestsFor(SoundId.SndGetSeed) != 1 ||
             _sound.PlayRequestsFor(SoundId.SndGetItem) != 0,
             "Room 4:1e's touched key did not request its SND_GETSEED " +
             "collection behavior before the held-item sound.");
-        StepEntities();
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
-            !fallingKey.Held ||
-            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1,
-            "Room 4:1e's key did not enter its held pose with SND_GETITEM " +
-            "on the following interaction update.");
+            !fallingKey.Finished || fallingKey.Held ||
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1 ||
+            (_runtimeState.ReadField("wDisabledObjects") & 1) != 0 ||
+            _runtimeState.ReadField("wInstrumentsDisabledCounter") != 0x0f ||
+            _runtimeState.ReadField("wLinkForceState") != 4,
+            "Room $4:$1e's textless key must request state$04/play SND_GETITEM, " +
+            "then fall through to deletion and release bit0 on the same initializer visit.");
 
         _saveData.SetRoomFlag(4, 0x1b, OracleSaveData.RoomFlag80, false);
         PrepareRoom(0x1b);
@@ -603,7 +606,7 @@ public sealed partial class ValidationRoot
         _saveData.SetRoomFlag(4, 0x10, OracleSaveData.RoomFlagItem, false);
         _player.WarpTo(new Vector2(0xb8, 0x28), recordSafe: false);
         FailIf(
-            !warps.TryGetTileWarp(
+            !TryGetResolvedTileWarp(warps,
                 4, _currentRoom, 0x2b, 0x45, out Warp braceletStairs) ||
             braceletStairs is not
                 { DestinationGroup: 6, DestinationRoom: 0x10,
@@ -620,9 +623,8 @@ public sealed partial class ValidationRoot
             (_currentRoom.TilesetFlags & 0x20) == 0 ||
             _rooms.CurrentDungeonIndex != 1 ||
             _entities.Entities<DungeonRewardRoomEntity>().Count != 1 ||
-            !warps.TryGetEdgeWarp(
+            !TryGetResolvedEdgeWarp(warps,
                 6, 0x10, Vector2I.Up, new Vector2(0x28, 0),
-                new Vector2(_currentRoom.Width, _currentRoom.Height),
                 out Warp braceletReturn) ||
             braceletReturn is not
                 { DestinationGroup: 4, DestinationRoom: 0x1b,
@@ -671,15 +673,12 @@ public sealed partial class ValidationRoot
                 MaximumFallSpeed: 0x0300,
                 JumpSpeedZ: -0x0230,
                 WaterExitSpeedZ: -0x01a0,
-                RocsCapeSpeedZ: -0x0080,
                 NormalSpeed: 0x28,
                 PlatformPushSpeed: 0x14,
                 KnockbackSpeed: 0x32,
                 IceVelocityInterval: 0x06,
                 SwimSpeed: 0x14,
                 FastSwimSpeed: 0x23,
-                MermaidTargetSpeed: 0x2d,
-                FastMermaidTargetSpeed: 0x37,
                 GroundWallMask: 0x30,
                 CeilingWallMask: 0xc0,
                 LandingHighMask: 0xf8,
@@ -862,7 +861,7 @@ public sealed partial class ValidationRoot
             }
             _player.WarpTo(approachPosition);
             _player.Face(Vector2I.Up);
-            _player.UpdatePushingState(Vector2.Up);
+            UpdatePushingStateForValidation(_player,Vector2.Up);
             FailIf(
                 _player.Position != oldPosition + Vector2.Down * 10 ||
                 !_player.IsPushing,
@@ -886,7 +885,7 @@ public sealed partial class ValidationRoot
                 _currentRoom.GetTerrainInfo(cube.Position).Collision != 0x0f,
                 "Room 4:20 cube did not restore collision at its centered endpoint.");
         }
-        _player.UpdatePushingState(Vector2.Zero);
+        UpdatePushingStateForValidation(_player,Vector2.Zero);
         StepEntities();
         FailIf(
             cube.Position != new Vector2(0xa8, 0x48) || cube.Orientation != 4 ||
@@ -911,37 +910,41 @@ public sealed partial class ValidationRoot
 
 
 
-        // enemyBoss_initializeRoom arms LINK_STATE_FORCE_MOVEMENT after the
-        // enemy's first update. Link initializes that state on the following
-        // update, advances at standard speed while its $16 counter remains
-        // nonzero, and thereby clears the incoming shutter before it closes.
+        // Native state zero publishes force0b during scrolling preload. The
+        // first normal Link visit consumes it; the following state0b visit
+        // initializes/decrements/moves through the source $16-update counter.
         _saveData.SetRoomFlag(4, 0x18, OracleSaveData.RoomFlag80, false);
         PrepareRoom(0x17);
         _player.WarpTo(new Vector2(_currentRoom.Width - 6, 0x58));
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x18);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x18);
         OracleRoomData scrollingMinibossRoom = _world.LoadRoom(4, 0x18);
+        FailIf(_runtimeState.ReadField("wLinkForceState") != 0x0b ||
+            _runtimeState.ReadField("wLinkStateParameter") != 0x16 ||
+            _player.FacingVector != Vector2I.Right || _entities.Entities<GiantGhiniChild>().Count != 3,
+            "Room4:18 state-zero preload must publish native force0b/parameter16, direction and its three children before scrolling ends.");
         _transitions.UpdateScroll(1.0);
         Vector2 minibossEntry = _player.Position;
-        StepEntities();
+        void StepEntry(int count = 1) => StepGameplayUpdates(count,Vector2.Zero,[],[],batched:true);
+        StepEntry();
         FailIf(_player.Position != minibossEntry, "Room 4:18 moved Link on the boss initialization update.");
-        StepEntities();
+        StepEntry();
         FailIf(
-            _player.Position != minibossEntry || !_player.Walking,
+            _player.Position != minibossEntry + Vector2.Right || !_player.Walking,
             "Room 4:18 did not initialize LINK_STATE_FORCE_MOVEMENT one " +
-            "update after the miniboss initialized.");
-        StepEntities(21);
+            "update after consuming the preloaded request.");
+        StepEntry(20);
         FailIf(
             _player.Position != minibossEntry + Vector2.Right * 21.0f,
             $"Room 4:18 forced Link to {_player.Position} instead of 21 " +
             $"pixels inward from {minibossEntry}.");
-        StepEntities();
+        StepEntry();
         Vector2 leftShutter = new(0x08, 0x58);
         FailIf(
             _player.Position != minibossEntry + Vector2.Right * 21.0f ||
             _player.Walking,
             "Room 4:18 did not finish the $16 forced-entry counter after " +
             "Link cleared the left miniboss shutter.");
-        for (int i = 0; !scrollingMinibossRoom.IsSolid(leftShutter) && i < 8; i++) StepEntities();
+        for (int i = 0; !scrollingMinibossRoom.IsSolid(leftShutter) && i < 8; i++) StepEntry();
         FailIf(!scrollingMinibossRoom.IsSolid(leftShutter) || _player.Position != minibossEntry + Vector2.Right * 21.0f,
             "Room4:18 must finish its delayed shutter script without extending Link's forced walk.");
 
@@ -1065,7 +1068,7 @@ public sealed partial class ValidationRoot
         StepEntities();
         FailIf(
             _entities.Entities<EnemyDeathPuffEffect>().Count != childrenAtBossDeath ||
-            _entities.Entities<PuzzlePuffEffect>().Count != 0 ||
+            _entities.Entities<StationaryDebrisEffect>().Count != 0 ||
             _entities.Entities<KillEnemyPuffEffect>().Count != 0 ||
             giantDeathEvents != childrenAtBossDeath ||
             _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
@@ -1075,7 +1078,7 @@ public sealed partial class ValidationRoot
             $"(before={childrenAtBossDeath}, " +
             $"children={_entities.Entities<GiantGhiniChild>().Count}, " +
             $"death={_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
-            $"puzzle={_entities.Entities<PuzzlePuffEffect>().Count}, " +
+            $"puzzle={_entities.Entities<StationaryDebrisEffect>().Count}, " +
             $"kill={_entities.Entities<KillEnemyPuffEffect>().Count}, " +
             $"sounds={_sound.PlayRequestsFor(SoundId.SndKillEnemy)}).");
         StepEntities(119);
@@ -1176,6 +1179,10 @@ public sealed partial class ValidationRoot
         RestoreOracleRandomForValidation(encounterRandom);
         PrepareRoom(0x13);
         PumpkinHeadBoss pumpkin = _entities.Entities<PumpkinHeadBoss>().Single();
+        int pumpkinInitializationRandomCalls = _entities.RandomCalls;
+        StepEntities();
+        FailIf(_entities.RandomCalls != pumpkinInitializationRandomCalls + 1,
+            "Pumpkin Head state0 must consume its common enemy initialization RNG draw before the landing trace.");
         int pumpkinImpactRandomCalls = _entities.RandomCalls;
         bool observedInitialPumpkinShake = false;
         for (int frame = 0; frame < 240 && pumpkin.IntroActive; frame++)

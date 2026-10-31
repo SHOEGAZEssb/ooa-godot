@@ -89,9 +89,9 @@ public sealed partial class ValidationRoot
             using Image originalVram = source.CaptureLiveGraphics();
             ulong immutableHash = OracleGraphicsCache.PixelHash(OracleGraphicsCache.LoadImage(
                 AgesGameContent.AssetRoot + $"gfx/gfx_tileset{source.TilesetId:x2}.png"));
-            _transitions.BeginScroll(_player, direction, targetId);
+            _transitions.BeginValidationScroll(_player, direction, targetId);
             OracleRoomData target = _currentRoom;
-            FailIf(!routes.TryGet(0, targetId, direction, _rooms.SaveData, out var fade),
+            FailIf(!routes.TryGet(0, targetId, direction, _rooms.SaveData, 0, out var fade),
                 $"Missing Yoll palette route into 0:{targetId:x2}.");
             int setup = entering ? 4 : 7;
             int total = entering ? 48 : 49;
@@ -166,7 +166,7 @@ public sealed partial class ValidationRoot
             using Image steppedImage = target.Texture.GetImage();
             ulong steppedHash = OracleGraphicsCache.PixelHash(steppedImage);
             LoadValidationRoom(0, sourceId);
-            _transitions.BeginScroll(_player, direction, targetId);
+            _transitions.BeginValidationScroll(_player, direction, targetId);
             UpdateScrollingTransition(total / 60.0);
             using Image batchedImage = _currentRoom.Texture.GetImage();
             FailIf(_transitions.ScrollActive || OracleGraphicsCache.PixelHash(batchedImage) != steppedHash,
@@ -176,13 +176,13 @@ public sealed partial class ValidationRoot
         foreach (bool repaired in new[] { false, true })
         {
             _rooms.SaveData.SetGlobalFlag(AgesGlobalFlag.TuniNutPlaced, repaired);
-            FailIf(routes.TryGet(0, 0x12, Vector2I.Up, _rooms.SaveData, out _) == repaired ||
-                !routes.TryGet(1, 0x12, Vector2I.Up, _rooms.SaveData, out _) ||
-                routes.TryGet(0, 0x12, Vector2I.Left, _rooms.SaveData, out _),
+            FailIf(routes.TryGet(0, 0x12, Vector2I.Up, _rooms.SaveData, 0, out _) == repaired ||
+                !routes.TryGet(1, 0x12, Vector2I.Up, _rooms.SaveData, 0, out _) ||
+                routes.TryGet(0, 0x12, Vector2I.Left, _rooms.SaveData, 0, out _),
                 "checkSymmetryCityPaletteTransition did not respect group, direction, and GLOBALFLAG_TUNI_NUT_PLACED $29.");
             LoadValidationRoom(0, 0x22);
             Color old = _currentRoom.BackgroundPalettes.Resolve(2, 0);
-            _transitions.BeginScroll(_player, Vector2I.Up, 0x12);
+            _transitions.BeginValidationScroll(_player, Vector2I.Up, 0x12);
             byte[] destination = Godot.FileAccess.GetFileAsBytes(
                 AgesGameContent.AssetRoot + $"metadata/palette{_currentRoom.TilesetId:x2}.bin");
             for (int tick = 1; tick <= 6; tick++)
@@ -200,7 +200,7 @@ public sealed partial class ValidationRoot
         }
 
         LoadValidationRoom(5, 0x77);
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x78);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x78);
         UpdateScrollingTransition(_transitions.ScrollTotalFrames / 60.0);
         FailIf(_transitions.ScrollActive || _currentRoom.TilesetPaletteId != 0x63,
             "Room 5:78 did not execute uniqueGfxHeader14's terminal PALH_63 upload.");
@@ -227,7 +227,7 @@ public sealed partial class ValidationRoot
                 bool entering = (pass & 1) == 0;
                 int before = uploads;
                 long start = System.Diagnostics.Stopwatch.GetTimestamp();
-                _transitions.BeginScroll(_player, entering ? Vector2I.Right : Vector2I.Left,
+                _transitions.BeginValidationScroll(_player, entering ? Vector2I.Right : Vector2I.Left,
                     entering ? 0x6b : 0x6a);
                 elapsed += System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
                 setupUploads += uploads - before;

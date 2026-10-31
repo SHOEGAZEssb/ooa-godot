@@ -47,7 +47,6 @@ internal sealed class WallmasterRoomEntity
                         soundRequested(
                             SoundId.SndDamageEnemy);
                     }),
-                EnemySwordResponse.Knockback,
                 completedOutcome: () =>
                     RoomEnemyOutcome.SilentDefeat(
                         combatSource.KillableEnemyIndex,

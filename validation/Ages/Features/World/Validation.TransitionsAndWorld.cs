@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
     {
         LoadValidationRoom(0, 0x11);
         _player.WarpTo(new Vector2(4.75f, 4.25f));
-        _player.UpdatePushingState(Vector2.Left);
+        UpdatePushingStateForValidation(_player,Vector2.Left);
         // Clear both corner probes so the test exercises axis order, not a pit.
         _currentRoom.SetPositionTileAndCollision(new Vector2(6, 11), 0x3a, 0, 0);
         CheckRoomExit(_player);
@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
             if (flippers) _inventory.GiveTreasure(TreasureId.Flippers, 0);
             if (mermaid) _inventory.GiveTreasure(TreasureId.MermaidSuit, 0);
             _player.WarpTo(new Vector2(155, 56));
-            _player.UpdatePushingState(Vector2.Right);
+            UpdatePushingStateForValidation(_player,Vector2.Right);
             _currentRoom.SetPositionTileAndCollision(new Vector2(154, 61), tile, 0, 0);
             CheckRoomExit(_player);
             FailIf(_transitions.ScrollActive != allowed,
@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(4, 0x04);
         _player.WarpTo(new Vector2(120, 6.25f));
-        _player.UpdatePushingState(Vector2.Zero);
+        UpdatePushingStateForValidation(_player,Vector2.Zero);
         _currentRoom.SetPositionTileAndCollision(new Vector2(120, 11), 0x54, 0, 0);
         _player._PhysicsProcess(1.0 / 60.0);
         FailIf(!_transitions.ScrollActive || _currentRoom.Id != 0x03,
@@ -94,7 +94,7 @@ public sealed partial class ValidationRoot
                 direction.Y < 0 ? 6.25f : direction.Y > 0 ? height - 6.75f : 64.25f);
             _player.WarpTo(start);
             _player.Face(Vector2I.Down);
-            _transitions.BeginScroll(_player, direction, large ? 0x03 : 0x12);
+            _transitions.BeginValidationScroll(_player, direction, large ? 0x03 : 0x12);
             FailIf(_saveData.MinimapRoom != sourceMinimap,
                 "Starting a scroll published the destination minimap before cutscene00 completed.");
             int motion = direction.X == 0 ? 32 : 40;
@@ -122,7 +122,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(large ? 4 : 0, large ? 0x07 : 0x11);
             _player.WarpTo(start);
             _player.Face(Vector2I.Down);
-            _transitions.BeginScroll(_player, direction, large ? 0x03 : 0x12);
+            _transitions.BeginValidationScroll(_player, direction, large ? 0x03 : 0x12);
             UpdateScrollingTransition((setup + motion + cleanup) / 60.0);
             FailIf(_transitions.ScrollActive || _player.PrecisePosition != singleUpdateResult,
                 "Batched scrolling lost a source update or coordinate fraction.");
@@ -133,7 +133,7 @@ public sealed partial class ValidationRoot
         FailIf(!_player.ApplyEnemyContactDamage(new Vector2(72, 64), 1),
             "Could not arrange retained Link damage state for the scroll finisher.");
         float invincibility = _player.InvincibilityFrames;
-        _transitions.BeginScroll(_player, Vector2I.Up, 0x01);
+        _transitions.BeginValidationScroll(_player, Vector2I.Up, 0x01);
         UpdateScrollingTransition(_transitions.ScrollTotalFrames / 60.0);
         FailIf(_player.InvincibilityFrames != invincibility,
             "finishScrollingTransition reset damage invincibility like a full warp.");
@@ -223,9 +223,9 @@ public sealed partial class ValidationRoot
         Vector2 caveCenter = new(0x48, 0x38);
         byte stairTile = _currentRoom.GetMetatile(stairCenter);
         byte caveTile = _currentRoom.GetMetatile(caveCenter);
-        bool hasStairWarp = warps.TryGetTileWarp(
+        bool hasStairWarp = TryGetResolvedTileWarp(warps,
             group, _currentRoom, stairPosition, stairTile, out Warp stairWarp);
-        bool hasCaveWarp = warps.TryGetTileWarp(
+        bool hasCaveWarp = TryGetResolvedTileWarp(warps,
             group, _currentRoom, cavePosition, caveTile, out Warp caveWarp);
         FailIf(
             stairTile != 0xdc || caveTile != 0xee ||
@@ -257,9 +257,9 @@ public sealed partial class ValidationRoot
             $"active={_activeGroup:x1}:{_currentRoom.Id:x2}, destination=" +
             $"${_transitions.ActiveWarpDestinationPosition:x2}).");
 
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         UpdateRoomWarpTransition(
-            (AgesRoomTransitionController.WarpFadeInFrames - AgesRoomTransitionController.WarpEnterFrames) / 60.0);
+            (RoomTransitionController.WarpFadeInFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning,
             "Room 1:cd/$11 stair transition did not finish its destination entry.");
 
@@ -276,7 +276,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(sourceGroup, sourceRoom);
         _sound.ClearPlayRequestAudit();
 
-        var warps = new WarpDatabase(AgesGameContent.AssetRoot);
+        var warps = new DiveWarpDatabase(AgesGameContent.AssetRoot);
         FailIf(
             _currentRoom.GetTerrainInfo(sourceCenter).Hazard != HazardType.Water ||
             !warps.TryGetDiveWarp(
@@ -304,12 +304,12 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(TreasureId.Flippers, 0);
         _player.WarpTo(sourceCenter, recordSafe: false);
         _player.AdvanceTopDownSwimmingUpdateForValidation(entryAngle: 0xff);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         SplashEffect? entrySplash = _entities.Entities<SplashEffect>().LastOrDefault();
         for (int update = 0; update < 10; update++)
         {
             _player.AdvanceTopDownSwimmingUpdateForValidation();
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             IsTransitioning ||
@@ -331,7 +331,7 @@ public sealed partial class ValidationRoot
             "Diving inside room 5:cc/$12's imported interaction did not " +
             "start wWarpTransition2 `$03 with the source dive splash.");
 
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
         FailIf(
             !IsTransitioning || _activeGroup != 7 ||
             _currentRoom.Id != 0x05 ||
@@ -341,7 +341,7 @@ public sealed partial class ValidationRoot
             "Room 5:cc/$12 did not clear both source-room splashes while " +
             "loading side-view room 7:05/$03 after its source fade.");
 
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeInFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
         FailIf(IsTransitioning,
             "Room 5:cc/$12 did not finish destination transition `$01.");
         FailIf(_sound.PlayRequestsFor(SoundId.SndEnterCave) != 0,
@@ -371,13 +371,13 @@ public sealed partial class ValidationRoot
         FailIf(
             exteriorRoom.GetMetatile(new Vector2(0x58, 0x28)) != 0xde ||
             exteriorRoom.GetTerrainInfo(new Vector2(0x58, 0x28)).Collision != 0x0c ||
-            !AgesRoomTransitionController.LinkWithinTileWarpBounds(
+            !RoomTransitionController.LinkWithinTileWarpBounds(
                 exteriorRoom, 0x25, new Vector2(0x50, 0x22)) ||
-            !AgesRoomTransitionController.LinkWithinTileWarpBounds(
+            !RoomTransitionController.LinkWithinTileWarpBounds(
                 exteriorRoom, 0x25, new Vector2(0x5f, 0x2b)) ||
-            AgesRoomTransitionController.LinkWithinTileWarpBounds(
+            RoomTransitionController.LinkWithinTileWarpBounds(
                 exteriorRoom, 0x25, new Vector2(0x58, 0x21)) ||
-            AgesRoomTransitionController.LinkWithinTileWarpBounds(
+            RoomTransitionController.LinkWithinTileWarpBounds(
                 exteriorRoom, 0x25, new Vector2(0x58, 0x2c)),
             "Exterior door 0:47/$25 did not retain collision-$0c's " +
             "X-unbounded, Y=$22-$2b warp activation window.");
@@ -393,11 +393,11 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height),
             "House entry did not begin at the bottom edge of the interior.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         FailIf(
-            !IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height - AgesRoomTransitionController.WarpEnterFrames),
+            !IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height - RoomTransitionController.WarpEnterFrames),
             "Link did not perform the 28-frame interior entry walk.");
-        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpFadeInFrames - AgesRoomTransitionController.WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeInFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, "The 33-update room fade did not finish after entering the house.");
         FailIf(
             _saveData.RespawnGroup != 2 || _saveData.RespawnRoom != 0xea ||
@@ -416,37 +416,38 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || _activeGroup != 2 || _currentRoom.Id != 0xea,
             "The house exit did not begin with its scripted walk offscreen.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != 0 || _currentRoom.Id != 0x47 || !IsTransitioning,
             "The exterior was not loaded after the 16-frame exit walk.");
-        EraInfoDisplay eraInfo =
-            _entities.Entities<EraInfoDisplay>().SingleOrDefault() ??
+        EraOrSeasonInfoDisplay eraInfo =
+            _entities.Entities<EraOrSeasonInfoDisplay>().SingleOrDefault() ??
             throw new InvalidOperationException(
                 "House 2:ea's exit did not create INTERAC_ERA_OR_SEASON_INFO $e0.");
         FailIf(
             eraInfo.SubId != 0 ||
-            eraInfo.Stage != EraInfoStage.Initializing ||
+            eraInfo.Stage != EraOrSeasonInfoStage.Initializing ||
             eraInfo.Visible ||
             eraInfo.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
-            eraInfo.TextureSize != new Vector2I(32, 16) ||
-            eraInfo.TextureOffset != new Vector2(-16, -8) ||
-            eraInfo.PixelHash == 0,
-            "The present-era display did not initialize from its imported four-cell OAM.");
+            eraInfo.TextureSize != Vector2I.Zero ||
+            eraInfo.PixelHash != 0,
+            "The era display must defer native graphics and variant selection until state zero.");
 
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            eraInfo.Stage != EraInfoStage.Entering ||
+            eraInfo.Stage != EraOrSeasonInfoStage.Entering ||
             !eraInfo.Visible ||
             eraInfo.Position != new Vector2(0xb0, 0x0a) ||
+            eraInfo.TextureSize != new Vector2I(32, 16) ||
+            eraInfo.TextureOffset != new Vector2(-16, -8) || eraInfo.PixelHash == 0 ||
             WorldToScreen(eraInfo.Position) + eraInfo.TextureOffset !=
                 new Vector2(160, 18),
             "INTERAC_ERA_OR_SEASON_INFO state 0 did not begin just off the right edge.");
 
-        for (int update = 0; update < AgesRoomTransitionController.WarpFadeInFrames; update++)
+        for (int update = 0; update < RoomTransitionController.WarpFadeInFrames; update++)
         {
             UpdateRoomWarpTransition(1.0 / 60.0);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             _activeGroup != 0 || _currentRoom.Id != 0x47 ||
@@ -456,7 +457,7 @@ public sealed partial class ValidationRoot
             $"{_activeGroup}:{_currentRoom.Id:x2}/${_currentRoom.GetPackedPosition(_player.Position):x2}.");
         FailIf(
             IsTransitioning ||
-            eraInfo.Stage != EraInfoStage.Entering ||
+            eraInfo.Stage != EraOrSeasonInfoStage.Entering ||
             eraInfo.Position != new Vector2(0x2c, 0x0a),
             "The era display did not advance on all 33 destination fade-in updates.");
         FailIf(
@@ -472,33 +473,33 @@ public sealed partial class ValidationRoot
             "TRANSITION_DEST_SET_RESPAWN did not persist exterior 0:47/$25's exact checkpoint.");
 
         for (int update = 0; update < 7; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            eraInfo.Stage != EraInfoStage.Holding ||
+            eraInfo.Stage != EraOrSeasonInfoStage.Holding ||
             eraInfo.Counter != 40 ||
             eraInfo.Position != new Vector2(0x10, 0x0a) ||
             WorldToScreen(eraInfo.Position) + eraInfo.TextureOffset !=
                 new Vector2(0, 18),
             "The era display did not finish its 40-update, four-pixel fly-in at x=$10.");
         for (int update = 0; update < 39; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            eraInfo.Stage != EraInfoStage.Holding || eraInfo.Counter != 1,
+            eraInfo.Stage != EraOrSeasonInfoStage.Holding || eraInfo.Counter != 1,
             "The era display ended its 40-update hold early.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            eraInfo.Stage != EraInfoStage.Exiting || eraInfo.Counter != 6,
+            eraInfo.Stage != EraOrSeasonInfoStage.Exiting || eraInfo.Counter != 6,
             "The era display did not arm its six-update exit.");
         for (int update = 0; update < 5; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            eraInfo.Stage != EraInfoStage.Exiting ||
+            eraInfo.Stage != EraOrSeasonInfoStage.Exiting ||
             eraInfo.Counter != 1 ||
             eraInfo.Position != new Vector2(-14, 0x0a),
             "The era display finished its six-pixel exit early.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            _entities.Entities<EraInfoDisplay>().Count != 0 ||
+            _entities.Entities<EraOrSeasonInfoDisplay>().Count != 0 ||
             eraInfo.Position != new Vector2(-20, 0x0a),
             "The era display did not delete on the sixth fly-out update.");
         ulong presentEraHash = eraInfo.PixelHash;
@@ -513,7 +514,7 @@ public sealed partial class ValidationRoot
         _currentRoom = _world.LoadRoom(_activeGroup, 0xeb);
         _roomView.SetRoom(_currentRoom.Texture);
         _player.WarpTo(new Vector2(-2, _currentRoom.Height / 2.0f));
-        _player.UpdatePushingState(Vector2.Left);
+        UpdatePushingStateForValidation(_player,Vector2.Left);
         CheckRoomExit(_player);
         FailIf(
             _activeGroup != 2 || _currentRoom.Id != 0xea,
@@ -544,9 +545,10 @@ public sealed partial class ValidationRoot
             (_currentRoom.TilesetFlags & 0x81) != 0x81 ||
             !_transitions.CheckDisplayEraInfoAfterFullRoomLoad(),
             "A full load of past overworld room 1:48 did not request its era display.");
-        EraInfoDisplay past =
-            _entities.Entities<EraInfoDisplay>().SingleOrDefault() ??
+        EraOrSeasonInfoDisplay past =
+            _entities.Entities<EraOrSeasonInfoDisplay>().SingleOrDefault() ??
             throw new InvalidOperationException("The past-era display was not created.");
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             past.SubId != 1 ||
             past.PixelHash == 0 ||
@@ -556,25 +558,25 @@ public sealed partial class ValidationRoot
         FailIf(
             !_rooms.TryGetNeighbor(Vector2I.Right, out int scrollTarget),
             "Past overworld room 1:48 has no right neighbor.");
-        _transitions.BeginScroll(_player, Vector2I.Right, scrollTarget);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, scrollTarget);
         _transitions.UpdateScroll(1.0 / 60.0);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            past.Stage != EraInfoStage.Entering ||
-            past.Position != new Vector2(0xb0, 0x0a) ||
-            _entities.OutgoingEntities<EraInfoDisplay>().SingleOrDefault() != past,
+            past.Stage != EraOrSeasonInfoStage.Entering ||
+            past.Position != new Vector2(0xac, 0x0a) ||
+            _entities.OutgoingEntities<EraOrSeasonInfoDisplay>().SingleOrDefault() != past,
             "The era display's native always-update bit did not advance during scrolling.");
         for (int update = 1; update < 80 && _transitions.ScrollActive; update++)
         {
             _transitions.UpdateScroll(1.0 / 60.0);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(_transitions.ScrollActive, "The era always-update scroll did not finish.");
 
         LoadDebugRoom(2, 0xea);
         FailIf(
             _transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
-            _entities.Entities<EraInfoDisplay>().Count != 0,
+            _entities.Entities<EraOrSeasonInfoDisplay>().Count != 0,
             "An indoor full room load incorrectly created the outdoor era display.");
 
         _saveData.SetGlobalFlag(AgesGlobalFlag.SuppressEraInfoOnce);
@@ -589,7 +591,7 @@ public sealed partial class ValidationRoot
             1);
         FailIf(
             _transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
-            _entities.Entities<EraInfoDisplay>().Count != 0,
+            _entities.Entities<EraOrSeasonInfoDisplay>().Count != 0,
             "wSentBackByStrangeForce=$01 did not suppress the era display.");
         _entities.RuntimeState.SetWramByte(
             AgesWramAddress.wSentBackByStrangeForce,
@@ -614,6 +616,7 @@ public sealed partial class ValidationRoot
         const int group = 0;
         const int sourceRoom = 0x38;
         const int destinationRoom = 0x48;
+        var app = new ApplicationValidationFixture(this);
 
         LoadDebugRoom(group, sourceRoom);
         _player.WarpTo(new Vector2(0x50, 0x70));
@@ -626,21 +629,23 @@ public sealed partial class ValidationRoot
             sourceRoom,
             Vector2I.Down,
             _player.Position,
-            new Vector2(_currentRoom.Width, _currentRoom.Height),
             out Warp warp),
             "Room 0:38 is missing its imported south edge warp.");
 
         _transitions.ApplyWarp(_player, warp);
         FailIf(
             !IsTransitioning ||
-            !_transitions.RoomLoadColumnRevealActive ||
+            _transitions.RoomLoadColumnRevealActive ||
             _roomView.RoomLoadColumnRevealActive ||
             _scene.RoomLoadReveal.Active ||
             _scene.RoomLoadReveal.Visible ||
             _warpFade.Color.A != 0.0f,
-            "Room 0:38's south edge warp did not select the full-load column reveal.");
+            "Room 0:38's south edge request must retain its unresolved index without starting destination presentation.");
 
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
+        app.Step((int)RoomTransitionController.WarpLeaveFrames - 1,Vector2.Zero);
+        FailIf(_currentRoom.Id != sourceRoom || _warpFade.Color.A != 0.0f,
+            "The source walk must remain visible until the destination-load update.");
+        app.Step(1,Vector2.Zero);
         FailIf(
             _activeGroup != group ||
             _currentRoom.Id != destinationRoom ||
@@ -671,8 +676,7 @@ public sealed partial class ValidationRoot
             "initializeVramMaps tile $00/attribute $80 did not repeat " +
             "GFXH_HUD tile 0's solid shade 2 through PALH_0f BG palette 0.");
 
-        UpdateRoomWarpTransition(
-            AgesRoomTransitionController.RoomLoadRevealInitializationFrames / 60.0);
+        app.Step(RoomTransitionController.RoomLoadRevealInitializationFrames,Vector2.Zero);
         FailIf(
             _transitions.RoomLoadRevealLoadedColumns != 0 ||
             _roomView.RoomLoadRevealLoadedColumns != 0 ||
@@ -681,46 +685,46 @@ public sealed partial class ValidationRoot
             _player.Position != new Vector2(0x50, -0x10),
             "The room-load transition did not preserve its three blank initialization updates.");
 
-        UpdateRoomWarpTransition(1.0 / 60.0);
+        app.Step(1,Vector2.Zero);
         FailIf(
             _transitions.RoomLoadRevealLoadedColumns != 1 ||
             _roomView.RoomLoadRevealLoadedColumns != 1 ||
             _scene.RoomLoadReveal.LoadedColumns != 1 ||
-            !AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(71, 1) ||
-            AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(72, 1) ||
-            AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(79, 1) ||
-            !AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 1),
+            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(71, 1) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(72, 1) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(79, 1) ||
+            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 1),
             "The first room-load update did not draw only 8-pixel column 9.");
 
-        UpdateRoomWarpTransition(1.0 / 60.0);
+        app.Step(1,Vector2.Zero);
         FailIf(
             _transitions.RoomLoadRevealLoadedColumns != 2 ||
             _roomView.RoomLoadRevealLoadedColumns != 2 ||
             _scene.RoomLoadReveal.LoadedColumns != 2 ||
-            AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 2) ||
-            AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(87, 2) ||
-            !AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(88, 2),
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(80, 2) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(87, 2) ||
+            !RoomTransitionController.RoomLoadRevealIsClearedAtPixel(88, 2),
             "The second room-load update did not draw 8-pixel column 10.");
 
-        UpdateRoomWarpTransition(18.0 / 60.0);
+        app.Step(18,Vector2.Zero);
         FailIf(
             _transitions.RoomLoadRevealLoadedColumns != 20 ||
             _roomView.RoomLoadRevealLoadedColumns != 20 ||
             _scene.RoomLoadReveal.LoadedColumns != 20 ||
-            AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(0, 20) ||
-            AgesRoomTransitionController.RoomLoadRevealIsClearedAtPixel(159, 20) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(0, 20) ||
+            RoomTransitionController.RoomLoadRevealIsClearedAtPixel(159, 20) ||
             _player.Position != new Vector2(0x50, -0x10),
             "The first 20 alternating column updates did not fill the visible 160-pixel room.");
 
-        UpdateRoomWarpTransition(12.0 / 60.0);
+        app.Step(12,Vector2.Zero);
         FailIf(
             _transitions.RoomLoadRevealLoadedColumns !=
-                AgesRoomTransitionController.RoomLoadRevealColumnUpdates ||
+                RoomTransitionController.RoomLoadRevealColumnUpdates ||
             !IsTransitioning ||
             _player.Position != new Vector2(0x50, -0x10),
             "The room-load transition did not finish all 32 VRAM-map column updates.");
 
-        UpdateRoomWarpTransition(1.0 / 60.0);
+        app.Step(1,Vector2.Zero);
         FailIf(
             !IsTransitioning ||
             _transitions.RoomLoadColumnRevealActive ||
@@ -732,13 +736,13 @@ public sealed partial class ValidationRoot
             _player.Position != new Vector2(0x50, -0x10),
             "The completed column load did not release destination transition $03.");
 
-        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpEnterFrames - 1.0f) / 60.0);
+        app.Step((int)RoomTransitionController.WarpEnterFrames - 1,Vector2.Zero);
         FailIf(
             !IsTransitioning ||
             _player.Position != new Vector2(0x50, 0x0b),
             "Link did not begin his 28-update destination walk after the column load.");
 
-        UpdateRoomWarpTransition(1.0 / 60.0);
+        app.Step(1,Vector2.Zero);
         FailIf(
             IsTransitioning ||
             _player.Position != new Vector2(0x50, 0x0c),
@@ -764,7 +768,7 @@ public sealed partial class ValidationRoot
         FailIf(exitX < 0.0f, "Could not find 4:04's open northern dungeon exit.");
 
         _player.WarpTo(new Vector2(exitX, -2.0f));
-        _player.UpdatePushingState(Vector2.Up);
+        UpdatePushingStateForValidation(_player,Vector2.Up);
         CheckRoomExit(_player);
         FailIf(
             _activeGroup != 4 || _currentRoom.Id != 0x03 || !_scrollTransitionActive,
@@ -806,12 +810,12 @@ public sealed partial class ValidationRoot
         FailIf(
             WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 144)) > 0.01f,
             $"Link did not begin the 4:{destinationRoom:x2} cave entry at screen position (80,144).");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         UpdateRoomCamera();
         FailIf(
             WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 116)) > 0.01f,
             $"Link did not finish the 28-frame 4:{destinationRoom:x2} cave entry at screen position (80,116).");
-        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpFadeInFrames - AgesRoomTransitionController.WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeInFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, $"The 4:{destinationRoom:x2} cave fade did not finish.");
 
         _player.WarpTo(new Vector2(_currentRoom.Width - 1, _currentRoom.Height / 2.0f));
@@ -842,7 +846,7 @@ public sealed partial class ValidationRoot
         }
 
         _player.WarpTo(exitPosition);
-        _player.UpdatePushingState(Vector2.Up);
+        UpdatePushingStateForValidation(_player,Vector2.Up);
         CheckRoomExit(_player);
         FailIf(
             _currentRoom.Id != 0x01,
@@ -865,7 +869,7 @@ public sealed partial class ValidationRoot
         FailIf(Collides(exitPosition), "Room 22's north staircase is blocked.");
 
         _player.WarpTo(exitPosition);
-        _player.UpdatePushingState(Vector2.Up);
+        UpdatePushingStateForValidation(_player,Vector2.Up);
         CheckRoomExit(_player);
         FailIf(
             _currentRoom.Id != 0x12 || _currentRoom.TilesetId == oldTileset,

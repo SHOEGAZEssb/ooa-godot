@@ -73,9 +73,8 @@ public sealed partial class ValidationRoot
             "Tune of Echoes did not run its 260-update/8-note parent, " +
             "mark the dormant portal, and finish without TX_5110.");
         _player.WarpTo(dormant.Position, recordSafe: false);
-        _harp.BeginObjectUpdate(); // Link clears the preceding parent's instrument byte.
-        _entities.Update(HarpFrame, _player);
-        _harp.Update(HarpFrame);
+        _runtimeState.SetField("wLinkPlayingInstrument",0); // Link clears the preceding parent's instrument byte.
+        _entities.AdvanceEntityFrames(HarpFrame, _player);
         FailIf(
             !dormant.Active ||
             _sound.PlayRequestsFor(SoundId.SndCtrlStopSfx) != 1 ||
@@ -83,8 +82,7 @@ public sealed partial class ValidationRoot
             _transitions.TimeWarpActive,
             "Echoes portal did not activate with STOP_SFX/TELEPORT on " +
             "the first update after playback, or accepted contact before state 3.");
-        _entities.Update(HarpFrame, _player);
-        _harp.Update(HarpFrame);
+        _entities.AdvanceEntityFrames(HarpFrame, _player);
         FailIf(!_transitions.TimeWarpActive,
             "Room 0:cd's portal did not accept contact on the following state-3 update.");
         for (int update = 0;
@@ -94,7 +92,6 @@ public sealed partial class ValidationRoot
         {
             _transitions.UpdateWarp(HarpFrame);
             _roomEvents.UpdateDuringTimeWarp(HarpFrame);
-            _harp.Update(HarpFrame);
         }
         FailIf(
             _harp.ActiveMusicNoteCount != 0,
@@ -161,9 +158,9 @@ public sealed partial class ValidationRoot
             currentsReturn.CurrentPalette == initialPalette,
             "Temporary portal did not cycle its OAM palette on even updates.");
         _player.WarpTo(currentsReturn.Position + new Vector2(24, 0), recordSafe: false);
-        _entities.Update(HarpFrame, _player);
+        _entities.AdvanceEntityFrames(HarpFrame, _player);
         _player.WarpTo(currentsReturn.Position, recordSafe: false);
-        _entities.Update(HarpFrame, _player);
+        _entities.AdvanceEntityFrames(HarpFrame, _player);
         FailIf(
             !_transitions.TimeWarpActive ||
             _saveData.TimePortalGroup != 0xff,
@@ -261,8 +258,7 @@ public sealed partial class ValidationRoot
         try
         {
             _player.AdvanceApplicationUpdate();
-            _entities.UpdateDuringHarp(HarpFrame, _player);
-            _harp.Update(HarpFrame);
+            _entities.AdvanceEntityFrames(HarpFrame, _player);
         }
         finally
         {
@@ -286,8 +282,7 @@ public sealed partial class ValidationRoot
 
         while (_player.IsUsingHarp)
         {
-            _entities.UpdateDuringHarp(HarpFrame, _player);
-            _harp.Update(HarpFrame);
+            _entities.AdvanceEntityFrames(HarpFrame, _player);
             _player.AdvanceHarpForValidation(1);
         }
         FailIf(
@@ -313,7 +308,7 @@ public sealed partial class ValidationRoot
             "Tune of Echoes did not grant TREASURE_HARP parameter $01.");
         inventory.SwapStorageSlotWithButton(0, isA: false);
 
-        var screen = new AgesInventoryScreen
+        var screen = new InventoryScreen
         { AssetRoot = AgesGameContent.AssetRoot,
             Name = "HarpInventoryValidation",
             Visible = false
@@ -321,7 +316,7 @@ public sealed partial class ValidationRoot
         AddChild(screen);
         screen.Initialize(_treasures, inventory);
         screen.Open();
-        var menu = new AgesInventoryMenuController(
+        var menu = new InventoryMenuController(
             screen,
             _saveQuitScreen,
             _menuLifecycle,
@@ -388,7 +383,7 @@ public sealed partial class ValidationRoot
         twoSongInventory.GiveTreasure(TreasureId.TuneOfCurrents, 0);
         // TREASURE_TUNE_OF_ECHOES grants and initially equips ITEM_HARP.
         twoSongInventory.SwapStorageSlotWithButton(0, isA: false);
-        var twoSongScreen = new AgesInventoryScreen
+        var twoSongScreen = new InventoryScreen
         { AssetRoot = AgesGameContent.AssetRoot,
             Name = "TwoSongHarpInventoryValidation",
             Visible = false
@@ -396,7 +391,7 @@ public sealed partial class ValidationRoot
         AddChild(twoSongScreen);
         twoSongScreen.Initialize(_treasures, twoSongInventory);
         twoSongScreen.Open();
-        var twoSongMenu = new AgesInventoryMenuController(
+        var twoSongMenu = new InventoryMenuController(
             twoSongScreen,
             _saveQuitScreen,
             _menuLifecycle,
@@ -446,8 +441,7 @@ public sealed partial class ValidationRoot
             "ITEM_HARP did not allocate its parent and Link pose.");
         for (int update = 0; update < expectedFrames; update++)
         {
-            _entities.UpdateDuringHarp(HarpFrame, _player);
-            _harp.Update(HarpFrame);
+            _entities.AdvanceEntityFrames(HarpFrame, _player);
             _player.AdvanceHarpForValidation(1);
             if (validateNoteSides && (update + 1) % 32 == 0)
             {

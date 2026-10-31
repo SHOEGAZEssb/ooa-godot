@@ -12,6 +12,7 @@ public partial class ClinkEffect : Node2D
     private const int FrameDuration = 4;
     private const int FrameCount = 2;
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Texture2D> Textures = new(System.StringComparer.Ordinal);
+    static ClinkEffect() => OracleGraphicsCache.RegisterApplicationCache(Textures.Clear);
     private Texture2D _texture = null!;
     private int _frames;
     private Func<int>? _nativeFrame;
@@ -77,7 +78,7 @@ public partial class ClinkEffect : Node2D
     {
         Image source = OracleGraphicsCache.LoadImage(
             assetRoot + "gfx/spr_common_sprites.png");
-        Image output = Image.CreateEmpty(FrameCount * 16, 16, false, Image.Format.Rgba8);
+        using Image output = Image.CreateEmpty(FrameCount * 16, 16, false, Image.Format.Rgba8);
 
         // INTERAC_CLINK uses tile base $10 and palette $01. OAM $50205 uses
         // tile $00 and OAM $502b9 uses tile $02; each mirrors its right half.

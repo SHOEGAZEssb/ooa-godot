@@ -5,12 +5,13 @@ namespace Oracles;
 
 public partial class KeeseCharacter : EnemyCharacter
 {
-    internal override bool InitializationPending => false;
-    private EnemyBehaviorTables? _behaviorSourceCache;
-    private EnemyBehaviorTables _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
+    internal override bool InitializationPending => !_initialized;
+    private bool _initialized;
+    private KeeseDatabase? _behaviorSourceCache;
+    private KeeseDatabase _behavior => _behaviorSourceCache ??= KeeseDatabase.For(AssetRoot);
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
-    private KeeseState _state = KeeseState.Resting;
+    private KeeseState _state;
     private int _counter1;
     private int _counter2;
     private int _angle;
@@ -24,9 +25,11 @@ public partial class KeeseCharacter : EnemyCharacter
     internal int Counter1 => _counter1;
     internal int Counter2 { get => _counter2; set => _counter2 = checked((byte)value); }
     internal int Angle => _angle;
+    internal int Speed => _speed;
+    internal int TurnAmount => _turnAmount;
     internal bool Flying => _flying;
     internal int CurrentAnimationFrame => AnimationFrame;
-    internal int SpriteHeight => Record.SubId == 1 ? -1 : 0;
+    internal int SpriteHeight => _initialized && Record.SubId == 1 ? -1 : 0;
     protected override Vector2 AnimationDrawOffset =>
         new(-16, -16 + SpriteHeight);
 
@@ -40,10 +43,9 @@ public partial class KeeseCharacter : EnemyCharacter
         Record = record;
         _room = room;
         _random = random;
-        _counter1 = record.SubId == 0
-            ? _behavior.KeeseState.InitialRestFrames
-            : 0;
-        _turnAmount = record.SubId == 1 ? 2 : 0;
+        _initialized = false; _state = KeeseState.Uninitialized;
+        _counter1 = _counter2 = _angle = _turnAmount = _speed = 0;
+        _flying = _hookHitPending = false;
 
         InitializeEnemy(
             position,
@@ -60,10 +62,27 @@ public partial class KeeseCharacter : EnemyCharacter
             EnemyKnockbackMotion.ScreenBoundary,
             nativeSpeed: () => _speed);
         RestartAnimation(0);
+        Visible = false;
     }
 
-    internal void UpdateFrame(Vector2 linkPosition, int frameCounter)
+    internal void InitializeStateZero()
     {
+        if (_initialized) return;
+        _random.Next(); // enemyStandardUpdate initializes var3d before enemyCode32.
+        _speed = _behavior.InitialSpeedRaw;
+        _counter1 = Record.SubId == 0 ? _behavior.KeeseState.InitialRestFrames : 0;
+        if (Record.SubId == 1)
+        {
+            _turnAmount = _behavior.KeeseState.InitialTurnAmount;
+            if ((_random.Next().Value & _behavior.KeeseState.ReverseTurningMask) == 0) _turnAmount = -_turnAmount;
+        }
+        _initialized = true; _state = KeeseState.Resting;
+        Visible = true;
+    }
+
+    internal void UpdateFrame(Vector2 linkPosition, int frameCounter, Vector2? angleTarget = null)
+    {
+        if (!_initialized) { InitializeStateZero(); return; }
         if (_hookHitPending)
         {
             // keese.s returns on ENEMYSTATUS_JUST_HIT before recoil or
@@ -79,7 +98,7 @@ public partial class KeeseCharacter : EnemyCharacter
             return;
 
         if (Record.SubId == 1)
-            UpdateApproachKeese(linkPosition);
+            UpdateApproachKeese(linkPosition,angleTarget ?? linkPosition);
         else
             UpdateNormalKeese(frameCounter);
     }
@@ -104,7 +123,8 @@ public partial class KeeseCharacter : EnemyCharacter
         switch (_state)
         {
             case KeeseState.Resting:
-                if (--_counter1 > 0)
+                _counter1 = (_counter1 - 1) & 0xff;
+                if (_counter1 != 0)
                     return;
                 OracleRandomResult startRandom = _random.Next();
                 _angle = startRandom.High & 0x1f;
@@ -166,17 +186,18 @@ public partial class KeeseCharacter : EnemyCharacter
         }
     }
 
-    private void UpdateApproachKeese(Vector2 linkPosition)
+    private void UpdateApproachKeese(Vector2 linkPosition, Vector2 angleTarget)
     {
         if (_state == KeeseState.Resting)
         {
-            Vector2 difference = linkPosition - Position;
-            if (Mathf.Abs(difference.X) + Mathf.Abs(difference.Y) >=
+            int distance = Math.Abs(OracleObjectPosition.HighByte(linkPosition.X) - OracleObjectPosition.HighByte(Position.X)) +
+                Math.Abs(OracleObjectPosition.HighByte(linkPosition.Y) - OracleObjectPosition.HighByte(Position.Y));
+            if (distance >=
                 _behavior.KeeseState.ApproachDistance)
                 return;
 
             _angle = (OracleObjectMovement.Shared.RelativeAngle(
-                Position, linkPosition) +
+                Position, angleTarget) +
                 _turnAmount) & ObjectAngle.Mask;
             _counter1 = _behavior.KeeseState.TurningInterval;
             _counter2 = _behavior.KeeseState.TurningIntervals;
@@ -197,7 +218,7 @@ public partial class KeeseCharacter : EnemyCharacter
             if (_counter2 == 0)
             {
                 _state = KeeseState.Resting;
-                if ((_random.Next().Value & 0x03) == 0)
+                if ((_random.Next().Value & _behavior.KeeseState.ReverseTurningMask) == 0)
                     _turnAmount = -_turnAmount;
                 SetFlying(false);
                 return;
@@ -233,7 +254,8 @@ public partial class KeeseCharacter : EnemyCharacter
 
 internal enum KeeseState
 {
-    Resting,
-    Moving,
-    Decelerating
+    Uninitialized = 0,
+    Resting = 8,
+    Moving = 9,
+    Decelerating = 0x0a
 }

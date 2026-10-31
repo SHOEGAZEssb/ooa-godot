@@ -34,6 +34,8 @@ public static class SoundId
     public const int SndFairyHeal = 0x8c;
     // constants/common/music.s: SND_DIMITRI
     public const int SndDimitri = 0xc4;
+    // constants/common/music.s: SND_RICKY
+    public const int SndRicky = 0xc3;
     // constants/common/music.s: MUS_NONE
     public const int MusNone = 0x00;
     // constants/common/music.s: MUS_TITLESCREEN
@@ -185,6 +187,8 @@ public static class SoundId
     public const int SndSwitch = 0x7e;
     // constants/common/music.s: SND_MOVE_BLOCK_2
     public const int SndMoveBlock2 = 0x7f;
+    // constants/common/music.s: SND_MINECART
+    public const int SndMinecart = 0x80;
     // constants/common/music.s: SND_STRONG_POUND
     public const int SndStrongPound = 0x81;
     // constants/common/music.s: SND_MAGIC_POWDER

@@ -10,7 +10,7 @@ internal sealed class TargetGhiniRoomEntity : CombatEnemyRoomEntityAdapter<Targe
     IBoomerangCollisionRoomEntity, ISomariaBlockCollisionRoomEntity, ISeedCollisionTarget, IBurningEnemyTarget, IGaleSeedTarget
 {
     private TargetGhiniBehaviorProfile? _dataSourceCache;
-    private TargetGhiniBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).TargetGhini;
+    private TargetGhiniBehaviorProfile _data => _dataSourceCache ??= GhiniDatabase.For(AssetRoot).Target;
     private readonly Func<byte> _random;
     private readonly Func<bool> _freePart;
     protected override bool Stunned => Entity.StunCounter != 0;
@@ -22,7 +22,7 @@ internal sealed class TargetGhiniRoomEntity : CombatEnemyRoomEntityAdapter<Targe
         Action<int> sound, Func<byte> random, Func<bool> freePart)
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
-                enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback, sound, EnemySwordResponse.Knockback),
+                enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback, sound),
             collisionZ: () => enemy.ZFixed >> 8)
     { _random = random; _freePart = freePart; }
 

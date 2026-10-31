@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Oracles;
 
-internal sealed class LibraryEvent(RoomEventContext context) : InteractiveCutsceneCommandHost, IRoomEntryEvent
+internal sealed class LibraryEvent(RoomEventContext context) : RoomCutsceneCommandHost, IRoomEntryEvent
 {
     private readonly List<LibraryScriptHost> _actors = new();
     internal LibraryDatabase Database { get; } = new();
@@ -12,7 +12,6 @@ internal sealed class LibraryEvent(RoomEventContext context) : InteractiveCutsce
     public override RoomEventContext Context => context;
     public bool HasState => _actors.Count != 0;
     public bool BlocksGameplay => InputControlHeld;
-    public bool FreezesNonInteractionObjects => BlocksGameplay;
     public bool MenusDisabled => Context.Entities.RuntimeState.ReadWramByte(AgesWramAddress.wMenuDisabled) != 0;
     public bool ScreenTransitionsDisabled => BlocksGameplay;
     public bool Matches(int group, OracleRoomData room) => group == 5 && room.Id is 0xc8 or 0xe4 or 0xec;
@@ -46,15 +45,15 @@ internal sealed class LibraryEvent(RoomEventContext context) : InteractiveCutsce
     }
     // The native/script handlers run in each entity's actual update slot.
     public void UpdateFrame() { }
+    internal void BeginBookPathControl()
+    {
+        SetNativeMenuDisabled(0x81);
+        SetDisabledObjects(0x81);
+    }
     public void Cancel()
     {
         foreach (var actor in _actors) actor.Cancel();
         _actors.Clear();
-        if (InputControlHeld)
-        {
-            Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
-            Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 0);
-        }
         ReleaseInputControl();
     }
 }

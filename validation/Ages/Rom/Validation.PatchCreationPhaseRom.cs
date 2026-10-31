@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             FailIf(SomariaPrivate<int>(patch,"_brokenState")!=1||_runtimeState.ReadWramByte(0xcfd5)!=0||patch.Fading,
                 "Broken item must still be active before actual cart collision.");
             var slots=SomariaPrivate<Dictionary<IRoomEntity,int>>(_entities,"_interactionSlots");
-            while(14-slots.Count>free)_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,104),SoundId.MusNone));
+            while(14-slots.Count>free)_entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,104),SoundId.MusNone));
             var rom=new SomariaRom(_saveData,_random.CaptureState(),_currentRoom,0,(int)_player.Position.X,(int)_player.Position.Y);
             foreach(int slot in slots.Values){int at=0xd040+slot*256;rom[at]=1;rom[at+1]=5;rom[at+2]=0x80;}
             int atBroken=0xd040+_entities.InteractionSlot(broken)*256;

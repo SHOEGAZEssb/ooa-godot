@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
             var occupants = new List<InteractionSlotValidationEntity>();
             for (int slot = 2; slot < 16; slot++)
             {
-                var puff = new PuzzlePuffEffect(); puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
+                var puff = new StationaryDebrisEffect(); puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
                 var occupant = new InteractionSlotValidationEntity(puff, _ => { });
                 _entities.AddEntity(occupant); occupants.Add(occupant);
                 FailIf(_entities.InteractionSlot(puff) != slot,"Capacity fixture must fill native slots$d2-$df in order.");

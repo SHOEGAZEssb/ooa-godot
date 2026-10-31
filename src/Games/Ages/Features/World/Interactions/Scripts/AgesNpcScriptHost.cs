@@ -7,13 +7,13 @@ internal sealed class AgesNpcScriptHost : NpcInteractionCommandHost
 {
     // constants/common/rupeeValues.s; scriptHelper.s:oldMan_rupeeValues[0].
     private const int RupeeValue200 = 0x0d;
-    private readonly SharedScriptNpcRoomEntity _slot;
-    private readonly SharedNpcDatabase _data;
+    private readonly AgesScriptNpcRoomEntity _slot;
+    private readonly AgesNpcScriptDatabase _data;
     private readonly InventoryState _inventory;
     private readonly Func<bool> _rupeeDisplayUpdated;
     private readonly int _adlarState;
     internal bool AnimationDisabled { get; private set; }
-    internal AgesNpcScriptHost(SharedScriptNpcRoomEntity slot, SharedNpcDatabase data,
+    internal AgesNpcScriptHost(AgesScriptNpcRoomEntity slot, AgesNpcScriptDatabase data,
         RoomSession rooms, RoomEntityManager entities, DialogueBox dialogue,
         InventoryState inventory, Func<bool> rupeeDisplayUpdated)
         : base("Npc", rooms, entities, dialogue, data.Script(slot.Npc.Record))

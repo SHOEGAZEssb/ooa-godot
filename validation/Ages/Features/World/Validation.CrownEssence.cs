@@ -105,7 +105,7 @@ public partial class ValidationRoot
                 {
                     // Isolate the native object's wLinkDeathTrigger gate;
                     // the death cutscene/respawn route is a separate system.
-                    _entities.Update(2.0/60,_player);
+                    _entities.AdvanceEntityFrames(2.0/60,_player);
                     FailIf(glow.AnimationFrame!=1 || glow.Visible,
                         "Essence glow must honor wLinkDeathTrigger even with enabled bit$80 during scroll.");
                 }

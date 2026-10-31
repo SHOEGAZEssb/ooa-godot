@@ -41,7 +41,6 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
     internal ArmosWarriorActor? Sword { get; private set; }
     internal ArmosWarriorDatabase Data => _world.Data;
     internal void RequestSound(int sound) => _world.Sound(sound);
-    internal BossEntryMovement Entry => _world.Entry;
     internal override bool CollisionEnabled => base.CollisionEnabled && Health > 0 && State != 0 && !_dying && SubId != 0;
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (_zFixed >> 8);
 
@@ -84,8 +83,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         if (SubId == 0)
         {
             State = 1;
-            _world.EnableLink();
-            _world.Sound(SoundId.SndCtrlStopMusic);
+            _world.InitializeBossRoom();
         }
         else { State = 8; Speed = SubId; }
     }
@@ -353,6 +351,6 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
 internal sealed record ArmosWarriorEnvironment(OracleRoomData Room, ArmosWarriorDatabase Data, DungeonBossDatabase Bosses,
     OracleRandom Random, Func<bool> ShuttersClosed, Func<bool> PartSlotAvailable, Func<int, bool> EnemySlotsAvailable,
     Func<int> CameraY, Action<int> Sound, Action<int> Shake, Action DisableLink, Action EnableLink,
-    Action RestoreMusic, Action<int, string, Vector2> ShowDialogue, BossEntryMovement Entry);
+    Action RestoreMusic, Action<int, string, Vector2> ShowDialogue, Action InitializeBossRoom);
 
 internal sealed record ArmosWarriorChildSpawn(ArmosWarriorActor Spawner, int SubId) : RoomEntitySpawn;

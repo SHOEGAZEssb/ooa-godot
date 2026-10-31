@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
             save.WriteWramByte(AgesWramAddress.wNumHeartPieces, 2);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, 4);
             save.WriteWramByte(AgesWramAddress.wDungeonSmallKeys + dungeon, 0xfe);
-            var runtime = AgesGameContent.CreateRuntimeState();
+            var runtime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
             runtime.SetWramByte(AgesWramAddress.wUpgradesObtained, 0x55);
             var inventory = new InventoryState(_treasures, save, () => dungeon, runtime);
             rom.Seed(save, dungeon, 0x55);

@@ -93,6 +93,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
     internal void UpdateItem(OracleRoomData room, Vector2 linkPosition, bool frozen, Func<bool> chainSlotAvailable)
     {
         if (Finished || frozen && State != 0) return;
+        (_movementMemory ?? throw new InvalidOperationException("ITEM_SWITCH_HOOK requires the authoritative runtime state.")).SetField("wDisableRingTransformations",8);
         if (State == 0)
         {
             var offset = _database.Offset(_direction);

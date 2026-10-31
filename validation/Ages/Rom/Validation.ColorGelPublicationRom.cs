@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             var data=EnemyDatabase.For(AgesGameContent.AssetRoot);var actor=new ColorChangingGelCharacter();
             actor.Initialize(data.ImportedEnemy(0x47,0),_currentRoom,new(120,88),_random,data.ColorChangingGelPalettes,_sound.PlaySound);
             var adapter=new ColorChangingGelRoomEntity(actor,
-                new EnemyCombatSourceDescriptor(0x47,0,0x6e,0,1,EnemyHandlerKind.ColorChangingGel,"colorChangingGel.s:enemyCode47"),_sound.PlaySound);
+                new EnemyCombatSourceDescriptor(AgesGameContent.AssetRoot,0x47,0,0x6e,0,1,"colorChangingGel.s:enemyCode47"),_sound.PlaySound);
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);

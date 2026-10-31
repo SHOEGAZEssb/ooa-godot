@@ -115,5 +115,7 @@ public static class EnemyId
     public const int Beetle = 0x51;
     // constants/common/enemies.s: ENEMY_FLYING_TILE
     public const int FlyingTile = 0x52;
+    // constants/common/enemies.s: ENEMY_ITEM_DROP_PRODUCER
+    public const int ItemDropProducer = 0x59;
     public const int AnglerFishBubble = 0x26;
 }

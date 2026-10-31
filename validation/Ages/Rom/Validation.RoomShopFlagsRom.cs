@@ -67,6 +67,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(AgesWramAddress.wBoughtShopItems2,0);
             SetTreasure(_saveData,TreasureId.RingBox,false);
             LoadValidationRoom(2,0x7e);
+            StepGameplayUpdates(1,Vector2.Zero,batched:batch);
             _inventory.EquipA(0); _inventory.EquipB(0);
             var stock = _entities.Entities<LynnaShopItem>().Single(item => item.Record.SubId == 0);
             var keeper = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x46);

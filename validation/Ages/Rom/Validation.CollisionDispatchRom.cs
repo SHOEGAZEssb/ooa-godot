@@ -7,8 +7,8 @@ public sealed partial class ValidationRoot
     private void ValidateCollisionMasksRom()
     {
         var rom = new ObjectCollisionRom();
-        var boomerang = BoomerangCollisionDatabase.For(AgesGameContent.AssetRoot);
-        var hook = SwitchHookCollisionDatabase.Shared;
+        var boomerang = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
+        var hook = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
         int cases = 0;
         foreach (bool part in new[] { false, true })
         for (int type = 0; type < (part ? 0x5a : 0x80); type++)
@@ -28,16 +28,16 @@ public sealed partial class ValidationRoot
             rom[target + 0x26] = rom[target + 0x27] = rom[0xd726] = rom[0xd727] = 6;
             rom[0xd724] = (byte)(0x80 | item);
             rom.Call(ObjectCollisionRom.Scan);
-            bool enabled = item == 0x0d ? hook.EnemyEnabled(type) : part ? boomerang.PartEnabled(type) : boomerang.EnemyEnabled(type);
+            bool enabled = item == 0x0d ? hook.EnemyEnabled(type, ItemCollisionType.SwitchHook) : part ? boomerang.PartEnabled(type, ItemCollisionType.L1Boomerang) : boomerang.EnemyEnabled(type, ItemCollisionType.L1Boomerang);
             FailIf(rom.Dispatches.Count != (gate == 0 && enabled ? 1 : 0) ||
                 rom.Dispatches.Count == 1 && rom.Dispatches[0] != (target, item, 0),
                 $"ROM collision mask part={part}, type=${type:x2}, item=${item:x2}, gate={gate}.");
             cases++;
         }
         for (int mode = 0; mode < 0x7d; mode++)
-            FailIf(boomerang.Effect(mode) != rom.Table(0x6d0a + mode * 32 + 0x17) ||
-                hook.Effect(mode) != rom.Table(0x6d0a + mode * 32 + 0x0d) ||
-                GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(mode) != rom.Table(0x6d0a + mode * 32 + 0x1e),
+            FailIf(boomerang.Effect(mode, ItemCollisionType.L1Boomerang) != rom.Table(0x6d0a + mode * 32 + 0x17) ||
+                hook.Effect(mode, ItemCollisionType.SwitchHook) != rom.Table(0x6d0a + mode * 32 + 0x0d) ||
+                ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(mode, ItemCollisionType.GaleSeed) != rom.Table(0x6d0a + mode * 32 + 0x1e),
                 $"ROM shared collision effect table mode=${mode:x2}.");
         GD.Print($"Validated {cases} native enemy/part mask and eligibility scans plus all 125 Boomerang, Switch Hook and Gale effect rows.");
     }

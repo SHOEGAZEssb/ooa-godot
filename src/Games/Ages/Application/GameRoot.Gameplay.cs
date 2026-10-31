@@ -7,13 +7,13 @@ using System.Threading.Tasks;
 
 namespace Oracles;
 
-public partial class GameRoot
+public partial class GameRoot : IGameplayObjectPhases, IGameplayForegroundPhases
 {
     private readonly AgesGameplaySceneResource _gameplaySceneResource = new();
     private IEnumerator<bool>? _gameplayPreparation;
     private bool _loadingSavedGame;
     internal bool GameplayPrepared { get; private set; }
-    private AgesGameSceneGraph? _preparedGameplayScene;
+    private GameplaySceneGraph? _preparedGameplayScene;
     private AgesWorldData? _preparedWorld;
     private AgesRoomSessionResources? _preparedRoomResources;
     private RoomEntryEffectDatabase? _roomEntryEffects;
@@ -22,39 +22,30 @@ public partial class GameRoot
     internal AgesRoomTransitionController _transitions = null!;
     internal RoomEntityManager _entities = null!;
     internal InteractionController _interactions = null!;
+    private AgesNpcInteractionScripts _npcInteractionScripts = null!;
     internal RoomEventController _roomEvents = null!;
     internal PushBlockController _pushBlocks = null!;
     internal DungeonKeyDoorController _keyDoors = null!;
     internal OverworldKeyholeController _keyholes = null!;
     internal TerrainController _terrain = null!;
     internal CombatController _combat = null!;
-    internal BombController _bomb = null!;
-    internal BraceletController _bracelet = null!;
-    internal ShovelController _shovel = null!;
-    internal SeedSatchelController _seedSatchel = null!;
+    internal BombController _bomb => _playerWorld.Bombs;
+    internal BraceletController _bracelet => _playerWorld.Bracelet;
+    internal ShovelController _shovel => _playerWorld.Shovel;
+    internal SeedSatchelController _seedSatchel => _playerWorld.Satchel;
+    internal SeedShooterController _seedShooter = null!;
     internal HarpController _harp = null!;
-    internal DebugCollisionController _debugCollision = null!;
-    internal AgesMapMenuController _mapMenu = null!;
-    internal AgesInventoryMenuController _inventoryMenu = null!;
     internal RingMenuController _ringMenu = null!;
     internal SecretEntryController _secretEntry = null!;
     internal SecretListController _secretList = null!;
-    internal DebugFlagMenuController _debugFlagMenu = null!;
-    internal DebugObjectSpawnerController _debugObjectSpawner = null!;
-    internal GameplayPauseController _gameplayPause = null!;
-    internal OracleMenuLifecycle _menuLifecycle = null!;
     internal FrontendIntroController? _frontendIntro;
     internal FrontendIntroScreen? _frontendIntroScreen;
-    private NewGameIntroController? _newGameIntro;
-    private NewGameIntroScreen? _newGameIntroScreen;
     internal RoomCollision _collision = null!;
     internal AgesPlayerWorld _playerWorld = null!;
-    internal AgesGameSceneGraph _scene = null!;
     internal TreasureDatabase _treasures = null!;
     internal InventoryState _inventory = null!;
-    internal StatusBarController _statusBar = null!;
     internal OracleSaveData _saveData = null!;
-    internal AgesDeathRespawnPointController _deathRespawnPoints = null!;
+    internal DeathRespawnPointController _deathRespawnPoints = null!;
     internal double _newGameArrivalTicks;
     internal int _newGameArrivalFadeFrames;
     internal int _newGameArrivalFrames;
@@ -65,8 +56,6 @@ public partial class GameRoot
     private PirateShipCourse? _pirateShipCourse;
     private int _deferredIntroMusicGroup = -1;
     private int _deferredIntroMusicRoom = -1;
-    private string _debugSavestateStatus = string.Empty;
-    private double _debugSavestateStatusFrames;
 
     internal double _animationTicks;
 
@@ -74,21 +63,16 @@ public partial class GameRoot
     internal Player _player => _scene.Player;
     internal Camera2D _roomCamera => _scene.RoomCamera;
     internal Hud _hud => _scene.Hud;
-    internal Label _roomDebug => _scene.RoomDebug;
+    internal EndingScreen _endingScreen => _scene.InterfaceLayer.GetNode<EndingScreen>("EndingScreen");
     internal ColorRect _warpFade => _scene.WarpFade;
     internal DialogueBox _dialogue => _scene.Dialogue;
-    internal AgesMapScreen _mapScreen => _scene.AgesMapScreen;
-    internal AgesInventoryScreen _inventoryScreen => _scene.AgesInventoryScreen;
+    internal MapScreen _mapScreen => _scene.MapScreen;
+    internal InventoryScreen _inventoryScreen => _scene.InventoryScreen;
     internal RingMenuScreen _ringMenuScreen => _scene.RingMenuScreen;
     internal SaveQuitScreen _saveQuitScreen => _scene.SaveQuitScreen;
     internal DebugFlagScreen _debugFlagScreen => _scene.DebugFlagScreen;
 
-    public bool IsTransitioning => _transitions?.IsTransitioning ?? false;
-    public bool DialogueOpen => _interactions?.DialogueOpen ?? false;
-    public bool MapMenuOpen => _mapMenu?.IsActive ?? false;
-    public bool InventoryMenuOpen => _inventoryMenu?.IsActive ?? false;
     public bool RingMenuOpen => _ringMenu?.IsActive ?? false;
-    public bool DebugFlagMenuOpen => _debugFlagMenu?.IsActive ?? false;
 
     private IEnumerable<bool> PrepareGameplayPresentation()
     {
@@ -96,7 +80,12 @@ public partial class GameRoot
         yield return false;
         foreach (bool step in _preparedGameplayScene!.PreparePresentation())
             yield return step;
+        _preparedGameplayScene.Player.PrepareTransformationPresentation();
+        yield return false;
     }
+
+    internal void ApplyHudPlacement(bool bottom) => _transitions.SetGameplayScreenTop(
+        _scene.ApplyHudPlacement(bottom, _transitions.NativeRoomUsesFullScreen));
 
     private void OpenFileSelectFromFrontend()
     {
@@ -118,7 +107,7 @@ public partial class GameRoot
     private void InitializeGameplay(
         OracleSaveData save,
         bool forceDeathRespawn = false,
-        AgesDebugSavestateData? debugSavestate = null,
+        DebugSavestateData? debugSavestate = null,
         InitialRoomLoadKind initialRoomLoadKind = InitialRoomLoadKind.Ordinary)
     {
         foreach (bool _ in InitializeGameplaySteps(save, forceDeathRespawn,
@@ -128,7 +117,7 @@ public partial class GameRoot
     private IEnumerable<bool> InitializeGameplaySteps(
         OracleSaveData save,
         bool forceDeathRespawn = false,
-        AgesDebugSavestateData? debugSavestate = null,
+        DebugSavestateData? debugSavestate = null,
         InitialRoomLoadKind initialRoomLoadKind = InitialRoomLoadKind.Ordinary,
         bool prepare = false)
     {
@@ -141,7 +130,7 @@ public partial class GameRoot
         else
             _animationTicks = debugSavestate.AnimationTicks;
         _random ??= new OracleRandom();
-        _runtimeState = AgesGameContent.CreateRuntimeState();
+        _runtimeState = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         _treasures = TreasureDatabase.For(AgesGameContent.AssetRoot);
         yield return false;
         bool useDebugSavestate = debugSavestate is not null;
@@ -150,9 +139,7 @@ public partial class GameRoot
                 initialRoomLoadKind == InitialRoomLoadKind.LinkSummonedCutscene)));
         if (useSavedSpawn)
         {
-            AgesDeathRespawnInitialization.Apply(_saveData);
-            CompanionRuntimeState.RestoreRememberedFromDeathRespawn(
-                _runtimeState, _saveData);
+            GameplayInitialization.RestoreCheckpoint(_saveData, _runtimeState);
         }
         int startingGroup = useDebugSavestate
             ? debugSavestate!.Group
@@ -180,7 +167,7 @@ public partial class GameRoot
             _treasures, _saveData, () => _rooms.CurrentDungeonIndex, _runtimeState);
         yield return false;
         PackedScene gameplayScene = _gameplaySceneResource.Load();
-        _scene = _preparedGameplayScene ?? gameplayScene.Instantiate<AgesGameSceneGraph>();
+        _scene = _preparedGameplayScene ?? gameplayScene.Instantiate<GameplaySceneGraph>();
         _preparedGameplayScene = null;
         if (prepare)
         {
@@ -191,25 +178,6 @@ public partial class GameRoot
         }
         AddChild(_scene);
         yield return false;
-        _dialogue.ApplicationUpdateOwned = true;
-        _player.ApplicationUpdateOwned = true;
-        _dialogue.SetSoundPlayer(_sound.PlaySound);
-        _dialogue.SetLinkNameProvider(() => _saveData.LinkName);
-        _dialogue.SetBackgroundPaletteState(_rooms.World.BackgroundPalettes);
-        _dialogue.SetAlternatePalettePriorityHandler(
-            _player.SetAlternateTextboxPalettePriority);
-        _dialogue.MessageSpeed = _saveData.TextSpeed;
-        _hud.Initialize(_treasures, _inventory);
-        _rooms.RoomChanged += SyncHudToRoom;
-        _statusBar = new StatusBarController(_inventory, _hud, _sound.PlaySound,
-            () => _saveData.ReadWramByte(AgesWramAddress.wPlaytimeCounter));
-        _mapScreen.Initialize(_rooms, _inventory,
-            () => _saveData.ReadWramByte(AgesWramAddress.wPlaytimeCounter));
-        _inventoryScreen.Initialize(_treasures, _inventory,
-            () => (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Past) != 0, _hud);
-        _ringMenuScreen.Initialize(_inventory);
-        _debugFlagScreen.Initialize(
-            _saveData, new GlobalFlagDatabase(AgesGameContent.AssetRoot), _treasures, _inventory);
         foreach (bool step in CreateControllersSteps())
             yield return step;
         if (prepare)
@@ -219,9 +187,11 @@ public partial class GameRoot
             // Stop here until CUTSCENE_PREGAME_INTRO completes. No room
             // objects exist and no original game update has run in this graph.
             yield return true;
-            if (initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
-                _rooms.EnterPreparedRoom();
         }
+
+        _statusBar.InitializeNativeState();
+        if (prepare && initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
+            _rooms.EnterPreparedRoom();
 
         Vector2 spawn = useDebugSavestate
             ? debugSavestate!.PlayerPosition
@@ -235,23 +205,13 @@ public partial class GameRoot
         if (initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
             _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
         TryDisplayEraInfoAfterInitialRoomLoad(initialRoomLoadKind);
-        debugSavestate?.RestoreLiveState(
-            _saveData,
-            _runtimeState,
-            _random,
-            _entities);
         _roomView.SetRoom(_rooms.CurrentRoom.Texture);
         _roomView.UpdateUnderwaterWave(_rooms.CurrentRoom, _entities.FrameCounter);
         if (!useSavedSpawn && !useDebugSavestate)
             spawn = FindSpawn();
         _player.Initialize(_playerWorld, _inventory, spawn, _random);
-        if (useSavedSpawn && initialRoomLoadKind == InitialRoomLoadKind.Ordinary)
-        {
-            // bank1.initializeGame sets signed invincibility $88: 120
-            // non-flashing object updates. Pregame cutscenes have already
-            // consumed that interval before their separate arrival handoff.
-            _player.ApplyInteractionInvincibility(0x78);
-        }
+        // Restore live bytes after Link initialization has cleared its transient parents.
+        debugSavestate?.RestoreLiveState(_saveData, _runtimeState, _random, _entities);
         if (useSavedSpawn)
         {
             // loadingRoom/func_5c18 call setEnteredWarpPosition before
@@ -259,27 +219,19 @@ public partial class GameRoot
             // stair cannot immediately activate that warp again.
             _transitions.DeactivateWarpAtPlayerPosition(_player);
         }
-        _player.GameOverRequested += BeginGameOver;
         if (useDebugSavestate)
         {
             _player.Face(debugSavestate!.PlayerFacing);
         }
         else if (useSavedSpawn)
         {
-            _player.Face(_saveData.RespawnFacing switch
-            {
-                0 => Vector2I.Up,
-                1 => Vector2I.Right,
-                2 => Vector2I.Down,
-                _ => Vector2I.Left
-            });
+            GameplayInitialization.RestorePlayer(_saveData, _player,
+                protect: initialRoomLoadKind == InitialRoomLoadKind.Ordinary);
         }
         if (!useSavedSpawn && !useDebugSavestate && initialRoomLoadKind == InitialRoomLoadKind.Ordinary)
             _deathRespawnPoints.RecordRoomInitialization();
-        _inventory.Changed += SyncHudToInventory;
-        SyncHudToInventory();
         _transitions.ResetCamera();
-        _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
+        ApplyHudPlacement(_presentationSettings.HudBottom);
         if (prepare)
         {
             _scene.ProcessMode = ProcessModeEnum.Inherit;
@@ -313,34 +265,35 @@ public partial class GameRoot
         }
     }
 
-    private GameplayObjectPass? _suspendedObjectPass;
+    private GameplayObjectPass _objectPass;
+    private bool _objectArrivalPaletteAdvanced;
     private bool _nativeResetRequested;
     private readonly record struct GameplayObjectPass(
         bool ArrivalOwnsUpdate, bool FinishingArrival, bool ToggleOwnedUpdate,
-        bool RoomTransitionOwnedUpdate, bool ScrollOwnedUpdate, bool NativeCutsceneOwnedUpdate = false,bool StatusBarUpdatesDisabled = false);
+        bool RoomTransitionOwnedUpdate, bool ScrollOwnedUpdate, bool NativeCutsceneOwnedUpdate = false,bool StatusBarUpdatesDisabled = false, bool InitializingArrival = false, bool ToggleOwnsPostObjects = false);
 
-    private void AdvanceGameplayState(double delta)
+    GameplayForegroundMode IGameplayForegroundPhases.BeginFrame(double delta)
     {
-        AdvanceDebugSavestateStatus(delta);
         bool finishingArrival = _newGameArrivalRoomVisitPending;
         bool initializingArrival = _newGameArrivalRoomPending &&
             _newGameArrivalFadeFrames == 0 && _newGameArrivalFrames == 0;
         if (UpdateNewGameArrival(delta))
-            return;
+            return GameplayForegroundMode.Handled;
         bool arrivalOwnsUpdate = initializingArrival || finishingArrival;
+        _objectPass = new(arrivalOwnsUpdate, finishingArrival, false,
+            false, false, InitializingArrival: initializingArrival);
+        return GameplayForegroundMode.Normal;
+    }
 
-        _debugCollision.Update();
-        if (_debugObjectSpawner.Update())
-            return;
-        _debugFlagMenu.Update();
-        if (_debugFlagMenu.IsActive)
-            return;
+
+    bool IGameplayForegroundPhases.AdvanceAdditionalMenus(double delta)
+    {
         bool secretOwnedFrame = _secretEntry.IsActive;
         _secretEntry.Update(delta);
-        if (secretOwnedFrame || _secretEntry.IsActive) return;
+        if (secretOwnedFrame || _secretEntry.IsActive) return true;
         bool secretListOwnedFrame = _secretList.IsActive;
         _secretList.Update(delta);
-        if (secretListOwnedFrame || _secretList.IsActive) return;
+        if (secretListOwnedFrame || _secretList.IsActive) return true;
         bool ringMenuOwnedFrame = _ringMenu.IsActive;
         _ringMenu.Update(delta);
         // A close callback resumes Vasu's native script. The original menu
@@ -352,183 +305,197 @@ public partial class GameRoot
             // only for appraisal, including the visible opening fade-in.
             if (_ringMenuScreen.Visible && _ringMenuScreen.Mode == RingMenuMode.Appraisal)
                 _statusBar.Update(delta);
-            return;
+            return true;
         }
+        return false;
+    }
+
+    bool IGameplayForegroundPhases.PrepareElectricShock(double delta)
+    {
+        bool arrivalOwnsUpdate = _objectPass.ArrivalOwnsUpdate;
         // cutscene02 advances before updateAllObjects. Its pending trigger
         // already blocks opening a menu between selection and state0.
         bool toggleOwnedUpdate = _entities.FloorToggle?.Active == true;
         _entities.FloorToggle?.AdvanceBeforeObjects();
         // bank1.s cutscene01 advances shock before updateMenus, including
         // its terminal update. Loading/warp and toggle cutscenes omit it.
-        if (!arrivalOwnsUpdate && _transitions.GameplayMenusAvailable && !toggleOwnedUpdate)
-            _player.AdvanceElectricShock();
-        // b2_updateMenus warns only on its idle, eligible dispatch. IntroDone
-        // rejects a fresh Start/Select edge before this cue; active menus and
-        // their final closing update bypass it entirely.
-        bool menuEdge = Input.IsActionJustPressed("inventory") || Input.IsActionJustPressed("map");
-        if (_menuLifecycle.IsActive) _transitions.HandOffArrivalPaletteToMenu();
-        if (!arrivalOwnsUpdate && !toggleOwnedUpdate && !_menuLifecycle.IsActive &&
-            _transitions.GameplayMenusAvailable && !DialogueOpen && !_player.IsDying && _harp.PlayingInstrument == 0 &&
-            !_interactions.GameplayMenuActive && !_roomEvents.MenusDisabled &&
-            !_entities.PlayerMenusDisabled && !_player.ElectricShockActive && !_player.GaleActive &&
-            (!menuEdge || _saveData.HasGlobalFlag(GlobalFlag.IntroDone)))
-            _statusBar.UpdateLowHealthWarning();
-        // b2_updateMenus checks scrolling, active text, death and instrument
-        // before the IntroDone error cue. Active menus retain their dispatch.
-        AgesInventoryMenuController inventoryOwner = _inventoryMenu;
-        if (!arrivalOwnsUpdate && !toggleOwnedUpdate && (_inventoryMenu.IsActive ||
-            !_roomEvents.NormalMenuDispatchSuppressed&&_transitions.GameplayMenusAvailable && !DialogueOpen && !_player.IsDying && _harp.PlayingInstrument == 0))
-            _inventoryMenu.Update(delta);
-        // Game Over restarts THREAD_1 into initializeGame. Its room's first
-        // object update belongs to the following dispatch, not this old pass.
-        if (_mainMenu is not null || !ReferenceEquals(inventoryOwner, _inventoryMenu))
-            return;
-        if (_inventoryMenu.IsActive)
-        {
-            if (_inventoryScreen.Visible)
-            {
-                _statusBar.Update(delta);
-                _inventoryScreen.QueueRedraw();
-            }
-            return;
-        }
-        bool mapOwnedUpdate = _mapMenu.IsActive;
-        bool transitioningBeforeMap = IsTransitioning;
-        if (!arrivalOwnsUpdate && !toggleOwnedUpdate&&(_mapMenu.IsActive||!_roomEvents.NormalMenuDispatchSuppressed)) _mapMenu.Update(delta);
-        // Accepted Gale travel loads the destination at white. cutscene03
-        // consumes that update; its new Link object starts on the next pass.
-        if (mapOwnedUpdate && !transitioningBeforeMap && _transitions.IsTransitioning) return;
-        // updateMenus returns the post-update wOpenedMenuType. Completing
-        // menuStateFadeIntoGame resumes cutscene01 on this same update.
-        if (_mapMenu.IsActive)
-            return;
-        // MENU_KIDNAME is a gameplay-owned file-menu screen in the original.
-        // Keep servicing its controller while freezing the room beneath it.
-        if (_interactions.GameplayMenuActive)
-        {
-            _interactions.Update(delta, _player);
-            return;
-        }
+        bool shock = !arrivalOwnsUpdate && _transitions.GameplayMenusAvailable && !toggleOwnedUpdate && !_roomEvents.NativeCutsceneActive;
+        _objectPass = _objectPass with { ToggleOwnedUpdate = toggleOwnedUpdate };
+        return shock;
+    }
 
+    GameplayMenuDispatch IGameplayForegroundPhases.PrepareMenus(double delta)
+    {
+        bool arrivalOwnsUpdate = _objectPass.ArrivalOwnsUpdate;
+        bool toggleOwnedUpdate = _objectPass.ToggleOwnedUpdate;
+        bool normalDispatch = !arrivalOwnsUpdate && !toggleOwnedUpdate;
+        bool inventoryDispatch = normalDispatch && (_inventoryMenu.IsActive ||
+            !_roomEvents.NormalMenuDispatchSuppressed && _transitions.GameplayMenusAvailable &&
+            !DialogueOpen && !_player.IsDying && _harp.PlayingInstrument == 0);
+        bool mapDispatch = normalDispatch && (_mapMenu.IsActive || !_roomEvents.NormalMenuDispatchSuppressed);
+        bool warningEligible = normalDispatch && !_roomEvents.NormalMenuDispatchSuppressed && _transitions.GameplayMenusAvailable && !DialogueOpen &&
+            !_player.IsDying && _harp.PlayingInstrument == 0 && !_gameplayMenus!.KidName.IsActive &&
+            !_roomEvents.MenusDisabled && !_entities.PlayerMenusDisabled &&
+            !_player.ElectricShockActive && !_player.GaleActive;
+        return new(inventoryDispatch,mapDispatch,warningEligible);
+    }
+
+    GameplayObjectUpdateMode IGameplayForegroundPhases.BeforeObjects(double delta)
+    {
         // Retain the caller's eligibility even when its handler selects a new
         // native stage or an interaction suspends this object pass.
         bool statusBarUpdatesDisabled=_roomEvents.StatusBarUpdatesDisabled;
-        _interactions.AdvanceFarorePaletteBeforeObjects();
+        // The shared arrival palette runs before whichever main-thread
+        // handler is selected, including a newly requested native cutscene.
+        _objectArrivalPaletteAdvanced = !_roomEvents.DisablesLink && !_player.NativeCutsceneControlled &&
+            !_transitions.NativePaletteFadeActive && _transitions.AdvanceStandingArrivalPaletteBeforeObjects(delta);
+        _npcInteractionScripts.AdvanceFarorePaletteBeforeObjects();
         bool nativeCutsceneOwnedUpdate = _roomEvents.AdvanceNativeCutscenesBeforeObjects();
-        if(_nativeResetRequested)return;
+        if(_nativeResetRequested)return GameplayObjectUpdateMode.Handled;
         if (_roomEvents.SkipsObjectUpdate)
         {
-            _entities.AdvanceFrozenRoomFrame();
-            return;
+            return GameplayObjectUpdateMode.Handled;
         }
-        // updateSpecialObjects runs w1Companion before w1Link. A waiting raft
-        // remains in the later interaction pass until it allocates that slot.
-        _player.AdvanceDeathPrelude();
-        // A cutscene selected before this object pass may request CUTSCENE
-        // $03, but its new palette starts on the following main-thread update.
-        if (!nativeCutsceneOwnedUpdate && _transitions.AdvanceFadeOutWarpBeforeObjects(delta))
-        {
-            // mainThread advances wFrameCounter even when CUTSCENE_03
-            // omits updateAllObjects, including its terminal room load.
-            _entities.AdvanceFrozenRoomFrame();
-            return;
-        }
-        if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnedUpdate && !_roomEvents.OwnsGameLogic)
+        _objectPass = _objectPass with { NativeCutsceneOwnedUpdate = nativeCutsceneOwnedUpdate,
+            StatusBarUpdatesDisabled = statusBarUpdatesDisabled };
+        return GameplayObjectUpdateMode.Full;
+    }
+
+    bool IGameplayForegroundPhases.MainThreadRunning => !_roomEvents.ObjectUpdateSuspended;
+    bool IGameplayForegroundPhases.ObjectUpdateSuspended => _roomEvents.ObjectUpdateSuspended;
+    bool IGameplayForegroundPhases.StatusBarUpdatesAllowed => !_objectPass.StatusBarUpdatesDisabled;
+    DialogueBox? IGameplayForegroundPhases.FrameDialogue => _dialogue;
+    bool IGameplayForegroundPhases.PresentationAllowed => !_nativeResetRequested;
+    void IGameplayForegroundPhases.ApplyPresentation(bool hudBottom) => ApplyHudPlacement(hudBottom);
+
+    void IGameplayForegroundPhases.CompleteFrame()
+    {
+        if (!_nativeResetRequested) return;
+        _nativeResetRequested = false;
+        _roomEvents.Get<BlackTowerEndingEvent>().Cancel();
+        ReleaseGameplayScene(); StartFrontend(startAtTitle:false);
+    }
+
+    bool IGameplayObjectPhases.PrepareObjectUpdate(double delta)
+    {
+        // A cutscene selected before this pass starts its palette next update.
+        if (!_objectPass.NativeCutsceneOwnedUpdate && _transitions.AdvanceFadeOutWarpBeforeObjects(delta))
+            return false;
+        if (!_objectPass.ArrivalOwnsUpdate && !IsTransitioning && !_objectPass.ToggleOwnedUpdate && !_roomEvents.OwnsGameLogic)
         {
             _entities.CheckLoadPirateShip();
             (_pirateShipCourse ??= new PirateShipCourse()).Update(
                 _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
         }
-        bool arrivalPaletteAdvanced = !nativeCutsceneOwnedUpdate && _transitions.AdvanceBasicArrivalPaletteBeforeObjects(delta);
-        _roomEvents.PublishNativeGameInput();
-        if (!IsTransitioning && !_harp.IsPlaying)
-            _entities.UpdateSpecialObjectsBeforePlayer(_player);
-        // updateAllObjects begins with updateSpecialObjects (companion, then
-        // Link), followed by item parents. Link's physics/process split is
-        // replayed here before enemies, parts, and interactions.
-        bool scrollOwnedUpdate = _transitions.ScrollActive;
-        bool roomTransitionOwnedUpdate = IsTransitioning;
-        // linkState01 returns for active text before clearing the shared
-        // instrument byte. A completed Flute/Harp signal survives that text.
-        if (!DialogueOpen) _harp.BeginObjectUpdate();
-        _transitions.BeginObjectUpdate();
-        // warpTransitionB's final state initializes normal Link and returns;
-        // movement/input starts at the following cutscene00 object update.
-        if (!initializingArrival) _player.AdvanceApplicationUpdate(advanceElectricShock: false);
-        _roomEvents.UpdateSpecialObjects();
-        _entities.ClearSignalsAfterPlayer();
-        if (!nativeCutsceneOwnedUpdate && !arrivalPaletteAdvanced) _transitions.UpdateWarpAndEffects(delta);
-        if (!_transitions.TimeWarpActive)
-        {
-            _entities.Update(delta, _player);
-        }
-        // A portal can begin the time warp from the contact pass above. The
-        // original DISABLE_ALL_BUT_INTERACTIONS|DISABLE_LINK state freezes
-        // ordinary room scripts from the following handler onward; the
-        // transition controller advances only its imported warp interactions.
-        if (_transitions.TimeWarpActive)
-        {
-            _roomEvents.UpdateDuringTimeWarpFrame();
-        }
-        else if (_entities.FloorToggle?.Frozen != true)
-        {
-            _roomEvents.UpdateFrame();
-            if (_roomEvents.ObjectUpdateSuspended)
-            {
-                _suspendedObjectPass = new(arrivalOwnsUpdate, finishingArrival, toggleOwnedUpdate,
-                    roomTransitionOwnedUpdate, scrollOwnedUpdate, nativeCutsceneOwnedUpdate,statusBarUpdatesDisabled);
-                return;
-            }
-            _interactions.Update(delta, _player);
-        }
-        FinishGameplayObjectPass(delta, new(arrivalOwnsUpdate, finishingArrival, toggleOwnedUpdate,
-            roomTransitionOwnedUpdate, scrollOwnedUpdate, nativeCutsceneOwnedUpdate,statusBarUpdatesDisabled));
+        return true;
     }
 
-    private void FinishGameplayObjectPass(double delta, GameplayObjectPass pass)
+    int? IGameplayObjectPhases.SampleSimulatedInput() => _roomEvents.SampleSimulatedInput();
+
+
+    void IGameplayObjectPhases.UpdateLink()
     {
-        bool arrivalOwnsUpdate = pass.ArrivalOwnsUpdate;
-        bool finishingArrival = pass.FinishingArrival;
-        bool toggleOwnedUpdate = pass.ToggleOwnedUpdate;
-        bool roomTransitionOwnedUpdate = pass.RoomTransitionOwnedUpdate;
-        bool scrollOwnedUpdate = pass.ScrollOwnedUpdate;
+        _objectPass = _objectPass with
+        {
+            ScrollOwnedUpdate = _transitions.ScrollActive,
+            RoomTransitionOwnedUpdate = IsTransitioning
+        };
+        _transitions.BeginLinkUpdate();
+        // warpTransitionB's final initialization returns before Link movement.
+        if (!_objectPass.InitializingArrival)
+            _player.AdvanceApplicationUpdate(advanceElectricShock: false);
+    }
+
+    void IGameplayObjectPhases.AfterLinkUpdate() => _roomEvents.UpdateSpecialObjects();
+
+    bool IGameplayObjectPhases.PrepareEntityUpdate(double delta)
+    {
+        // A different main-thread cutscene does not replace a live Link's
+        // state-$0a arrival. updateAllObjects still dispatches that object.
+        bool linkArrival = _transitions.LinkArrivalActive && !_roomEvents.DisablesLink && !_player.NativeCutsceneControlled;
+        if ((!_objectPass.NativeCutsceneOwnedUpdate || linkArrival) && !_objectArrivalPaletteAdvanced)
+            _transitions.UpdateWarpAndEffects(delta);
+        return !_transitions.TimeWarpActive;
+    }
+
+    bool IGameplayObjectPhases.UpdateRoomInteractions(double delta, bool resuming)
+    {
+        if (resuming) _roomEvents.ResumeObjectUpdate();
+        else if (_transitions.TimeWarpActive)
+        {
+            _roomEvents.UpdateDuringTimeWarpFrame();
+            return true;
+        }
+        else if (_entities.FloorToggle?.Frozen == true) return true;
+        else _roomEvents.UpdateFrame();
+        if (_roomEvents.ObjectUpdateSuspended) return false;
+        _interactions.Update(delta, _player);
+        return true;
+    }
+
+    void IGameplayObjectPhases.BeforeObjectTail(double delta)
+    {
+        GameplayObjectPass pass = _objectPass;
         _entities.SwitchHook?.UpdatePost(_player);
         _entities.Somaria?.UpdatePost(_player);
         _entities.Biggoron?.UpdatePost(_player);
-        // cutscene01 calls checkUpdateUnderwaterWaves after updateAllObjects,
-        // including text-frozen object passes. Menus return before this pass.
-        if (!arrivalOwnsUpdate && !toggleOwnedUpdate && !roomTransitionOwnedUpdate && !pass.NativeCutsceneOwnedUpdate)
+        if (!pass.ArrivalOwnsUpdate && !pass.ToggleOwnedUpdate && !pass.RoomTransitionOwnedUpdate && !pass.NativeCutsceneOwnedUpdate)
             _roomView.UpdateUnderwaterWave(_rooms.CurrentRoom, _entities.FrameCounter);
-        if (!arrivalOwnsUpdate && !IsTransitioning && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
+        if (!pass.ArrivalOwnsUpdate && !IsTransitioning && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             _transitions.SampleRoomExit(_player);
-        _entities.SynchronizeCompanionRiderAfterObjects(_player);
-        _entities.UpdateHeldObjectPosition(_player);
-        _player.PublishTilePushingDirection();
-        // updateAllObjects drains up to four queued tile graphics after the
-        // object passes, before screen-transition handling and animation.
-        // Preserve the current scroll gate on its final frozen update.
-        if (!_transitions.TimeWarpActive)
-            _rooms.UpdateChangedTileGraphics(_transitions.ScrollActive ? (byte)8 : (byte)1);
-        // cutscene01 selects a changed orb bit before getNextActiveRoom and
-        // the enemy/part collision pass. cutscene02 only runs its handler
-        // and updateAllObjects, including the update that releases its freeze.
-        if (!arrivalOwnsUpdate && !toggleOwnedUpdate && !roomTransitionOwnedUpdate &&
+        // bank0.updateAllObjects calls bank1.func_4000 after interactions,
+        // before rider copies and updateItemsPost. Destination AI already froze.
+        if (pass.ScrollOwnedUpdate) _transitions.UpdateScroll(delta);
+    }
+
+    bool IGameplayObjectPhases.TileGraphicsUpdateAllowed => !_transitions.TimeWarpActive;
+
+    void IGameplayObjectPhases.AfterObjectTail(double delta)
+    {
+        _roomEvents.AdvanceNativeCutscenesAfterObjects();
+    }
+
+    void IGameplayForegroundPhases.AfterStatusBar(double delta)
+    {
+        UpdateAnimatedTiles(delta);
+        GameplayObjectPass pass = _objectPass;
+        if (!pass.ArrivalOwnsUpdate && !pass.ToggleOwnedUpdate && !pass.RoomTransitionOwnedUpdate &&
             !IsTransitioning && !_roomEvents.Active)
             _entities.FloorToggle?.CheckAfterObjects();
-        bool toggleOwnsPostObjects = toggleOwnedUpdate || _entities.FloorToggle?.Active == true;
-        // The source screen-transition handler follows updateAllObjects.
-        // In particular, the final scroll update still freezes destination
-        // entities and room events; ordinary updates resume next tick.
-        if (scrollOwnedUpdate)
-            _transitions.UpdateScroll(delta);
-        else if (!arrivalOwnsUpdate && !toggleOwnsPostObjects && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
+        _objectPass = pass with { ToggleOwnsPostObjects = pass.ToggleOwnedUpdate || _entities.FloorToggle?.Active == true };
+    }
+
+    bool IGameplayForegroundPhases.CutsceneRequestsAllowed =>
+        !_objectPass.ArrivalOwnsUpdate && !_objectPass.RoomTransitionOwnedUpdate &&
+        !_objectPass.ToggleOwnsPostObjects && !_objectPass.NativeCutsceneOwnedUpdate &&
+        !IsTransitioning && !_roomEvents.NativeCutsceneActive;
+
+    void IGameplayForegroundPhases.SelectRequestedCutscene(int index)
+    {
+        if (index != 0x13)
+            throw new NotSupportedException($"bank1.setCutsceneIndexIfCutsceneTriggerSet: unbound Ages cutscene ${index:x2}.");
+    }
+
+    void IGameplayForegroundPhases.AfterCutsceneRequests(double delta)
+    {
+        if (!_objectPass.ScrollOwnedUpdate && !_objectPass.ArrivalOwnsUpdate &&
+            !_objectPass.ToggleOwnsPostObjects && !_objectPass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             UpdatePostObjectPlayerState(roomExitSampled: true);
-        _roomEvents.AdvanceNativeCutscenesAfterObjects();
-        _harp.Update(delta);
-        if(!pass.StatusBarUpdatesDisabled)_statusBar.Update(delta);
-        UpdateAnimatedTiles(delta);
-        if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnsPostObjects && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
-            _entities.ResolvePostObjectCollisions(_player);
+    }
+
+    bool IGameplayForegroundPhases.ObjectCollisionsAllowed =>
+        !_objectPass.ArrivalOwnsUpdate && !IsTransitioning && !_objectPass.ToggleOwnsPostObjects &&
+        !_objectPass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive;
+
+    bool IGameplayForegroundPhases.RoomInitializationMayComplete =>
+        !IsTransitioning && !_objectPass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive &&
+        !_objectPass.ToggleOwnsPostObjects;
+
+    void IGameplayForegroundPhases.AfterObjectCollisions(double delta)
+    {
+        GameplayObjectPass pass = _objectPass;
+        bool finishingArrival = pass.FinishingArrival;
+        bool roomTransitionOwnedUpdate = pass.RoomTransitionOwnedUpdate;
         if (roomTransitionOwnedUpdate && !IsTransitioning)
         {
             _entities.FloorToggle?.CompleteRoomInitialization();
@@ -541,7 +508,6 @@ public partial class GameRoot
             _newGameArrivalRoomVisitPending = false;
             _rooms.MarkCurrentRoomVisited();
         }
-        UpdateRoomDebugLabel();
     }
 
     internal void UpdatePostObjectPlayerState(bool roomExitSampled = false)
@@ -585,49 +551,7 @@ public partial class GameRoot
             _roomView.QueueRedraw();
     }
 
-    internal void UpdateRoomDebugLabel()
-    {
-        string roomText = $"{_rooms.ActiveGroup:x1}:{_rooms.CurrentRoom.Id:x2}";
-        if (_debugCollision.CollisionsDisabled)
-            roomText += " NOCLIP";
-        if (_debugFastForward)
-            roomText += " FF x4";
-        if (_debugSavestateStatusFrames > 0.0 &&
-            !string.IsNullOrEmpty(_debugSavestateStatus))
-        {
-            roomText += $"  {_debugSavestateStatus}";
-        }
-        if (_roomDebug.Text != roomText)
-            _roomDebug.Text = roomText;
-    }
-
-    private void AdvanceDebugSavestateStatus(double delta)
-    {
-        if (_debugSavestateStatusFrames <= 0.0)
-            return;
-
-        _debugSavestateStatusFrames = Math.Max(
-            0.0,
-            _debugSavestateStatusFrames + delta * -60.0);
-        if (_debugSavestateStatusFrames == 0.0)
-            _debugSavestateStatus = string.Empty;
-    }
-
-    private void SetDebugSavestateStatus(string status)
-    {
-        _debugSavestateStatus = status;
-        _debugSavestateStatusFrames = 120.0;
-        UpdateRoomDebugLabel();
-    }
-
-    internal void ClearDebugSavestateStatus()
-    {
-        _debugSavestateStatus = string.Empty;
-        _debugSavestateStatusFrames = 0.0;
-        UpdateRoomDebugLabel();
-    }
-
-    private bool CanCaptureDebugSavestate() =>
+    private bool CanCaptureAgesDebugSavestate() =>
         _newGameArrivalFadeFrames <= 0 &&
         _newGameArrivalFrames <= 0 &&
         !IsTransitioning &&
@@ -636,7 +560,7 @@ public partial class GameRoot
         !InventoryMenuOpen &&
         !RingMenuOpen &&
         !DebugFlagMenuOpen &&
-        !_interactions.GameplayMenuActive &&
+        !_gameplayMenus!.KidName.IsActive &&
         !_gameplayPause.IsLeased &&
         !_player.GaleActive && !_player.IsDying &&
         !_player.IsUsingHarp &&
@@ -644,17 +568,7 @@ public partial class GameRoot
         !_roomEvents.MenusDisabled &&
         !_entities.PlayerMenusDisabled && !_player.ElectricShockActive;
 
-    internal AgesDebugSavestateData CaptureDebugSavestate() =>
-        AgesDebugSavestateData.Capture(
-            _rooms,
-            _player,
-            _saveData,
-            _runtimeState,
-            _random,
-            _entities,
-            _animationTicks);
-
-    internal void RestoreDebugSavestate(AgesDebugSavestateData debugSavestate)
+    private void RestoreAgesDebugSavestate(DebugSavestateData debugSavestate)
     {
         ArgumentNullException.ThrowIfNull(debugSavestate);
         ReleaseGameplayScene();
@@ -665,46 +579,6 @@ public partial class GameRoot
             debugSavestate: debugSavestate);
     }
 
-    internal void SyncHudToInventory()
-    {
-        if (_hud == null || _inventory == null)
-            return;
-        _hud.MaxHealthQuarters = _inventory.MaxHealthQuarters;
-        _hud.EquippedA = _inventory.EquippedA;
-        _hud.EquippedB = _inventory.EquippedB;
-        _hud.DungeonIndex = _rooms.CurrentDungeonIndex;
-        _hud.TilesetFlags = _rooms.CurrentRoom.TilesetFlags;
-        _hud.Refresh();
-    }
-
-    private void SyncHudToRoom(int group, OracleRoomData room) =>
-        SyncHudToInventory();
-
-    private SaveResult SaveActiveFile()
-    {
-        _saveWriteRequests++;
-        if (_persistSaveData && _saveData is not null)
-            return StoreFileSlot(_activeSaveSlot, _saveData);
-        return SaveResult.Succeeded;
-    }
-
-    internal void BeginGameOver()
-    {
-        _sound.RestartSound();
-        _saveData.IncrementDeathCount();
-        _sound.PlaySound(SoundId.MusGameOver);
-        _inventoryMenu.BeginGameOver();
-    }
-
-    private void RestartGameplayAfterDeath()
-    {
-        OracleSaveData liveSave = _saveData;
-        ReleaseGameplayScene();
-        _sound.RestartSound();
-        liveSave.AdvancePlaytime();
-        InitializeGameplay(liveSave, forceDeathRespawn: true);
-    }
-
     private void ReturnToTitle()
     {
         ReleaseGameplayScene();
@@ -713,15 +587,8 @@ public partial class GameRoot
 
     private void ReleaseGameplayScene(bool immediate = false)
     {
-        if (_player is not null)
-            _player.GameOverRequested -= BeginGameOver;
-        if (_inventory is not null)
-            _inventory.Changed -= SyncHudToInventory;
-        _statusBar?.Dispose();
-        if (_rooms is not null)
-        {
-            _rooms.RoomChanged -= SyncHudToRoom;
-        }
+        _gameplaySession?.Dispose();
+        _gameplaySession = null;
         _entities?.Dispose();
 
         // gameplay.tscn owns every persistent and transient gameplay node.
@@ -740,7 +607,6 @@ public partial class GameRoot
     internal void InitializeTransientSession(OracleSaveData save)
     {
         _nativeResetRequested=false;
-        _suspendedObjectPass = null;
         _bootLoading?.End();
         _bootLoading = null;
         _bootTasks.Clear();
@@ -886,8 +752,6 @@ public partial class GameRoot
     internal bool TryInteract(Player player) => _interactions.TryInteract(player);
     internal TerrainInfo GetTerrainInfo(Vector2 position) => _terrain.GetTerrainInfo(position);
     internal ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
-    internal bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>
-        _terrain.TryStartLedgeHop(player, from, movement);
     internal bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);
     internal void CheckRoomExit(Player player)
         => _transitions.CheckRoomExit(player);
@@ -940,7 +804,7 @@ public partial class GameRoot
         // here when the requested dungeon room is side-scrolling.
         if (group is 4 or 5 &&
             (loaded.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0 &&
-            _rooms.World.HasRoom(group + 2, room))
+            _rooms.HasRoom(group + 2, room))
         {
             loaded = _rooms.Load(group + 2, room);
         }
@@ -964,86 +828,6 @@ public partial class GameRoot
     internal void UpdateRoomCamera() => _transitions.ResetCamera();
     internal Vector2 WorldToScreen(Vector2 position) => _transitions.WorldToScreen(position);
     internal void UpdateScrollingTransition(double delta) => _transitions.UpdateScroll(delta);
-    private void HandleAgesDebugInput(InputEvent @event)
-    {
-        if (_transitions is null ||
-            _frontendIntro is not null ||
-            _mainMenu is not null ||
-            _newGameIntro is not null)
-        {
-            return;
-        }
-
-        if (@event is InputEventKey
-            {
-                PhysicalKeycode: Key.F6, Pressed: true, Echo: false,
-                CtrlPressed: false, AltPressed: false, MetaPressed: false,
-                ShiftPressed: false
-            })
-        {
-            if (!_player.IsDying)
-            {
-                _player.RefillHealth();
-                _statusBar.SynchronizeHealth();
-            }
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (!DebugSavestateController.TryDecodeInput(@event, out var command))
-            return;
-
-        GetViewport().SetInputAsHandled();
-        if (command.Kind == DebugSavestateCommandKind.Save)
-        {
-            if (!CanCaptureDebugSavestate())
-            {
-                SetDebugSavestateStatus($"S{command.Slot} BUSY");
-                return;
-            }
-
-            SaveResult result = AgesDebugSavestateStore.SaveSlot(
-                command.Slot,
-                CaptureDebugSavestate());
-            if (result.Success)
-            {
-                GD.Print($"Saved debug state slot {command.Slot}.");
-                SetDebugSavestateStatus($"S{command.Slot} SAVED");
-            }
-            else
-            {
-                GD.PushWarning(
-                    $"Could not save debug state slot {command.Slot}: " +
-                    result.ErrorMessage);
-                SetDebugSavestateStatus($"S{command.Slot} SAVE ERR");
-            }
-            return;
-        }
-
-        DebugSavestateLoadResult loaded =
-            AgesDebugSavestateStore.LoadSlot(command.Slot);
-        if (loaded.Success)
-        {
-            RestoreDebugSavestate(loaded.State!);
-            GD.Print($"Loaded debug state slot {command.Slot}.");
-            SetDebugSavestateStatus($"S{command.Slot} LOADED");
-        }
-        else if (!loaded.Found)
-        {
-            SetDebugSavestateStatus($"S{command.Slot} EMPTY");
-        }
-        else
-        {
-            GD.PushWarning(
-                $"Could not load debug state slot {command.Slot}: " +
-                loaded.ErrorMessage);
-            SetDebugSavestateStatus($"S{command.Slot} LOAD ERR");
-        }
-    }
-
-
-
-
     private void StartAgesDirect()
     {
         _selectedGame = OracleGame.Ages;
@@ -1054,80 +838,8 @@ public partial class GameRoot
         InitializeGameplay(save);
     }
 
-    private void AdvanceAgesApplicationState()
-    {
-        const double delta = ApplicationFixedUpdateScheduler.UpdateDelta;
-        if (_frontendIntro is not null)
-        {
-            _frontendIntro.Update(delta);
-            return;
-        }
-        if (_mainMenu is not null)
-        {
-            _mainMenu.Update(delta);
-            return;
-        }
-        if (_newGameIntro is { GraphicsLoadPending: true })
-        {
-            _newGameIntro.CompleteGraphicsLoad();
-            return;
-        }
-        // saveQuitMenu_state0 stops THREAD_1 during Game Over; ordinary
-        // gameplay menus leave the main thread running.
-        if (_newGameIntro is not null || (_transitions is not null &&
-            !_inventoryMenu.GameOver && !_roomEvents.ObjectUpdateSuspended))
-            _saveData.AdvancePlaytime();
-        if (_newGameIntro is not null)
-        {
-            Stage previous = _newGameIntro.CurrentStage;
-            _newGameIntro.Update(delta);
-            if (previous == Stage.PostVanish && _newGameIntro?.CurrentStage == Stage.RestartGame)
-                _saveData.SetGlobalFlag(_newGameIntro.Record.LinkSummonedFlag);
-            _newGameIntroScreen?.Dialogue.AdvanceApplicationUpdate();
-            return;
-        }
-        if (_transitions is null)
-            return;
-
-        DialogueBox dialogue = _dialogue;
-        try
-        {
-            if (_roomEvents.ObjectUpdateSuspended)
-            {
-                GameplayObjectPass pass = _suspendedObjectPass ?? throw new InvalidOperationException(
-                    "A room interaction yielded outside the gameplay object pass.");
-                _roomEvents.ResumeObjectUpdate();
-                if (!_roomEvents.ObjectUpdateSuspended)
-                {
-                    _suspendedObjectPass = null;
-                    _interactions.Update(delta, _player);
-                    FinishGameplayObjectPass(delta, pass);
-                }
-            }
-            else
-            {
-                _suspendedObjectPass = null;
-                AdvanceGameplayState(delta);
-            }
-        }
-        finally
-        {
-            if (!_nativeResetRequested&&GodotObject.IsInstanceValid(dialogue))
-            {
-                dialogue.AdvanceApplicationUpdate();
-                _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
-            }
-        }
-        if(_nativeResetRequested)
-        {
-            _nativeResetRequested=false;_roomEvents.Get<BlackTowerEndingEvent>().Cancel();
-            ReleaseGameplayScene();StartFrontend(startAtTitle:false);
-        }
-    }
-
-
     private void AllocateAgesBootHierarchy() =>
-        _preparedGameplayScene = _gameplaySceneResource.Load().Instantiate<AgesGameSceneGraph>();
+        _preparedGameplayScene = _gameplaySceneResource.Load().Instantiate<GameplaySceneGraph>();
 
     private PreparedBootData PrepareAgesBootData(string[] images)
     {

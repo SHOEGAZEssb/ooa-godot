@@ -8,8 +8,9 @@ initialization, global-flag offsets and verification signature. Deserialization
 checks the expected game; a Seasons store rejects all three Ages slot filenames.
 Its file menu commits names and message speed, copies and erases using
 `oracle_of_seasons.sav`, `oracle_of_seasons_2.sav` and `oracle_of_seasons_3.sav`.
-The opening uses the selected live image without saving ongoing gameplay;
-post-intro saving and resuming are not implemented.
+Standard Seasons overworld sessions use the shared save/game-over decisions and
+checkpoint initialization. Loading a checkpoint outside imported room content
+fails with its native group/room; linked-game content remains unsupported.
 
 Shared inventory and runtime accessors bind common named fields through the
 generated WRAM layout. Raw WRAM operations used by native scripts retain
@@ -26,6 +27,34 @@ through its authoritative owner rather than keeping clone-specific mirrors.
 State outside the original file image belongs to an explicit runtime owner such
 as `OracleRuntimeState`. Do not invent a save offset or persist transient state
 for convenience.
+Pending respawn, item-get, scripted-control and scripted-movement requests share
+the native force-state byte. Their parameters use the corresponding native
+unions. Player and companion dispatch consume or clear the same request at their
+source phases. Presentation phases must not recreate a request after another
+native owner clears or replaces it. An active handler retains later requests
+until its own source path checks them or returns to normal dispatch.
+Item-get completion reads the shared text and object-mask signals. Content
+producers publish their original mask writes; they do not supply a private
+completion predicate. Keep the object mask, menu-disable byte and combined
+Link-collision/menu lock distinct, including their cancellation lifetimes.
+Request consumption selects the native state without choosing its parameterized
+mode. The initializer reads the live parameter on its own update; parameter-only
+writes after initialization do not restart the active behavior.
+Selected respawn modes share their invisible wait, reveal and recovery owner.
+Their substate and wait/recovery counter use the live native object bytes;
+raw writes select the same handlers and retain byte arithmetic.
+Recovery preserves later requests for the next eligible normal update; it does
+not perform a room-warp reset. Explicit warps retain their cancellation boundary.
+Debug capture rejects live exclamation helpers until their counters and
+presentation can be reconstructed; rebuilding the room must not silently drop
+an admitted transient object.
+Live screen-distortion interactions likewise reject capture and restore until
+their LCD presentation can be reconstructed.
+Active reserved push-block and key-door phases also reject capture. Restoring
+a raw reserved tile actor requires reconstruction support before admission;
+reloading the room alone cannot restore its moving body and completion phase.
+Dungeon-key sprites also reject capture and raw restore until their own phase
+can be reconstructed, including the interval after the door has already opened.
 
 The application advances the live four-byte playtime counter once per main-thread
 game dispatch, including cutscenes and gameplay menus. Foreground graphics-load
@@ -83,6 +112,36 @@ Development savestates are separate versioned clone-side files. They capture
 the required live/runtime/RNG/room context only at stable gameplay boundaries
 and reconstruct transient actors from room data on load. They never change a
 retail slot, backup, or explicit-save count.
+Restoring presentation preserves captured native update-disable gates. Rebuilding
+a visible HUD must not execute the native show-status-bar command, which also
+releases its update gate.
+An occupied native special-object slot also requires a bound actor that declares
+its current phase reconstructible. Pending initialization and unsupported phases
+reject capture through both application controls and the direct capture API.
+Restore checks the destination factory's reconstruction support before replacing
+the current session or writing live owners; a valid payload alone does not admit
+an unsupported actor or phase.
+Both games share companion reconstruction admission. Grounded waiting and riding
+states restore their animation frame from the native cursor and graphics identity,
+retaining the remaining counter and consumed parameter without advancing time or
+RNG. Presenters bind again after final native-memory restoration, before the rider
+is attached. Ambiguous partial-upload poses, offscreen coordinate projections and
+rider poses that require unsaved graphics history remain explicitly unsupported;
+restore must not guess their presentation from the first matching frame.
+The shared format tags the native game and validates the embedded save against
+that game. Version 5 includes identity, lifetime and animation cursors for
+interactions and native minecart items bound to memory. Reconstruction binds those saved slots
+before placed content and skips fresh remembered-companion and Maple admission. Earlier formats are
+rejected before session replacement: their interaction data cannot distinguish
+an absent native actor from an actor formerly held in private presentation state.
+Each game has independent debug slot filenames; existing Ages names remain
+unchanged. Restore
+publishes native memory before Seasons room selection so captured seasons select
+the correct geometry, then restores live memory, RNG and room-walk state after
+actor reconstruction. Loading cancels the old session's modal leases without
+executing their gameplay callbacks. In-flight opening events are not serialized;
+Seasons captures are admitted after the opening, subject to the ordinary stable
+gameplay and modal checks.
 
 New files apply the imported common initialization writes followed by the
 standard, linked or hero variant. Game-transfer secrets supply their original
@@ -102,6 +161,15 @@ neighbors resolved by `RoomSession`, including high dungeon indices.
 Checkpoints change only where imported destinations or traced room behavior say
 they do. Ordinary scrolling and time travel preserve them unless the original
 updates them.
+The shared checkpoint recorder copies the live room modifier, byte coordinates,
+remembered-companion fields and active Link page. It preserves the unused buffer
+byte. An occupied companion slot does not establish that Link is mounted.
+Reserved-slot motion retains native direction and 8.8 coordinate words without
+overwriting subid, script or state bytes. Room identity belongs to the room
+session; scrolling retains the existing vehicle instead of reconstructing an
+incoming copy from private room metadata.
+Ages room initialization publishes its layout/underwater/companion modifier;
+Seasons retains the season selected by its initialization or transition owner.
 
 `InventoryState` is a typed view over imported treasure behavior and save
 fields. Every imported treasure variable/mode must have a checked
@@ -119,9 +187,9 @@ original treasure-loss routine clears the regular ownership bit without
 clearing this separate upgrade byte. Additional treasure grants follow the
 imported clean-US table once, in source order, within the same transaction.
 
-The native frame counter is the single live `wFrameCounter` byte. Composition
-selects whether the application or the object dispatcher advances it; they
-must not both tick it in one original update. Clock writes retain byte wrapping
+The native frame counter is the single live `wFrameCounter` byte. The shared
+main-thread clock copies the incremented playtime low byte before dispatch;
+object updates do not advance it. Clock writes retain byte wrapping
 and avoid invalidating unrelated NPC story-state bindings. Native object writes
 to the counter use that same byte and remain visible to later phases.
 

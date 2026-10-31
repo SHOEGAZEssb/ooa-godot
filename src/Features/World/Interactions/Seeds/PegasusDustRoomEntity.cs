@@ -24,7 +24,7 @@ internal sealed partial class PegasusDustRoomEntity : TransitionOffsetNode2D,
 
     internal PegasusDustRoomEntity(PegasusSeedState pegasus)
     {
-        AssetRoot = pegasus.AssetRoot; AssetRoot = pegasus.AssetRoot; _source = EnemyVisualSource.LoadComposite(["spr_common_sprites"], AssetRoot);
+        AssetRoot = pegasus.AssetRoot; _source = EnemyVisualSource.LoadComposite(["spr_common_sprites"], AssetRoot);
         _pegasus = pegasus; Name = "PegasusDust_ItemF"; Visible = false; ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; }
     internal void Signal() => _subid = (_subid + 1) & 255;
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => SetTransitionDrawOffset(offset);

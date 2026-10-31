@@ -6,7 +6,6 @@ internal sealed class FaroreMemoryScriptHost : NpcInteractionCommandHost
 {
     private readonly NpcCharacter _actor;
     private readonly Func<bool> _openList;
-    private bool _ownsMask;
     internal FaroreMemoryScriptHost(NpcCharacter actor, RoomSession rooms, RoomEntityManager entities,
         DialogueBox dialogue, Func<bool> openList)
         : base("Book", rooms, entities, dialogue, new FaroreMemoryDatabase(rooms.AssetRoot).Script)
@@ -18,12 +17,7 @@ internal sealed class FaroreMemoryScriptHost : NpcInteractionCommandHost
     public override void SetDisabledObjects(int value)
     {
         if (value != 0x91) throw UnsupportedCommand($"book disabled mask ${value:x2}");
-        Entities.RuntimeState.SetField("wDisabledObjects", 0x91); _ownsMask = true;
-    }
-    public override void SetInputEnabled(bool enabled)
-    {
-        NativeScriptInputControl.SetEnabled(Entities.RuntimeState, ScriptPlayer, enabled);
-        if (enabled) { _ownsMask = false; base.SetInputEnabled(true); }
+        base.SetDisabledObjects(value);
     }
     public override void ShowText(int id, string text) => ShowText(id, text, null);
     public override void ShowText(int id, string text, int? position) =>
@@ -32,10 +26,5 @@ internal sealed class FaroreMemoryScriptHost : NpcInteractionCommandHost
     {
         if (handler != "openMenu, $0a") throw UnsupportedCommand(handler);
         if (!_openList()) throw UnsupportedCommand("acquire MENU_SECRET_LIST $0a");
-    }
-    protected override void ResetHostState()
-    {
-        if (_ownsMask) NativeScriptInputControl.SetEnabled(Entities.RuntimeState, ScriptPlayer, true);
-        _ownsMask = false;
     }
 }

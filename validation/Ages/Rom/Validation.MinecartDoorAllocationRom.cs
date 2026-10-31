@@ -21,11 +21,11 @@ public partial class ValidationRoot
                 _currentRoom.SetPositionTileAndCollision(new(x*16+8,y*16+8),0xa0,0,0);
             foreach (int y in new[] { 72,88 }) _currentRoom.SetPositionTileAndCollision(new(88,y),0x5e,0,0);
             _currentRoom.SetPositionTileAndCollision(new(88,56),0x7c,0x0f,0);
-            MinecartRuntimeState.Reset(_runtimeState,[]);
-            MinecartRuntimeState.BeginRide(_runtimeState,0,0,new(88,72),0);
+            ResetMinecartsForValidation(_runtimeState,[]);
+            MinecartValidationView.PrepareMountedBody(_runtimeState, new(88,72), 0);
             var cart = new MinecartRoomEntity(new ActiveMinecart(-1,0,72,88,0,true),
-                _currentRoom,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),_runtimeState,
-                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"),_sound.PlaySound);
+                _currentRoom,_runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"),_sound.PlaySound, _entities);
             _entities.AddEntity(cart);
             _player.WarpTo(new(88.25f,72.5f)); _player.Face(Vector2I.Up);
             _player.FinishMinecartMount(new(88,72),0,0);
@@ -35,10 +35,11 @@ public partial class ValidationRoot
             rom.InitializeLinkGameplay(); rom[0xd004] = 0; rom[0xd009] = 0;
             rom[0xd100] = 3; rom[0xd101] = 0x0a; rom[0xd10b] = 72; rom[0xd10d] = 88;
             rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter);
-            var puffs = new List<(PuzzlePuffEffect Puff,int Slot)>();
+            MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
+            var puffs = new List<(StationaryDebrisEffect Puff,int Slot)>();
             for (int index = 0; index < 14-free; index++)
             {
-                var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200,120),SoundId.MusNone));
+                var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200,120),SoundId.MusNone));
                 int slot = ((0xd2+index)<<8)|0x40;
                 int x = rom.Word(0xd00c),y = rom.Word(0xd00a);
                 rom.Word(0xd00c,200*256); rom.Word(0xd00a,120*256); rom[0xffae] = 0;
@@ -52,7 +53,7 @@ public partial class ValidationRoot
             }
             var sounds = _sound.AttachPlayRequestAudit(); int update = 0; bool opened = false;
             void Step(int count = 1) => StepGameplayUpdates(count,Vector2.Zero,batched:batch,afterUpdate:() => {
-                rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter-1); update++;
+                rom.UpdateGameplay(0,0,0xff,_saveData.ReadField("wPlaytimeCounter")); update++;
                 string context = $"Minecart door capacity free={free}, batch={batch}, update={update}";
                 FailIf(cart.Position != new Vector2(rom.Word(0xd10c)/256f,rom.Word(0xd10a)/256f) ||
                     cart.Direction != rom[0xd108] || cart.Angle != rom[0xd109] ||

@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         FailIf(_inventory.HasTreasure(TreasureId.GaleSeeds), "Fresh Gale tutorial fixture already owns TREASURE_GALE_SEEDS $23.");
         SeedOnTree firstGale = _entities.Entities<SeedOnTree>()[0];
         _player.WarpTo(firstGale.Position + new Vector2(0, 24));
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         _entities.ApplySwordHit(firstGale.CollisionBounds, _player.Position);
         for (int i = 0; i < 120 && !_inventory.HasTreasure(TreasureId.GaleSeeds); i++)
             base._Process(1.0 / 60.0);
@@ -21,11 +21,11 @@ public sealed partial class ValidationRoot
             _inventory.GaleSeeds != 0x06 || firstGale.State != SeedOnTreeState.AwaitingIntroText,
             $"First tree pickup did not display TX_002c, grant six Gale Seeds, and wait for text closure: open={_dialogue.IsOpen}, seeds=${_inventory.GaleSeeds:x2}, state={firstGale.State}, text={_dialogue.CurrentMessage}.");
         _dialogue.Close();
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         SeedOnTree repeatGale = _entities.Entities<SeedOnTree>()[0];
         _entities.ApplySwordHit(repeatGale.CollisionBounds, _player.Position);
         for (int i = 0; i < 120 && _inventory.GaleSeeds == 0x06; i++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(_dialogue.IsOpen || _inventory.GaleSeeds != 0x12,
             "Repeat Gale tree pickup replayed TX_002c or failed to add six seeds.");
         GD.Print("Validated Symmetry Gale Seed tree first-pickup TX_002c and repeat-pickup suppression.");
@@ -137,7 +137,7 @@ public sealed partial class ValidationRoot
         FailIf(_player.GaleActive || _player.Position != point,
             "Gale cancel did not fall back to the original room coordinate.");
 
-        var destinations = new AgesGaleTreeWarpDatabase(AgesGameContent.AssetRoot);
+        var destinations = new GaleTreeWarpDatabase(AgesGameContent.AssetRoot);
         _saveData.SetRoomFlag(0, 0x13, OracleSaveData.RoomFlagVisited);
         _saveData.SetRoomFlag(0, 0x78, OracleSaveData.RoomFlagVisited);
         FailIf(destinations.Get(_rooms, 0).Room != 0x13 || destinations.Move(_rooms, -1, 1) != 0 ||
@@ -209,7 +209,7 @@ public sealed partial class ValidationRoot
         FailIf(!enemy.IsDead, "Gale enemy did not leave the $b0 camera window.");
 
         LoadValidationRoom(5, 0xb4);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         enemy = _entities.Entities<HardhatBeetleCharacter>()[0];
         Vector2 enemyPoint = enemy.Position;
         foreach (var other in _entities.Entities<HardhatBeetleCharacter>().Where(e => e != enemy)) other.Position = new Vector2(16, 16);
@@ -219,10 +219,10 @@ public sealed partial class ValidationRoot
         var projectile = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
             enemyPoint + new Vector2(4, 14), Vector2I.Up, gale, 5, SeedLaunchKind.Shooter));
         projectile.UpdateFrame(spawns);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(!enemy.GaleCollisionDisabled || projectile.FlameCounter != 50 || projectile.Position != enemyPoint,
             $"Integrated gale did not catch Hardhat Beetle before movement and retain the $32 enemy-impact lifetime: caught={enemy.GaleCollisionDisabled}, enemy={enemy.Position}, seed={projectile.Position}, state={projectile.State}, counter={projectile.FlameCounter}, collision={enemy.CollisionEnabled}.");
-        for (int i = 0; i < 90; i++) _entities.Update(1.0 / 60.0, _player);
+        for (int i = 0; i < 90; i++) _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(_entities.Entities<HardhatBeetleCharacter>().Contains(enemy) ||
             _entities.RoomEnemyCount != countBefore - 1 || _saveData.MapleKillCounter != killsBefore ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0,

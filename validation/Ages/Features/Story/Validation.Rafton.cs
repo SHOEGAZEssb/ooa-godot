@@ -38,8 +38,8 @@ public sealed partial class ValidationRoot
         FailIf(!foundDeepWater,
             "Room 1:a8 no longer exposes a non-solid collision-$10 ocean tile.");
         var oceanRaft = new RaftRoomEntity(
-            new RaftSpawn(deepWater, ObjectDirection.Up, 1, 0xa8, Riding: true),
-            oceanRoom, behavior, _saveData, _entities.RuntimeState);
+            new RaftSpawn(deepWater, ObjectDirection.Up, 1, 0xa8),
+            oceanRoom, behavior, _saveData, _entities.RuntimeState, _entities);
         FailIf(
             oceanRaft.CanDismountAt(deepWater),
             "SPECIALOBJECT_RAFT allowed a dismount onto collision-$10 ocean water.");
@@ -53,7 +53,8 @@ public sealed partial class ValidationRoot
             _entities.Entities<RaftRoomEntity>().Count != 0,
             "Room 1:a8 unexpectedly contained a raft during forced-walk validation.");
         _player.WarpTo(deepWater, recordSafe: false);
-        _player.BeginForcedRoomEntryMovement(Vector2I.Up);
+        _player.RequestNativeForcedMovement(4,0,0);
+        _player.AdvanceApplicationUpdate();
         _player.AdvanceApplicationUpdate();
         FailIf(
             _player.IsDrowning,
@@ -63,15 +64,17 @@ public sealed partial class ValidationRoot
 
         _saveData.SetGlobalFlag(behavior.ChangedRoomsFlag, value: false);
         LoadValidationRoom(1, 0xa7);
+        _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
         FailIf(
-            _entities.Entities<RaftRoomEntity>().Count != 0,
+            _entities.Entities<RaftInteractionRoomEntity>().Count != 0,
             "Room 1:a7 spawned subid $01 before Rafton changed rooms.");
 
         _saveData.SetGlobalFlag(behavior.ChangedRoomsFlag);
         LoadValidationRoom(1, 0xa7);
-        RaftRoomEntity raft = _entities.Entities<RaftRoomEntity>().Single();
+        _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
+        var waiting = _entities.Entities<RaftInteractionRoomEntity>().Single();
         FailIf(
-            raft.AnimationIndex != 0,
+            waiting.AnimationIndex != 0,
             "INTERAC_RAFT did not initialize direction&1 animation $00.");
 
         _player.WarpTo(new Vector2(0x78, 0x53), recordSafe: false);
@@ -79,20 +82,21 @@ public sealed partial class ValidationRoot
         _player.AdvanceTopDownAirUpdateForValidation(startJump: true);
         for (int update = 0; update < 8; update++)
         {
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(
-                !_player.TopDownAirborne || raft.LinkRiding ||
-                raft.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex ||
-                raft.ZIndex >= _player.ZIndex,
+                !_player.TopDownAirborne || _entities.RaftSpecialObjectPresent ||
+                waiting.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex ||
+                waiting.ZIndex >= _player.ZIndex,
                 "Room 1:a7 INTERAC_RAFT $e6 must remain at source priority " +
                 "$03 beneath Link during the ascending Feather jump.");
             _player.AdvanceTopDownAirUpdateForValidation();
         }
         _player.WarpTo(new Vector2(0x78, 0x53), recordSafe: false);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+        RaftRoomEntity raft = _entities.Entities<RaftRoomEntity>().Single();
         FailIf(raft.LinkRiding || _player.RaftRideActive,
             "INTERAC_RAFT $e6 ran SPECIALOBJECT_RAFT $13 state $00 in the allocation update.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !raft.LinkRiding || !_player.RaftRideActive ||
             raft.ZIndex >= _player.ZIndex ||
@@ -110,7 +114,7 @@ public sealed partial class ValidationRoot
         OracleObjectMovement.Shared.ApplySpeed(
             ref expected, behavior.Speed, ObjectAngle.Left);
         Input.ActionPress("move_left");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         Input.ActionRelease("move_left");
         FailIf(
             !raft.PrecisePosition.IsEqualApprox(expected) ||
@@ -120,58 +124,76 @@ public sealed partial class ValidationRoot
 
         Input.ActionPress("move_up");
         for (int update = 0; update < 60 && raft.LinkRiding; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         Input.ActionRelease("move_up");
         FailIf(raft.LinkRiding || raft.ZIndex >= _player.ZIndex,
             "Room 1:a7 SPECIALOBJECT_RAFT $13 must stay beneath Link " +
             "while dismounting onto the dock.");
         for (int update = 0; update < 12; update++)
         {
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
-        FailIf(raft.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex,
+        waiting = _entities.Entities<RaftInteractionRoomEntity>().Single();
+        FailIf(waiting.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex,
             "Dismounted INTERAC_RAFT $e6:$02 did not restore source priority $03.");
         _player.EndForcedRoomEntryMovement();
-        _player.WarpTo(raft.PrecisePosition + new Vector2(0, -5), recordSafe: false);
-        _entities.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _player.WarpTo(waiting.PrecisePosition + new Vector2(0, -5), recordSafe: false);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+        raft = _entities.Entities<RaftRoomEntity>().Single();
         FailIf(!raft.LinkRiding,
             "Room 1:a7 INTERAC_RAFT $e6:$02 could not be remounted.");
 
-        // Destination object parsing occurs while the outgoing mounted raft
-        // still owns w1Companion. Its active room byte therefore differs from
-        // the destination, but both placed $e6 subids must still delete.
-        CompanionRuntimeState.Update(
-            _entities.RuntimeState, CompanionRuntimeState.RaftId, 0xa8,
-            raft.PrecisePosition, raft.Direction);
-        _entities.Clear();
+        // Source setObjectsEnabledTo2 retains the outgoing enabled03 slot.
+        // Exercise actual $1:a6 -> $a7 parsing/scrolling with that live owner.
+        LoadValidationRoom(1, 0xa6);
+        raft = _entities.Entities<RaftRoomEntity>().Single();
+        raft.SetScreenTransitionPosition(new(152, 72), Vector2.Zero, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0xa7);
+        FailIf(_entities.Entities<RaftRoomEntity>().Count != 0 ||
+            !_entities.OutgoingEntities<RaftRoomEntity>().Contains(raft),
+            "Room 1:a7 must retain the outgoing reserved raft instead of creating an incoming copy or a placed $e6 actor.");
+        for (int update = 0; IsTransitioning && update < 180; update++)
+            StepGameplayUpdates(1, Vector2.Zero);
+        FailIf(IsTransitioning || _rooms.CurrentRoom.Id != 0xa7 ||
+            _entities.Entities<RaftRoomEntity>().Count != 1 ||
+            !ReferenceEquals(_entities.Entities<RaftRoomEntity>().Single(), raft),
+            "Completed $1:a6 -> $a7 must transfer the same raft to the destination room.");
         _player.EndRaftRide(_player.PrecisePosition, ObjectDirection.Up);
-        LoadValidationRoom(1, 0xa7);
-        FailIf(
-            _entities.Entities<RaftRoomEntity>().Count != 0,
-            "Room 1:a7 recreated its placed raft while an outgoing " +
-            "SPECIALOBJECT_RAFT still owned w1Companion.");
 
         CompanionRuntimeState.Clear(
             _entities.RuntimeState, CompanionRuntimeState.RaftId);
         LoadValidationRoom(1, 0xa7);
+        _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
         FailIf(
-            _entities.Entities<RaftRoomEntity>().Single().LinkRiding ||
-            _entities.Entities<RaftRoomEntity>().Single().ZIndex !=
+            _entities.RaftSpecialObjectPresent ||
+            _entities.Entities<RaftInteractionRoomEntity>().Single().ZIndex !=
                 ObjectDrawPriority.FixedLowPriorityZIndex,
             "Remembered INTERAC_RAFT $e6 must reload waiting at source priority $03.");
 
         _saveData.WriteWramByte(behavior.DimitriStateAddress, 0);
         LoadValidationRoom(1, 0xa9);
+        _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
         FailIf(
-            _entities.Entities<RaftRoomEntity>().Count != 0,
+            _entities.Entities<RaftInteractionRoomEntity>().Count != 0,
             "Room 1:a9 spawned subid $00 without wDimitriState bit 6.");
         _saveData.WriteWramByte(
             behavior.DimitriStateAddress, (byte)behavior.DimitriMask);
         LoadValidationRoom(1, 0xa9);
+        _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
         FailIf(
-            _entities.Entities<RaftRoomEntity>().Count != 1,
+            _entities.Entities<RaftInteractionRoomEntity>().Count != 1,
             "Room 1:a9 did not spawn subid $00 with wDimitriState bit 6.");
+    }
+
+    private void StageRidingRaftForValidation(Vector2 position, int direction)
+    {
+        CompanionRuntimeState.Begin(_runtimeState, 0x13, position, direction);
+        _runtimeState.SetWramByte(0xd104, 1);
+        _runtimeState.SetWramByte(0xd106, 0x0c);
+        _runtimeState.SetWramByte(0xd120, 0x0c);
+        _runtimeState.SetField("wLinkObjectIndex", 0xd1);
     }
 
     private void ValidateRaftwreckCutscene()
@@ -196,9 +218,7 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.Clear(
             _entities.RuntimeState, CompanionRuntimeState.RaftId);
         CompanionRuntimeState.ForgetRemembered(_entities.RuntimeState);
-        CompanionRuntimeState.Begin(
-            _entities.RuntimeState, CompanionRuntimeState.RaftId, 0xa8,
-            new Vector2(0x60, record.InitialY), direction: ObjectDirection.Left);
+        StageRidingRaftForValidation(new(0x60, record.InitialY), ObjectDirection.Left);
         LoadValidationRoom(1, 0xa8);
         RaftRoomEntity raft = _entities.Entities<RaftRoomEntity>().Single();
         int mountedAnimation = raft.AnimationIndex;
@@ -319,15 +339,15 @@ public sealed partial class ValidationRoot
             $"lightning-positions={string.Join(';', lightningPositions)}, " +
             $"shakes={lightningShakes}, position={raftwreck.PrecisePosition}).");
 
-        for (int update = 0; update < AgesRoomTransitionController.WarpFadeFrames - 1; update++)
+        for (int update = 0; update < RoomTransitionController.WarpFadeFrames - 1; update++)
         {
             UpdateRoomWarpTransition(1.0 / 60.0);
             FailIf(_rooms.CurrentRoom.Id != 0xa8,
                 "Cutscene $03 loaded room 1:aa before 32 white-fade updates.");
             float expectedAlpha = Math.Min(
                 update + 1,
-                AgesRoomTransitionController.WarpFadeMaximumOffset) /
-                AgesRoomTransitionController.WarpFadeMaximumOffset;
+                RoomTransitionController.WarpFadeMaximumOffset) /
+                RoomTransitionController.WarpFadeMaximumOffset;
             FailIf(!Mathf.IsEqualApprox(_scene.WarpFade.Color.A, expectedAlpha),
                 "Cutscene $03 did not follow fadeoutToWhite's $01-$1f " +
                 $"visible palette offsets on update {update + 1}.");
@@ -725,7 +745,8 @@ public sealed partial class ValidationRoot
             raftonEvent.Behaviour != 4 ||
             raftonEvent.CurrentCommandIndex != 40 ||
             raftonEvent.Counter != 100 ||
-            !raftonEvent.BlocksGameplay || !_player.CutsceneControlled,
+            !raftonEvent.BlocksGameplay || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x80,
             "Island Chart did not select Rafton's forced behaviour-4 wait 100.");
         StepRoomEventFrames(99);
         FailIf(
@@ -886,7 +907,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         StepRoomEventFrames(1);
         FailIf(
             _player.IsHoldingItemTwoHands ||

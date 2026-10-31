@@ -98,12 +98,12 @@ public sealed partial class ValidationRoot
         ulong mustacheFirstPose = mustacheMan.CurrentAnimationPixelHash;
         _player.WarpTo(new Vector2(0x18, 0x70), recordSafe: false);
         for (int update = 0; update < 15; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             mustacheMan.CurrentAnimationFrame != 0 ||
             mustacheMan.FacingVector != Vector2I.Down,
             "Mustache-man animation $04 advanced early or faced Link.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             mustacheMan.CurrentAnimationFrame != 1 ||
             mustacheMan.CurrentAnimationPixelHash == mustacheFirstPose ||
@@ -111,7 +111,7 @@ public sealed partial class ValidationRoot
             "Mustache-man animation $04 did not reach its second fixed pose " +
             "after exactly 16 updates.");
         for (int update = 0; update < 16; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             mustacheMan.CurrentAnimationFrame != 0 ||
             mustacheMan.CurrentAnimationPixelHash != mustacheFirstPose ||
@@ -131,7 +131,7 @@ public sealed partial class ValidationRoot
                 "Somewhere in the woods is a tree that bears very special seeds.",
             "Room 1:93's mustache man did not run the TX_0f00 A-button loop.");
         int frozenFrame = mustacheMan.CurrentAnimationFrame;
-        manager.Update(16.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(16.0 / 60.0, _player);
         FailIf(
             mustacheMan.CurrentAnimationFrame != frozenFrame,
             "Gameplay text did not freeze mustache-man animation $04.");
@@ -156,7 +156,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             soldier.Position + Vector2.Left * 20.0f,
             recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             soldier.FacingVector != Vector2I.Left ||
             !manager.BlocksLink(soldier.Position),
@@ -237,7 +237,7 @@ public sealed partial class ValidationRoot
         ulong pastGuyFirstPose = pastGuy.CurrentAnimationPixelHash;
         _player.WarpTo(new Vector2(0x18, 0x70), recordSafe: false);
         for (int update = 0; update < 16; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             pastGuy.CurrentAnimationFrame != 1 ||
             pastGuy.CurrentAnimationPixelHash == pastGuyFirstPose ||

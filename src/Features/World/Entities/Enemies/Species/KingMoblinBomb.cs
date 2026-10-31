@@ -23,6 +23,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
     private int _angle, _speed, _flashLimit;
     private bool _released, _damagedLink, _terrainEffects;
     private bool _settled;
+    private bool _braceletChildInitialized;
     private Player? _holder;
     private bool Small => Minion is not null;
     internal override bool CollisionEnabled => false;
@@ -111,11 +112,12 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
         }
         AdvanceAnimation(); return true;
     }
-    internal void UpdateBraceletChild(Player player)
+    internal void UpdateBraceletChild(Player player, bool frozen = false)
     {
         // PART $47 state 2 is its own ballistic throw, not the reserved
         // bracelet child used by PART $3f state 2.
         if(Small || IsDead || State!=2 || _settled) return;
+        if(frozen && (!_released || _braceletChildInitialized)) return;
         if(!_released)
         {
             if(!player.IsCarryingObject) {_released=true; _motion.SpeedZ=0;}
@@ -123,6 +125,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
         }
         if(_released)
         {
+            _braceletChildInitialized=true;
             _motion.AdvanceHorizontal(Boss.World.Throwing, Boss.World.Room, ApplyMovementSpeed);
             if(_motion.AdvanceVertical(Boss.World.Bracelet))
             {
@@ -188,12 +191,12 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
         if(Small || IsDead) return false;
         if(Held)
         {
-            _motion.Release(player,direction,Boss.World.Bracelet); _released=true; _holder=null; return true;
+            _motion.Release(player,direction,Boss.World.Bracelet); _released=true; _braceletChildInitialized=false; _holder=null; return true;
         }
         if(State!=4 || player.IsCarryingObject || player.CutsceneControlled) return false;
         Vector2 delta=Position-(player.Position+(Vector2)player.FacingVector*6);
         if(System.Math.Abs(delta.X)>=13 || System.Math.Abs(delta.Y)>=13) return false;
-        State=2; _released=false; _settled=false; _holder=player; _motion=new(Position);
+        State=2; _released=false; _settled=false; _braceletChildInitialized=false; _holder=player; _motion=new(Position);
         // kingMoblinBomb_state2@justGrabbed: visiblec1, retained on release.
         ZIndex=ObjectDrawPriority.InFrontOfLinkZIndex;
         player.BeginCarriedObjectPose(); return true;

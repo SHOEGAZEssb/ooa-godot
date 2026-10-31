@@ -69,7 +69,7 @@ internal sealed partial class RoomOfRitesBattleEvent
                 Write(0xcbb4,120);context.Sound.PlayNativeSound(SoundId.SndBossDead);State=8;return;
             case 8:
                 context.Entities.BeginScreenShake(255);
-                if(((context.Entities.FrameCounter+1)&7)==0)Fade(false,1,3);
+                if((context.Entities.FrameCounter&7)==0)Fade(false,1,3);
                 Write(0xcbb4,Read(0xcbb4)-1);if(Read(0xcbb4)!=0)return;
                 Fade(true,4);context.Sound.PlayNativeSound(SoundId.SndFadeOut);State=9;return;
             case 9:

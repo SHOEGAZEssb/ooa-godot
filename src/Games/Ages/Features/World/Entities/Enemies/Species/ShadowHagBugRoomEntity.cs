@@ -7,7 +7,7 @@ namespace Oracles;
 internal sealed class ShadowHagBugRoomEntity
     : CombatEnemyRoomEntityAdapter<ShadowHagBug>, IFixedRoomEntity
 {
-    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
+    protected override int GaleCollisionMode => ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
     internal ShadowHagBugRoomEntity(
         ShadowHagBug bug,
         Action<int> soundRequested)

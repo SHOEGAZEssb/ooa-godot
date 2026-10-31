@@ -131,7 +131,7 @@ public sealed partial class ValidationRoot
             ExpectDialogue(textId, $"variant ${expectedVariant:x2} dialogue");
             FailIf(
                 !poeEvent.BlocksGameplay || !poeEvent.InputDisabled ||
-                !_player.CutsceneControlled,
+                _player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                 "poeScript did not disable input before opening dialogue.");
         }
 
@@ -295,7 +295,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _player.IsHoldingItemTwoHands ||
             _entities.Entities<GroundTreasurePickup>().Count != 0,
@@ -506,7 +506,7 @@ public sealed partial class ValidationRoot
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(tombText.Message) ||
             !poeEvent.BlocksGameplay || !poeEvent.InputDisabled ||
-            !_player.CutsceneControlled,
+            _player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
             "Room 2:2e Poe did not show TX_0b01 with input disabled.");
 
         _dialogue.Close();

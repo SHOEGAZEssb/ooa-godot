@@ -14,6 +14,7 @@ public sealed partial class ValidationRoot
             StepCompanionRom(actor,rom,3,Vector2.Right,batched);
             int mask=gate switch {0=>0x20,1=>0x80,2=>1,_=>0};
             int scroll=gate switch {3=>2,4=>8,5=>14,_=>1};
+            StageDeferredNativeObjectPassCaller();
             _runtimeState.SetWramByte(0xcc8a,(byte)mask);rom[0xcc8a]=(byte)mask;
             _runtimeState.SetWramByte(0xcd00,(byte)scroll);rom[0xcd00]=(byte)scroll;
             Vector2 before=rom.Position;

@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
                             _currentRoom.GetTerrainInfo(point).Collision != rom[0xce00 + position],
                             $"{context}: tile/collision at ${position:x2} differs from clean ROM.");
                     }
-                    var puffs = _entities.Entities<PuzzlePuffEffect>();
+                    var puffs = _entities.Entities<StationaryDebrisEffect>();
                     var nativePuffs = Enumerable.Range(2, 14).Select(index => (0xd0 + index) * 256 + 0x40)
                         .Where(address => rom[address] != 0 && rom[address + 1] == 0x05).ToArray();
                     FailIf(puffs.Count != nativePuffs.Length || puffs.Where((puff, index) =>
@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
             ("menu", (byte)1, 0xcc02, 1, true),
             ("collision-menu", true, 0xcbca, 1, true),
             ("_deathPending", true, 0xcdd5, 1, true),
-            ("_spinnerControlled", true, 0xcc95, 0x80, true),
+            ("spinner", (byte)0x80, 0xcc95, 0x80, true),
             ("_ledgeJumpState", 1, 0xcc5c, 0x80, true),
             ("_topDownAirborne", true, 0xcc5c, 1, false)
         })
@@ -91,11 +91,12 @@ public sealed partial class ValidationRoot
             int slot = (0xd0 + _entities.InteractionSlot(entrance)) * 256 + 0x40;
             rom[slot] = 1; rom[slot + 1] = 0xdc; rom[slot + 2] = 0x0e;
             rom[slot + 4] = 1; rom[slot + 11] = 0x38; rom[slot + 13] = 0x48;
-            FieldInfo? field = gate.Field is "menu" or "collision-menu" ? null :
+            FieldInfo? field = gate.Field is "menu" or "collision-menu" or "spinner" ? null :
                 typeof(Player).GetField(gate.Field, BindingFlags.Instance | BindingFlags.NonPublic)!;
             void SetGate(bool active)
             {
                 if (gate.Field == "menu") _runtimeState.SetWramByte(AgesWramAddress.wMenuDisabled, active ? (byte)1 : (byte)0);
+                else if (gate.Field == "spinner") _runtimeState.SetField("wcc95", active ? (byte)0x80 : (byte)0);
                 else if (gate.Field == "collision-menu")
                 {
                     if (active) _entities.DisableLinkCollisionsAndMenu();

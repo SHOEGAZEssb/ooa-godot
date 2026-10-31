@@ -141,7 +141,7 @@ public partial class ValidationRoot
                     _player.Position != Center(0x12) || _entities.PlayerUpdatesFrozen || _entities.PlayerMenusDisabled || _entities.WarpTilesDisabled ||
                     ReferenceEquals(trap,_entities.Entities<PuzzleTrapResetRoomEntity>().Single()) ||
                     _currentRoom.GetMetatile(Center(0x48)) != 0xa5,
-                    "Reset warp must reload 4:9b at $12, restore its tiles and release the lock.");
+                    $"Reset warp must reload 4:9b at $12, restore its tiles and release the lock: room={_rooms.ActiveGroup:x}:{_currentRoom.Id:x2}, Link={_player.Position}, transition={IsTransitioning}/{_transitions.PhaseName}, locks={_entities.PlayerUpdatesFrozen}/{_entities.PlayerMenusDisabled}/{_entities.WarpTilesDisabled}, tile48=${_currentRoom.GetMetatile(Center(0x48)):x2}, repeat={repeat}, batch={batch}.");
             }
         }
     }

@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(new(vector.X < 0 ? 6.75f : vector.X > 0 ? _currentRoom.Width - 5.25f : 80.75f,
                 vector.Y < 0 ? 6.25f : vector.Y > 0 ? _currentRoom.Height - 6.75f : 64.25f));
             _player.Face(Vector2I.Down);
-            _transitions.BeginScroll(_player, vector, route.Target);
+            _transitions.BeginValidationScroll(_player, vector, route.Target);
             int total = _transitions.ScrollTotalFrames;
             int unique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);

@@ -7,7 +7,7 @@ namespace Oracles;
 internal sealed class CreditsVerticalDatabase
 {
     private readonly List<int> _waits=[];
-    private readonly Dictionary<int,IntroOamPart[]> _lines=[];
+    private readonly Dictionary<int,ObjectSpritePart[]> _lines=[];
     internal CreditsVerticalDatabase()
     {
         foreach(var row in GeneratedTable.Load(EndingScreenDatabase.Root+"credits_vertical.tsv",new("INTERAC $af vertical credits",GeneratedTableKeySemantics.Unique,
@@ -24,7 +24,7 @@ internal sealed class CreditsVerticalDatabase
                     {
                         var values=Array.ConvertAll(part.Split(','),value=>Convert.ToInt32(value,16));
                         if(values.Length!=4)throw row.Invalid(2,"four-byte source OAM records");
-                        return new IntroOamPart(values[0],values[1],values[2],values[3]);
+                        return new ObjectSpritePart(values[0],values[1],values[2],values[3]);
                     }).ToArray());break;
                 default:throw row.Invalid(0,"wait or oam");
             }
@@ -33,5 +33,5 @@ internal sealed class CreditsVerticalDatabase
             throw new InvalidOperationException("creditsTextVertical.s / data_4556.s: incomplete clean-US waits, sentinel or text rows.");
     }
     internal int Wait(int index)=>_waits[index];
-    internal IntroOamPart[] Line(int index)=>_lines.TryGetValue(index,out var line)?line:throw new NotSupportedException($"data_4556.s: unsupported credits row ${index:x2}.");
+    internal ObjectSpritePart[] Line(int index)=>_lines.TryGetValue(index,out var line)?line:throw new NotSupportedException($"data_4556.s: unsupported credits row ${index:x2}.");
 }

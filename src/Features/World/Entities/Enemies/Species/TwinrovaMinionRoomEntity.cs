@@ -37,7 +37,7 @@ internal sealed class TwinrovaMinionRoomEntity : CombatEnemyRoomEntityAdapter<Tw
             case 0x0b:Entity.PublishHit(item,damage,32);Entity.World.Entities.OnSoundRequested(SoundId.SndDamageEnemy);return true;
             case 0x2f:Entity.PublishHit(item,damage,21,11,origin);Entity.World.Entities.OnSoundRequested(SoundId.SndDamageEnemy);return true;
             case 0x1b:
-                Entity.PublishHit(item,0,-20);Entity.World.Entities.TryCreateBoomerangClink(CollisionMidpoint(Entity.Position,origin),0);return true;
+                Entity.PublishHit(item,0,-20);Entity.World.Entities.TryCreateItemCollisionClink(CollisionMidpoint(Entity.Position,origin),0);return true;
             default:throw new NotSupportedException($"twinrovaIce.s/twinrovaBat.s: ENEMY ${Entity.Id:x2}, mode ${DimitriCollisionMode:x2}, item ${item:x2}, effect ${effect:x2}.");
         }
     }

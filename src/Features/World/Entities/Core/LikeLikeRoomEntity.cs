@@ -24,7 +24,7 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
         Func<bool> freePart, Func<byte> random, Action shieldLost)
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, 0, enemy.TakeSwordHit, _ => false,
-                enemy.ApplySwordKnockback, sound, EnemySwordResponse.Knockback), collisionZ: () => enemy.ZFixed >> 8)
+                enemy.ApplySwordKnockback, sound), collisionZ: () => enemy.ZFixed >> 8)
     { _freePart = freePart; _random = random; _shieldLost = shieldLost; }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Oracles;
 
 internal sealed class PlasmarineRoomEntity : CombatEnemyRoomEntityAdapter<PlasmarineCharacter>,IFixedRoomEntity,
-    INativeEnemySlotRoomEntity,IScreenTransitionPreloadRoomEntity,IPlayerForcedMovement,
+    INativeEnemySlotRoomEntity,IScreenTransitionPreloadRoomEntity,
     IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze,ILinkSwordStateAwareRoomEntity,
     IPostObjectMeleeCollisionRoomEntity,IItemCollisionHittableRoomEntity,ISeedCollisionTarget,
     IExpertPunchHittableRoomEntity,IBoomerangCollisionRoomEntity,ISomariaBlockCollisionRoomEntity
@@ -32,7 +32,6 @@ internal sealed class PlasmarineRoomEntity : CombatEnemyRoomEntityAdapter<Plasma
         // the independent Scent target and later Link writes do not replace it.
         Entity.UpdateFrame(frame.LinkTarget??frame.Player.EnemyContactPosition,frame.Counter);
     }
-    public void UpdatePlayerForcedMovement(Player player)=>_world.Entry.Update(player);
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {Entity.InitializeNative();return ScreenTransitionPresentation.Visible;}
     public void SetLinkSwordState(SwordActionState state,int level,int? itemCollisionType=null)=>_sword=itemCollisionType??SwordCollision.Type(state,level);

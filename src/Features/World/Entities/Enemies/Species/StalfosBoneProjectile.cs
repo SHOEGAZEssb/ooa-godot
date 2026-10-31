@@ -6,7 +6,7 @@ namespace Oracles;
 internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
 {
     private ProjectileBounceBehaviorProfile? _bounceSourceCache;
-    private ProjectileBounceBehaviorProfile _bounce => _bounceSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ProjectileBounce;
+    private ProjectileBounceBehaviorProfile _bounce => _bounceSourceCache ??= CommonEnemyBehavior.Shared.ProjectileBounce;
     private OracleRoomData _room = null!;
     private StalfosBoneRecord _record;
     private EnemyAnimationPlayer _animation = null!;

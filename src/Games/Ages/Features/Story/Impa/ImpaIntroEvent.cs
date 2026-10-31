@@ -39,6 +39,7 @@ internal sealed class ImpaIntroEvent :
     private int _counter;
     private int _stonePushCounter;
     private int _stoneMoveCounter;
+    private int _stoneLinkSubstate = -1, _stoneLinkFrame, _stoneLinkTicks;
     private int _jumpZFixed;
     private int _jumpSpeedZ;
     private int _encounterSignal;
@@ -167,12 +168,17 @@ internal sealed class ImpaIntroEvent :
     {
         _encounterRunner.Clear();
         _encounterSignal = 0;
-        Actor = _context.RequireNpc(
-            _record.Group,
-            _record.Room,
-            _record.InteractionId,
-            _record.SubId,
-            "INTERAC_IMPA_IN_CUTSCENE");
+        Actor = _context.Entities.Entities<NpcCharacter>().Find(npc =>
+            npc.Record.Id == _record.InteractionId && npc.Record.SubId == _record.SubId);
+        if (Actor is null)
+        {
+            // A full placed stream never allocates $31:$00, so it has no
+            // native visit from which to start the encounter.
+            if (_context.Entities.InteractionSlotAvailable)
+                throw new InvalidOperationException("mainData.s:group0Map6aObjectData lost its placed $31:$00 without interaction-pool pressure.");
+            _stage = ImpaIntroEventStage.None;
+            return;
+        }
 
         if (_context.Rooms.SaveData.HasRoomFlag(
             _record.Group, _record.Room, (byte)_record.RoomFlag))
@@ -274,6 +280,7 @@ internal sealed class ImpaIntroEvent :
         _stonePrecisePosition = StoneActor.Position;
         _stonePushCounter = _stoneRecord.Timing.PushHoldFrames;
         _stoneMoveCounter = 0;
+        _stoneLinkSubstate = -1;
         _waitingNpcInitialized = false;
         _stoneStage = moved
             ? StoneStage.Moved
@@ -415,7 +422,8 @@ internal sealed class ImpaIntroEvent :
         _stonePushCounter = 0;
         _stoneMoveCounter = 0;
         _waitingNpcInitialized = false;
-        _context.Player.SetCutscenePushing(false);
+        _context.Player.SetNativePushAnimationOverride(0);
+        if (_context.Player.IsCutsceneControlOwner(this)) _context.Player.SetCutsceneSpriteFrame(null);
         _context.Player.EndCutsceneControl(this);
     }
 
@@ -450,14 +458,7 @@ internal sealed class ImpaIntroEvent :
             AdvanceStoneLinkPositioning();
             if (_stoneStage == StoneStage.PushStarted || _stonePostPushRunner.Active)
             {
-                if (_stoneSignal == 0x07) _context.Player.SetCutsceneIdleAnimation(2);
-                else _context.Player.SetCutscenePushing(true);
-                // linkCutscene6 runs even while ordinary interactions pause.
-                // It sees the stone's completion flag on the next Link visit.
-                if (_stoneMoveCounter > 0 &&
-                    (_context.Rooms.SaveData.GetRoomFlags(_stoneRecord.Actor.Group, _stoneRecord.Actor.Room) & 0xc0) == 0)
-                    _context.Player.AdvanceNativeCutsceneMovement(
-                        _stoneRecord.Timing.LinkPushSpeed, _pushedRight ? ObjectAngle.Right : ObjectAngle.Left);
+                AdvanceStoneLink();
             }
         }
         switch (_stage)
@@ -869,7 +870,7 @@ internal sealed class ImpaIntroEvent :
     private void UpdateStonePushAttempt(bool pushing)
     {
         bool centeredPush = CanPushStone(pushing);
-        _context.Player.SetCutscenePushing(centeredPush);
+        _context.Player.SetNativePushAnimationOverride(centeredPush ? 1 : 0);
         if (!centeredPush)
         {
             _stonePushCounter = _stoneRecord.Timing.PushHoldFrames;
@@ -911,12 +912,48 @@ internal sealed class ImpaIntroEvent :
         _waitingNpcInitialized = false;
         _context.Player.BeginCutsceneControl(owner: this);
         _context.Player.Face(_pushedRight ? Vector2I.Right : Vector2I.Left);
-        _context.Player.SetCutscenePushing(true);
+        _context.Player.SetNativePushAnimationOverride(1);
+        _stoneLinkSubstate = -1;
         _stoneStage = StoneStage.PushStarted;
         // The later stone slot publishes this on the trigger update. Impa's
         // earlier slot observes it on the next pass before starting her script.
         _stoneSignal = 0x06;
         _context.Sound.PlaySound(_stoneRecord.Sounds.Push);
+    }
+
+    private void AdvanceStoneLink()
+    {
+        // linkCutscene6 is ID$08: its own animation bypasses ordinary WALK
+        // selection and does not republish wForceLinkPushAnimation.
+        var frames = AgesLinkCutsceneDatabase.Shared.Frames(_pushedRight ? 0x16 : 0x15);
+        if (_stoneLinkSubstate < 0)
+        {
+            _stoneLinkSubstate = 0;
+            _stoneLinkFrame = 0;
+            _stoneLinkTicks = frames[0].Duration;
+            _context.Player.SetCutsceneSpriteFrame(frames[0]);
+        }
+        if (_stoneLinkSubstate == 0)
+        {
+            if (--_stoneLinkTicks == 0)
+            {
+                if (++_stoneLinkFrame == frames.Length)
+                    _stoneLinkFrame = AgesLinkCutsceneDatabase.Shared.Loop(_pushedRight ? 0x16 : 0x15);
+                _stoneLinkTicks = frames[_stoneLinkFrame].Duration;
+                _context.Player.SetCutsceneSpriteFrame(frames[_stoneLinkFrame]);
+            }
+            if ((_context.Rooms.SaveData.GetRoomFlags(_stoneRecord.Actor.Group, _stoneRecord.Actor.Room) & 0xc0) != 0)
+                _stoneLinkSubstate = 1;
+            else
+                _context.Player.AdvanceNativeCutsceneMovement(
+                    _stoneRecord.Timing.LinkPushSpeed, _pushedRight ? ObjectAngle.Right : ObjectAngle.Left);
+        }
+        else if (_stoneLinkSubstate == 1 && _stoneSignal == 0x07)
+        {
+            _stoneLinkSubstate = 2;
+            _context.Player.SetCutsceneSpriteFrame(null);
+            _context.Player.SetCutsceneIdleAnimation(2);
+        }
     }
 
     private void AdvanceStoneMovement()
@@ -1327,7 +1364,8 @@ internal sealed class ImpaIntroEvent :
                 throw new InvalidOperationException(
                     "impaScript_rockJustMoved ended before writing cfd0=$07.");
             }
-            _context.Player.SetCutscenePushing(false);
+            _context.Player.SetNativePushAnimationOverride(0);
+            _context.Player.SetCutsceneSpriteFrame(null);
             _context.Player.EndCutsceneControl(this);
             _context.Player.Face(Vector2I.Down);
             Actor!.SetDialogue(0, string.Empty, canFace: false);

@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
             native[at+11]=(byte)actor.Position.Y;native[at+13]=(byte)actor.Position.X;
             while(14-InteractionAdmissionPool.Count>initFree)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
+                var puff=new StationaryDebrisEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
                 _entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int occupied=0xd040+_entities.InteractionSlot(puff)*256;
                 native[occupied]=1;native[occupied+1]=0;native[occupied+4]=1;native[occupied+0x20]=0xff;
@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
                 FailIf(slot.Script!.NativeCounter1!=native[at+6]||_inventory.ShieldLevel!=native[0xc6af]||
                     _saveData.GetRoomFlags(5,0xe9)!=native[0xcae9]||
                     _runtimeState.ReadWramByte(0xcc8a)!=native[0xcc8a]||_runtimeState.ReadWramByte(0xcc02)!=native[0xcc02],
-                    source+$" update{updates}: script counter, shield level, flags or raw input differs.");
+                    $"{source} update{updates}: counter {slot.Script!.NativeCounter1}/{native[at+6]}, shield {_inventory.ShieldLevel}/{native[0xc6af]}, flags${_saveData.GetRoomFlags(5,0xe9):x2}/${native[0xcae9]:x2}, objects${_runtimeState.ReadWramByte(0xcc8a):x2}/${native[0xcc8a]:x2}, menu${_runtimeState.ReadWramByte(0xcc02):x2}/${native[0xcc02]:x2}.");
                 var children=_entities.Entities<TokayAttachedVisualRoomEntity>();
                 int[] originals=Enumerable.Range(2,14).Select(s=>0xd040+s*256).Where(a=>native[a]!=0&&native[a+1]==0x63).ToArray();
                 FailIf(children.Count!=originals.Length,source+": accessory allocation/lifetime differs.");

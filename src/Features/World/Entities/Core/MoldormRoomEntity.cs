@@ -31,8 +31,7 @@ internal sealed class MoldormRoomEntity
                 moldorm.TakeSwordHit,
                 moldorm.TakeBurnHit,
                 moldorm.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback))
+                soundRequested))
     { }
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)

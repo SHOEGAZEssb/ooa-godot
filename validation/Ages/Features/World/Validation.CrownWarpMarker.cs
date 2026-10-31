@@ -10,8 +10,6 @@ public sealed partial class ValidationRoot
         // func_60e9 checks wLinkInAir before checkStandingOnDeactivatedWarpTile
         // and the wEnteredWarpPosition=$ff write. The marker survives leaving
         // its tile in a jump, then clears on the first grounded check elsewhere.
-        var marker = typeof(AgesRoomTransitionController).GetField("_deactivatedWarpPosition",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
         foreach (bool batched in new[] { false, true })
         for (int repeat = 0; repeat < 2; repeat++)
         {
@@ -28,7 +26,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(15, Vector2.Up, batched: batched);
             _transitions.DeactivateWarpAtPlayerPosition(_player);
             _runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled, 0);
-            FailIf((int)marker.GetValue(_transitions)! != 0x17,
+            FailIf(_runtimeState.ReadField("wEnteredWarpPosition") != 0x17,
                 "The fixture must establish the same entered-stair marker as arrival or hazard recovery.");
             bool locked = false;
             var observer = new ItemPhaseValidationEntity(() =>
@@ -41,7 +39,7 @@ public sealed partial class ValidationRoot
             _entities.RegisterEnemySlot(observer, 0);
             _entities.AddEntity(observer);
             StepGameplayUpdates(3, Vector2.Down, batched: batched);
-            FailIf(!locked || (int)marker.GetValue(_transitions)! != -1 || IsTransitioning,
+            FailIf(!locked || _runtimeState.ReadField("wEnteredWarpPosition") != 0xff || IsTransitioning,
                 "wMenuDisabled rejects tile warps after a grounded departure has cleared the old marker.");
             FailIf(_runtimeState.ReadWramByte(AgesWramAddress.wTmpcec0) != 0xff,
                 "checkTileWarps menu rejection must still publish the unmatched edge-warp scratch byte $ff.");
@@ -57,19 +55,19 @@ public sealed partial class ValidationRoot
             // Exercise func_60e9 itself as well as Player's ordinary request
             // suppression: the dispatcher must preserve its own guard order.
             _runtimeState.SetWramByte(AgesWramAddress.wTmpcec0, 0x56);
-            FailIf(_transitions.CheckTileWarp(_player) || (int)marker.GetValue(_transitions)! != 0x17,
+            FailIf(_transitions.CheckTileWarp(_player) || _runtimeState.ReadField("wEnteredWarpPosition") != 0x17,
                 "Air-state rejection must precede clearing the entered-warp marker on a different tile.");
             FailIf(_runtimeState.ReadWramByte(AgesWramAddress.wTmpcec0) != 0x56,
                 "func_60e9 air rejection must leave scratch unchanged before checkScreenEdgeWarps.");
             for (int update = 0; update < 80 && _player.TopDownAirborne; update++)
             {
-                FailIf(IsTransitioning || (int)marker.GetValue(_transitions)! != 0x17,
+                FailIf(IsTransitioning || _runtimeState.ReadField("wEnteredWarpPosition") != 0x17,
                     "The entered-warp marker must remain intact throughout the airborne interval.");
                 StepGameplayUpdates(1, Vector2.Zero);
             }
-            FailIf(_player.TopDownAirborne || IsTransitioning || (int)marker.GetValue(_transitions)! != -1 ||
+            FailIf(_player.TopDownAirborne || IsTransitioning || _runtimeState.ReadField("wEnteredWarpPosition") != 0xff ||
                 _currentRoom.GetPackedPosition(_player.Position + new Vector2(0, 4)) == 0x17,
-                $"Landing away from the stair must clear its marker on that first grounded check; position={_player.Position}, marker={marker.GetValue(_transitions)}, air={_player.TopDownAirborne}, warp={IsTransitioning}.");
+                $"Landing away from the stair must clear its marker on that first grounded check; position={_player.Position}, marker=${_runtimeState.ReadField("wEnteredWarpPosition"):x2}, air={_player.TopDownAirborne}, warp={IsTransitioning}.");
             for (int update = 0; update < 80 && !IsTransitioning; update++)
                 StepGameplayUpdates(1, Vector2.Up);
             FailIf(!IsTransitioning, "Returning on the ground must activate the stair after marker release.");

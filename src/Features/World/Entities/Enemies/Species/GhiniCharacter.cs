@@ -7,7 +7,7 @@ internal partial class GhiniCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => _state == GhiniState.Uninitialized;
     private GhiniBehaviorProfile? _behaviorSourceCache;
-    private GhiniBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Ghini;
+    private GhiniBehaviorProfile _behavior => _behaviorSourceCache ??= GhiniDatabase.For(AssetRoot).Behavior;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private int _counter;
@@ -75,8 +75,8 @@ internal partial class GhiniCharacter : EnemyCharacter
             if (Record.SubId == 1)
             {
                 _state = GhiniState.Spawning;
-                _counter = EnemyBehaviorTables.For(AssetRoot).SpawnGhiniState[0].Value;
-                _angle = EnemyBehaviorTables.For(AssetRoot).SpawnGhiniState[1].Value;
+                _counter = GhiniDatabase.For(AssetRoot).SpawnState[0].Value;
+                _angle = GhiniDatabase.For(AssetRoot).SpawnState[1].Value;
             }
             return;
         }
@@ -110,8 +110,8 @@ internal partial class GhiniCharacter : EnemyCharacter
 
     private void UpdateSpawned(int frame, Vector2 target)
     {
-        var data = EnemyBehaviorTables.For(AssetRoot);
-        var state = data.SpawnGhiniState;
+        var data = GhiniDatabase.For(AssetRoot);
+        var state = data.SpawnState;
         switch (_state)
         {
             case GhiniState.Spawning:
@@ -121,7 +121,9 @@ internal partial class GhiniCharacter : EnemyCharacter
                     return;
                 }
                 Visible = true; _spawnCollisionEnabled = true;
-                Accelerate(); break;
+                Accelerate();
+                AdvanceAnimation(); // The called gotoStateC tail animates before state8 animates again.
+                break;
             case GhiniState.Wandering:
                 Move();
                 if ((frame & 1) != 0)
@@ -154,8 +156,8 @@ internal partial class GhiniCharacter : EnemyCharacter
             default: throw new InvalidOperationException($"ghini.s: $17:$01 state ${(int)_state:x2}.");
         }
         AdvanceAnimation();
-        void Accelerate() { _state = GhiniState.Accelerating; _counter = state[2].Value; _speed = data.SpawnGhiniSpeeds[2].Value; }
-        void SetCycleSpeed() => _speed = data.SpawnGhiniSpeeds[_counter < state[6].Value ? 0 : _counter < state[7].Value ? 1 : 2].Value;
+        void Accelerate() { _state = GhiniState.Accelerating; _counter = state[2].Value; _speed = data.SpawnSpeeds[2].Value; }
+        void SetCycleSpeed() => _speed = data.SpawnSpeeds[_counter < state[6].Value ? 0 : _counter < state[7].Value ? 1 : 2].Value;
     }
 
     // ghini.s:@dead branches straight to enemyDie for subid $01. It is
@@ -188,7 +190,7 @@ internal partial class GhiniCharacter : EnemyCharacter
 
     internal void BeginSeedStatus(bool ember, int damage)
     {
-        var data = EnemyBehaviorTables.For(AssetRoot).TargetGhini;
+        var data = GhiniDatabase.For(AssetRoot).Target;
         var status = ember ? data.EmberStatus : data.PegasusStatus;
         if (ember) { Health = Math.Max(0, Health-damage); DeferNativeHitStatus(); }
         InvincibilityCounter = unchecked((sbyte)status[1].Value); _stunCounter = status[3].Value;

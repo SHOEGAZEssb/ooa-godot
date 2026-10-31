@@ -14,7 +14,7 @@ internal sealed class WildTokayMeatRoomEntity(WildTokayMeat meat)
     public bool ReservedBraceletChildActive=>Entity.Thrown;
     public void WriteReservedBraceletAngle(int angle)=>Entity.ReservedThrow!.SetAngle(angle);
     public void BindGrabbablePublisher(System.Action<INativeBraceletRoomEntity> publish)=>_publish=publish;
-    public void UpdateBraceletChild(Player player)=>Entity.UpdateBraceletChild(player);
+    public void UpdateBraceletChild(Player player, bool frozen = false)=>Entity.UpdateBraceletChild(player, frozen);
     public void UpdateHeldPosition(Player player)=>Entity.UpdateHeldPosition(player);
     public bool Finished => Entity.Finished;
     public void UpdateFrame(

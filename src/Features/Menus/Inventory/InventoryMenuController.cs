@@ -1,0 +1,569 @@
+using Godot;
+using System;
+
+namespace Oracles;
+
+/// <summary>
+/// MENU_INVENTORY and MENU_SAVEQUIT-specific behavior. Their common
+/// wMenuLoadState fade/pause lifecycle is owned by OracleMenuLifecycle.
+/// </summary>
+public sealed class InventoryMenuController : IOracleMenuLifecycleClient
+{
+
+    public const float FastFadeFrames = OracleMenuLifecycle.FastFadeUpdates;
+    public const int SaveSelectionDelayFrames = 30;
+
+    private readonly InventoryScreen _screen;
+    private readonly SaveQuitScreen _saveScreen;
+    private readonly OracleMenuLifecycle _lifecycle;
+    private readonly Func<bool> _normalMenuUnlocked;
+    private readonly Func<bool> _canOpen;
+    private readonly Func<SaveResult> _save;
+    private readonly Action _quitToTitle;
+    private readonly Action _continueAfterGameOver;
+    private readonly Action<int> _playSound;
+    private readonly Action _loadCommonGraphics;
+    private readonly FixedUpdateAccumulator _saveDelayUpdates = new();
+    private OpenMenu _openMenu;
+    private bool _saveSelectionDelay;
+    private bool _gameOver;
+    private int _saveDelayElapsed;
+    private Func<int, bool>? _readOption;
+    private Action<int, bool>? _writeOption;
+
+    internal void ConfigureOptions(Func<int, bool> read, Action<int, bool> write)
+    {
+        _readOption = read;
+        _writeOption = write;
+    }
+
+    private void RefreshOptions() => _saveScreen.RefreshOptions(
+        _readOption?.Invoke(0) ?? false, _readOption?.Invoke(1) ?? false,
+        _readOption?.Invoke(2) ?? false);
+
+    public bool IsActive => _lifecycle.IsOwnedBy(this);
+    public bool IsOpen => _lifecycle.IsOpenFor(this) && !_saveSelectionDelay;
+    public bool SaveMenuOpen =>
+        _lifecycle.IsOpenFor(this) && _openMenu == OpenMenu.SaveQuit;
+    internal bool GameOver => _gameOver;
+    internal bool CanOpenForValidation => _lifecycle.IsIdle && _canOpen();
+    internal int SaveRequests { get; private set; }
+    internal int QuitRequests { get; private set; }
+    internal string? LastSaveError { get; private set; }
+    string IOracleMenuLifecycleClient.MenuName =>
+        _openMenu == OpenMenu.SaveQuit ? "MENU_SAVEQUIT" : "MENU_INVENTORY";
+
+    internal InventoryMenuController(
+        InventoryScreen screen,
+        SaveQuitScreen saveScreen,
+        OracleMenuLifecycle lifecycle,
+        Func<bool> normalMenuUnlocked,
+        Func<bool> canOpen,
+        Func<SaveResult> save,
+        Action quitToTitle,
+        Action<int> playSound,
+        Action? continueAfterGameOver = null,
+        Action? loadCommonGraphics = null)
+    {
+        _screen = screen;
+        _saveScreen = saveScreen;
+        _lifecycle = lifecycle;
+        _normalMenuUnlocked = normalMenuUnlocked;
+        _canOpen = canOpen;
+        _save = save;
+        _quitToTitle = quitToTitle;
+        _playSound = playSound;
+        _continueAfterGameOver = continueAfterGameOver ?? (() => { });
+        _loadCommonGraphics = loadCommonGraphics ?? (static () => { });
+    }
+
+    public void Update(double delta)
+    {
+        if (!IsActive)
+        {
+            bool inventoryPressed = Input.IsActionJustPressed("inventory");
+            bool mapPressed = Input.IsActionJustPressed("map");
+            // b2_updateMenus handles this shared Start/Select gate before it
+            // dispatches MENU_INVENTORY or MENU_MAP. Keep it here, in the
+            // first normal-menu controller updated by GameRoot, so a chord
+            // still requests SND_ERROR ($5a) exactly once.
+            if ((inventoryPressed || mapPressed) && !_normalMenuUnlocked())
+            {
+                _playSound(SoundId.SndError);
+                return;
+            }
+            if (inventoryPressed && mapPressed && _canOpen())
+                BeginOpening(openSaveMenu: true);
+            else if (inventoryPressed && _canOpen())
+                BeginOpening(openSaveMenu: false);
+            return;
+        }
+
+        if (!_lifecycle.IsOpenFor(this))
+        {
+            // menuStateFadeIntoMenu upgrades an ordinary inventory request
+            // to MENU_SAVEQUIT if both buttons become held during fade-out.
+            if (_lifecycle.CurrentPhase == Phase.OpeningFadeOut &&
+                _openMenu == OpenMenu.Inventory &&
+                Input.IsActionPressed("inventory") && Input.IsActionPressed("map"))
+            {
+                _openMenu = OpenMenu.SaveQuit;
+            }
+            _lifecycle.Update(this, delta);
+            return;
+        }
+
+        if (_saveSelectionDelay)
+        {
+            UpdateSaveSelectionDelay(delta);
+            return;
+        }
+
+        if (_openMenu == OpenMenu.Inventory)
+        {
+            UpdateInventoryInput(delta);
+            return;
+        }
+
+        UpdateSaveInput();
+    }
+
+    internal void TakeOverMapOpening(IOracleMenuLifecycleClient map)
+    {
+        _openMenu = OpenMenu.SaveQuit;
+        _gameOver = false;
+        ResetSaveDelay();
+        _lifecycle.TransferOpening(map, this);
+    }
+
+    internal void UpdateItemSubmenuForValidation(double delta) =>
+        _screen.UpdateItemSubmenu(delta);
+
+    internal void OpenImmediatelyForValidation()
+    {
+        _openMenu = OpenMenu.Inventory;
+        _gameOver = false;
+        ResetSaveDelay();
+        _lifecycle.OpenImmediately(this);
+    }
+
+    internal void OpenSaveImmediatelyForValidation()
+    {
+        _openMenu = OpenMenu.SaveQuit;
+        _gameOver = false;
+        ResetSaveDelay();
+        _lifecycle.OpenImmediately(this);
+    }
+
+    internal void CloseImmediatelyForValidation() => _lifecycle.CloseImmediately(this);
+
+    private void UpdateInventoryInput(double delta)
+    {
+        // runInventoryMenu clears OAM before dispatch. State changes do not
+        // submit a selection cursor until their actual source handler runs.
+        _screen.BeginPresentationUpdate();
+        if (_screen.PageTransitionActive)
+        {
+            bool pending = _screen.PageTransitionPending;
+            _screen.UpdatePageTransition(delta);
+            if (pending && !_screen.PageTransitionPending)
+                _playSound(SoundId.SndOpenMenu);
+            return;
+        }
+        if (_screen.ItemSubmenuActive)
+        {
+            bool wasReady = _screen.ItemSubmenuReady;
+            _screen.UpdateItemSubmenu(delta);
+            // State 2/substate 1 draws the completed panel and returns;
+            // substate 2 cannot consume input until the following update.
+            if (!wasReady)
+            {
+                // The independent native inventory text thread keeps its
+                // current request scrolling while state 2 expands the panel.
+                _screen.UpdateInventoryText(delta, refreshSelection: false);
+                return;
+            }
+            _screen.UpdateInventoryText(delta);
+            if (Input.IsActionJustPressed("inventory") ||
+                Input.IsActionJustPressed("attack") ||
+                Input.IsActionJustPressed("item"))
+            {
+                ConfirmItemSubmenu();
+                _screen.SubmitCursorForUpdate(); // Native confirmation falls through finalizeEquip's cursor draw.
+                return;
+            }
+            int submenuDirections = DirectionInputWithAutofire();
+            if ((submenuDirections & 1) != 0)
+                MoveItemSubmenu(1);
+            else if ((submenuDirections & 2) != 0)
+                MoveItemSubmenu(-1);
+            return;
+        }
+        // inventoryMenuState1@subscreen0 branches on A/B before dispatching
+        // the selected item's text. Its existing text thread still advances.
+        bool equippingItem = _screen.Subscreen == InventorySubscreen.Items &&
+            (Input.IsActionJustPressed("item") || Input.IsActionJustPressed("attack"));
+        _screen.UpdateInventoryText(delta, refreshSelection: !equippingItem);
+        if (Input.IsActionJustPressed("inventory"))
+        {
+            BeginClosing();
+            return;
+        }
+        if (Input.IsActionJustPressed("map"))
+        {
+            BeginNextSubscreen();
+            return;
+        }
+        if (_screen.Subscreen == InventorySubscreen.Items)
+        {
+            // inventoryMenuState1@subscreen0 tests B before A.
+            if (Input.IsActionJustPressed("item"))
+            {
+                EquipToB();
+                if (!_screen.ItemSubmenuActive) _screen.SubmitCursorForUpdate();
+                return;
+            }
+            if (Input.IsActionJustPressed("attack"))
+            {
+                EquipToA();
+                if (!_screen.ItemSubmenuActive) _screen.SubmitCursorForUpdate();
+                return;
+            }
+        }
+        else if (Input.IsActionJustPressed("attack"))
+        {
+            if (_screen.SaveAndQuitSelected)
+            {
+                OpenSaveMenuFromInventory();
+                return;
+            }
+            if (_screen.Subscreen == InventorySubscreen.SecondaryItems)
+            {
+                EquipSelectedRing();
+                _screen.SubmitCursorForUpdate();
+                return;
+            }
+        }
+        HandleDirectionInput();
+        _screen.SubmitCursorForUpdate();
+    }
+
+    private void UpdateSaveInput()
+    {
+        if (_saveScreen.OptionsOpen)
+            RefreshOptions();
+        if (_saveScreen.SaveErrorVisible)
+        {
+            if (Input.IsActionJustPressed("attack") ||
+                Input.IsActionJustPressed("item") ||
+                Input.IsActionJustPressed("inventory"))
+            {
+                _saveScreen.ClearSaveError();
+            }
+            return;
+        }
+        // saveQuitMenu_state1 consumes Up/Down even at a cursor boundary,
+        // before B and then A/Start. This handler has no autofire.
+        if (Input.IsActionJustPressed("move_up"))
+        {
+            MoveSaveCursor(-1);
+            return;
+        }
+        if (Input.IsActionJustPressed("move_down"))
+        {
+            MoveSaveCursor(1);
+            return;
+        }
+        if (Input.IsActionJustPressed("item"))
+        {
+            CancelSaveMenu();
+            return;
+        }
+        if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("inventory"))
+        {
+            SelectSaveOption();
+            return;
+        }
+    }
+
+    private void UpdateSaveSelectionDelay(double delta)
+    {
+        int updates = _saveDelayUpdates.Consume(delta);
+        for (int update = 0; update < updates; update++)
+        {
+            _saveDelayElapsed++;
+            _saveScreen.DelayCounter = Math.Max(
+                0, SaveSelectionDelayFrames - _saveDelayElapsed);
+            if (_saveDelayElapsed < SaveSelectionDelayFrames)
+                continue;
+
+            _saveSelectionDelay = false;
+            if (_gameOver)
+            {
+                bool quit = _saveScreen.Cursor == 2;
+                if (quit)
+                    QuitRequests++;
+                _lifecycle.CloseImmediately(this);
+                if (quit)
+                    _quitToTitle();
+                else
+                    _continueAfterGameOver();
+                return;
+            }
+            if (_saveScreen.Cursor == 2)
+            {
+                QuitRequests++;
+                _lifecycle.CloseImmediately(this);
+                _quitToTitle();
+            }
+            else
+            {
+                BeginClosing();
+            }
+            return;
+        }
+    }
+
+    internal void BeginOpening(bool openSaveMenu)
+    {
+        _openMenu = openSaveMenu ? OpenMenu.SaveQuit : OpenMenu.Inventory;
+        _gameOver = false;
+        ResetSaveDelay();
+        _lifecycle.TryBeginOpening(this);
+    }
+
+    internal void BeginGameOver()
+    {
+        _openMenu = OpenMenu.SaveQuit;
+        _gameOver = true;
+        ResetSaveDelay();
+        if (!_lifecycle.TryBeginOpeningFromWhite(this))
+        {
+            _gameOver = false;
+            throw new InvalidOperationException(
+                "Game over could not acquire MENU_SAVEQUIT ownership.");
+        }
+    }
+
+    internal bool BeginNextSubscreen()
+    {
+        if (_screen.PageTransitionActive || _screen.ItemSubmenuActive)
+            return false;
+
+        // The Select edge selects state 3. Its next dispatch starts the
+        // scroll and requests SND_OPENMENU ($54).
+        _screen.BeginNextSubscreen();
+        return true;
+    }
+
+    internal void OpenSaveMenuFromInventory()
+    {
+        if (!_lifecycle.IsOpenFor(this) || _openMenu != OpenMenu.Inventory)
+            throw new InvalidOperationException(
+                "MENU_INVENTORY attempted to open MENU_SAVEQUIT outside its active state.");
+        _screen.Close();
+        _playSound(SoundId.SndSelectItem);
+        _gameOver = false;
+        _saveScreen.Open();
+        _openMenu = OpenMenu.SaveQuit;
+        ResetSaveDelay();
+        _lifecycle.BeginFadeInFromWhite(this);
+    }
+
+    internal void SelectSaveOption()
+    {
+        if (!_lifecycle.IsOpenFor(this) || _openMenu != OpenMenu.SaveQuit || _saveSelectionDelay)
+            return;
+        if (_saveScreen.SaveErrorVisible)
+        {
+            _saveScreen.ClearSaveError();
+            return;
+        }
+        if (_saveScreen.OptionsOpen)
+        {
+            int option = _saveScreen.OptionsCursor;
+            if (_readOption is not null && _writeOption is not null)
+                _writeOption(option, !_readOption(option));
+            RefreshOptions();
+            _playSound(SoundId.SndSelectItem);
+            return;
+        }
+        if (!_gameOver && _saveScreen.Cursor == 3)
+        {
+            _saveScreen.OpenOptions();
+            RefreshOptions();
+            _playSound(SoundId.SndSelectItem);
+            return;
+        }
+        if (_saveScreen.Cursor != 0)
+        {
+            SaveRequests++;
+            SaveResult result = _save();
+            if (!result.Success)
+            {
+                LastSaveError = result.ErrorMessage;
+                _saveScreen.ShowSaveError();
+                return;
+            }
+            LastSaveError = null;
+        }
+
+        _playSound(SoundId.SndSelectItem);
+        _saveScreen.DelayCounter = SaveSelectionDelayFrames;
+        _saveSelectionDelay = true;
+        _saveDelayElapsed = 0;
+        _saveDelayUpdates.Reset();
+    }
+
+    internal bool CancelSaveMenu()
+    {
+        if (_gameOver ||
+            !_lifecycle.IsOpenFor(this) ||
+            _openMenu != OpenMenu.SaveQuit ||
+            _saveSelectionDelay)
+        {
+            return false;
+        }
+
+        if (_saveScreen.OptionsOpen)
+            _saveScreen.CloseOptions();
+        else
+            BeginClosing();
+        return true;
+    }
+
+    internal bool MoveSaveCursor(int direction)
+    {
+        if (!_lifecycle.IsOpenFor(this) ||
+            _openMenu != OpenMenu.SaveQuit ||
+            _saveSelectionDelay ||
+            !_saveScreen.Move(direction))
+        {
+            return false;
+        }
+
+        _playSound(SoundId.SndMenuMove);
+        return true;
+    }
+
+    private void HandleDirectionInput()
+    {
+        int directions = DirectionInputWithAutofire();
+        if ((directions & 1) != 0)
+            MoveCursor(Vector2I.Right);
+        else if ((directions & 2) != 0)
+            MoveCursor(Vector2I.Left);
+        else if ((directions & 4) != 0)
+            MoveCursor(Vector2I.Up);
+        else if ((directions & 8) != 0)
+            MoveCursor(Vector2I.Down);
+    }
+
+    private int DirectionInputWithAutofire() => _lifecycle.DirectionInputWithAutofire();
+
+    internal bool MoveCursor(Vector2I direction)
+    {
+        if (!_screen.MoveCursor(direction))
+            return false;
+        _playSound(SoundId.SndMenuMove);
+        return true;
+    }
+
+    internal bool EquipToA()
+    {
+        if (!_screen.EquipToA())
+            return false;
+        _playSound(SoundId.SndSelectItem);
+        return true;
+    }
+
+    internal bool EquipToB()
+    {
+        if (!_screen.EquipToB())
+            return false;
+        _playSound(SoundId.SndSelectItem);
+        return true;
+    }
+
+    private bool EquipSelectedRing()
+    {
+        if (_screen.RingEquippingBlocked)
+        {
+            _playSound(SoundId.SndError);
+            return false;
+        }
+        if (!_screen.EquipSelectedRing())
+            return false;
+        _playSound(SoundId.SndSelectItem);
+        return true;
+    }
+
+    internal bool MoveItemSubmenu(int direction)
+    {
+        if (!_screen.MoveItemSubmenu(direction))
+            return false;
+        _playSound(SoundId.SndMenuMove);
+        return true;
+    }
+
+    internal bool ConfirmItemSubmenu()
+    {
+        if (!_screen.ConfirmItemSubmenu())
+            return false;
+        _playSound(SoundId.SndSelectItem);
+        return true;
+    }
+
+    private void BeginClosing()
+    {
+        // bank2.s:closeMenu suppresses SND_CLOSEMENU only for MENU_SAVEQUIT.
+        if (_openMenu == OpenMenu.Inventory)
+            _playSound(SoundId.SndCloseMenu);
+        _lifecycle.BeginClosing(this);
+    }
+
+    private void ResetSaveDelay()
+    {
+        _saveSelectionDelay = false;
+        _saveDelayElapsed = 0;
+        _saveDelayUpdates.Reset();
+    }
+
+    void IOracleMenuLifecycleClient.OpenAtWhite()
+    {
+        if (_openMenu == OpenMenu.SaveQuit)
+        {
+            _screen.Close();
+            _saveScreen.Open(_gameOver);
+        }
+        else
+        {
+            _saveScreen.Close();
+            // menuStateFadeIntoMenu requests SND_OPENMENU ($54) after the
+            // fast fade reaches white, immediately before loading inventory.
+            _playSound(SoundId.SndOpenMenu);
+            // The loader's status update precedes runInventoryMenu's tail update.
+            _loadCommonGraphics();
+            _screen.Open();
+        }
+    }
+
+    void IOracleMenuLifecycleClient.CloseAtWhite()
+    {
+        _screen.Close();
+        _saveScreen.Close();
+    }
+
+    void IOracleMenuLifecycleClient.LifecycleClosed()
+    {
+        _openMenu = OpenMenu.Inventory;
+        _gameOver = false;
+        ResetSaveDelay();
+    }
+}
+
+internal enum OpenMenu
+{
+    Inventory,
+    SaveQuit
+}

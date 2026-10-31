@@ -6,7 +6,7 @@ namespace Oracles;
 internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
 {
     private BeamosBehaviorProfile? _behaviorSourceCache;
-    private BeamosBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Beamos;
+    private BeamosBehaviorProfile _behavior => _behaviorSourceCache ??= BeamosDatabase.For(AssetRoot).Behavior;
     private readonly BeamosBeamDatabase _data;
     private readonly OracleRoomData _room;
     private readonly OracleRuntimeState? _runtime;

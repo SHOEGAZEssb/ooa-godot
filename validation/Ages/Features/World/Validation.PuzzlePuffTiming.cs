@@ -18,9 +18,10 @@ public partial class ValidationRoot
             _player.WarpTo(new(24, 24));
             _entities.Clear();
             counter.SetValue(_entities, initialFrame);
+            _saveData.WriteField("wPlaytimeCounter", checked((byte)initialFrame));
             void Step(int count = 1) =>
                 StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
-            PuzzlePuffEffect Puff() => _entities.Spawn<PuzzlePuffEffect>(
+            StationaryDebrisEffect Puff() => _entities.Spawn<StationaryDebrisEffect>(
                 new PuzzlePuffSpawn(new(24, 24), SoundId.MusNone, Flickers: true));
             var even = Puff();
             var odd = Puff();

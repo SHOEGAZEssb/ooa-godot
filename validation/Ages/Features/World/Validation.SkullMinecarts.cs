@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
                         $"Dungeon entry did not replace static slot ${slot:x2} byte ${offset:x2}.");
             }
         }
-        MinecartRuntimeState.Reset(runtime, data.Minecarts(2));
+        ResetMinecartsForValidation(runtime, data.Minecarts(2));
         LoadValidationRoom(4, 0x91);
         _player.WarpTo(new Vector2(120, 152));
         _entities.LoadRoom(4, _currentRoom, EnemyPlacementContext.FromWarpDestination(0xff));
@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
         foreach (var c in cases)
         foreach (bool batched in new[] { false, true })
         {
-            MinecartRuntimeState.Reset(runtime, records);
+            ResetMinecartsForValidation(runtime, records);
             runtime.SetWramByte(AgesGameContent.SwitchStateAddress, 0);
             // Set up both source gate inputs. Actual color-puzzle controls
             // are exercised separately; these cases isolate the rail routes.
@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
             Step();
             if (c.Room == 0x78 && c.Blue)
                 _entities.Entities<ColoredCubeRoomEntity>().Single().ColoredCubePuzzleState.CubeColor = 0x82;
-            var cart = _entities.Entities<MinecartRoomEntity>().Single();
+            var cart = new MinecartValidationView(_entities, _player);
             for (int n = 0; !cart.Mounting && n < 40; n++) Step(move: c.Move);
             FailIf(!cart.Mounting || !_player.MinecartJumpActive,
                 $"4:{c.Room:x2} cart could not be boarded through its platform: Link {_player.Position}, cart {cart.Position}.");
@@ -112,6 +112,9 @@ public sealed partial class ValidationRoot
                 }
                 _inventory.RefillHealth();
             }
+            // The destination can contain another parked cart. Select the
+            // expected source endpoint instead of retaining one combined actor.
+            cart = new MinecartValidationView(_entities, _player, Point(c.End));
             FailIf(!cart.Dismounting || !route.SequenceEqual(c.Route) || cart.Position != Point(c.End),
                 $"4:{c.Room:x2} cart route/end diverged: {string.Join(',', route.Select(r => r.ToString("x2")))} " +
                 $"at {cart.Position}, direction {cart.Direction}, riding {cart.Riding}, Link {_player.Position}.");
@@ -126,7 +129,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0x91);
             LoadValidationRoom(4, destination);
             _player.WarpTo(landing);
-            cart = _entities.Entities<MinecartRoomEntity>().Single(r => r.Position == Point(c.End));
+            cart = new MinecartValidationView(_entities, _player, Point(c.End));
+            FailIf(cart.Interaction?.Position != Point(c.End), "Reload must reconstruct the parked native interaction.");
             Vector2 difference = cart.Position - landing;
             Vector2 approach = Math.Abs(difference.X) > Math.Abs(difference.Y)
                 ? new Vector2(Math.Sign(difference.X), 0) : new Vector2(0, Math.Sign(difference.Y));
@@ -137,6 +141,11 @@ public sealed partial class ValidationRoot
             _player.SetBraceletLiftCollisionsDisabled(false);
             LoadValidationRoom(4, 0x91);
         }
+        StaticObjectState.Clear(runtime);
+        LoadValidationRoom(4, 0x78);
+        FailIf(_entities.Entities<MinecartInteractionRoomEntity>().Count != 0 ||
+            Enumerable.Range(0, 64).Any(offset => runtime.ReadWramByte(0xcd80 + offset) != 0),
+            "Ordinary dungeon room parsing must not refill a consumed static cart buffer.");
         GD.Print("Validated Skull Dungeon's static cart entry buffer, four boarding approaches, native rail routes, parking/re-entry and batched gameplay updates.");
     }
 }

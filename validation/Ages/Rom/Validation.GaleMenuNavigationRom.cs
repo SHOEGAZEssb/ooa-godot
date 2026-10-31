@@ -51,7 +51,7 @@ public sealed partial class ValidationRoot
             void Step(int count = 1, int pressed = 0, int? held = null)
             {
                 edge = pressed;
-                StepGameplayUpdates(count, Vector2.Right, MenuRomActions(held ?? pressed), MenuRomActions(pressed), batched, () =>
+                StepGameplayUpdates(count, Vector2.Zero, MenuRomActions(held ?? pressed), MenuRomActions(pressed), batched, () =>
                 {
                     rom.Update(edge, held ?? pressed, _saveData.ReadWramByte(0xc622)); edge = 0;
                     string context = $"Gale navigation ${group:x2} planted={planted} visits=${visitMask:x2} update={++update}";

@@ -39,7 +39,7 @@ internal sealed class NpcInteractionValidationFixture : IDisposable
             SaveData = Save, Inventory = Inventory, Treasures = Treasures, Rooms = Rooms
         });
         Manager.SoundRequested += Sounds.Add;
-        Interactions = new InteractionController(
+        Interactions = AgesInteractionValidation.Create(
             Rooms, Manager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
             Treasures, Dialogue, world, view,
             static position => position, () => Tick, Inventory, screen, Sounds.Add);

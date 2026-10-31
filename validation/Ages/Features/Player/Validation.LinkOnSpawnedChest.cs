@@ -117,7 +117,8 @@ public partial class ValidationRoot
         _rooms.TrySetTile(0x57, 0xf1);
         StepGameplayUpdates(1, Vector2.Zero);
         // Airborne tile sampling retains $cc99/$cc9a, even over another tile.
-        _collision.UpdateLinkOnChest(new(120, 104), airborne: true);
+        _collision.UpdateActiveLinkTile(new(120,104),airborne:true);
+        _collision.UpdateLinkOnChest();
         FailIf(_runtimeState.ReadWramByte(AgesWramAddress.wActiveTilePos) != 0x57 ||
             _currentRoom.GetTerrainInfo(chest).Collision != 0,
             "Airborne Link must retain the previous active chest tile.");
@@ -126,7 +127,8 @@ public partial class ValidationRoot
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(_runtimeState.ReadWramByte(AgesWramAddress.wLinkOnChest) != 0x57,
             "Replacing a chest must retain $cc9f until the active position changes.");
-        _collision.UpdateLinkOnChest(new(120, 104), airborne: false);
+        _collision.UpdateActiveLinkTile(new(120,104),airborne:false);
+        _collision.UpdateLinkOnChest();
         FailIf(_currentRoom.GetTerrainInfo(chest).Collision != 0 ||
             _runtimeState.ReadWramByte(AgesWramAddress.wLinkOnChest) != 0,
             "Departure must restore the replacement floor's collision, not the former chest's.");

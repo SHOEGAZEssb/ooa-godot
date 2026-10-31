@@ -23,12 +23,6 @@ public sealed partial class OracleSaveData
     public const byte RoomFlag40 = 0x40;
     public const byte RoomFlag80 = 0x80;
 
-    internal const int RespawnRememberedCompanionIdAddress = 0xc631;
-    internal const int RespawnRememberedCompanionGroupAddress = 0xc632;
-    internal const int RespawnRememberedCompanionRoomAddress = 0xc633;
-    internal const int RespawnLinkObjectIndexAddress = 0xc634;
-    internal const int RespawnRememberedCompanionYAddress = 0xc636;
-    internal const int RespawnRememberedCompanionXAddress = 0xc637;
 
 
     private readonly byte[] _data;
@@ -41,6 +35,13 @@ public sealed partial class OracleSaveData
     public event Action? Changed;
 
     public int MinimapGroup => ReadField("wMinimapGroup");
+    public int MakuMapTextPresent => ReadField("wMakuMapTextPresent");
+
+    public void SetMakuMapTextPresent(int textLow)
+    {
+        if (textLow is < 0 or > 0xff) throw new ArgumentOutOfRangeException(nameof(textLow));
+        if (WriteField("wMakuMapTextPresent", (byte)textLow)) PublishChange();
+    }
     public int MinimapRoom => ReadField("wMinimapRoom");
     public int MinimapDungeonPosition => ReadField("wMinimapDungeonMapPosition");
     public int MinimapDungeonFloor => ReadField("wMinimapDungeonFloor");
@@ -190,19 +191,36 @@ public sealed partial class OracleSaveData
 
     public void NameChild(string name)
     {
-        Span<byte> encoded = stackalloc byte[6];
-        string normalized = EncodeName(name, encoded, nameof(name));
-        bool changed = WriteFields("wKidName", encoded);
-
-        int lowNibbleSum = 0;
-        for (int index = 0; index < normalized.Length; index++)
-            lowNibbleSum += encoded[index] & 0x0f;
-        changed |= WriteField(
-            "wChildStatus", (byte)(lowNibbleSum % 3 + 1));
+        bool changed = WriteChildName(name);
+        changed |= WriteField("wChildStatus", InitialChildStatus());
         changed |= WriteField("wc6e2", (byte)(ReadField("wc6e2") | 0x01));
         changed |= WriteField("wNextChildStage", 0x01);
-        if (changed)
-            PublishChange();
+        if (changed) PublishChange();
+    }
+
+    internal void SetChildName(string name)
+    {
+        if (WriteChildName(name)) PublishChange();
+    }
+
+    private bool WriteChildName(string name)
+    {
+        Span<byte> encoded = stackalloc byte[6];
+        EncodeName(name, encoded, nameof(name));
+        return WriteFields("wKidName", encoded);
+    }
+
+    internal void DecideInitialChildStatus()
+    {
+        if (WriteField("wChildStatus", InitialChildStatus())) PublishChange();
+    }
+
+    private byte InitialChildStatus()
+    {
+        int lowNibbleSum = 0;
+        for (int index = 0; ReadField("wKidName", index) != 0; index++)
+            lowNibbleSum = (lowNibbleSum + (ReadField("wKidName", index) & 0x0f)) & 0xff;
+        return (byte)(lowNibbleSum % 3 + 1);
     }
 
     public void SetTextSpeed(int speed)
@@ -361,23 +379,23 @@ public sealed partial class OracleSaveData
         changed |= WriteField("wDeathRespawnBuffer.x", (byte)x);
         if (rememberedCompanion is { } state)
         {
-            changed |= WriteWramByte(
-                RespawnRememberedCompanionIdAddress,
+            changed |= WriteField(
+                "wDeathRespawnBuffer.rememberedCompanionId",
                 checked((byte)state.Companion.Id));
-            changed |= WriteWramByte(
-                RespawnRememberedCompanionGroupAddress,
+            changed |= WriteField(
+                "wDeathRespawnBuffer.rememberedCompanionGroup",
                 checked((byte)state.Companion.Group));
-            changed |= WriteWramByte(
-                RespawnRememberedCompanionRoomAddress,
+            changed |= WriteField(
+                "wDeathRespawnBuffer.rememberedCompanionRoom",
                 checked((byte)state.Companion.Room));
-            changed |= WriteWramByte(
-                RespawnLinkObjectIndexAddress,
+            changed |= WriteField(
+                "wDeathRespawnBuffer.linkObjectIndex",
                 checked((byte)state.LinkObjectIndex));
-            changed |= WriteWramByte(
-                RespawnRememberedCompanionYAddress,
+            changed |= WriteField(
+                "wDeathRespawnBuffer.rememberedCompanionY",
                 checked((byte)state.Companion.Y));
-            changed |= WriteWramByte(
-                RespawnRememberedCompanionXAddress,
+            changed |= WriteField(
+                "wDeathRespawnBuffer.rememberedCompanionX",
                 checked((byte)state.Companion.X));
         }
         if (changed)

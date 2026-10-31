@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 
 namespace Oracles;
 
@@ -19,7 +18,6 @@ internal sealed class DimitriRescueScriptHost : CutsceneCommandHost
         _slot=slot;_rooms=rooms;_entities=entities;_dialogue=dialogue;
         _runner=new(this);_runner.Start(CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/dimitri_rescue_commands.tsv"));
     }
-    private DimitriCompanionRoomEntity? Companion=>_entities.Entities<DimitriCompanionRoomEntity>().SingleOrDefault();
     internal void Advance(Player player){_player=player;_runner.AdvanceFrame();}
     public override bool DialogueOpen=>_dialogue.IsOpen;
     public override bool ScriptExecutionBlocked=>_dialogue.IsOpen&&!_dialogue.AllowsNativeScriptCommands||_player?.IsDying==true;
@@ -32,7 +30,7 @@ internal sealed class DimitriRescueScriptHost : CutsceneCommandHost
         return binding switch
         {
             "CompanionButton"=>CompanionRuntimeState.ReadScriptButton(_entities.RuntimeState),
-            "LinkMounted"=>Companion?.LinkRiding==true?1:0,
+            "LinkMounted"=>_entities.RuntimeState.ReadField("wLinkObjectIndex")==0xd1?1:0,
             "AnimalCompanion"=>_rooms.SaveData.ReadWramByte(AgesWramAddress.wAnimalCompanion),
             _=>throw UnsupportedCommand($"read '{binding}'")
         };
@@ -41,7 +39,6 @@ internal sealed class DimitriRescueScriptHost : CutsceneCommandHost
     public override void WriteMemory(string binding,int value)
     {
         if(binding!="CompanionButton"||value!=0)throw UnsupportedCommand($"write '{binding}'=${value:x2}");
-        Companion?.AcknowledgeNativeRescueInput();
         CompanionRuntimeState.WriteScriptButton(_entities.RuntimeState,0);
     }
     public override void ShowText(int id,string message)=>ShowText(id,message,null);
@@ -49,7 +46,6 @@ internal sealed class DimitriRescueScriptHost : CutsceneCommandHost
         _entities.WorldToScreen((_player??throw UnsupportedCommand("show text without Link")).Position).Y,position??0);
     public override void SetInputEnabled(bool enabled)
     {
-        Companion?.AcknowledgeNativeRescueInput();
         NativeScriptInputControl.SetEnabled(_entities.RuntimeState,_player??throw UnsupportedCommand("write input without Link"),enabled);
         _ownsInput=!enabled;
     }
@@ -63,7 +59,7 @@ internal sealed class DimitriRescueScriptHost : CutsceneCommandHost
         }
         if(handler=="ForceMount")
         {
-            (Companion??throw UnsupportedCommand("force mount without SPECIALOBJECT_DIMITRI $0c")).ForceForestMount();return;
+            _entities.RuntimeState.SetWramByte(0xd103,1);return;
         }
         throw UnsupportedCommand($"run '{handler}'");
     }
@@ -71,11 +67,11 @@ internal sealed class DimitriRescueScriptHost : CutsceneCommandHost
     internal void LinkDied()
     {
         _entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,0);_ownsInput=false;
-        Companion?.ReleaseNativeRescueInput();_runner.Clear();
+        _runner.Clear();
     }
     internal void Cancel()
     {
         if(_ownsInput&&_player is not null)SetInputEnabled(true);
-        Companion?.ReleaseNativeRescueInput();_runner.Clear();
+        _runner.Clear();
     }
 }

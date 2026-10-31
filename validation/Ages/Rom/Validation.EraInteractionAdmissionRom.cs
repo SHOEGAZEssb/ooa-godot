@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
             native[0xcdde] = 0; FillInteractionAdmissionPool(native, free);
             SomariaPrivate<FrontendRom>(native, "_rom").Call(0x5e7d, 1);
             bool created = _transitions.CheckDisplayEraInfoAfterFullRoomLoad();
-            var banner = _entities.Entities<EraInfoDisplay>().SingleOrDefault();
+            var banner = _entities.Entities<EraOrSeasonInfoDisplay>().SingleOrDefault();
             var source = NativeAdmissionChildren(native, 0xe0, 0);
             FailIf(created != (free == 1) || (banner is null) != (free == 0) || source.Length != free || _entities.InteractionSlotAvailable,
                 "INTERAC$e0 must check the post-placement $d2-$df pool before constructing an optional era banner.");
@@ -45,11 +45,11 @@ public sealed partial class ValidationRoot
                         $"INTERAC$e0 era={era} update={updates}: native stage/XY must match throughout the ordinary 87-update lifetime.");
                 }
             });
-            FailIf(_entities.Entities<EraInfoDisplay>().Count != 0 || banner is { Finished: false } ||
+            FailIf(_entities.Entities<EraOrSeasonInfoDisplay>().Count != 0 || banner is { Finished: false } ||
                 Enumerable.Range(2, 14).Any(slot => native[0xd040 + slot * 256] != 0 && native[0xd041 + slot * 256] == 0xe0),
                 "Era banner must finish at update 87; a failed request must never retry after puffs free capacity.");
             SomariaPrivate<FrontendRom>(native, "_rom").Call(0x5e7d, 1);
-            FailIf(!_transitions.CheckDisplayEraInfoAfterFullRoomLoad() || _entities.InteractionSlot(_entities.Entities<EraInfoDisplay>().Single()) != 2,
+            FailIf(!_transitions.CheckDisplayEraInfoAfterFullRoomLoad() || _entities.InteractionSlot(_entities.Entities<EraOrSeasonInfoDisplay>().Single()) != 2,
                 "A later room-load request must reuse lowest dynamic slot $d2 after ordinary completion.");
             StepGameplayUpdates(2, Vector2.Zero, batched: batched); _entities.Clear();
             FailIf(InteractionAdmissionPool.Count != 0, "Era cancellation must release the physical interaction owner.");

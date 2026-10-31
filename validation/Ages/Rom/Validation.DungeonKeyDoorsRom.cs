@@ -119,7 +119,7 @@ public sealed partial class ValidationRoot
                 overworldController.RemainingPushFrames != keyBlock.PushCounter ||
                 overworldRoom.GetMetatile(sceneryCenter) != 0x73 ||
                 overworldEntities.Entities<DungeonKeyUseEffect>().Count != 0 ||
-                overworldEntities.Entities<PuzzlePuffEffect>().Count != 0 ||
+                overworldEntities.Entities<StationaryDebrisEffect>().Count != 0 ||
                 overworldSounds.Count != 0,
                 "Room 1:dc/$46 scenery $73 entered the dungeon key-door path " +
                 "despite active-collision mode 0.");

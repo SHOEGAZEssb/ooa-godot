@@ -44,21 +44,23 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);
     public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = BoomerangCollisionDatabase.For(AssetRoot);
-        if (!item.CollisionEnabled || !data.PartEnabled(0x2a) || !Overlaps(ItemCollisionType.L1Boomerang, item.CollisionBounds) ||
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        if (!item.CollisionEnabled || !data.PartEnabled(0x2a, item.CollisionType) || !Overlaps(item.CollisionType, item.CollisionBounds) ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7)) return default;
-        int effect = data.Effect(EnemyCollisionMode.SpikedBall);
+        int effect = data.Effect(EnemyCollisionMode.SpikedBall, item.CollisionType);
         if (effect != CollisionEffect.Effect1b) throw new NotSupportedException($"PART_SPIKED_BALL $2a: boomerang effect${effect:x2}.");
-        Entity.InvincibilityCounter = data.DeflectionInvincibility;
-        Entity.PublishCollision(ItemCollisionType.L1Boomerang);
+        Entity.InvincibilityCounter = BoomerangStatusDatabase.Shared.DeflectionInvincibility;
+        Entity.PublishCollision(item.CollisionType);
         return new(true, true, BoomerangCollisionResponse.Midpoint(Entity.Position, item.Position));
     }
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
     {
-        if (!block.CollisionEnabled || !SomariaCollisionDatabase.Shared.Part(0x2a).Block ||
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        int collision = data.ItemType(0x18);
+        if (!block.CollisionEnabled || !data.PartEnabled(0x2a, collision) ||
             !RoomEntityManager.ObjectCollisionZOverlaps(Entity.ZHigh, block.ZHigh, 7) ||
-            !Overlaps(ItemCollisionType.SomariaBlock, block.CollisionBounds)) return false;
-        int effect = SomariaCollisionDatabase.Shared.Effects(EnemyCollisionMode.SpikedBall).Block;
+            !Overlaps(collision, block.CollisionBounds)) return false;
+        int effect = data.Effect(EnemyCollisionMode.SpikedBall, collision);
         switch (effect)
         {
             case CollisionEffect.None: return true;

@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
                 "INTERAC$dc:$06 must attempt checked $b2:$01 before deleting its own slot, without retrying failure.");
             if (free == 0)
             {
-                _entities.RetireEntity(InteractionAdmissionPool.First(pair => pair.Key.Node is PuzzlePuffEffect).Key);
+                _entities.RetireEntity(InteractionAdmissionPool.First(pair => pair.Key.Node is StationaryDebrisEffect).Key);
                 StepGameplayUpdates(2, Vector2.Zero, batched: batched);
                 FailIf(_entities.EntityAdapters<VolcanoRoomEntity>().Any(entity => entity.Node.Name.ToString().Contains("b2_")),
                     "Releasing capacity must not resurrect a deleted Volcano producer.");

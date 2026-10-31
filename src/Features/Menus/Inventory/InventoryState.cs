@@ -18,6 +18,7 @@ public sealed class InventoryState
     private readonly OracleSaveData? _saveData;
     private readonly OracleRuntimeState _runtimeState;
     internal OracleRuntimeState RuntimeState => _runtimeState;
+    internal OracleSaveData? SaveData => _saveData;
     private readonly Func<int> _currentDungeonIndex;
     private readonly byte[] _obtainedTreasureFlags = new byte[16];
     private readonly byte[] _inventoryStorage = new byte[InventoryCapacity];
@@ -37,6 +38,8 @@ public sealed class InventoryState
     private int _boomerangLevel;
     private int _featherLevel;
     private int _braceletLevel;
+    private int _oreChunks;
+    private int _pirateBellState;
 
     public event Action? Changed;
     public event Action? HealthChanged;
@@ -49,6 +52,10 @@ public sealed class InventoryState
     public int HealthQuarters { get; private set; }
     public int MaxHealthQuarters { get; private set; }
     public int Rupees { get; private set; }
+    public int OreChunks => _saveData?.Game == OracleGame.Seasons
+        ? FromBcdWord(_saveData.ReadField("wNumOreChunks") | _saveData.ReadField("wNumOreChunks", 1) << 8)
+        : _oreChunks;
+    private int PirateBellState => _saveData?.ReadField("wPirateBellState") ?? _pirateBellState;
     public int MaxBombs { get; private set; }
     public int Bombs { get; private set; }
     public int SwordLevel { get; private set; }
@@ -90,6 +97,24 @@ public sealed class InventoryState
     public int RememberedCompanionId { get; private set; }
     public int ObtainedSeasons { get; private set; }
     public int MagnetGlovePolarity { get; private set; }
+    internal static Func<InventoryState, int> BindDisplayIndex(string field) => field switch
+    {
+        "wSatchelSelectedSeeds" => static inventory => inventory.SatchelSelectedSeeds,
+        "wShooterSelectedSeeds" => static inventory => inventory.ShooterSelectedSeeds,
+        "wSwordLevel" => static inventory => inventory.SwordLevel,
+        "wShieldLevel" => static inventory => inventory.ShieldLevel,
+        "wBraceletLevel" => static inventory => inventory.BraceletLevel,
+        "wTradeItem" => static inventory => inventory.TradeItem,
+        "wFluteIcon" => static inventory => inventory.FluteIcon,
+        "wSelectedHarpSong" => static inventory => inventory.SelectedHarpSong,
+        "wTuniNutState" => static inventory => inventory.TuniNutState,
+        "wSwitchHookLevel" => static inventory => inventory.SwitchHookLevel,
+        "wFeatherLevel" => static inventory => inventory.FeatherLevel,
+        "wBoomerangLevel" => static inventory => inventory.BoomerangLevel,
+        "wPirateBellState" => static inventory => inventory.PirateBellState,
+        "wMagnetGlovePolarity" => static inventory => inventory.MagnetGlovePolarity,
+        _ => throw new NotSupportedException($"treasureDisplayData1: unsupported native index field {field}.")
+    };
     public int UnappraisedRingCount => CountUnappraisedRings();
     public bool IsRingActive(RingId ring) => ActiveRing == (int)ring;
 
@@ -566,10 +591,20 @@ public sealed class InventoryState
                 {
                     // companionScripts.s:companionScript_subid0a_state2 sets
                     // wFluteIcon separately from the Strange Flute treasure.
-                    // Debug grants provide the callable flute, without advancing
-                    // the forest quest. Retail collection retains mode $08.
+                    // Debug grants also set the native ready-to-ride bit;
+                    // retail collection and global forest flags stay separate.
+                    string state = treasureObject.Parameter switch
+                    {
+                        0x0b => "wRickyState",
+                        0x0c => "wDimitriState",
+                        0x0d => "wMooshState",
+                        _ => throw new NotSupportedException(
+                            $"companion state0: debug Flute companion ${treasureObject.Parameter:x2} is unsupported.")
+                    };
                     SetVariable(TreasureVariable.AnimalCompanion, treasureObject.Parameter);
                     _saveData?.WriteField("wFluteIcon", checked((byte)(treasureObject.Parameter - 0x0a)));
+                    if (_saveData is { } save)
+                        save.WriteField(state, (byte)(save.ReadField(state) | 0x80));
                 }
                 GiveTreasure(treasureObject);
             }
@@ -598,6 +633,16 @@ public sealed class InventoryState
     /// </summary>
     internal bool LoseTreasure(int treasure)
     {
+        using (_saveData?.BeginMutation())
+        {
+            if (!LoseTreasureCore(treasure)) return false;
+            NotifyChanged();
+            return true;
+        }
+    }
+
+    private bool LoseTreasureCore(int treasure)
+    {
         if (treasure is < 0 or >= 0x80)
             return false;
         int slot = treasure is > 0 and < NumInventoryItems ? FindInventoryItem(treasure) : -1;
@@ -605,16 +650,9 @@ public sealed class InventoryState
         if (!obtained && slot < 0)
             return false;
 
-        using (_saveData?.BeginMutation())
-        {
-            ClearTreasureFlag(treasure);
-            // loseTreasure_helper only unsets wObtainedTreasureFlags, even
-            // for $60-$67. It never clears transient wUpgradesObtained.
-
-            if (slot >= 0)
-                SetInventorySlot(slot, TreasureId.None);
-            NotifyChanged();
-        }
+        ClearTreasureFlag(treasure);
+        // loseTreasure_helper leaves related variables and wUpgradesObtained intact.
+        if (slot >= 0) SetInventorySlot(slot, TreasureId.None);
         return true;
     }
 
@@ -1027,6 +1065,11 @@ public sealed class InventoryState
         HeartPieces = source.ReadField("wNumHeartPieces");
         Rupees = FromBcdWord(
             source.ReadField("wNumRupees") | source.ReadField("wNumRupees", 1) << 8);
+        if (source.Game == OracleGame.Seasons)
+        {
+            _oreChunks = FromBcdWord(source.ReadField("wNumOreChunks") | source.ReadField("wNumOreChunks", 1) << 8);
+            _pirateBellState = source.ReadField("wPirateBellState");
+        }
         ShieldLevel = source.ReadField("wShieldLevel");
         Bombs = source.ReadField("wNumBombs");
         MaxBombs = source.ReadField("wMaxBombs");
@@ -1135,6 +1178,11 @@ public sealed class InventoryState
     {
         using (_saveData?.BeginMutation())
         {
+            if (_treasures.TryGetRemovedItems(treasure, out TreasureRemovalRecord removed))
+            {
+                LoseTreasureCore(removed.First);
+                LoseTreasureCore(removed.Second);
+            }
             GiveTreasureCore(treasure, parameter);
             // The source invokes @giveTreasure once for the extra item;
             // it does not recursively apply @extraItemsToAddTable.
@@ -1229,7 +1277,14 @@ public sealed class InventoryState
                 AddCapped(variable, parameter, bcd: true);
                 return;
             case CollectionMode.AddRupees:
-                AddRupeesCore(_treasures.RupeeValue(parameter));
+                int amount = _treasures.RupeeValue(parameter);
+                if (variable == TreasureVariable.Rupees) AddRupeesCore(amount);
+                else
+                {
+                    int total = OreChunks + amount;
+                    SetVariable(TreasureVariable.OreChunks, Math.Min(999, total));
+                    if (total > 999) RupeeCapExceeded?.Invoke();
+                }
                 return;
             case CollectionMode.AddSeeds:
                 SetVariable(variable, Math.Min(
@@ -1422,6 +1477,8 @@ public sealed class InventoryState
         TreasureVariable.MagnetGlovePolarity => MagnetGlovePolarity,
         TreasureVariable.SlingshotLevel => SlingshotLevel,
         TreasureVariable.FeatherLevel => FeatherLevel,
+        TreasureVariable.OreChunks => OreChunks,
+        TreasureVariable.PirateBellState => PirateBellState,
         TreasureVariable.SatchelSelectedSeeds => _satchelSelectedSeeds,
         TreasureVariable.ShooterSelectedSeeds => _shooterSelectedSeeds,
         TreasureVariable.SlingshotSelectedSeeds => SlingshotSelectedSeeds,
@@ -1540,6 +1597,16 @@ public sealed class InventoryState
                 break;
             case TreasureVariable.MagnetGlovePolarity:
                 MagnetGlovePolarity = byteValue;
+                break;
+            case TreasureVariable.OreChunks:
+                _oreChunks = Math.Clamp(value, 0, 999);
+                int oreBcd = ToBcdWord(_oreChunks);
+                _saveData?.WriteField("wNumOreChunks", (byte)oreBcd);
+                _saveData?.WriteField("wNumOreChunks", (byte)(oreBcd >> 8), 1);
+                break;
+            case TreasureVariable.PirateBellState:
+                _pirateBellState = byteValue;
+                _saveData?.WriteField("wPirateBellState", (byte)byteValue);
                 break;
             case TreasureVariable.SlingshotSelectedSeeds:
                 if (_runtimeState.Game != OracleGame.Seasons)
@@ -1755,6 +1822,8 @@ public enum TreasureVariable
     ObtainedSeasons,
     BoomerangLevel,
     MagnetGlovePolarity,
+    OreChunks,
+    PirateBellState,
     SlingshotLevel,
     FeatherLevel,
     SatchelSelectedSeeds,

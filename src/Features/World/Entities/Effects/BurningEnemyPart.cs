@@ -9,9 +9,11 @@ internal partial class BurningEnemyPart : TransitionOffsetNode2D
     private int _targetId;
     private int _oldHealth;
     private int _gravity;
+    private int _initialCounter;
     private int _z;
     private int _speedZ;
     private bool _initialized;
+    internal bool InitializationPending => !_initialized;
     internal bool Finished { get; private set; }
     internal int Counter { get; private set; }
     internal int AnimationFrame => _animation.FrameIndex;
@@ -24,7 +26,7 @@ internal partial class BurningEnemyPart : TransitionOffsetNode2D
                 ["sprite", "tile-base", "palette", "frames", "gravity", "animation", "source"], ["source"], headerRequired: true));
         if (table.Rows.Count != 1) throw new System.InvalidOperationException("Expected one PART_BURNING_ENEMY $12 row.");
         var row = table.Rows[0];
-        Counter = row.UnsignedDecimal(3);
+        _initialCounter = row.UnsignedDecimal(3);
         _gravity = row.UnsignedDecimal(4);
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{row.RequiredString(0)}.png"),
@@ -39,6 +41,7 @@ internal partial class BurningEnemyPart : TransitionOffsetNode2D
         if (!_initialized)
         {
             _initialized = true;
+            Counter = _initialCounter;
             _targetId = _target.BurnTargetId;
             _oldHealth = _target.BurnHealth;
             _target.BurnHealth = 1;

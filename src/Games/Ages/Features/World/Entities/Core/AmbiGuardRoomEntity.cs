@@ -23,7 +23,7 @@ internal sealed class AmbiGuardRoomEntity : CombatEnemyRoomEntityAdapter<AmbiGua
         : base(guard, guard.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, guard, 2, guard.TakeSwordHit, guard.TakeBurnHit,
                 (origin, strength) => { if (guard.CollisionMode == 0x3d) guard.ApplySwordKnockback(origin, strength); },
-                sound, EnemySwordResponse.NoKnockback, deathPuffAllowed: () => false,
+                sound, deathPuffAllowed: () => false,
                 completedOutcome: () => RoomEnemyOutcome.SilentDeletion(false)), collisionZ: () => guard.ZFixed >> 8)
     { _data = data; _source = source; _sound = sound; }
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(frame, spawns);
@@ -37,12 +37,10 @@ internal sealed class AmbiGuardRoomEntity : CombatEnemyRoomEntityAdapter<AmbiGua
         if (!Entity.CollisionEnabled || Entity.NativeHitPending || Entity.InvincibilityCounter != 0 ||
             !player.EnemyContactHeightOverlaps(CollisionZ)) return;
         if (Entity.CollisionMode == 0x3d && player.IsUsingShield &&
-            (_source with { ShieldLevel1Effect = _data.Collision(0x3d, 1).Effect,
-                ShieldLevel2Effect = _data.Collision(0x3d, 2).Effect,
-                ShieldLevel3Effect = _data.Collision(0x3d, 3).Effect }).ShieldBumpResponse(player.Inventory.ShieldLevel) is { } shield &&
+            _source.ShieldBumpResponse(player.Inventory.ShieldLevel,Entity.CollisionMode,DimitriCollisionType) is { } shield &&
             RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, player.ShieldCollisionBounds))
         {
-            if (player.CanAcceptShieldCollision && Entity.TryApplyShieldBump(player.ShieldCollisionBounds,
+            if (player.CanAcceptShieldCollision && Entity.TryApplyCollisionBump(player.ShieldCollisionBounds,
                 player.ShieldCollisionBounds.GetCenter(), shield.EnemyStrength))
             {
                 Entity.RecordCollision(player.Inventory.ShieldLevel, player.ShieldCollisionBounds.GetCenter());

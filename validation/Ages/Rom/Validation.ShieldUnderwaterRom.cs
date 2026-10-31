@@ -45,8 +45,8 @@ public sealed partial class ValidationRoot
                     edge = 0;
                     update++;
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
-                        (int)typeof(Player).GetField("_shieldParentButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)! != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
-                        (bool)typeof(Player).GetField("_shieldParentInitialized", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)! != (rom[0xd504] != 0) ||
+                        _player.ShieldParentButton != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
+                        _player.ShieldParentInitialized != (rom[0xd504] != 0) ||
                         !sounds.Requests.Where(id => id == SoundId.SndShield).SequenceEqual(rom.Sounds.Where(id => id == SoundId.SndShield)),
                         $"Shield underwater/swim terrain={terrain} L{level} A={primary} update={update}: raised={_player.IsUsingShield}/${rom[0xcc6f]:x2}, sound runtime={string.Join(',', sounds.Requests)} ROM={string.Join(',', rom.Sounds)}, group/flags=${rom[0xcc2d]:x2}/${rom[0xcc34]:x2}.");
                 });

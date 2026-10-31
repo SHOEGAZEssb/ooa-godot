@@ -9,7 +9,7 @@ public partial class ValidationRoot
     private void ValidateSmogWallMovement()
     {
         var data = new SmogWallDatabase();
-        var memory = AgesGameContent.CreateRuntimeState();
+        var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         var velocityOwner = new ValidationMovementCharacter();
         velocityOwner.BindMovementMemory(memory);
         OracleObjectVelocity Velocity(int speed, int angle) => velocityOwner.MovementVelocity(speed, angle);

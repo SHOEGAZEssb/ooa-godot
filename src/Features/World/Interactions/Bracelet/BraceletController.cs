@@ -33,7 +33,6 @@ public sealed class BraceletController
     private readonly BraceletDatabaseRecord _record;
 
     private BraceletState _state;
-    private bool _primaryButton;
     private int _counter;
     private int _targetPackedPosition = -1;
     private byte _targetTile;
@@ -44,6 +43,7 @@ public sealed class BraceletController
     private int _leverAnimationPhase;
     private int _leverAnimationCounter;
     private int _breakEffect;
+    private BombRecord? _throwing;
 
     internal BraceletState State => _state;
     internal int Counter => _counter;
@@ -62,6 +62,10 @@ public sealed class BraceletController
         Func<long> animationTick,
         Func<Vector2, Vector2I, bool> hasFullWall)
     {
+        if (rooms.AssetRoot != entities.AssetRoot || rooms.AssetRoot != breakables.AssetRoot ||
+            !ReferenceEquals(rooms.RuntimeState, entities.RuntimeState) || !ReferenceEquals(rooms.SaveData, saveData) ||
+            !combat.UsesOwners(rooms, entities))
+            throw new ArgumentException("Bracelet input requires the selected room, entity, combat and save owners.");
         _worldRoot = worldRoot;
         _rooms = rooms;
         _breakables = breakables;
@@ -72,7 +76,7 @@ public sealed class BraceletController
         _playSound = playSound;
         _animationTick = animationTick;
         _hasFullWall = hasFullWall;
-        _record = new BraceletDatabase(AssetRoot + "metadata/bracelet.tsv").Data;
+        _record = new BraceletDatabase(AssetRoot).Data;
     }
 
     /// <summary>
@@ -86,11 +90,16 @@ public sealed class BraceletController
         if (_state != BraceletState.Idle || _entities.ReservedBraceletChildActive)
             return false;
 
+        if (_record.StumpBlocked && player.World.GetActiveTerrain(player.Position).Terrain.Type == TerrainType.Stump)
+            return false;
+
         // bombsBraceletParent state0 checks checkLinkOnGround before searching
         // for grabbable objects or retaining its held-input wall-seeking state.
         if (!player.IsCarryingObject && !player.IsOnGroundForBracelet)
             return false;
 
+        ParentItemAnimationState.Begin(_rooms.RuntimeState, 2, TreasureId.Bracelet, 0);
+        ParentItemButtons.Set(_rooms.RuntimeState, 2, primaryButton ? 1 : 2);
         bool wasCarrying = player.IsCarryingObject;
         if (_entities.TryUseBracelet(
                 player,
@@ -99,7 +108,6 @@ public sealed class BraceletController
         {
             if (pullInteraction is not null)
             {
-                _primaryButton = primaryButton;
                 _pullInteraction = pullInteraction;
                 _leverParentReady = false;
                 _leverAnimationPhase = 0;
@@ -109,8 +117,14 @@ public sealed class BraceletController
                 // The lever has no lifted child requiring collision suppression.
                 player.SetBraceletLiftCollisionsDisabled(false);
                 _state = BraceletState.PullingInteraction;
+                ParentItemAnimationState.Begin(_rooms.RuntimeState, 2, TreasureId.Bracelet, 0x0f);
                 _playSound(_record.PickupSound);
                 return true;
+            }
+            if (wasCarrying && !player.IsCarryingObject)
+            {
+                _counter = 0;
+                _state = BraceletState.Throwing;
             }
             if (!wasCarrying && player.IsCarryingObject)
                 BeginEntityLift(player, primaryButton);
@@ -119,7 +133,6 @@ public sealed class BraceletController
         if (player.IsCarryingObject)
             return false;
 
-        _primaryButton = primaryButton;
         _state = BraceletState.SeekingWall;
         _counter = 0;
         // State0 with no grab only writes wBraceletGrabbingNothing. Link
@@ -138,9 +151,7 @@ public sealed class BraceletController
         bool secondaryHeld,
         bool itemButtonJustPressed)
     {
-        bool assignedButtonHeld = _primaryButton
-            ? primaryHeld
-            : secondaryHeld;
+        bool assignedButtonHeld = ParentItemButtons.IsHeld(_rooms.RuntimeState, 2, primaryHeld, secondaryHeld);
         switch (_state)
         {
             case BraceletState.Idle:
@@ -233,6 +244,7 @@ public sealed class BraceletController
                 // eight animation updates precede the parent deletion update.
                 if (_counter > _record.ThrowFrames)
                 {
+                    ParentItemAnimationState.Clear(_rooms.RuntimeState, 2, TreasureId.Bracelet);
                     player.ClearBraceletActionPose();
                     _state = _object is null
                         ? BraceletState.Idle
@@ -252,6 +264,7 @@ public sealed class BraceletController
 
     internal void Interrupt(Player player, bool discard)
     {
+        ParentItemAnimationState.Clear(_rooms.RuntimeState, 2, TreasureId.Bracelet);
         if (_state == BraceletState.Idle)
             return;
 
@@ -303,6 +316,7 @@ public sealed class BraceletController
 
     internal void ClearParent(Player player)
     {
+        ParentItemAnimationState.Clear(_rooms.RuntimeState, 2, TreasureId.Bracelet);
         if (_state is BraceletState.Throwing or BraceletState.Projectile)
         {
             player.ClearBraceletActionPose();
@@ -325,6 +339,8 @@ public sealed class BraceletController
             room.ActiveCollisions, _targetTile, out _targetRecord);
         _counter = 0;
         _state = BraceletState.GrabbingWall;
+        ParentItemAnimationState.Begin(_rooms.RuntimeState, 2, TreasureId.Bracelet,
+            LinkItemDatabase.For(AssetRoot).ParentAnimationPriority(TreasureId.Bracelet));
         player.SetBraceletActionPose(BraceletActionPose.Pull);
         return true;
     }
@@ -399,6 +415,7 @@ public sealed class BraceletController
         _breakEffect = _targetRecord.Effect;
         _counter = 0;
         _state = BraceletState.Lifting;
+        ParentItemAnimationState.Begin(_rooms.RuntimeState, 2, TreasureId.Bracelet, 0x0f);
         player.SetBraceletLiftCollisionsDisabled(true);
         _playSound(_record.PickupSound);
         _roomView.QueueRedraw();
@@ -453,7 +470,8 @@ public sealed class BraceletController
 
     private void BeginEntityLift(Player player, bool primaryButton)
     {
-        _primaryButton = primaryButton;
+        ParentItemAnimationState.Begin(_rooms.RuntimeState, 2, TreasureId.Bracelet, 0x0f);
+        ParentItemButtons.Set(_rooms.RuntimeState, 2, primaryButton ? 1 : 2);
         player.SetBraceletActionPose(BraceletActionPose.PullStrain);
         player.SetBraceletEntityOffset(GetLiftOffset(player, 0));
         _counter = 0;
@@ -570,13 +588,35 @@ public sealed class BraceletController
              front.Y < 0 || front.Y >= room.Height ||
              room.IsSolid(front) && !_object.CanPassSolidTile(room, front)))
         {
-            BreakObject(ground);
-            return;
+            if (_targetTile == _record.BouncingTile)
+                _object.StopLateral();
+            else
+            {
+                BreakObject(ground);
+                return;
+            }
         }
 
         _object.AdvanceLateral();
         if (_object.AdvanceVertical(_record.Gravity))
         {
+            if (_targetTile == _record.BouncingTile)
+            {
+                Vector2 position = _object.GroundPosition;
+                HazardType hazard = room.GetTerrainInfo(position + new Vector2(0, 5)).Hazard;
+                if (hazard != HazardType.None)
+                {
+                    _entities.SpawnItemHazardEffect(position, hazard, ObjectFellInHoleKind.BraceletObject);
+                    DeleteObject();
+                    FinishProjectileState();
+                    return;
+                }
+                _playSound(SoundId.SndBombLand);
+                if (!_object.Bounce(_throwing ??= new BombDatabase(AssetRoot).Data))
+                    return;
+                BreakObject(position);
+                return;
+            }
             BreakObject(_object.GroundPosition);
             return;
         }
@@ -598,6 +638,14 @@ public sealed class BraceletController
         // itemMakeInteractionForBreakableTile copies only YH/XH. Debris
         // interactions start with zero fractional position bytes.
         position = OracleObjectMath.ToPixelPosition(position);
+        if (_targetTile == _record.BouncingTile)
+        {
+            if (_entities.InteractionSlotAvailable)
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(position, SoundId.SndPoof, ZHigh: _object!.ZFixed >> 8));
+            DeleteObject();
+            FinishProjectileState();
+            return;
+        }
         // objectReplaceWithAnimationIfOnHazard precedes the stored breakable
         // interaction on both lateral collision and ground contact.
         // objectCheckIsOnHazard returns before the YH+$05 probe while
@@ -638,6 +686,7 @@ public sealed class BraceletController
 
     private void ResetParent(Player player)
     {
+        ParentItemAnimationState.Clear(_rooms.RuntimeState, 2, TreasureId.Bracelet);
         player.SetBraceletLiftCollisionsDisabled(false);
         player.ClearBraceletActionPose();
         player.SetBraceletEntityOffset(null);

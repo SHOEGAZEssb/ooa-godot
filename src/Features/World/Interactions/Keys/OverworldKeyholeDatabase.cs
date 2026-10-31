@@ -114,18 +114,19 @@ internal sealed class OverworldKeyholeDatabase
 
     private void Validate()
     {
-        if (_records.Count != 6 || _tiles.Count != 3 ||
-            !_records.TryGetValue((0, 0x5c), out OverworldKeyholeDatabaseRecord graveyard) ||
-            graveyard is not
+        bool ages = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages;
+        bool locationsValid = ages ? _records.Count == 6 && _tiles.Count == 3 &&
+            _records.TryGetValue((0, 0x5c), out OverworldKeyholeDatabaseRecord graveyard) &&
+            graveyard is
             {
-                Treasure: TreasureId.GraveyardKey,
-                SubId: 0,
-                Sprite: "spr_map_compass_keys_bookofseals",
-                TileBase: 0x0e,
-                Palette: 5
-            } || string.IsNullOrWhiteSpace(graveyard.Animation) ||
-            !_tiles.Contains((0, 0xec)) || !_tiles.Contains((1, 0xae)) ||
-            !_tiles.Contains((4, 0xec)) ||
+                Treasure: TreasureId.GraveyardKey, SubId: 0,
+                Sprite: "spr_map_compass_keys_bookofseals", TileBase: 0x0e, Palette: 5
+            } && _tiles.Contains((1, 0xae)) && _tiles.Contains((4, 0xec)) :
+            _records.Count == 3 && _tiles.Count == 1 &&
+            _records.TryGetValue((0, 0x96), out var gnarled) && gnarled.Treasure == 0x42 &&
+            _records.TryGetValue((0, 0x81), out var floodgate) && floodgate.Treasure == 0x43 &&
+            _records.TryGetValue((0, 0x0d), out var dragon) && dragon.Treasure == 0x44;
+        if (!locationsValid || !_tiles.Contains((0, 0xec)) ||
             Constants is not
             {
                 RoomFlag: OracleSaveData.RoomFlag80,
@@ -141,12 +142,12 @@ internal sealed class OverworldKeyholeDatabase
             } || string.IsNullOrWhiteSpace(Constants.NoKeyMessage))
         {
             throw new InvalidOperationException(
-                "Imported Ages overworld-keyhole contract is incomplete.");
+                $"Imported {OracleAssetPack.GameFor(AssetRoot)} overworld-keyhole contract is incomplete.");
         }
 
         foreach (OverworldKeyholeDatabaseRecord record in _records.Values)
         {
-            if (record.SubId != record.Treasure - Constants.FirstKey)
+            if (record.SubId != record.Treasure - Constants.FirstKey || string.IsNullOrWhiteSpace(record.Animation))
             {
                 throw new InvalidOperationException(
                     $"Keyhole {record.Group:x}:{record.Room:x2} subid ${record.SubId:x2} " +

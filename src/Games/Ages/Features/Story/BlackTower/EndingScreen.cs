@@ -18,12 +18,12 @@ public partial class EndingScreen : Control
     private RoomView? _roomView;
     private byte[] _map=[],_attributes=[],_secondMap=[],_secondAttributes=[];
     private byte[] _windowMap=[],_windowAttributes=[];
-    private IntroOamPart[] _parts=[];
+    private ObjectSpritePart[] _parts=[];
     private Texture2D[] _cells=[];
     private Texture2D? _texture;
     private int _oamY,_oamX;
     internal Texture2D? BackgroundTexture=>_texture;
-    internal IReadOnlyList<IntroOamPart> Parts=>_parts;
+    internal IReadOnlyList<ObjectSpritePart> Parts=>_parts;
     internal Vector2I OamOffset=>new(_oamX,_oamY);
     internal void Bind(EndingScreenDatabase data,BackgroundPaletteState background,RoomEntityManager entities)
     {
@@ -119,7 +119,7 @@ public partial class EndingScreen : Control
     }
     internal void SetOam(string? name,int y=0,int x=0)
     {
-        var parts=name is null?Array.Empty<IntroOamPart>():_data!.Oam(name);
+        var parts=name is null?Array.Empty<ObjectSpritePart>():_data!.Oam(name);
         if(!ReferenceEquals(parts,_parts))
         {
             _parts=parts;_cells=new Texture2D[parts.Length];

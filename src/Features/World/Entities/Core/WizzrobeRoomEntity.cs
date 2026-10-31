@@ -23,7 +23,7 @@ internal sealed class WizzrobeRoomEntity : CombatEnemyRoomEntityAdapter<Wizzrobe
         Action<int> sound, Func<byte> random, Func<bool> freePart)
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
-                enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback, sound, EnemySwordResponse.Knockback),
+                enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback, sound),
             collisionZ: () => enemy.ZFixed >> 8)
     { _random = random; _freePart = freePart; }
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

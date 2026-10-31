@@ -10,6 +10,8 @@ namespace Oracles;
 /// child creation, counter, and RNG effects without advancing state-8+
 /// movement, animation, or scripts. Contact work explicitly executed by state
 /// zero still runs and can require the live Player overload.
+/// Invisible native controllers can resolve Hidden without running state zero
+/// ahead of its physical slot visit, retaining same-pass producer/consumer order.
 /// </summary>
 internal interface IScreenTransitionPreloadRoomEntity
 {

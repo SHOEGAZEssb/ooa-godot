@@ -22,6 +22,7 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
     private bool _pendingNativeCollision;
     private int _palettePhase;
     private ItemTilePassage? _tilePassageSourceCache;
+    private Action<int> _playSound = null!;
     private ItemTilePassage _tilePassage => _tilePassageSourceCache ??= new(_room.AssetRoot);
 
     public bool Finished { get; private set; }
@@ -53,7 +54,7 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
             new Vector2(_record.OffsetX, _record.OffsetY);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         Visible = false;
-        playSound(_record.Sound);
+        _playSound = playSound;
         QueueRedraw();
     }
 
@@ -71,6 +72,7 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
         {
             _initialized = true;
             Visible = true;
+            _playSound(_record.Sound);
             QueueRedraw();
             return;
         }

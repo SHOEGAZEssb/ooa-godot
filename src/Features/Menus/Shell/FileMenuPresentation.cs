@@ -8,7 +8,7 @@ internal static class FileMenuPresentation
     internal static System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<MenuOamPart>> LoadOam(string assetRoot)
     {
         var layouts = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<MenuOamPart>>(System.StringComparer.Ordinal);
-        MenuPresentationDatabase.LoadOamLayouts(assetRoot + "menu/file_oam.tsv", "file menu OAM", layouts,
+        MenuPresentationTable.LoadOamLayouts(assetRoot + "menu/file_oam.tsv", "file menu OAM", layouts,
             new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal) {
                 ["decorations"] = 16, ["acorn-cursor"] = 1, ["text-speed-cursor"] = 1,
                 ["name-character-cursor"] = 2, ["name-lower-option-cursor"] = 2,

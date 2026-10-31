@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookStalfosAndRope()
     {
-        FailIf(SwitchHookCollisionDatabase.Shared.Effect(EnemyCollisionMode.SwitchHookDamageEnemy) != 8,
+        FailIf(ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(EnemyCollisionMode.SwitchHookDamageEnemy, ItemCollisionType.SwitchHook) != 8,
             "Rope's source collision mode $14 maps the hook to low-knockback damage $08.");
         void Step(int count = 1, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);

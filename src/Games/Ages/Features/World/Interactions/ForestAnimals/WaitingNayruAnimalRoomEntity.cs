@@ -11,7 +11,7 @@ internal sealed class WaitingNayruAnimalRoomEntity : NpcCharacterRoomEntityAdapt
     IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity
 {
     private readonly RoomEntityManager _entities;
-    private readonly SharedNpcDatabase _data;
+    private readonly AgesNpcScriptDatabase _data;
     private readonly OracleSaveData _save;
     private bool _initialized, _talking;
     private Func<bool>? _pendingDialogue;
@@ -20,7 +20,7 @@ internal sealed class WaitingNayruAnimalRoomEntity : NpcCharacterRoomEntityAdapt
     public bool RefreshStoryState => false;
     public bool Finished { get; private set; }
     public bool UpdatesDuringDialogue => !_initialized;
-    internal WaitingNayruAnimalRoomEntity(NpcCharacter npc, RoomEntityManager entities, SharedNpcDatabase data, OracleSaveData save)
+    internal WaitingNayruAnimalRoomEntity(NpcCharacter npc, RoomEntityManager entities, AgesNpcScriptDatabase data, OracleSaveData save)
         : base(npc, npc.SetTransitionDrawOffset)
     { _entities=entities; _data=data; _save=save; npc.SetScriptVisible(false); }
     private void Initialize()

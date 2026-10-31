@@ -17,12 +17,13 @@ public sealed partial class ValidationRoot
         // synchronous headless scenario, even after ActionRelease.
         string? held = null, edge = null;
         bool individualUpdates = false;
+        Action? afterUpdate = null;
         void Step(int count = 1)
         {
             Application.Capture(held is null ? [] : [held], edge is null ? [] : [edge], held == "move_up" ? Vector2.Up : Vector2.Zero);
             edge = null;
-            if (individualUpdates) for (int i = 0; i < count; i++) Application.Advance(1 / 60.0);
-            else Application.Advance(count / 60.0);
+            if (individualUpdates) for (int i = 0; i < count; i++) Application.Advance(1 / 60.0, afterUpdate);
+            else Application.Advance(count / 60.0, afterUpdate);
         }
         void PressA() { held = edge = "attack"; Step(); held = null; }
         void Close()
@@ -38,7 +39,7 @@ public sealed partial class ValidationRoot
         void Until(Func<bool> condition, int limit, string description)
         {
             for (int i = 0; i < limit && !condition(); i++) Step();
-            FailIf(!condition(), $"Patch timed out: {description}; state={patch.State}, command={patch.ScriptIndex}, text={_dialogue.CurrentMessage}.");
+            FailIf(!condition(), $"Patch timed out: {description}; state={patch.State}, command={patch.ScriptIndex}, text={_dialogue.CurrentMessage}, objects=${_runtimeState.ReadField("wDisabledObjects"):x2}, cc50=${_runtimeState.ReadField("wcc50"):x2}, cc63=${_runtimeState.ReadField("wcc63"):x2}, state08={SomariaPrivate<int>(_player,"_forcedState08Phase")}, state04={SomariaPrivate<int>(_player,"_getItemStatePhase")}, treasures={string.Join(";",_entities.Entities<GroundTreasurePickup>().Select(t=>$"{t.Record.GrabMode}:{SomariaPrivate<object>(t,"_state")}/{SomariaPrivate<int>(t,"_swordGrabState")}/{SomariaPrivate<int>(t,"_swordGrabCounter")}"))}.");
         }
         void Text(string content)
         {
@@ -131,7 +132,8 @@ public sealed partial class ValidationRoot
             FailIf(_currentRoom.IsSolid(_player.Position), "Patch failure setup is inside solid room geometry.");
             // Leave the switch unpressed. The real moving cart must hit the nut.
             Until(() => patch.State == 5, 1600, "cart collision failure");
-            FailIf(!_player.CutsceneControlled, "US Patch failure did not disable Link.");
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x01,
+                "US Patch failure did not write DISABLE_LINK $01.");
             Vector2 crashPosition = _player.PrecisePosition;
             Vector2 restoredPosition = new Vector2(0x78, 0x48) +
                 new Vector2(crashPosition.X - Mathf.Floor(crashPosition.X), crashPosition.Y - Mathf.Floor(crashPosition.Y));
@@ -206,7 +208,9 @@ public sealed partial class ValidationRoot
             .First(p => _currentRoom.GetTerrainInfo(p).Hazard == HazardType.Hole);
         foreach (var beetle in beetles) beetle.Position = hole;
         Until(() => patch.State == 3, 80, "four source hole events winning the game");
-        FailIf(_inventory.TuniNutState != 1 || !_player.CutsceneControlled, "Patch granted the restored nut before its reward script.");
+        FailIf(_inventory.TuniNutState != 1 || _player.CutsceneControlled ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x80 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
+            "Patch granted the restored nut before its reward script or lost the native $80/$80 hold.");
         CheckVictoryHoleEffects(batched: false);
         Text("Hmm..."); Close(); Text("Here you go."); Close();
         Until(() => _inventory.TuniNutState == 2, 30, "restored Tuni Nut reward");
@@ -263,17 +267,28 @@ public sealed partial class ValidationRoot
             Until(() => _inventory.SwordLevel == swordLevel + 1, 30, "restored sword reward");
             Step(2); // state04 consumption, then initialization.
             FailIf(!_player.IsHoldingItemOneHand, "Patch's first sword reward lost collect mode $01.");
+            bool sawForcedSpin = false;
+            afterUpdate = () =>
+            {
+                var spin = _entities.Entities<GroundTreasurePickup>().SingleOrDefault(t => t.Record.GrabMode == 3);
+                if (spin is null || !_player.IsAttacking) return;
+                sawForcedSpin = true;
+                FailIf(spin.Visible, "Sword collect mode $03 became visible during its forced spin.");
+            };
             Close();
             Until(() => _entities.Entities<GroundTreasurePickup>().Any(t => t.Record.GrabMode == 3), 10, "silent sword collect mode $03");
             var swordPickup = _entities.Entities<GroundTreasurePickup>().Single(t => t.Record.GrabMode == 3);
-            Until(() => _player.IsAttacking, 7, "forced reward sword spin");
-            FailIf(swordPickup.Visible, "Sword collect mode $03 became visible during its forced spin.");
+            Until(() => sawForcedSpin, 7, "forced reward sword spin");
             Until(() => swordPickup.Held, 45, "forced spin completion");
+            FailIf(_runtimeState.ReadField("wcc50") != 0x0e && !_player.IsHoldingItemOneHand,
+                "Sword collect mode $03 lost its animation request or consumed raised pose.");
+            Step();
             FailIf(!_player.IsHoldingItemOneHand || swordPickup.Position != _player.Position + new Vector2(-4, -14),
                 "Sword collect mode $03 lost the raised sword position/pose after spinning.");
             Text("Bring me any-"); Close(); Until(() => patch.State == 4, 30, "sword completion");
             Step();
             FailIf(_player.IsHoldingItemOneHand || _player.IsAttacking, "Patch's completed sword ceremony retained the forced pose.");
+            afterUpdate = null;
             FailIf(!_saveData.HasGlobalFlag(AgesGlobalFlag.PatchRepairedEverything) || _inventory.HasTreasure(TreasureId.TradeItem) ||
                 _inventory.TuniNutState != 0 || _player.CutsceneControlled, "Patch sword reward lost completion, trade removal, or inventory/control boundaries.");
             LoadValidationRoom(1, 0x23); LoadValidationRoom(3, 0xbe);

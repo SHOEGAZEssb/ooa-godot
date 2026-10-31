@@ -292,13 +292,13 @@ public sealed partial class ValidationRoot
         for(int i=0;i<1300&&!_saveData.HasRoomFlag(5,0xd8,0x80);i++) AdvanceGoronDialogue(1);
         AdvanceGoronDialogue(2);
         FailIf(!_saveData.HasRoomFlag(5,0xd8,0x80)||_inventory.Rupees!=90||_inventory.ScentSeeds!=0x99||
-            _entities.EntityAdapters<TargetCartCrystalRoomEntity>().Count()!=5||_entities.Entities<MinecartRoomEntity>().Count!=1,
-            $"Target carts setup: flag={_saveData.HasRoomFlag(5,0xd8,0x80)}, rupees={_inventory.Rupees}, seeds={_inventory.ScentSeeds:x2}, crystals={_entities.EntityAdapters<TargetCartCrystalRoomEntity>().Count()}, carts={_entities.Entities<MinecartRoomEntity>().Count}, command={left.CommandIndex}, counter={left.Counter}.");
+            _entities.EntityAdapters<TargetCartCrystalRoomEntity>().Count()!=5||_entities.Entities<MinecartInteractionRoomEntity>().Count!=1,
+            $"Target carts setup: flag={_saveData.HasRoomFlag(5,0xd8,0x80)}, rupees={_inventory.Rupees}, seeds={_inventory.ScentSeeds:x2}, crystals={_entities.EntityAdapters<TargetCartCrystalRoomEntity>().Count()}, carts={_entities.Entities<MinecartInteractionRoomEntity>().Count}, command={left.CommandIndex}, counter={left.Counter}.");
         Vector2[] sourcePositions=[new(0x38,0x18),new(0x58,0x48),new(0x98,0x28),new(0xc8,0x48),new(0xb8,0x18)];
         FailIf(!_entities.EntityAdapters<TargetCartCrystalRoomEntity>().Select(c=>c.Node.Position).SequenceEqual(sourcePositions),
             "Target-cart configuration zero differs from its independent source positions.");
         StepGameplayUpdates(20,Vector2.Up,["move_up"],["move_up"]);
-        var arrivingCart=_entities.Entities<MinecartRoomEntity>().Single();
+        var arrivingCart=_entities.Entities<MinecartRoomEntity>().SingleOrDefault();
         // targetCartCrystal.s configuration0, subids $05-$0b. Check the
         // actual mounted scroll before gameplay can repair a zero-position spawn.
         Vector2[] secondRoomPositions=[new(0x38,0x58),new(0x98,0x28),new(0xd8,0x28),
@@ -307,6 +307,7 @@ public sealed partial class ValidationRoot
         for(int i=0;i<2600&&!_dialogue.IsOpen;i++)
         {
             StepGameplayUpdates(1,Vector2.Zero);
+            arrivingCart ??= _entities.Entities<MinecartRoomEntity>().SingleOrDefault();
             ValidateOnlyArrivingTargetCart(arrivingCart);
             if(!IsTransitioning) continue;
             var crystals=_entities.EntityAdapters<TargetCartCrystalRoomEntity>().ToArray();
@@ -360,10 +361,11 @@ public sealed partial class ValidationRoot
         FailIf(_entities.RuntimeState.ReadWramByte(0xcfde)!=5||_entities.RuntimeState.ReadWramByte(0xcfdd)!=0x1f,
             "Scent projectiles did not destroy the first five crystals and publish their re-entry mask.");
         StepGameplayUpdates(20,Vector2.Up,["move_up"],["move_up"],batched:true);
-        arrivingCart=_entities.Entities<MinecartRoomEntity>().Single();
+        arrivingCart=_entities.Entities<MinecartRoomEntity>().SingleOrDefault();
         for(int i=0;i<2600&&!_dialogue.IsOpen;i++)
         {
             ShootCrystals(); StepGameplayUpdates(1,Vector2.Zero);
+            arrivingCart ??= _entities.Entities<MinecartRoomEntity>().SingleOrDefault();
             ValidateOnlyArrivingTargetCart(arrivingCart);
         }
         FailIf(_entities.RuntimeState.ReadWramByte(0xcfde)!=12||fired.Count!=12,
@@ -398,9 +400,9 @@ public sealed partial class ValidationRoot
             $"Cancelling outside the target-cart course leaked its temporary inventory or active flag: flag={_saveData.HasRoomFlag(5,0xd8,0x80)}, seeds={_inventory.ScentSeeds:x2}/{seeds:x2}, A={_inventory.EquippedA:x2}/{a:x2}, B={_inventory.EquippedB:x2}/{b:x2}.");
         ValidateTargetCartCrystalPreload();
     }
-    private void ValidateOnlyArrivingTargetCart(MinecartRoomEntity arrivingCart)
+    private void ValidateOnlyArrivingTargetCart(MinecartRoomEntity? arrivingCart)
     {
-        if(!arrivingCart.Riding) return;
+        if(arrivingCart?.Riding != true) return;
         // minecart.s creates the stationary INTERAC $16 only at
         // @minecartStopped; BeginRide already removed its static record.
         var carts=_entities.Entities<MinecartRoomEntity>()
@@ -485,8 +487,8 @@ public sealed partial class ValidationRoot
                 }
             }
             CheckPositions(0);
-            if(batched) _entities.Update(40.0/60,_player);
-            else for(int i=0;i<40;i++) _entities.Update(1.0/60,_player);
+            if(batched) _entities.AdvanceEntityFrames(40.0/60,_player);
+            else for(int i=0;i<40;i++) _entities.AdvanceEntityFrames(1.0/60,_player);
             CheckPositions(0);
             FailIf(crystals.Any(c=>((NpcCharacter)c.Node).TransitionDrawOffset!=Vector2.Up*room.Height),
                 "ENEMY $63 preload lost its room-relative transition draw offset.");
@@ -494,10 +496,10 @@ public sealed partial class ValidationRoot
             CheckPositions(0);
             FailIf(crystals.Any(c=>((NpcCharacter)c.Node).TransitionDrawOffset!=Vector2.Zero),
                 "ENEMY $63 retained a draw offset after scrolling.");
-            if(batched) _entities.Update(31.0/60,_player);
-            else for(int i=0;i<31;i++) _entities.Update(1.0/60,_player);
+            if(batched) _entities.AdvanceEntityFrames(31.0/60,_player);
+            else for(int i=0;i<31;i++) _entities.AdvanceEntityFrames(1.0/60,_player);
             CheckPositions(31);
-            _entities.Update(1.0/60,_player);
+            _entities.AdvanceEntityFrames(1.0/60,_player);
             CheckPositions(32);
         }
     }
@@ -509,7 +511,8 @@ public sealed partial class ValidationRoot
         FailIf(!maku.HasState,"Fifth Essence did not activate remote Maku in $0:0a.");
         for(int i=0;i<1000&&!_roomEvents.Get<GoronCaveEvent>().HasState;i++) AdvanceGoronDialogue(1);
         var cave=_roomEvents.Get<GoronCaveEvent>();
-        FailIf(!cave.HasState||!_player.CutsceneControlled||maku.BlocksGameplay,
+        FailIf(!cave.HasState||_runtimeState.ReadField("wDisabledObjects")!=0x81||
+            _runtimeState.ReadField("wMenuDisabled")!=0x80||maku.BlocksGameplay,
             "Remote Maku did not hand input directly to tunnel Goron $66:$03.");
         var goron=cave.Actors.Single();
         FailIf(goron.Actor.Position!=new Vector2(0xa8,0x58),"Tunnel Goron did not begin at source YX $58,$a8.");

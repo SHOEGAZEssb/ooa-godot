@@ -40,6 +40,7 @@ public partial class ValidationRoot
                 StepSomariaMotionRom(rom,count,batch,angle,held,pressed,afterUpdate:() =>
             {
                 string context = $"Library$1:$a5 ownership={ownership}, batch={batch}, update={++update}";
+                CompareKeyholeControlBytesRom(rom,context);
                 FailIf(allocation.Initialized != (rom[0xd244] != 0) || allocation.Finished || rom[0xd240] == 0,
                     context + ": placed controller state/lifetime differs.");
                 FailIf(_keyholes.RemainingPushFrames != rom[0xcc6a] ||

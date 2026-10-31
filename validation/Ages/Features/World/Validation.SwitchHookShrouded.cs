@@ -9,10 +9,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookShroudedStalfos()
     {
-        var collisions = SwitchHookCollisionDatabase.Shared;
+        var collisions = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
         foreach (int mode in new[] { 0x11, 0x20, 0x36, 0x55 })
-            FailIf(collisions.Effect(mode) != 0x2e, $"Source hook collision mode ${mode:x2} must select exchange $2e.");
-        FailIf(!collisions.EnemyEnabled(0x22) || !collisions.EnemyEnabled(0x49),
+            FailIf(collisions.Effect(mode, ItemCollisionType.SwitchHook) != 0x2e, $"Source hook collision mode ${mode:x2} must select exchange $2e.");
+        FailIf(!collisions.EnemyEnabled(0x22, ItemCollisionType.SwitchHook) || !collisions.EnemyEnabled(0x49, ItemCollisionType.SwitchHook),
             "Shrouded Stalfos lost the source hook eligibility bits.");
         void Step(int count = 1, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
@@ -23,6 +23,7 @@ public sealed partial class ValidationRoot
         {
             RestoreOracleRandomForValidation(random);
             LoadValidationRoom(4, subid == 1 ? 0x8f : sword ? 0x82 : 0x7c);
+            Step();
             EnemyCharacter[] candidates = sword ? _entities.Entities<SwordEnemyCharacter>().Where(e => e.Record.SubId == subid).Cast<EnemyCharacter>().ToArray()
                 : _entities.Entities<ArrowMoblinCharacter>().Where(e => e.Record.SubId == subid).Cast<EnemyCharacter>().ToArray();
             foreach (var enemy in candidates)

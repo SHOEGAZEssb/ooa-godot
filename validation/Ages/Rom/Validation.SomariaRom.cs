@@ -174,7 +174,7 @@ public sealed partial class ValidationRoot
         }
         if (scenario == "full-pool")
         {
-            var data = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+            var data = new BombDatabase(AgesGameContent.AssetRoot).Data;
             for (int i = 0; i < 4; i++)
             {
                 _entities.Spawn<BombEffect>(new BombSpawn(_player, data, 0, _ => { }));

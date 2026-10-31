@@ -47,7 +47,8 @@ public sealed partial class ValidationRoot
                 "1:2d linked $4e:$04 did not publish its solid source pose without an essence gate.");
             ApproachLibraryActor(npc, batched);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-            FailIf(!_dialogue.ChoiceActive || !_player.CutsceneControlled ||
+            FailIf(!_dialogue.ChoiceActive || _player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 !PlainWords(_dialogue.CurrentMessage).Contains("The best defense is a good offense", StringComparison.Ordinal),
                 "1:2d $4e:$04 was unreachable or did not present TX_4d14.");
             _dialogue.SubmitChoiceForValidation(1);
@@ -92,7 +93,8 @@ public sealed partial class ValidationRoot
                 "1:2d Yes did not show TX_4d18.");
             _dialogue.Close();
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x54),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x54),
                 "1:2d final text did not release Link or retain flag $54.");
 
             ApproachLibraryActor(npc, batched);
@@ -102,7 +104,8 @@ public sealed partial class ValidationRoot
                 "1:2d second A press did not return to TX_4d14's offer loop.");
             LoadValidationRoom(1, 0x2e);
             _dialogue.Close();
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x54),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x54),
                 "1:2d cancellation did not release input or retain flag $54.");
         }
         GD.Print("Validated room 1:2d $4e:$04 linked admission, solid collision approach, TX_4d14-TX_4d18 waits, Smith secret $24, repeat and cancellation in split/batched updates.");

@@ -5,69 +5,18 @@ $mapleSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\maple.s')
 $mapleItemSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\itemFromMaple.s')
-$mapleLocationSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\mapleLocations.s')
-$mapleLocationPath = Join-Path $Disassembly 'data\ages\mapleLocations.s'
+$mapleBirthBody = Get-AssemblyLabelBody (Read-ImportText (
+    Join-Path $Disassembly 'code\roomInitialization.s')) 'checkAndSpawnMaple'
+if ($mapleBirthBody -notmatch '(?m)ld l,<w1Companion\.yh\s+ld \(hl\),\$(?<y>[0-9a-f]{2})\s+ld l,<w1Companion\.xh\s+ld \(hl\),\$(?<x>[0-9a-f]{2})') {
+    throw 'roomInitialization.s:checkAndSpawnMaple no longer exposes the native high-byte birth coordinates.'
+}
+$mapleBirthY = [Convert]::ToInt32($Matches['y'], 16)
+$mapleBirthX = [Convert]::ToInt32($Matches['x'], 16)
 
 if ($mapleSource -notmatch '(?ms)^mapleSpawnItemDrops:.*?^mapleShadowPathsTable:' -or
-    $mapleItemSource -notmatch '(?ms)^partCode14:.*?^@obtainedValue:' -or
-    $mapleLocationSource -notmatch '(?m)^maplePresentLocationsTable:') {
+    $mapleItemSource -notmatch '(?ms)^partCode14:.*?^@obtainedValue:') {
     throw 'Maple encounter sources no longer expose the traced tables.'
 }
-
-# dbrev reverses each source bit-string before emission. A zero bit allows
-# Maple in the room corresponding to that byte/bit position.
-function Get-MapleLocationBytes([string]$label) {
-    $values = [Collections.Generic.List[int]]::new()
-    foreach ($node in Read-AssemblyMacroInvocations `
-        $mapleLocationPath $label 'dbrev') {
-        if ($node.Operands.Count -ne 2) {
-            throw "$($node.Path):$($node.Line): malformed Maple dbrev row."
-        }
-        foreach ($operand in $node.Operands) {
-            if ($operand -notmatch '^%(?<bits>[01]{8})$') {
-                throw "$($node.Path):$($node.Line): invalid dbrev byte '$operand'."
-            }
-            $bits = $Matches['bits']
-            $reversed = -join $bits.ToCharArray()[($bits.Length - 1)..0]
-            $values.Add([Convert]::ToInt32($reversed, 2))
-        }
-    }
-    if ($values.Count -ne 32) {
-        throw "$label should emit 32 bytes, parsed $($values.Count)."
-    }
-    return @($values)
-}
-
-$presentRicky = Get-MapleLocationBytes 'maplePresentLocationsRickyCompanion'
-$presentDimitri = Get-MapleLocationBytes 'maplePresentLocationsDimitriCompanion'
-$presentMoosh = Get-MapleLocationBytes 'maplePresentLocationsMooshCompanion'
-$pastValues = Get-MapleLocationBytes 'maplePastLocations'
-if (($presentRicky -join ',') -ne ($presentDimitri -join ',') -or
-    ($presentRicky -join ',') -ne ($presentMoosh -join ',')) {
-    throw 'The three Ages present Maple location tables are no longer identical.'
-}
-
-$mapleLocationRows = [Collections.Generic.List[string]]::new()
-$mapleLocationRows.Add("# group`tcompanion`troom`tsource")
-foreach ($spec in @(
-    @{ Group = 0; Companion = 0; Values = $presentRicky; Source = 'maplePresentLocationsRickyCompanion' },
-    @{ Group = 0; Companion = 1; Values = $presentDimitri; Source = 'maplePresentLocationsDimitriCompanion' },
-    @{ Group = 0; Companion = 2; Values = $presentMoosh; Source = 'maplePresentLocationsMooshCompanion' },
-    @{ Group = 1; Companion = -1; Values = @($pastValues); Source = 'maplePastLocations' }
-)) {
-    for ($room = 0; $room -lt 0x100; $room++) {
-        $blocked = ($spec.Values[[int]($room / 8)] -band
-            (1 -shl ($room -band 7))) -ne 0
-        if (-not $blocked) {
-            $mapleLocationRows.Add(
-                "$($spec.Group)`t$($spec.Companion)`t$($room.ToString('x2'))`tmapleLocations.s:$($spec.Source)")
-        }
-    }
-}
-Write-GeneratedTable(
-    (Join-Path $destination 'objects\maple_locations.tsv'),
-    $mapleLocationRows)
 
 # Preserve the source path streams and their exact step ordering.
 $maplePaths = @(
@@ -410,6 +359,8 @@ $mapleConstantRows = @(
     "state-address`t50756`tmaple.s:wMapleState",
     "normal-kill-threshold`t30`troomInitialization.s:checkAndSpawnMaple",
     "ring-kill-threshold`t15`troomInitialization.s:checkAndSpawnMaple",
+    "birth-y`t$mapleBirthY`troomInitialization.s:checkAndSpawnMaple",
+    "birth-x`t$mapleBirthX`troomInitialization.s:checkAndSpawnMaple",
     "initial-y`t16`tmaple.s:mapleState0",
     "initial-x`t184`tmaple.s:mapleState0",
     "initial-z`t-120`tmaple.s:mapleState0",

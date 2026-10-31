@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
             var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(source.TilesetId).Unique |
                 (source.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
-            _transitions.BeginScroll(_player,Vector2I.Right,target);
+            _transitions.BeginValidationScroll(_player,Vector2I.Right,target);
             int unique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             Vector2 scrollStart = _player.PrecisePosition;

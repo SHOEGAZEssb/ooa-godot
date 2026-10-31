@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
                 Step();
                 FailIf(rom.Blocks.Length != 0 || _currentRoom.GetMetatile(target) != tile || _currentRoom.GetTerrainInfo(target).Collision != 0,
                     "Water/hole/lava must reject aligned block placement without overwriting terrain.");
-                var puffs = _entities.Entities<PuzzlePuffEffect>();
+                var puffs = _entities.Entities<StationaryDebrisEffect>();
                 int[] native = Enumerable.Range(0xd0, 16).Select(page => page * 256 + 0x40)
                     .Where(slot => rom[slot] != 0 && rom[slot + 1] == 0x05).ToArray();
                 FailIf(puffs.Count != 1 || native.Length != 1 || puffs[0].Position != target ||

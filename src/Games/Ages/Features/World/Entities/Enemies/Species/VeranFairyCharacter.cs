@@ -135,7 +135,7 @@ internal sealed partial class VeranFairyCharacter : EnemyCharacter
         var actor=new ArmMimicCharacter();
         actor.Initialize(Data.Actor(0x64),World.Entities.ActiveRoom,position,paletteOverrides:Data.MimicPalettes,
             nativeMemory:World.Entities.RuntimeState,nativeRandom:World.Entities.Random);
-        var entity=new ArmMimicRoomEntity(actor,new(0x64,0,0x39,0,0,EnemyHandlerKind.ArmMimic,"veranFairy.s:state1@nextMimic",0x10,0x0f,0x0f),World.Entities.OnSoundRequested);
+        var entity=new ArmMimicRoomEntity(actor,new(AssetRoot,0x64,0,0x39,0,0,"veranFairy.s:state1@nextMimic"),World.Entities.OnSoundRequested);
         World.Own(entity);return entity;
     });
     private bool UpdateAttack(out bool animate)

@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
                   TileBase: 0x12, Palette: 2, IntroTextId: 0x0029 },
             "The imported 0:78 Ember Seed tree record is incomplete.");
 
-        var runtime = AgesGameContent.CreateRuntimeState();
+        var runtime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         FailIf(
             runtime.ReadWramByte(
                 AgesWramAddress.wSeedTreeRefilledBitset) != 0xf0 ||
@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
                 !seed.CollisionEnabled || !seed.Visible ||
                 !seed.TransitionDrawOffset.IsEqualApprox(incomingOffset)),
             "Room 0:78 did not preload three visible seed parts at the incoming scroll offset.");
-        noSatchelManager.Update(1.0, _player);
+        noSatchelManager.AdvanceEntityFrames(1.0, _player);
         FailIf(
             perched.Any(seed =>
             seed.State != SeedOnTreeState.Perched ||
@@ -86,7 +86,7 @@ public sealed partial class ValidationRoot
             "Destination seed parts advanced while the screen transition was active.");
         noSatchelManager.FinishScreenTransition();
         _player.WarpTo(center + new Vector2(0, 24), recordSafe: false);
-        noSatchelManager.Update(1.0 / 60.0, _player);
+        noSatchelManager.AdvanceEntityFrames(1.0 / 60.0, _player);
 
         SeedOnTree blockedSeed = perched[0];
         FailIf(
@@ -105,7 +105,7 @@ public sealed partial class ValidationRoot
         RemoveChild(noSatchelRoot);
         noSatchelRoot.QueueFree();
 
-        var collectionRuntime = AgesGameContent.CreateRuntimeState();
+        var collectionRuntime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         var collectionInventory = new InventoryState(treasures);
         collectionInventory.GiveTreasure(
             TreasureId.SeedSatchel, 1);
@@ -136,7 +136,7 @@ public sealed partial class ValidationRoot
         collectionManager.SoundRequested += sounds.Add;
         collectionManager.LoadRoom(0, room);
         _player.WarpTo(center + new Vector2(0, 30), recordSafe: false);
-        collectionManager.Update(1.0 / 60.0, _player);
+        collectionManager.AdvanceEntityFrames(1.0 / 60.0, _player);
         SeedOnTree falling = collectionManager.Entities<SeedOnTree>()[0];
         collectionManager.ApplySwordHit(
             falling.CollisionBounds,
@@ -148,7 +148,7 @@ public sealed partial class ValidationRoot
                 falling.Position, _player.Position),
             "A satchel-owned seed did not begin its traced knock-off motion.");
 
-        collectionManager.Update(1.0 / 60.0, _player);
+        collectionManager.AdvanceEntityFrames(1.0 / 60.0, _player);
         // Declared grounded Link lies directly below the centre nut. The
         // missed catch executes SPEED_100 at angle $10 through the PART owner.
         AssertMovementPublication(collectionRuntime, 256, 0, "PART $10 seed flight");
@@ -158,7 +158,7 @@ public sealed partial class ValidationRoot
              database.IsRefilled(collectionRuntime, canonical.RefillIndex);
              update++)
         {
-            collectionManager.Update(1.0 / 60.0, _player);
+            collectionManager.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             database.IsRefilled(collectionRuntime, canonical.RefillIndex) ||
@@ -170,7 +170,7 @@ public sealed partial class ValidationRoot
             "notify its controller, and leave its siblings active.");
 
         collectionManager.LoadRoom(0, room);
-        collectionManager.Update(1.0 / 60.0, _player);
+        collectionManager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             collectionManager.Entities<SeedOnTree>().Count != 0,
             "A depleted seed tree respawned its seed parts on re-entry.");

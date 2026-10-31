@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
             {
                 _inventory.SelectHarpSong(song);
                 FailIf(_inventory.SelectedHarpSong != song,"Crown completion fixture must select an owned tune.");
-                FailIf(_harp.TryStart(_player) <= 0,"Crown completion fixture must begin its selected tune.");
+                FailIf(_harp.TryStartHarp(_player) <= 0,"Crown completion fixture must begin its selected tune.");
                 native[0xc6b7] = (byte)song; native[0xcc8d] = (byte)song;
                 native[0xd500] = 1; native[0xd501] = 0x11;
                 // Clean-US bank6:4e1a harpFluteParent @harp; HL is the

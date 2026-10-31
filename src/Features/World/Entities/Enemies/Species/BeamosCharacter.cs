@@ -9,7 +9,7 @@ internal sealed partial class BeamosCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
     private BeamosBehaviorProfile? _dataSourceCache;
-    private BeamosBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Beamos;
+    private BeamosBehaviorProfile _data => _dataSourceCache ??= BeamosDatabase.For(AssetRoot).Behavior;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private Action<int> _sound = null!;

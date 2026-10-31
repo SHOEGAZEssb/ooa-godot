@@ -85,7 +85,7 @@ internal sealed class ScreenTransitionRenderer
             }
             _palettes.LoadTileset(colors);
         }
-        // AgesWorldData already redraws the active room on a palette write;
+        // The content binding redraws the active room on a palette write;
         // outgoing tiles must use those same slots and the same VRAM writes.
         if ((upload >= 0 && upload < _uploads.Count) ||
             _tick == _paletteCommit || (_smooth is not null && age is > 0 and < 32 && (age & 1) == 0))

@@ -7,7 +7,7 @@ namespace Oracles;
 public partial class EndingScreen
 {
     private Image? _secretFont;
-    private IntroOamPart[]? _decorations;
+    private ObjectSpritePart[]? _decorations;
     internal void UploadSecretText(ReadOnlySpan<byte> text)
     {
         byte[] font=OracleTileRenderer.CopyTextCharacterGraphics(text,0xff,AgesGameContent.AssetRoot);
@@ -40,8 +40,8 @@ public partial class EndingScreen
     }
     internal void DrawFileDecorations(object owner)
     {
-        _decorations??=MenuPresentationDatabase.For(AgesGameContent.AssetRoot).FileOam("decorations")
-            .Select(part=>new IntroOamPart(part.Y,part.X,part.Tile,part.Attributes)).ToArray();
+        _decorations??=FileMenuPresentation.LoadOam(AgesGameContent.AssetRoot)["decorations"]
+            .Select(part=>new ObjectSpritePart(part.Y,part.X,part.Tile,part.Attributes)).ToArray();
         SetObjectOam(owner,_decorations,0,0,0);
     }
     private void ReleaseSecretGraphics(){_secretFont?.Dispose();_secretFont=null;}

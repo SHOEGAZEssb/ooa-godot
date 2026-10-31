@@ -32,7 +32,7 @@ public sealed partial class ValidationRoot
                 _currentRoom.GetMetatile(point) != 0x3a,
                 $"Room 0:13 sword cut at {point} did not expose standard ground $3a.");
         }
-        void Step() => _entities.Update(1.0 / 60.0, _player);
+        void Step() => _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
 
         _sound.ClearPlayRequestAudit();
         Cut(left);
@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
         PlaySelectedHarpSong(validateNoteSides: false);
         FailIf(_entities.Entities<TimePortal>().Any(portal => !portal.Awakening),
             "The revealed 0:13 portals did not both observe Tune of Echoes after the reveal handlers.");
-        _harp.BeginObjectUpdate(); // Resume the next Link/item/interaction update.
+        _runtimeState.SetField("wLinkPlayingInstrument",0); // Resume the next Link/item/interaction update.
         Step();
         FailIf(_entities.Entities<TimePortal>().Any(portal => !portal.Active),
             "Room 0:13's revealed portal markers could not activate after Tune of Echoes.");

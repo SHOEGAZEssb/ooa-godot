@@ -106,7 +106,7 @@ public sealed partial class ValidationRoot
             new()
             {
                 SaveData = save,
-                RuntimeState = AgesGameContent.CreateRuntimeState(),
+                RuntimeState = OracleRuntimeState.CreateInitialized(OracleGame.Ages),
                 Inventory = new InventoryState(_treasures, save),
                 AnimationTick = static () => 0,
                 Treasures = _treasures,
@@ -149,7 +149,7 @@ public sealed partial class ValidationRoot
             "Room 1:80 did not preload its Owl Statue with logical solid " +
             "`$00/`$0f state, preserved visible ground, and three Mystery " +
             "Seeds at the destination draw offset.");
-        manager.Update(1.0, _player);
+        manager.AdvanceEntityFrames(1.0, _player);
         FailIf(
             owl.ElapsedUpdates != 0 ||
             owl.State != OwlStatueState.Idle ||
@@ -157,7 +157,7 @@ public sealed partial class ValidationRoot
             "Room 1:80's Owl Statue advanced during the screen transition.");
 
         manager.FinishScreenTransition();
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         var directSpawns = new List<RoomEntitySpawn>();
         FailIf(
             owl.ApplySeedHit(
@@ -175,7 +175,7 @@ public sealed partial class ValidationRoot
                 Vector2I.Right,
                 mystery,
                 1));
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             manager.RandomCalls != randomCallsBefore + 1 ||
             projectile.SeedItem != 0x24 ||
@@ -202,7 +202,7 @@ public sealed partial class ValidationRoot
         var sparklePositions = new HashSet<Vector2>();
         for (int update = 0; update < 49; update++)
         {
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
             foreach (InteractionSparkleEffect sparkle in
                 manager.Entities<InteractionSparkleEffect>())
             {
@@ -231,7 +231,7 @@ public sealed partial class ValidationRoot
             "offsets or enter its `$1e speaking pose.");
 
         for (int update = 0; update < 8; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             owl.Counter != 22 ||
             messages.Count != 1 ||
@@ -240,7 +240,7 @@ public sealed partial class ValidationRoot
             "Room 1:80 did not show TX_3906 when the speaking counter reached `$16.");
 
         for (int update = 0; update < 40; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             owl.State != OwlStatueState.Speaking ||
             owl.Counter != 22 ||
@@ -251,7 +251,7 @@ public sealed partial class ValidationRoot
 
         textActive = false;
         for (int update = 0; update < 22; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             owl.State != OwlStatueState.Idle ||
             owl.Counter != 0 ||

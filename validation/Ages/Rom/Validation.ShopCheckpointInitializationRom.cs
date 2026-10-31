@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             rom.InitializeSavedGame();
             int notifications = 0;
             save.Changed += () => notifications++;
-            AgesDeathRespawnInitialization.Apply(save, (byte)hardware);
+            DeathRespawnInitialization.Apply(save, (byte)hardware);
             for (int address = 0xc62b; address <= 0xc637; address++)
                 FailIf(save.ReadWramByte(address) != rom[address],
                     $"Shop checkpoint hardware=${hardware:x2}, room=${group:x2}:${room:x2}, X=${x:x2}: ${address:x4} differs from native masked repair.");
@@ -32,7 +32,7 @@ public sealed partial class ValidationRoot
                 save.ReadWramByte(0xc62d) != 0xa5 || save.ReadWramByte(0xc631) != 0x0c,
                 "Shop correction lost its independently traced bounds, destination or preserved modifier/companion fields.");
             FailIf(notifications != (repaired ? 1 : 0), "Checkpoint repair did not publish exactly one completed save mutation.");
-            AgesDeathRespawnInitialization.Apply(save, (byte)hardware);
+            DeathRespawnInitialization.Apply(save, (byte)hardware);
             FailIf(notifications != (repaired ? 1 : 0), "Repeated checkpoint initialization republished unchanged state.");
         }
         int hostCase1 = 0;

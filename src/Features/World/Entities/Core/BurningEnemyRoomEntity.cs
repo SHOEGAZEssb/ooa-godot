@@ -4,8 +4,15 @@ namespace Oracles;
 
 internal sealed class BurningEnemyRoomEntity(BurningEnemyPart part)
     : RoomEntityAdapter<BurningEnemyPart>(part, part.SetTransitionDrawOffset), IFixedRoomEntity, IRoomEntityLifetime,
-        INativePartHealthRoomEntity
+        INativePartHealthRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+        IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
+    public bool UpdatesDuringDialogue => Entity.InitializationPending;
+    public bool UpdatesDuringRoomEntityFreeze => Entity.InitializationPending;
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        if (Entity.InitializationPending) Entity.UpdateFrame();
+    }
     // partCode12 ignores its own health/status and has no enabled collision.
     public void ClearHealthAndCollision() { }
     public bool Finished => Entity.Finished;

@@ -7,8 +7,9 @@ namespace Oracles;
 public sealed class OracleRoomData
 {
     internal string AssetRoot { get; init; } = string.Empty;
-    internal Func<int, byte, TerrainType>? TerrainTypeResolver { get; init; }
-    internal Func<int, byte, HazardType>? HazardTypeResolver { get; init; }
+    private TilePropertyDatabase? _tileProperties;
+    private TilePropertyDatabase TileProperties => _tileProperties ??= TilePropertyDatabase.For(AssetRoot);
+    internal Image? BackgroundBank0Graphics { get; init; }
     public const int ViewportWidth = 160;
     public const int ViewportHeight = 128;
     public const int StatusBarHeight = 16;
@@ -21,6 +22,7 @@ public sealed class OracleRoomData
     public int Group { get; }
     public int Id { get; }
     public int TilesetId { get; }
+    internal int TilesetStateModifier { get; init; } = -1;
     public int AnimationGroup { get; }
     public int ActiveCollisions { get; }
     public byte TilesetFlags { get; private set; }
@@ -548,8 +550,12 @@ public sealed class OracleRoomData
         return new TerrainInfo(
             metatile,
             collision,
-            TerrainTypeResolver?.Invoke(ActiveCollisions, metatile) ?? GetTerrainType(ActiveCollisions, metatile),
-            HazardTypeResolver?.Invoke(ActiveCollisions, metatile) ?? GetHazardType(ActiveCollisions, metatile));
+            TileProperties.Type(ActiveCollisions, metatile),
+            TileProperties.Hazard(ActiveCollisions, metatile))
+        {
+            NativeTileType = TileProperties.NativeTileType(ActiveCollisions, metatile),
+            NativeHazardFlags = TileProperties.NativeHazardFlags(ActiveCollisions, metatile)
+        };
     }
 
     public int GetPackedPosition(Vector2 localPoint)
@@ -1240,74 +1246,6 @@ public sealed class OracleRoomData
         0x00, 0xc3, 0x03, 0xc0, 0xc1, 0xc1, 0xff, 0xff
     };
 
-    private static TerrainType GetTerrainType(int activeCollisions, byte tile)
-    {
-        return activeCollisions switch
-        {
-            0 or 4 => tile switch
-            {
-                0xf3 => TerrainType.Hole,
-                0xd4 or 0xd5 or 0xd6 => TerrainType.Vines,
-                0xf8 => TerrainType.Grass,
-                0xd0 => TerrainType.Stairs,
-                0xe9 => TerrainType.Whirlpool,
-                0xea => TerrainType.Ice,
-                0xf9 => TerrainType.Puddle,
-                0xfa or 0xfe or 0xff => TerrainType.Water,
-                0xfc => TerrainType.SeaWater,
-                0xe0 => TerrainType.UpCurrent,
-                0xe3 => TerrainType.RightCurrent,
-                0xe1 => TerrainType.DownCurrent,
-                0xe2 => TerrainType.LeftCurrent,
-                0xe4 or 0xe5 or 0xe6 or 0xe7 or 0xe8 => TerrainType.Lava,
-                _ => TerrainType.Normal
-            },
-            1 or 2 or 5 => tile switch
-            {
-                0x0e or 0x0f => TerrainType.RaisableFloor,
-                0xf3 or 0xf4 or 0xf5 or 0xf6 or 0xf7 => TerrainType.Hole,
-                0xf9 => TerrainType.Puddle,
-                0xfa or 0xfe or 0xff => TerrainType.Water,
-                0xfc => TerrainType.SeaWater,
-                0x61 or 0x62 or 0x63 or 0x64 or 0x65 => TerrainType.Lava,
-                0x50 or 0x51 or 0x52 or 0x53 => TerrainType.Stairs,
-                0x48 or 0x49 or 0x4a or 0x4b => TerrainType.WarpHole,
-                0x4d => TerrainType.CrackedFloor,
-                0x54 => TerrainType.UpConveyor,
-                0x55 => TerrainType.RightConveyor,
-                0x56 => TerrainType.DownConveyor,
-                0x57 => TerrainType.LeftConveyor,
-                0x60 => TerrainType.Spike,
-                0x8a => TerrainType.Ice,
-                _ => TerrainType.Normal
-            },
-            _ => TerrainType.Normal
-        };
-    }
-
-    private static HazardType GetHazardType(int activeCollisions, byte tile)
-    {
-        return activeCollisions switch
-        {
-            // hazardCollisionTable@sidescrolling; also used by bubble $91.
-            3 when tile is >= 0x1a and <= 0x1f => HazardType.Water,
-            0 or 4 => tile switch
-            {
-                0xfa or 0xfc or 0xfe or 0xff or 0xe0 or 0xe1 or 0xe2 or 0xe3 or 0xe9 => HazardType.Water,
-                0xf3 => HazardType.Hole,
-                0xe4 or 0xe5 or 0xe6 or 0xe7 or 0xe8 => HazardType.Lava,
-                _ => HazardType.None
-            },
-            1 or 2 or 5 => tile switch
-            {
-                0xfa or 0xfc => HazardType.Water,
-                0xf3 or 0xf4 or 0xf5 or 0xf6 or 0xf7 or 0x48 or 0x49 or 0x4a or 0x4b => HazardType.Hole,
-                0x61 or 0x62 or 0x63 or 0x64 or 0x65 => HazardType.Lava,
-                _ => HazardType.None
-            },
-            _ => HazardType.None
-        };
-    }
 
     private void ReplaceRoomTexture(int[] activeHeaders)
     {
@@ -1365,6 +1303,11 @@ public sealed class OracleRoomData
                     : mappingOverride[4 + quarter];
                 int sourceIndex = tileId >= 0x80 ? tileId - 0x80 : tileId + 0x80;
                 ResolveBackgroundGraphics(activeHeaders, sourceIndex, out Image tileSource, out int sourceTile);
+                if ((attributes & 8) == 0 && BackgroundBank0Graphics is { } bank0)
+                {
+                    tileSource = bank0;
+                    sourceTile = sourceIndex;
+                }
                 if (!sources.TryGetValue(tileSource, out var sourcePixels))
                 {
                     OracleImagePixels pixels = OracleGraphicsCache.GetImagePixels(tileSource);
@@ -1613,6 +1556,7 @@ public enum TerrainType
     DownConveyor,
     LeftConveyor,
     Spike,
+    CrackedIce,
     Ice,
     Lava,
     Puddle,
@@ -1625,7 +1569,11 @@ public enum TerrainType
     Whirlpool
 }
 
-public readonly record struct TerrainInfo(byte Tile, byte Collision, TerrainType Type, HazardType Hazard);
+public readonly record struct TerrainInfo(byte Tile, byte Collision, TerrainType Type, HazardType Hazard)
+{
+    internal byte NativeTileType { get; init; }
+    internal byte NativeHazardFlags { get; init; }
+}
 
 public enum HazardType
 {

@@ -248,7 +248,7 @@ internal sealed class MakuSproutRescueEvent :
             new Vector2(x1, y + 8), new Vector2(x2, y + 8)
         })
         {
-            _context.Entities.Spawn<PuzzlePuffEffect>(
+            _context.Entities.Spawn<StationaryDebrisEffect>(
                 new PuzzlePuffSpawn(position, SoundId.SndPoof));
         }
         _shakeCounter = _record.ShakeCounter;
@@ -399,7 +399,7 @@ internal sealed class MakuSproutRescueEvent :
                 _moblinSync = 0;
                 break;
             case "SpawnInitialPuff":
-                _context.Entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(
+                _context.Entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(
                     new Vector2(0x28, 0x58), SoundId.SndPoof));
                 break;
             case "SetInitialGateTile":

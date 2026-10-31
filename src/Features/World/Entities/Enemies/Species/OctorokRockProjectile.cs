@@ -39,9 +39,8 @@ public partial class OctorokRockProjectile
                 new Vector2(
                     record.CollisionRadiusX,
                     record.CollisionRadiusY),
-                HostileProjectileTileProbe.DestinationWithPendingBounce,
+                HostileProjectileTileProbe.CurrentWithPendingBounce,
                 HostileProjectileSwordWindow.BeforeBounce,
-                ClearCollisionOnBounce: false,
                 ResetZOnBounce: true),
             angle);
         Image source = OracleGraphicsCache.LoadImage(
@@ -50,12 +49,14 @@ public partial class OctorokRockProjectile
             source, record.NormalAnimation, record.TileBase, record.Palette);
         _bounceTexture = BuildFirstFrame(
             source, record.BounceAnimation, record.TileBase, record.Palette);
+        Visible = false;
         QueueRedraw();
     }
 
     internal void UpdateFrame(Player player)
     {
         _lifecycle.UpdateFrame(player);
+        Visible = !Finished && State != HostileProjectileState.Initializing;
     }
 
     internal bool DeflectWithSword() => _lifecycle.DeflectWithSword();
@@ -76,7 +77,7 @@ public partial class OctorokRockProjectile
                 : _normalTexture;
         DrawTexture(texture,
             new Vector2(-16, -16 + (ZFixed >> 8)) +
-            TransitionDrawOffset);
+            SourceOamDrawOffset);
     }
 
     private static Texture2D BuildFirstFrame(

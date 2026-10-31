@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
         var sounds = new List<int>();
         var texts = new List<int>();
         bool textOpen = false;
-        int displayedHealth = 0;
+        manager.RuntimeState.SetField("wDisplayedHearts",0);
         manager.SoundRequested += sounds.Add;
         manager.RoomEntityDialogueRequested += (id, text, position) =>
         {
@@ -25,10 +25,9 @@ public sealed partial class ValidationRoot
             textOpen = true;
         };
         manager.TextActiveSource = () => textOpen;
-        manager.DisplayedHealthSource = () => displayedHealth;
         void Tick(int count = 1)
         {
-            for (int i = 0; i < count; i++) manager.Update(1.0 / 60.0, _player);
+            for (int i = 0; i < count; i++) manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FountainFairyRoomEntity Load(int group, int room)
         {
@@ -63,7 +62,7 @@ public sealed partial class ValidationRoot
         Tick();
         FailIf(fairy.State != 1 || sounds.Count != 0, "$38 state 0 must only initialize Z/state.");
         Tick();
-        PuzzlePuffEffect puff = manager.Entities<PuzzlePuffEffect>().Single();
+        StationaryDebrisEffect puff = manager.Entities<StationaryDebrisEffect>().Single();
         FailIf(fairy.State != 2 || puff.Position != new Vector2(0x50, 0x28) ||
             puff.ElapsedUpdates != 1 || !sounds.SequenceEqual(new[] { 0x0f, 0x98 }),
             "$38 state 1 lost fountain music, puff position, sound, or same-pass interaction update.");
@@ -138,7 +137,7 @@ public sealed partial class ValidationRoot
         Tick(192);
         FailIf(fairy.HeartCount != 8 || fairy.State != 7,
             "PART $30 must wait for displayed hearts, even with full live health.");
-        displayedHealth = _player.MaxHealthQuarters;
+        manager.RuntimeState.SetField("wDisplayedHearts",(byte)_player.MaxHealthQuarters);
         for (int update = 0; update < 96 && fairy.HeartCount != 0; update++) Tick();
         FailIf(fairy.HeartCount != 0 || fairy.State != 7,
             "$38 must observe final part deletion on the following enemy pass.");
@@ -163,7 +162,7 @@ public sealed partial class ValidationRoot
         fairy = manager.Entities<FountainFairyRoomEntity>().Single();
         textOpen = false;
         Tick(60);
-        FailIf(fairy.State != 1 || fairy.Visible || manager.Entities<PuzzlePuffEffect>().Count != 0,
+        FailIf(fairy.State != 1 || fairy.Visible || manager.Entities<StationaryDebrisEffect>().Count != 0,
             "Room 2:df destination fairy advanced beyond state 0 during scrolling.");
         manager.FinishScreenTransition();
         Tick();
@@ -173,19 +172,20 @@ public sealed partial class ValidationRoot
         {
             _inventory.RefillHealth();
             _inventory.ApplyDamage(4);
-            displayedHealth = 0;
+            manager.RuntimeState.SetField("wDisplayedHearts",0);
             FountainFairyRoomEntity actor = Load(2, 0xdf);
             // Room loads deliberately preserve the global frame phase. Both
             // experiments must start from the same phase for sound comparison.
             manager.RestoreDebugStateAfterRoomParse(
                 manager.CaptureDebugState() with { FrameCounter = 0 });
+            _saveData.WriteField("wPlaytimeCounter", 0);
             Appear(actor);
             _player.WarpTo(actor.Position + new Vector2(0, 16), recordSafe: false);
             Tick();
             textOpen = false;
             sounds.Clear();
             long calls = random.Calls;
-            if (batched) manager.Update(108.0 / 60.0, _player);
+            if (batched) manager.AdvanceEntityFrames(108.0 / 60.0, _player);
             else Tick(108);
             FailIf(random.Calls != calls, "$38 fountain/heart updates consumed extra global RNG.");
             return $"{actor.State}:{actor.Height}:{actor.HeartCount}:" +

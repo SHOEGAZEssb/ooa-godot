@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
             Step(4);
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                var puff=new StationaryDebrisEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int p=0xd040+_entities.InteractionSlot(puff)*256;native[p]=1;native[p+1]=0x48;native[p+2]=0x1b;native[p+4]=1;
             }
             FailIf(!game.TryInteractNpc(slot.Npc),source+": original A list not ready.");native[at+0x31]=1;Step(1);
@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             if(ending&&free==0)
             {
                 FailIf(_transitions.NativePaletteFadeActive||_entities.EntityAdapters<WildTokayControllerRoomEntity>().Any(),source+": failed $70 allocation must not begin a fade.");
-                var filler=InteractionAdmissionPool.First(p=>p.Key.Node is PuzzlePuffEffect);int page=filler.Value;
+                var filler=InteractionAdmissionPool.First(p=>p.Key.Node is StationaryDebrisEffect);int page=filler.Value;
                 _entities.RetireEntity(filler.Key);for(int i=0;i<0x40;i++)native[0xd040+page*256+i]=0;Step(1);
             }
             if(ending)FailIf(!_transitions.NativePaletteFadeActive||!_entities.EntityAdapters<WildTokayControllerRoomEntity>().Any(),source+": successful $70 allocation must start the fade while the manager still occupies its slot.");

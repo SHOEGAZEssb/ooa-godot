@@ -267,7 +267,7 @@ public sealed partial class ValidationRoot
         ExpectDialogue(0x0b07, "paper request");
         FailIf(
             !toiletEvent.BlocksGameplay ||
-            !_player.CutsceneControlled,
+            _player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
             "TX_0b07 did not disable Link input.");
 
         _dialogue.Close();
@@ -379,7 +379,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _player.IsHoldingItemTwoHands ||
             _entities.Entities<GroundTreasurePickup>().Count != 0,

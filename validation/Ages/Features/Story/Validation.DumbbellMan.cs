@@ -42,7 +42,8 @@ public sealed partial class ValidationRoot
                 "Room 2:e8 $51:$00 is missing its normal A-button route.");
             StepRoomEventFrames(1);
             ExpectText(text);
-            FailIf(!script.BlocksGameplay || !_player.CutsceneControlled,
+            FailIf(!script.BlocksGameplay || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80,
                 "dumbbellManScript failed to disable input before dialogue.");
         }
         void WaitAfterText()

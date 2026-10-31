@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
         var placements = new SkullDungeonDatabase();
         var scripts = new LeverLavaDatabase();
         var profiles = new LeverDatabase();
-        var bracelet = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
+        var bracelet = new BraceletDatabase(AgesGameContent.AssetRoot).Data;
         FailIf(bracelet.LeverInitialFrames != 1 || bracelet.LeverPullFrames != 40 || bracelet.LeverRestFrames != 20,
             "LIFT_2 lost its initial $01/$00, pull $28/$01, or rest $14/$00 duration/parameter sequence.");
         _inventory.GiveTreasure(TreasureId.Bracelet, 1);

@@ -25,6 +25,7 @@ public partial class DungeonKeyDoorController : Node
     private readonly Action<int> _playSound;
     private int _pushCounter { get => _rooms.TilePushCounter; set => _rooms.TilePushCounter = unchecked((byte)value); }
     private bool _opening;
+    private bool _released;
     private bool _outgoing;
     private int _openingCounter;
     private double _openingTicks;
@@ -54,10 +55,16 @@ public partial class DungeonKeyDoorController : Node
         _animationTick = animationTick;
         _playSound = playSound;
         _entities.ReservedKeyDoor = this;
-        _rooms.RoomChanged += (_, _) =>
-        {
-            if (!_outgoing) Cancel();
-        };
+        _rooms.RoomChanged += RoomChanged;
+        TreeExiting += ReleaseRuntime;
+    }
+    private void RoomChanged(int group,OracleRoomData room) { if (!_outgoing) Cancel(); }
+    internal void ReleaseRuntime()
+    {
+        if (_released) return;
+        _released=true;
+        _rooms.RoomChanged-=RoomChanged;
+        TreeExiting-=ReleaseRuntime;
     }
 
     private int DefaultPushCounter => _keyBlocks.Record.PushCounter;
@@ -67,6 +74,7 @@ public partial class DungeonKeyDoorController : Node
         Vector2I facing,
         Vector2 movementInput)
     {
+        if (_released) return;
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
                 movementInput, out Vector2I direction) ||
             !InteractableTilePushGeometry.IsAlignedForPush(linkPosition) ||
@@ -114,6 +122,7 @@ public partial class DungeonKeyDoorController : Node
 
     internal void Advance(double delta, Player? player = null, bool interactionsDisabled = false)
     {
+        if (_released) return;
         if (!_opening || _outgoing || delta <= 0.0)
             return;
 
@@ -243,7 +252,7 @@ public partial class DungeonKeyDoorController : Node
         // nextToKeyBlock tries these allocations independently, key first.
         // Failure does not undo the key debit, floor tile or room flag.
         if (_entities.InteractionSlotAvailable)
-            _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(center, keyBlock.PuffSound));
+            _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(center, keyBlock.PuffSound));
         ResetPushCounter();
     }
 

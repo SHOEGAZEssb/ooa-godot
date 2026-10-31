@@ -4,7 +4,7 @@ namespace Oracles;
 
 /// <summary>
 /// Native ITEM_BRACELET ($16) parent/child constants imported from the
-/// supported Ages disassembly.
+/// selected native disassembly build.
 /// </summary>
 internal sealed class BraceletDatabase
 {
@@ -12,10 +12,10 @@ internal sealed class BraceletDatabase
     internal BraceletDatabaseRecord Data { get; }
 
     internal BraceletDatabase(
-        string path)
+        string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            path,
+            assetRoot + "metadata/bracelet.tsv",
             new GeneratedTableSchema(
                 "bracelet",
                 GeneratedTableKeySemantics.Unique,
@@ -28,12 +28,14 @@ internal sealed class BraceletDatabase
                     "power-glove-push-frames", "heavy-property-mask",
                     "grab-pull-frames",
                     "lift-low-frames", "lift-mid-frames", "lift-high-frames",
-                    "throw-frames", "lever-initial-frames", "lever-pull-frames", "lever-rest-frames", "source"
+                    "throw-frames", "lever-initial-frames", "lever-pull-frames", "lever-rest-frames",
+                    "stump-blocked", "bouncing-tile", "source"
                 ],
                 ["item"],
                 headerRequired: true));
         GeneratedTableRow row = table.SingleRow();
         Data = new BraceletDatabaseRecord(
+            assetRoot,
             row.HexByte(0),
             row.HexByte(1),
             row.HexByte(2),
@@ -55,7 +57,8 @@ internal sealed class BraceletDatabase
             row.UnsignedDecimal(18),
             row.UnsignedDecimal(19),
             row.UnsignedDecimal(20),
-            row.UnsignedDecimal(21), row.UnsignedDecimal(22), row.UnsignedDecimal(23), row.RequiredString(24));
+            row.UnsignedDecimal(21), row.UnsignedDecimal(22), row.UnsignedDecimal(23),
+            row.UnsignedDecimal(24) != 0, row.Decimal(25), row.RequiredString(26));
         Validate(Data);
     }
 
@@ -70,8 +73,8 @@ internal sealed class BraceletDatabase
             record.Gravity != 0x1c || record.InitialSpeedZ != -0xf0 ||
             record.SpeedRaw != ObjectSpeed.Speed180 || record.TossSpeedRaw != 0x64 ||
             record.PushSpeedRaw != 0x14 || record.PushFrames != 0x20 ||
-            record.PowerGlovePushSpeedRaw != 0x1e ||
-            record.PowerGlovePushFrames != 0x15 ||
+            record.PowerGlovePushSpeedRaw != (OracleAssetPack.GameFor(record.AssetRoot) == OracleGame.Ages ? 0x1e : 0x14) ||
+            record.PowerGlovePushFrames != (OracleAssetPack.GameFor(record.AssetRoot) == OracleGame.Ages ? 0x15 : 0x20) ||
             record.HeavyPropertyMask != 0x20 ||
             record.GrabPullFrames != 11 ||
             record.LiftLowFrames != 7 ||
@@ -82,7 +85,10 @@ internal sealed class BraceletDatabase
             throw new InvalidOperationException(
                 $"Invalid ITEM_BRACELET record imported from {record.Source}.");
         }
+        bool seasons = OracleAssetPack.GameFor(record.AssetRoot) == OracleGame.Seasons;
+        if (record.StumpBlocked != seasons || record.BouncingTile != (seasons ? 0xd7 : -1))
+            throw new InvalidOperationException($"Invalid native Bracelet stump/bouncing-tile branch from {record.Source}.");
     }
 }
 
-internal readonly record struct BraceletDatabaseRecord(int Item, int PickupSound, int ThrowSound, int Damage, int RadiusY, int RadiusX, int CollisionZRadius, int Gravity, int InitialSpeedZ, int SpeedRaw, int TossSpeedRaw, int PushSpeedRaw, int PushFrames, int PowerGlovePushSpeedRaw, int PowerGlovePushFrames, int HeavyPropertyMask, int GrabPullFrames, int LiftLowFrames, int LiftMidFrames, int LiftHighFrames, int ThrowFrames, int LeverInitialFrames, int LeverPullFrames, int LeverRestFrames, string Source);
+internal readonly record struct BraceletDatabaseRecord(string AssetRoot, int Item, int PickupSound, int ThrowSound, int Damage, int RadiusY, int RadiusX, int CollisionZRadius, int Gravity, int InitialSpeedZ, int SpeedRaw, int TossSpeedRaw, int PushSpeedRaw, int PushFrames, int PowerGlovePushSpeedRaw, int PowerGlovePushFrames, int HeavyPropertyMask, int GrabPullFrames, int LiftLowFrames, int LiftMidFrames, int LiftHighFrames, int ThrowFrames, int LeverInitialFrames, int LeverPullFrames, int LeverRestFrames, bool StumpBlocked, int BouncingTile, string Source);

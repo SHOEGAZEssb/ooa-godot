@@ -10,8 +10,7 @@ namespace Oracles;
 internal sealed class HarpItemDatabase
 {
     internal HarpItemRecord Record { get; }
-    internal EffectRecord MusicNote { get; }
-    internal IntroSpriteFrame[] LinkFrames { get; }
+    internal ObjectSpriteFrame[] LinkFrames { get; }
     internal int[] LinkAnimationParameters { get; }
 
     internal HarpItemDatabase()
@@ -52,7 +51,6 @@ internal sealed class HarpItemDatabase
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(value => Convert.ToInt32(value, 16))
             .ToArray();
-        MusicNote = new SharedEffectDatabase(AgesGameContent.AssetRoot).Effect("MusicNote");
         LinkFrames = new NewGameIntroDatabase(AgesGameContent.AssetRoot).SpriteFrames("link-harp-item");
         Validate();
     }
@@ -108,17 +106,7 @@ internal sealed class HarpItemDatabase
             string.IsNullOrWhiteSpace(Record.NoEffectText) ||
             LinkFrames.Length != 17 ||
             !LinkAnimationParameters.SequenceEqual(
-                [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0x81, 0xff]) ||
-            MusicNote is not
-            {
-                SpriteName: "spr_common_sprites",
-                TileBase: 0x44,
-                Palette: 1,
-                Duration: 70,
-                Sway: true,
-                VelocityXFixed: 53,
-                VelocityYFixed: -79
-            })
+                [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0x81, 0xff]))
         {
             throw new InvalidOperationException(
                 "Imported ITEM_HARP behavior no longer matches the supported Ages ROM.");

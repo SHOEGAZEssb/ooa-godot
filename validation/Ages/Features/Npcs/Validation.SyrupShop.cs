@@ -185,7 +185,14 @@ public sealed partial class ValidationRoot
             Close(); Text(0x006d);
             FailIf(_inventory.Rupees != 699 || !_inventory.HasTreasure(TreasureId.Potion),
                 "Syrup $47:$07 purchase must cost 300 and give TREASURE_POTION.");
-            Close();
+            FailIf(_runtimeState.ReadField("wDisabledObjects")!=0 || _runtimeState.ReadField("wMenuDisabled")!=0,
+                "Syrup state2 must clear its object mask before shopItemState3 requests the held item pose.");
+            Step(1);
+            FailIf(!_player.IsHoldingItemTwoHands,"Syrup's shared state04 must hold its initialized pose while item text is open.");
+            _dialogue.Close();Step(1);
+            FailIf(!_player.NativeNormalStateForInteraction || _player.IsHoldingItemTwoHands,
+                "Syrup's clear native mask must release state04 on the first Link visit after text closes.");
+            Step(1);
             FailIf(!potion.Removed || _player.IsCarryingObject || shop.BlocksGameplay,
                 "Syrup purchase completion retained stock/input control.");
             Shelf(116); Merchant(); _dialogue.SubmitChoiceForValidation(0); Step(2);

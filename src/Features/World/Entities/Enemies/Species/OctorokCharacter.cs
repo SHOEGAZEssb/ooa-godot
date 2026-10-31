@@ -5,12 +5,12 @@ namespace Oracles;
 public partial class OctorokCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => _state == OctorokState.Uninitialized;
-    private EnemyBehaviorTables? _behaviorSourceCache;
-    private EnemyBehaviorTables _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
+    private OctorokDatabase? _behaviorSourceCache;
+    private OctorokDatabase _behavior => _behaviorSourceCache ??= OctorokDatabase.For(AssetRoot);
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private ScentSeedAttraction? _scentAttractionCache;
-    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new();
     private OctorokState _state;
     private int _counter1;
     private int _walkCounter;
@@ -70,11 +70,11 @@ public partial class OctorokCharacter : EnemyCharacter
     private void InitializeWalking()
     {
         OracleRandomResult initial = _random.Next();
-        _counter1 = _behavior.OctorokCounterValues[
+        _counter1 = _behavior.CounterValues[
             initial.Value & Record.CounterMask].Value;
         _angle = initial.High & 0x18;
         _walkCounter =
-            _behavior.OctorokWalkCounterValues[initial.Low & 0x03].Value;
+            _behavior.WalkCounterValues[initial.Low & 0x03].Value;
         _state = OctorokState.Walking;
         Visible = true;
         SetAnimationFromAngle();
@@ -201,7 +201,7 @@ public partial class OctorokCharacter : EnemyCharacter
         if (decision == 0)
         {
             _state = OctorokState.Shooting;
-            _counter1 = _behavior.Octorok.ShootDelayFrames;
+            _counter1 = _behavior.Behavior.ShootDelayFrames;
             if (Record.SubId >= 2)
             {
                 _angle = GetCardinalAngleToward(linkPosition);
@@ -211,7 +211,7 @@ public partial class OctorokCharacter : EnemyCharacter
         }
 
         _state = OctorokState.Standing;
-        _counter1 = _behavior.OctorokCounterValues[decision].Value;
+        _counter1 = _behavior.CounterValues[decision].Value;
     }
 
     private void UpdateStanding(Vector2 linkPosition)
@@ -223,7 +223,7 @@ public partial class OctorokCharacter : EnemyCharacter
         _state = OctorokState.Walking;
         OracleRandomResult result = _random.Next();
         _walkCounter =
-            _behavior.OctorokWalkCounterValues[result.Value & 0x03].Value;
+            _behavior.WalkCounterValues[result.Value & 0x03].Value;
         _angle = result.Low & 0x18;
         if ((result.High & 0x03) == 0)
             _angle = GetCardinalAngleToward(linkPosition);
@@ -257,17 +257,14 @@ public partial class OctorokCharacter : EnemyCharacter
         if (_counter1 > 0)
             return false;
 
-        _counter1 = _behavior.Octorok.PostShotWaitFrames;
+        _counter1 = _behavior.Behavior.PostShotWaitFrames;
         _state = OctorokState.Standing;
         return true;
     }
 
     private int GetCardinalAngleToward(Vector2 target)
     {
-        Vector2 difference = target - Position;
-        if (Mathf.Abs(difference.X) >= Mathf.Abs(difference.Y))
-            return difference.X >= 0 ? 0x08 : 0x18;
-        return difference.Y >= 0 ? 0x10 : 0x00;
+        return (OracleObjectMovement.Shared.RelativeAngle(Position,target) + 4) & ObjectAngle.CardinalMask;
     }
 
     private void SetAnimationFromAngle()

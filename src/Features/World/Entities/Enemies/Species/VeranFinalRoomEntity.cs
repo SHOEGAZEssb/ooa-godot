@@ -34,10 +34,10 @@ internal sealed class VeranFinalRoomEntity : CombatEnemyRoomEntityAdapter<VeranF
             case 0x1c:case 0x20:Entity.PublishHit(origin,0);return true;
             case 0x21:Entity.PublishHit(origin,damage,32);Entity.World.Entities.OnSoundRequested(SoundId.SndBossDamage);return true;
             case 0x1b:
-                Entity.World.Entities.TryCreateBoomerangClink(CollisionMidpoint(Entity.Position,origin),CollisionZ);
+                Entity.World.Entities.TryCreateItemCollisionClink(CollisionMidpoint(Entity.Position,origin),CollisionZ);
                 Entity.PublishBump(origin,20,0);return true;
             case 0x14:
-                Entity.World.Entities.TryCreateBoomerangClink(CollisionMidpoint(Entity.Position,origin),CollisionZ);goto case 0x0e;
+                Entity.World.Entities.TryCreateItemCollisionClink(CollisionMidpoint(Entity.Position,origin),CollisionZ);goto case 0x0e;
             case 0x0e:Entity.PublishBump(origin,EnemyKnockbackStrength.High);return true;
             default:throw new NotSupportedException($"veranFinalForm.s: ENEMY $02 form ${Entity.SubId:x2}, mode ${Entity.CollisionMode:x2}, item ${item:x2}, effect ${effect:x2}.");
         }

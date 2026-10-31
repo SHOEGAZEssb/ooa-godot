@@ -30,6 +30,7 @@ public sealed partial class ValidationRoot
         foreach (var entity in _entities.EntityAdapters<IRoomEntity>().Where(entity => !ReferenceEquals(entity, keeseOwner)).ToArray())
             _entities.RetireEntity(entity);
         var keese = (KeeseCharacter)keeseOwner!.Node;
+        keese.InitializeStateZero();
         const BindingFlags hidden = BindingFlags.Instance | BindingFlags.NonPublic;
         // Declare the approach-Keese turn-expiry boundary independently of
         // room placement. Foreign writes can leave counter2 zero while moving.

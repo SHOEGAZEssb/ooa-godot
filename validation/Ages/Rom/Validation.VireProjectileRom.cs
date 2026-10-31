@@ -72,11 +72,11 @@ public sealed partial class ValidationRoot
                         $"ROM={rom[p + 4]}/{rom[p + 16]}/{rom[p + 9]}/{xy}, count={rom[p + 6]}/{rom[p + 7]}, anim={rom[p + 32]}, visible=${rom[p + 26]:x2}.");
                 }
                 var nativePuffs = Enumerable.Range(2, 14).Where(slot => rom[0xd040 + slot * 256] != 0 && rom[0xd041 + slot * 256] == 5).ToArray();
-                var puffs = interactions.Where(pair => pair.Key.Node is PuzzlePuffEffect).ToArray();
+                var puffs = interactions.Where(pair => pair.Key.Node is StationaryDebrisEffect).ToArray();
                 FailIf(puffs.Length != nativePuffs.Length, "PART$3a must use the real INTERAC$05 pool and deletion boundary.");
                 foreach (var pair in puffs)
                 {
-                    var puff = (PuzzlePuffEffect)pair.Key.Node;
+                    var puff = (StationaryDebrisEffect)pair.Key.Node;
                     int p = 0xd040 + pair.Value * 256;
                     FailIf(puff.Position != new Vector2(rom[p + 13], rom[p + 11]) || puff.CurrentParameter != rom[p + 33] ||
                         puff.Visible != ((rom[p + 26] & 0x80) != 0), "PART$3a related puff animation/position/visibility differs.");

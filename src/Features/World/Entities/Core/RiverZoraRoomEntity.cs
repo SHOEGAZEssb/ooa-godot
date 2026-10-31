@@ -15,7 +15,7 @@ internal sealed class RiverZoraRoomEntity : CombatEnemyRoomEntityAdapter<RiverZo
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy,
                 enemy.Record.DamageQuarters, enemy.TakeSwordHit, enemy.TakeBurnHit,
-                enemy.ApplySwordNoKnockback, soundRequested, EnemySwordResponse.NoKnockback))
+                enemy.ApplySwordNoKnockback, soundRequested))
     {
         _cameraOrigin = cameraOrigin;
     }

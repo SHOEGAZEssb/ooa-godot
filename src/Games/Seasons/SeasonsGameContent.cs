@@ -3,7 +3,7 @@ namespace Oracles;
 // Supported US Seasons content and its isolated persistence boundary.
 internal static class SeasonsGameContent
 {
-    internal static OracleRuntimeState CreateRuntimeState()
+    internal static OracleRuntimeState CreateContentRuntimeState()
     {
         var state = new OracleRuntimeState(OracleGame.Seasons);
         // bank1.s:initializeSeedTreeRefillData starts tree/event bits $02-$07 set.

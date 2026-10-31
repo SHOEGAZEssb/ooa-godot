@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             lateSoldier.Position + Vector2.Left * 20.0f,
             recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             lateSoldier.FacingVector != Vector2I.Left,
             "Room 1:73's soldier did not face nearby Link.");
@@ -93,12 +93,12 @@ public sealed partial class ValidationRoot
             lateSoldier.Position + Vector2.Right * 20.0f,
             recordSafe: false);
         for (int update = 0; update < 29; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             lateSoldier.FacingVector != Vector2I.Left,
             "Room 1:73's soldier changed direction before the source " +
             "$1d-to-$00 facing cooldown elapsed.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             lateSoldier.FacingVector != Vector2I.Right,
             "Room 1:73's soldier did not change direction on the 30th " +

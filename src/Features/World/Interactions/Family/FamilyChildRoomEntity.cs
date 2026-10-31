@@ -224,12 +224,12 @@ internal sealed class FamilyChildRoomEntity : NpcCharacterRoomEntityAdapter,
         if (singer)
         {
             bool left = _direction == 0;
-            NayruRescueMusicNoteRoomEntity.Spawn(_entities,
+            FloatingMusicNoteRoomEntity.Spawn(_entities,
                 Entity.Position + new Vector2(left ? -4 : 0, -4), left);
             return;
         }
         bool slackerLeft = (Entity.ConsumeAnimationParameter() & 1) == 0;
-        NayruRescueMusicNoteRoomEntity.Spawn(_entities,
+        FloatingMusicNoteRoomEntity.Spawn(_entities,
             Entity.Position + new Vector2(slackerLeft ? -4 : 8, -12), slackerLeft);
     }
 

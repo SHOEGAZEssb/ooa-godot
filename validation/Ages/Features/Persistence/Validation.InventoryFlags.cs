@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
         }
 
         OracleSaveData upgradeSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-        var runtime = AgesGameContent.CreateRuntimeState();
+        var runtime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         var upgrades = new InventoryState(_treasures, upgradeSave, runtimeState: runtime);
         runtime.SetWramByte(AgesWramAddress.wUpgradesObtained, 0x80);
         upgrades.GiveTreasure(TreasureId.Id60, 0);

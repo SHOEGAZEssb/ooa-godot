@@ -40,12 +40,11 @@ public sealed partial class ValidationRoot
         var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         OracleRoomData sourceRoom = _world.LoadRoom(sourceGroup, sourceRoomId);
         FailIf(
-            !warps.TryGetEdgeWarp(
+            !TryGetResolvedEdgeWarp(warps,
                 sourceGroup,
                 sourceRoomId,
                 Vector2I.Down,
                 new Vector2(0x50, sourceRoom.Height + 2),
-                new Vector2(sourceRoom.Width, sourceRoom.Height),
                 out Warp warp) ||
             warp is not
             {
@@ -86,7 +85,8 @@ public sealed partial class ValidationRoot
             roomEvent.CurrentCommandIndex != 0 || roomEvent.Counter != 89 ||
             roomEvent.Substate != 0 || roomEvent.FacingBit ||
             !roomEvent.BlocksGameplay || !roomEvent.MenusDisabled ||
-            !_player.CutsceneControlled,
+            _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x81,
             "Room 1:79 did not preserve Ralph's placement, source-state-0 " +
             "script update, or $81 input/menu lock " +
             $"(record={ralph.Record.Id:x2}:{ralph.Record.SubId:x2}/" +
@@ -157,7 +157,7 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(1);
         Vector2 dustSourcePosition = ralph.Position;
         StepRoomEventFrames(1);
-        PuzzlePuffEffect dust = _entities.Entities<PuzzlePuffEffect>()
+        StationaryDebrisEffect dust = _entities.Entities<StationaryDebrisEffect>()
             .Single(puff => puff.ElapsedUpdates == 1);
         FailIf(
             !dust.Flickers || _entities.InteractionSlot(dust) != 3 ||
@@ -178,7 +178,7 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(1);
         Vector2 secondDustSourcePosition = ralph.Position;
         StepRoomEventFrames(1);
-        PuzzlePuffEffect secondDust = _entities.Entities<PuzzlePuffEffect>()
+        StationaryDebrisEffect secondDust = _entities.Entities<StationaryDebrisEffect>()
             .Single(puff => puff.ElapsedUpdates == 1);
         FailIf(
             !secondDust.Flickers ||
@@ -261,7 +261,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(31);
         FailIf(
             !roomEvent.HasState || !ralph.Active || !roomEvent.BlocksGameplay ||
-            !roomEvent.MenusDisabled || !_player.CutsceneControlled ||
+            !roomEvent.MenusDisabled || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x81 ||
             _sound.ActiveMusic == record.Music ||
             roomEvent.CurrentCommandIndex != 20,
             "Ralph did not yield after resetting room music at the final " +

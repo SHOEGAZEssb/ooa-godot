@@ -59,7 +59,8 @@ public sealed partial class ValidationRoot
             roomEvent.NativeDirection != record.InitialDirection ||
             roomEvent.CurrentCommandIndex != -1 ||
             !roomEvent.BlocksGameplay || !roomEvent.MenusDisabled ||
-            !_player.CutsceneControlled ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x01 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x01 ||
             _sound.ActiveMusic != SoundId.MusRalph ||
             _sound.PlayRequestsFor(SoundId.MusRalph) !=
                 ralphMusicStarts + 1,
@@ -274,7 +275,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             !roomEvent.HasState || !ralph.Active || !roomEvent.BlocksGameplay ||
-            !roomEvent.MenusDisabled || !_player.CutsceneControlled ||
+            !roomEvent.MenusDisabled || _runtimeState.ReadField("wDisabledObjects") != 0x01 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x01 ||
             !_saveData.HasRoomFlag(group, roomId, (byte)record.RoomFlag) ||
             roomEvent.CurrentCommandIndex != 14,
             "Ralph did not set room flag $40 and yield before enableinput " +

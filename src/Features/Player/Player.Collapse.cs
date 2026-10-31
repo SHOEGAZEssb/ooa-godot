@@ -36,7 +36,7 @@ public partial class Player
         {
             _collapseSubstate = 1; _collapseCounter = 0xf0;
             ClearNativeItemParents(); ClearShieldParent(); CancelSwordAttack(); _startedParentItemAnimations = 0;
-            _walking = false; _linkWalkAnimationFrame = 0; _linkWalkAnimationCounter = 2;
+            _walking = false; LinkNativeAnimationDatabase.For(AssetRoot).Set(_inventory.RuntimeState, 0x10);
             QueueRedraw(); return true;
         }
         OracleObjectMath.UpdateSpeedZ(ref _topDownAirZFixed,ref _topDownAirSpeedZ,0x40);
@@ -47,7 +47,7 @@ public partial class Player
             if (input != Vector2.Zero)
             {
                 var facing = FacingForInput(_facing,input);
-                if (facing != _facing) { _facing = facing; _linkWalkAnimationFrame = 0; _linkWalkAnimationCounter = 2; }
+                if (facing != _facing) { _facing = facing; LinkNativeAnimationDatabase.For(AssetRoot).Set(_inventory.RuntimeState, 0x10); }
             }
         }
         bool pressed = Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item") ||
@@ -63,7 +63,7 @@ public partial class Player
             // Its retained damage is applied by the next normal-state update.
             _enemyInvincibilityFrames = 1; _enemyKnockbackFrames = 0;
             _collapseSubstate = -1;
-            _walking = false; _linkWalkAnimationFrame = 0; _linkWalkAnimationCounter = 2;
+            _walking = false; LinkNativeAnimationDatabase.For(AssetRoot).Set(_inventory.RuntimeState, 0x10);
         }
         QueueRedraw(); return true;
     }

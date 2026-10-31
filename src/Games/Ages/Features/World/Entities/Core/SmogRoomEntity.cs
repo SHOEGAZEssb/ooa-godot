@@ -13,7 +13,7 @@ internal sealed class SmogRoomEntity(SmogCharacter actor, SmogCollisionDatabase 
         IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
         INativeEnemySlotRoomEntity, INativeEnemyCounter1RoomEntity,
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
-        IScreenTransitionPreloadRoomEntity, IPlayerForcedMovement
+        IScreenTransitionPreloadRoomEntity
 {
     private int _slot = -1;
     private bool _decrement, _marked, _outcomeTaken;
@@ -21,7 +21,6 @@ internal sealed class SmogRoomEntity(SmogCharacter actor, SmogCollisionDatabase 
     public bool Finished => Entity.IsDead;
     public bool CountsAsEnemy => !Finished && !_sentinelCountReleased;
     internal bool IsRoomSentinel => !Finished && Entity.SubId == 5;
-    internal bool OwnsBossRoomInitialization => IsRoomSentinel && world?.Entry is not null;
     internal int InitializeBossRoom(bool scrolling) => world?.InitializeBossRoom?.Invoke(scrolling) ??
         throw new NotSupportedException("Smog room initialization requires the active room's boss-entry owner.");
     internal void ReleaseSentinelCount()
@@ -36,10 +35,6 @@ internal sealed class SmogRoomEntity(SmogCharacter actor, SmogCollisionDatabase 
     public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;
     public int Counter1 { get => Entity.Counter1; set => Entity.Counter1 = value; }
     public bool RetainsCounter1AfterDeletion => false;
-    public void UpdatePlayerForcedMovement(Player player)
-    {
-        if (!Finished) world?.Entry?.Update(player);
-    }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.State == 0 && Entity.SubId is 5 or 6)

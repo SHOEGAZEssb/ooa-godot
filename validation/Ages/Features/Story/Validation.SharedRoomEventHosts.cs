@@ -52,19 +52,19 @@ public sealed partial class ValidationRoot
             var ralph = _roomEvents.Get<RalphPortalEvent>();
             var arrival = _roomEvents.Get<EnterPastEvent>();
             ralph.SetInputEnabled(false);
-            FailIf(!_player.IsCutsceneControlOwner(ralph),
-                "Ralph failed to acquire authoritative Player control.");
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
+                "Ralph failed to write the authoritative native $81/$80 control bytes.");
             arrival.SetInputEnabled(false);
             ralph.Cancel();
-            FailIf(!_player.IsCutsceneControlOwner(arrival),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                 "Outgoing Ralph cancellation released EnterPast's control.");
             arrival.Cancel();
             arrival.Cancel();
-            FailIf(_player.CutsceneControlled,
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 || _runtimeState.ReadField("wMenuDisabled") != 0,
                 "EnterPast cancellation retained input control.");
             ralph.SetInputEnabled(false);
             ralph.Cancel();
-            FailIf(_player.CutsceneControlled,
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 || _runtimeState.ReadField("wMenuDisabled") != 0,
                 "Direct Ralph cancellation depended on controller cleanup.");
 
             ICutsceneCommandHost nayru = _roomEvents.Get<NayruIntroEvent>();
@@ -74,7 +74,21 @@ public sealed partial class ValidationRoot
             Reject(() => nayru.SetDisabledObjects(0x91), "set disabled objects");
             source = source with { Opcode = "disablemenu" };
             nayru.SetActiveCommandSource(source);
-            Reject(() => nayru.SetMenuEnabled(false), "set menu");
+            nayru.SetMenuEnabled(false);
+            FailIf(_runtimeState.ReadField("wMenuDisabled") != 0x80,
+                "The shared room host did not implement native disablemenu.");
+            ralph.SetDisabledObjects(0x11);
+            var menuRunner = new CutsceneCommandRunner(ralph);
+            var enableSource = source with { Opcode = "enablemenu" };
+            menuRunner.Start([new CutsceneEnableMenuCommand(enableSource),
+                new CutsceneWaitCommand(enableSource with { Opcode = "wait", CommandIndex = 1 }, 1),
+                new CutsceneEndCommand(enableSource with { Opcode = "scriptend", CommandIndex = 2 })]);
+            menuRunner.AdvanceFrame();
+            FailIf(_runtimeState.ReadField("wMenuDisabled") != 0 || _runtimeState.ReadField("wDisabledObjects") != 0x11 ||
+                menuRunner.CurrentCommand is not CutsceneWaitCommand,
+                "The typed enablemenu command must clear only the menu byte and continue its script.");
+            menuRunner.Clear();
+            ralph.SetDisabledObjects(0);
             source = source with { Opcode = "showtext" };
             nayru.SetActiveCommandSource(source);
             Reject(() => nayru.ShowText(0x5600, "position probe", 0), "position");

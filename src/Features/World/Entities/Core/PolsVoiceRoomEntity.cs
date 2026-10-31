@@ -27,7 +27,6 @@ internal sealed class PolsVoiceRoomEntity
                 polsVoice.TakeBurnHit,
                 polsVoice.ApplyPolsVoiceBump,
                 soundRequested,
-                EnemySwordResponse.Bump,
                 acceptedHitSound: 0),
             collisionZ: () => polsVoice.ZHigh)
     { }

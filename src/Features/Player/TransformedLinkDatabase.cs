@@ -19,6 +19,7 @@ internal sealed class TransformedLinkDatabase
 
     private readonly Dictionary<(int SpecialObject, int Direction, int Frame), FrameRecord>
         _records = new();
+    private readonly Dictionary<int,int> _rings = new();
     private readonly Dictionary<string, Image> _images = new(StringComparer.Ordinal);
     private readonly Dictionary<
         (int SpecialObject, int Direction, int Frame, bool DamagePalette),
@@ -29,6 +30,16 @@ internal sealed class TransformedLinkDatabase
         string path)
     {
         AssetRoot = OracleAssetPack.RootFor(path);
+        var rings = GeneratedTable.Load(AssetRoot + "metadata/transformation_rings.tsv",
+            new("transformation ring dispatch",GeneratedTableKeySemantics.Unique,
+                ["ring","special-object","source"],["ring"],headerRequired:true));
+        foreach (var row in rings.Rows)
+        {
+            int ring = row.HexByte(0), id = row.HexByte(1);
+            if (id is < 3 or > 7 || !_rings.TryAdd(ring,id)) throw row.Invalid(1,"a distinct native transformation ID $03-$07");
+            _ = row.RequiredString(2);
+        }
+        if (_rings.Count != 5) throw new InvalidOperationException("Native transformed Link requires five ring dispatch rows.");
 
         GeneratedTable table = GeneratedTable.Load(
             path,
@@ -85,6 +96,8 @@ internal sealed class TransformedLinkDatabase
             throw new InvalidOperationException("Baby Link lifetime, speed shift or footstep parameter is unsupported.");
         _ = baby.Rows[0].RequiredString(3);
     }
+
+    internal int Transformation(int ring) => _rings.GetValueOrDefault(ring);
 
     internal FrameRecord Record(int specialObject, int direction, int frame) =>
         _records.TryGetValue((specialObject, direction & 3, frame & 1), out FrameRecord record)

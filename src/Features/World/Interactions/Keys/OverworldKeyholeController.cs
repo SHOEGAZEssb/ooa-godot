@@ -16,7 +16,8 @@ public partial class OverworldKeyholeController : Node
     private readonly OverworldKeyholeDatabase _database;
     private readonly OracleSoundEngine _sound;
     private Func<int, int, bool>? _supportsEvent;
-    private Action<int, int>? _triggerEvent;
+    private Func<int, int, NativeScriptInputControl>? _triggerEvent;
+    private bool _released;
     private int _pushCounter { get => _rooms.TilePushCounter; set => _rooms.TilePushCounter = unchecked((byte)value); }
 
     public event Action<string>? MessageRequested;
@@ -40,10 +41,19 @@ public partial class OverworldKeyholeController : Node
 
     internal void SetEventHandler(
         Func<int, int, bool> supportsEvent,
-        Action<int, int> triggerEvent)
+        Func<int, int, NativeScriptInputControl> triggerEvent)
     {
+        if (_released) throw new InvalidOperationException("Cannot bind a retired overworld-keyhole owner.");
         _supportsEvent = supportsEvent;
         _triggerEvent = triggerEvent;
+    }
+
+    internal void ReleaseRuntime()
+    {
+        _released = true;
+        _supportsEvent = null;
+        _triggerEvent = null;
+        MessageRequested = null;
     }
 
     public bool UpdatePushAttempt(
@@ -51,6 +61,7 @@ public partial class OverworldKeyholeController : Node
         Vector2I facing,
         Vector2 movementInput)
     {
+        if (_released) return false;
         int group = _rooms.ActiveGroup;
         int roomId = _rooms.CurrentRoom.Id;
         // The opened keyhole handler returns before touching the contact
@@ -89,8 +100,8 @@ public partial class OverworldKeyholeController : Node
 
         if (_triggerEvent is null || _supportsEvent is null || !_supportsEvent(group,roomId))
         {
-            throw new InvalidOperationException(
-                $"Keyhole {group:x}:{roomId:x2} has no associated event handler.");
+            throw new NotSupportedException(
+                $"{record.Source}: keyhole {group:x}:{roomId:x2} has no associated entrance event handler.");
         }
 
         // The original checks the named-key treasure flag without calling
@@ -101,7 +112,7 @@ public partial class OverworldKeyholeController : Node
         OracleRuntimeState memory = _entities.RuntimeState;
         memory.SetField("wTmpcfc0",
             (byte)(memory.ReadField("wTmpcfc0") | 1));
-        _triggerEvent(group, roomId);
+        NativeScriptInputControl control = _triggerEvent(group, roomId);
         if (_entities.InteractionSlotAvailable)
             _entities.Spawn<OverworldKeyUseEffect>(new OverworldKeyUseSpawn(center,record,_database.Constants));
         else
@@ -114,7 +125,10 @@ public partial class OverworldKeyholeController : Node
             _sound.SetNativeChannelPitchSlide(3,(byte)record.SubId);
             _sound.SetNativeChannelPitchSlide(4,(byte)record.SubId);
         }
-        // nextToOverworldKeyhole sets carry after acquiring $81 control.
+        // nextToOverworldKeyhole writes both bytes after creating the key.
+        // The signalled controller owns completion and cancellation.
+        control.SetDisabledObjects(0x81);
+        control.SetMenuDisabled(0x81);
         return true;
     }
 

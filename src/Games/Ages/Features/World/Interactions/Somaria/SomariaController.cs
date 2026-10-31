@@ -19,7 +19,11 @@ internal sealed class SomariaController(Node world,RoomSession rooms,RoomEntityM
         world.AddChild(Weapon);
         player.NotifyParentItemAnimationStarted(TreasureId.CaneOfSomaria);
     }
-    internal void UpdateParent() => Parent?.Update();
+    internal void UpdateParent()
+    {
+        Parent?.Update();
+        if (!Active) ParentItemAnimationState.Clear(entities.RuntimeState, 2, TreasureId.CaneOfSomaria);
+    }
     internal void UpdateItem(Player player,bool frozen) => Weapon?.UpdateItem(frozen,Active?Parent!.Parameter:0,player.Position,
         CarriedObjectMotion.DirectionIndex(player.FacingVector),player.EnemyContactZ,
         player.TransferSwordCollisionKnockback,sound,entities.MarkPreviousSomariaBlock,
@@ -32,10 +36,14 @@ internal sealed class SomariaController(Node world,RoomSession rooms,RoomEntityM
             unchecked((sbyte)entities.RuntimeState.ReadWramByte(AgesWramAddress.wLinkRaisedFloorOffset)));
         if(Weapon?.Finished==true) { Weapon.Free(); Weapon=null; }
     }
-    internal void ClearParent() => Parent?.Cancel();
+    internal void ClearParent()
+    {
+        Parent?.Cancel();
+        ParentItemAnimationState.Clear(entities.RuntimeState, 2, TreasureId.CaneOfSomaria);
+    }
     internal void Cancel()
     {
-        Parent?.Cancel(); Parent=null;
+        ClearParent(); Parent=null;
         if(Weapon is not null) { Weapon.Free(); Weapon=null; }
     }
 }

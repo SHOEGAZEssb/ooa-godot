@@ -31,10 +31,10 @@ public partial class DebugObjectSpawnerScreen : Control
         _noPreview = GetNode<Label>("NoPreview");
     }
 
-    internal void Initialize(EnemyDatabase enemies)
+    internal void Initialize(string assetRoot)
     {
-        _catalog = new DebugObjectCatalog(enemies);
-        _previews = new DebugObjectPreview(enemies);
+        _catalog = new DebugObjectCatalog(assetRoot);
+        _previews = new DebugObjectPreview(assetRoot);
     }
 
     internal void Open(OracleRoomData room, Vector2 position)

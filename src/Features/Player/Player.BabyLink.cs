@@ -11,20 +11,21 @@ public partial class Player
 
     // collisionEffect3b queues the new special-object ID. Initialization
     // belongs to the following Link pass, before text and disabled-$81 gates.
-    internal void QueueBabyTransformation() => _babyRequested = true;
+    internal void QueueBabyTransformation() { _ringTransformationRequested = 0; _babyRequested = true; }
     private void ResetBabyForForcedState()
     {
-        if (_activeTransformation != 2 && !_babyRequested) return;
+        if (_activeTransformation == 0 && !_babyRequested && _ringTransformationRequested == 0) return;
         // transformedLink.s tests wLinkForceState before palette, scroll,
         // text and object masks. These are the normal Link owner's requests.
-        bool forced = _nativeForcedMovementRequest >= 0 || _nativeForcedMovementCounter != 0 || _forcedRoomEntryMovement ||
+        bool forced = _inventory.RuntimeState.ReadField("wLinkForceState")!=0 || _nativeForcedMovementSelected ||
             _palaceTossRequested || _palaceTossSubstate >= 0 || CollapsePending || CollapsedActive ||
             _wallmasterGrabRequested || WallmasterGrabActive || _enemyGrabRequested || EnemyGrabActive ||
             _sideScrollSquishPending || _squishAnimation is not null || _getItemStatePhase != 0 ||
-            _forcedRespawnPhase != 0 || _forcedState08Phase != 0 || _spinnerExitRequested;
+            _forcedRespawnPhase != 0 || ForcedRespawnRequested || _forcedState08Phase != 0 || _fallingInHole;
         if (!forced) return;
-        if (_babyRequested) { ClearNativeItemParents(); EndCarriedObjectPose(); }
+        if (_babyRequested || _ringTransformationRequested != 0) { CancelNativeItemUsage(); EndCarriedObjectPose(); }
         ClearBabyTransformation(); _activeTransformation = 0;
+        _ringTransformationRequested = 0; RingTransformationSuppression = 1;
         _transformationFrame = _transformationTicks = 0; ResetLinkWalkAnimation();
     }
     private bool InitializeBabyOverride()
@@ -39,7 +40,7 @@ public partial class Player
         _babyFootstepPending = false; _activeTransformation = 2;
         _transformationFrame = 0; _transformationTicks = _transformedLink.Record(2, (int)_facing, 0).InitialDuration;
         ClearNativeItemParents(); EndCarriedObjectPose(); CancelSwordAttack(); CancelShovelAction();
-        _walking = _pushing = false; _frontTileInteractionReturned = true;
+        _walking = false;
         _world.PlaySound(SoundId.SndBecomeBaby);
         _world.CreateBabyTransformationPoof(_precisePosition, EnemyContactZ);
         QueueRedraw(); return true;
@@ -51,27 +52,30 @@ public partial class Player
     private bool AdvanceBabyLink()
     {
         if (_activeTransformation != 2) return false;
-        _frontTileInteractionReturned = true; _pushing = false;
+
+        if (_world.IsTransitioning || _world.RoomExitPending || _world.NativePaletteChanging) return true;
         if (IsDying)
         {
             // @disableTransformation uses setLinkIDOverride; the current
             // special-object pass retains ID$02 until the following update.
             _babyRestorationPending = true;
+            RingTransformationSuppression = 1;
             _world.CreateBabyTransformationPoof(_precisePosition, EnemyContactZ);
             return true;
         }
-        if (_world.IsTransitioning || _world.RoomExitPending || _world.NativePaletteChanging ||
-            _world.NativeTextActive || _world.PlayerUpdatesFrozen || _world.LinkDisabled) return true;
+        if (_world.NativeTextActive || _world.PlayerUpdatesFrozen || _world.LinkDisabled) return true;
         _world.Pegasus?.AdvanceCounter();
         if (--_babyRemaining == 0)
         {
             _babyRestorationPending = true; _world.PlaySound(SoundId.SndMagicPowder);
+            RingTransformationSuppression = 1;
             _world.CreateBabyTransformationPoof(_precisePosition, EnemyContactZ); return true;
         }
         Vector2 input = Input.GetVector("move_left", "move_right", "move_up", "move_down");
         _lastMovementInput = input;
-        _tilePushWalls = _world.GetAdjacentWallsBitset(_precisePosition);
-        _topDownMovementSpeedRaw = NormalMovementSpeed >> _transformedLink.BabySpeedShift;
+        NativeAdjacentWalls = _world.GetAdjacentWallsBitset(_precisePosition);
+        SetTopDownTerrainSpeed(0,GetTopDownMovementSpeed(),writeSpeedDirectly:true);
+        _topDownMovementSpeedRaw >>= _transformedLink.BabySpeedShift;
         if (_enemyKnockbackFrames > 0)
         {
             AdvanceKnockbackAfterItemParents(ApplicationFixedUpdateScheduler.UpdateDelta, false, _precisePosition);
@@ -80,13 +84,13 @@ public partial class Player
         if (_topDownAirZFixed < 0 && OracleObjectMath.UpdateSpeedZ(ref _topDownAirZFixed, ref _topDownAirSpeedZ, 0x20))
             _topDownAirborne = false;
         _topDownMovementAngle = AngleForVector(input);
-        _walking = _topDownMovementAngle < 0x80 && !_spinnerControlled;
+        _walking = _topDownMovementAngle < 0x80 && !NativeMovementSuppressed;
         if (_walking)
         {
             if (_babyFootstepPending) { _world.PlaySound(SoundId.SndSplash); _babyFootstepPending = false; }
             UpdateFacing(input);
             if (!_world.MovementDisabled)
-                ApplyTopDownObjectSpeed(_topDownMovementSpeedRaw, _topDownMovementAngle, allowWallSlide: true, allowLedgeHop: false);
+                ApplyTopDownObjectSpeed(_topDownMovementSpeedRaw, _topDownMovementAngle, allowWallSlide: true);
             int previous = _transformationFrame; AdvanceTransformationAnimation(true);
             if (previous == 0 && _transformationFrame == 1) _babyFootstepPending = true;
         }

@@ -16,7 +16,7 @@ internal sealed class SideScrollPlayerDatabase
     internal static SideScrollPlayerDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
         static root => new Lazy<SideScrollPlayerDatabase>(() => new SideScrollPlayerDatabase(root))).Value;
 
-    private readonly Dictionary<byte, SideScrollTileType> _tiles = new();
+    private readonly TilePropertyDatabase _tiles;
     private readonly Dictionary<string, int> _constants = new();
     private readonly Dictionary<(bool MermaidSuit, int Frame, int Direction),
         SideScrollSwimmingFrame> _swimmingFrames = new();
@@ -27,21 +27,19 @@ internal sealed class SideScrollPlayerDatabase
         MaximumFallSpeed: Constant("maximum-fall-speed"),
         JumpSpeedZ: Constant("jump-speed-z"),
         WaterExitSpeedZ: Constant("water-exit-speed-z"),
-        RocsCapeSpeedZ: Constant("rocs-cape-speed-z"),
         NormalSpeed: Constant("normal-speed"),
         PlatformPushSpeed: Constant("platform-push-speed"),
         KnockbackSpeed: Constant("knockback-speed"),
         IceVelocityInterval: Constant("ice-velocity-interval"),
         SwimSpeed: Constant("swim-speed"),
         FastSwimSpeed: Constant("fast-swim-speed"),
-        MermaidTargetSpeed: Constant("mermaid-target-speed"),
-        FastMermaidTargetSpeed: Constant("fast-mermaid-target-speed"),
         GroundWallMask: Constant("ground-wall-mask"),
         CeilingWallMask: Constant("ceiling-wall-mask"),
         LandingHighMask: Constant("landing-high-mask"),
         LandingHighOffset: Constant("landing-high-offset"),
         BelowTileOffset: Constant("below-tile-offset"),
         BottomBoundary: Constant("bottom-boundary"),
+        BottomLadderTransition: Constant("bottom-ladder-transition"),
         SpikeTile: Constant("spike-tile"),
         JumpSound: Constant("jump-sound"),
         LandSound: Constant("land-sound"),
@@ -56,19 +54,7 @@ internal sealed class SideScrollPlayerDatabase
     {
         AssetRoot = assetRoot;
 
-        GeneratedTable tileTable = GeneratedTable.Load(
-            AssetRoot + "metadata/side_scroll_tiles.tsv",
-            new GeneratedTableSchema(
-                "side-scrolling tile types",
-                GeneratedTableKeySemantics.Unique,
-                ["tile", "flags", "source"],
-                ["tile"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in tileTable.Rows)
-        {
-            byte tile = (byte)row.HexByte(0);
-            _tiles.Add(tile, (SideScrollTileType)row.HexByte(1));
-        }
+        _tiles = TilePropertyDatabase.For(assetRoot);
 
         GeneratedTable constantTable = GeneratedTable.Load(
             AssetRoot + "metadata/side_scroll_constants.tsv",
@@ -120,10 +106,7 @@ internal sealed class SideScrollPlayerDatabase
         Validate();
     }
 
-    internal SideScrollTileType TileType(byte tile) =>
-        _tiles.TryGetValue(tile, out SideScrollTileType type)
-            ? type
-            : SideScrollTileType.None;
+    internal SideScrollTileType TileType(byte tile) => _tiles.SideScrollType(tile);
 
     internal SideScrollSwimmingFrame SwimmingFrame(
         bool mermaidSuit,
@@ -134,19 +117,20 @@ internal sealed class SideScrollPlayerDatabase
             out SideScrollSwimmingFrame value)
                 ? value
                 : throw new KeyNotFoundException(
-                    $"Side-view Link swim frame {frame}, direction " +
+                    $"{AssetRoot}: side-view Link swim frame {frame}, direction " +
                     $"{direction}, mermaid={mermaidSuit} was not imported.");
 
     private int Constant(string key) =>
         _constants.TryGetValue(key, out int value)
             ? value
             : throw new KeyNotFoundException(
-                $"Side-scrolling player constant '{key}' was not imported.");
+                $"{AssetRoot}: side-scrolling player constant '{key}' was not imported.");
 
     private void Validate()
     {
         SideScrollPlayerParameters parameters = Parameters;
-        if (_tiles.Count != 16 || _swimmingFrames.Count != 16 ||
+        bool ages = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages;
+        if (_constants.Count != 24 || _swimmingFrames.Count != (ages ? 16 : 8) ||
             TileType(0x16) != SideScrollTileType.Ladder ||
             TileType(0x18) != SideScrollTileType.Ladder ||
             TileType(0x17) !=
@@ -164,21 +148,19 @@ internal sealed class SideScrollPlayerDatabase
             parameters.MaximumFallSpeed != 0x0300 ||
             parameters.JumpSpeedZ != -0x0230 ||
             parameters.WaterExitSpeedZ != -0x01a0 ||
-            parameters.RocsCapeSpeedZ != -0x0080 ||
             parameters.NormalSpeed != 0x28 ||
             parameters.PlatformPushSpeed != 0x14 ||
             parameters.KnockbackSpeed != 0x32 ||
             parameters.IceVelocityInterval != 0x06 ||
             parameters.SwimSpeed != 0x14 ||
             parameters.FastSwimSpeed != 0x23 ||
-            parameters.MermaidTargetSpeed != 0x2d ||
-            parameters.FastMermaidTargetSpeed != 0x37 ||
             parameters.GroundWallMask != 0x30 ||
             parameters.CeilingWallMask != 0xc0 ||
             parameters.LandingHighMask != 0xf8 ||
             parameters.LandingHighOffset != 0x01 ||
             parameters.BelowTileOffset != 8 ||
             parameters.BottomBoundary != 0xa9 ||
+            parameters.BottomLadderTransition != (ages ? 0 : 0x82) ||
             parameters.SpikeTile != 0x02 ||
             parameters.JumpSound != SoundId.SndJump ||
             parameters.LandSound != SoundId.SndLand ||
@@ -186,7 +168,7 @@ internal sealed class SideScrollPlayerDatabase
                 [9, 9, 6]))
         {
             throw new InvalidOperationException(
-                "Imported Ages side-scrolling player data is incomplete or inconsistent.");
+                $"{AssetRoot}: native side-scrolling player data is incomplete or inconsistent.");
         }
 
         int[,,] offsets =
@@ -216,7 +198,7 @@ internal sealed class SideScrollPlayerDatabase
             "8,0,0,0;8,8,2,0",
             "8,0,2,32;8,8,0,32"
         ];
-        for (int mermaid = 0; mermaid < 2; mermaid++)
+        for (int mermaid = 0; mermaid < (ages ? 2 : 1); mermaid++)
         for (int frame = 0; frame < 2; frame++)
         for (int direction = 0; direction < 4; direction++)
         {
@@ -228,7 +210,7 @@ internal sealed class SideScrollPlayerDatabase
                 record.Oam != oam[record.OamIndex])
             {
                 throw new InvalidOperationException(
-                    "Imported Ages side-view Link swimming graphics are inconsistent.");
+                    $"{AssetRoot}: native side-view Link swimming graphics are inconsistent.");
             }
         }
     }
@@ -262,21 +244,19 @@ public readonly record struct SideScrollPlayerParameters(
     int MaximumFallSpeed,
     int JumpSpeedZ,
     int WaterExitSpeedZ,
-    int RocsCapeSpeedZ,
     int NormalSpeed,
     int PlatformPushSpeed,
     int KnockbackSpeed,
     int IceVelocityInterval,
     int SwimSpeed,
     int FastSwimSpeed,
-    int MermaidTargetSpeed,
-    int FastMermaidTargetSpeed,
     int GroundWallMask,
     int CeilingWallMask,
     int LandingHighMask,
     int LandingHighOffset,
     int BelowTileOffset,
     int BottomBoundary,
+    int BottomLadderTransition,
     int SpikeTile,
     int JumpSound,
     int LandSound,

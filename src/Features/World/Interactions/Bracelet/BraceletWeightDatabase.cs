@@ -20,7 +20,7 @@ internal sealed class BraceletWeightDatabase
         var weights = GeneratedTable.Load(AssetRoot + "metadata/bracelet_weights.tsv",
             new GeneratedTableSchema("itemWeights", GeneratedTableKeySemantics.Unique,
                 ["weight","gravity","initial-speed-z","speed-raw","toss-speed-raw","source"], ["weight"], headerRequired: true));
-        if (weights.Rows.Count != 6) throw new InvalidOperationException("itemWeights requires six Ages rows.");
+        if (weights.Rows.Count != 6) throw new InvalidOperationException($"{AssetRoot}: itemWeights requires six native rows.");
         for (int i = 0; i < 6; i++)
         {
             var row = weights.Rows[i];
@@ -31,7 +31,7 @@ internal sealed class BraceletWeightDatabase
         var offsets = GeneratedTable.Load(AssetRoot + "metadata/bracelet_weight_offsets.tsv",
             new GeneratedTableSchema("liftedObjectPositions", GeneratedTableKeySemantics.Unique,
                 ["weight","frame","direction","z","x","source"], ["weight","frame","direction"], headerRequired: true));
-        if (offsets.Rows.Count != 80) throw new InvalidOperationException("liftedObjectPositions requires 80 Ages Z/X pairs.");
+        if (offsets.Rows.Count != 80) throw new InvalidOperationException($"{AssetRoot}: liftedObjectPositions requires 80 native Z/X pairs.");
         for (int i = 0; i < 80; i++)
         {
             var row = offsets.Rows[i];
@@ -42,7 +42,7 @@ internal sealed class BraceletWeightDatabase
         }
     }
     internal BraceletWeight Weight(int weight) => weight is >= 0 and < 6 ? _weights[weight]
-        : throw new NotSupportedException($"itemWeights index ${weight:x2} is outside the imported Ages table.");
+        : throw new NotSupportedException($"{AssetRoot}: itemWeights index ${weight:x2} is outside the native table.");
     internal Vector2I LiftOffset(int weight, int frame, int direction) =>
         weight is >= 0 and < 5 && frame is >= 0 and < 4 && direction is >= 0 and < 4 ? _offsets[weight,frame,direction]
         : throw new NotSupportedException($"liftedObjectPositions weight${weight:x2}/frame${frame:x2}/direction${direction:x2} is not represented.");

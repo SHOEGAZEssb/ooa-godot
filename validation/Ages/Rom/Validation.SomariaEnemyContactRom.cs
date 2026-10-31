@@ -24,6 +24,17 @@ public sealed partial class ValidationRoot
                 // are declared inputs. The original scan owns all contact
                 // priority, damage, recoil and invincibility publications.
                 collision.ClearObjects();
+                collision[0xc6aa] = (byte)_player.HealthQuarters;
+                collision[0xd024] = (byte)(_player.PatchCollisionsEnabled ? 0x80 : 0);
+                collision[0xd025] = unchecked((byte)_player.PendingContactDamageRaw);
+                collision[0xd02a] = (byte)(_player.NativeContactSignal ? 0x80 : 0);
+                collision[0xd02b] = unchecked((byte)(int)_player.InvincibilityFrames);
+                collision[0xd02d] = (byte)_player.KnockbackFrames;
+                collision[0xd00b] = (byte)_player.EnemyContactPosition.Y;
+                collision[0xd00d] = (byte)_player.EnemyContactPosition.X;
+                collision[0xd00f] = unchecked((byte)_player.EnemyContactZ);
+                collision[0xd026] = collision[0xd027] = 6;
+                collision[0xd029] = 1;
                 observedBlock = _entities.Entities<SomariaBlock>().SingleOrDefault();
                 if (observedBlock is not { CollisionEnabled: true } child) return;
                 const int enemy = 0xd080, item = 0xd700;
@@ -64,6 +75,10 @@ public sealed partial class ValidationRoot
                     (child.DamageToApply & 0xff) != collision[0xd725] || child.Health != collision[0xd729] ||
                     child.KnockbackAngle != collision[0xd72c] || child.Flags != collision[0xd72f] || child.ContactFlags != collision[0xd72a],
                     $"Native Somaria/ENEMY$32 contact differs: enemy health={target.Health}/{collision[0xd0a9]}, pending={target.NativeHitPending}/${collision[0xd0aa]:x2}, inv={target.InvincibilityCounter}/{collision[0xd0ab]}, angle={target.KnockbackAngle}/{collision[0xd0ac]}, recoil={target.KnockbackCounter}/{collision[0xd0ad]}; child damage={child.DamageToApply}/{unchecked((sbyte)collision[0xd725])}, health={child.Health}/{collision[0xd729]}, angle={child.KnockbackAngle}/{collision[0xd72c]}, flags=${child.Flags:x2}/${collision[0xd72f]:x2}, contact=${child.ContactFlags:x2}/${collision[0xd72a]:x2}; dispatches={string.Join(',', collision.Dispatches)}.");
+                FailIf((_player.PendingContactDamageRaw & 0xff) != collision[0xd025] ||
+                    _player.NativeContactSignal != (collision[0xd02a] != 0) ||
+                    _player.InvincibilityFrames != unchecked((sbyte)collision[0xd02b]) || _player.KnockbackFrames != collision[0xd02d],
+                    "The Somaria/Keese scan must include Link's actual eligibility and body-contact signal/recoil rather than assume Link is absent.");
             }
             foreach (var enemy in _entities.Entities<KeeseCharacter>())
             {

@@ -63,8 +63,8 @@ public sealed partial class ValidationRoot
                         FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                             pit.State != rom[0xd0c4] || pit.Counter != rom[0xd0c6] ||
                             _runtimeState.ReadWramByte(AgesWramAddress.wDisableScreenTransitions) != rom[0xcc91] ||
-                            (SomariaPrivate<int>(_player, "_forcedRespawnPhase") == 1) != (rom[0xcc4f] == 2) ||
-                            rom[0xcc4f] == 2 && SomariaPrivate<int>(_player, "_forcedRespawnParameter") != 0 ||
+                            _runtimeState.ReadField("wLinkForceState") != rom[0xcc4f] ||
+                            rom[0xcc4f] == 2 && _runtimeState.ReadField("wLinkStateParameter") != rom[0xcc51] ||
                             _player.NativeNormalStateForInteraction != (rom[0xd004] == 1) ||
                             _player.HealthQuarters != rom[0xc6aa] || _player.Visible != ((rom[0xd01a] & 0x80) != 0),
                             $"{context}: XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; " +
@@ -131,7 +131,7 @@ public sealed partial class ValidationRoot
             FailIf(_collision.Collides(_player.Position) ||
                 !_rooms.TryGetNeighbor(Vector2I.Left, out int target) || target != 0x34,
                 "Suction scroll fixture requires original room5:35's open west edge and imported room5:34 neighbor.");
-            _transitions.BeginScroll(_player, Vector2I.Left, 0x34);
+            _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x34);
             var incoming = _entities.Entities<SuctionPitRoomEntity>().Single();
             FailIf(incoming.State != 1 || incoming.Counter != 0x20,
                 "Incoming PART$2e must initialize before the scrolling destination is exposed.");

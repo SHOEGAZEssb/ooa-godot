@@ -94,10 +94,10 @@ public partial class ValidationRoot
                     i < 2 ? new(72 + i * 2,72 + i * 2) : new(120,40 + i * 24),2,2,1));
             Step();
             for (int i = 0; i < 3; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
-            var puff = _entities.EntityAdapters<PuzzlePuffRoomEntity>().Single(entity =>
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+            var puff = _entities.EntityAdapters<StationaryDebrisRoomEntity>().Single(entity =>
                 _entities.InteractionSlot(entity.Node) == 4);
-            var effect = (PuzzlePuffEffect)puff.Node;
+            var effect = (StationaryDebrisEffect)puff.Node;
             FailIf(!_entities.TryMergeSmogClouds(2), "Four-cloud fixture must merge its first pair.");
             Step(4);
             FailIf(puff.Counter2Alias != 0, "Medium initialization must wait five updates before writing $47.");
@@ -111,8 +111,8 @@ public partial class ValidationRoot
             Step();
             FailIf(!effect.Finished, "The aliased puff must still delete on update20.");
             for (int i = 0; i < 3; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
-            var replacementPuff = _entities.EntityAdapters<PuzzlePuffRoomEntity>().Single(entity =>
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+            var replacementPuff = _entities.EntityAdapters<StationaryDebrisRoomEntity>().Single(entity =>
                 _entities.InteractionSlot(entity.Node) == 4);
             FailIf(replacementPuff.Counter2Alias != 0,
                 "interactionDelete clears $40-$7f, including counter2, before the puff slot is reused.");

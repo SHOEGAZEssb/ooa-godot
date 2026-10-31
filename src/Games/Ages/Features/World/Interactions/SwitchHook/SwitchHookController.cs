@@ -41,7 +41,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
     internal void UpdateParent(Player player)
     {
         if (!Active) return;
-        if (Item is null || Item.Finished) { Active = false; return; }
+        if (Item is null || Item.Finished) { ClearParent(); return; }
         CompanionRuntimeState.SetMountingLock(entities.RuntimeState, 1);
         if (player.KnockbackFrames > 0) Item.RequestCancellation();
     }
@@ -84,7 +84,11 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
         else breakEffect(point, tile.Record.Effect);
     }
     internal void UpdatePost(Player player) => Item?.UpdatePost(player.Position, Active);
-    internal void ClearParent() => Active = false;
+    internal void ClearParent()
+    {
+        Active = false;
+        ParentItemAnimationState.Clear(entities.RuntimeState, 2, TreasureId.SwitchHook);
+    }
     internal void Interrupt(bool discard)
     {
         if (discard) Cancel();
@@ -93,7 +97,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
     internal void Cancel()
     {
         bool exchanging = ExchangeActive || Helper is not null;
-        Active = false;
+        ClearParent();
         Helper = null;
         if (exchanging && _player is not null && GodotObject.IsInstanceValid(_player)) _player.ClearSwitchHookZ();
         _player = null;

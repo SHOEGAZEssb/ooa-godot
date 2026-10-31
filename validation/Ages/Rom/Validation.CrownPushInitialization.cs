@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
             void Step(int count = 1,int angle = 0xff)
             {
                 StepGameplayUpdates(count,angle == 0 ? Vector2.Up : Vector2.Zero,batched:batch,afterUpdate:() => {
-                    rom.UpdateGameplay(0,angle == 0 ? 0x40 : 0,angle,_entities.FrameCounter-1,() => {
+                    rom.UpdateGameplay(0,angle == 0 ? 0x40 : 0,angle,_saveData.ReadField("wPlaytimeCounter"),() => {
                         if (nativeInjected || rom[0xd140] == 0) return;
                         FailIf(rom[0xd144] != 0 || rom[0xd14a] != 0 || rom[0xd14b] != 86 ||
                             rom[0xd14d] != 120 || rom[0xcf57] != 0x2a || rom[0xcca6] != 0 ||

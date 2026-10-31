@@ -437,6 +437,15 @@ public sealed partial class ValidationRoot
                         "power", StringComparison.OrdinalIgnoreCase),
                     "Farore sword upgrade did not mark secret $00 and show TX_5509.");
                 _dialogue.Close(); Step();
+                FailIf(_runtimeState.ReadField("wTmpcfc0") != 2 || _runtimeState.ReadField("wDisabledObjects") != 0x81,
+                    "Farore checkcfc0bit must yield before the native XOR command clears reward signal bit1.");
+                Step();
+                FailIf(_runtimeState.ReadField("wTmpcfc0") != 0 || _runtimeState.ReadField("wDisabledObjects") != 0x81,
+                    "Farore xorcfc0bit must clear bit1 and yield before enableinput.");
+                Step();
+                FailIf(_runtimeState.ReadField("wDisabledObjects") != 0 || _runtimeState.ReadField("wMenuDisabled") != 0,
+                    "Farore's reward signal did not clear the native control bytes.");
+                Step(); // state08 observes the interaction's later enableinput on the next Link dispatch.
                 FailIf(_player.CutsceneControlled,
                     "Farore sword upgrade did not return Link input after reward signal.");
             }
@@ -459,8 +468,8 @@ public sealed partial class ValidationRoot
                     _entities.RuntimeState.ReadWramByte(AgesWramAddress.wChestContentsOverride + 1) != expectedSubid,
                     $"Farore chest quest ${quest:x2} did not publish tile $f1, " +
                     "source treasure override and waiting flag $2c before collection.");
-                _dialogue.Close(); Step();
-                FailIf(_player.CutsceneControlled,
+                _dialogue.Close(); Step(3); // checkcfc0bit, XOR, then enableinput.
+                FailIf(_runtimeState.ReadField("wDisabledObjects") != 0 || _runtimeState.ReadField("wMenuDisabled") != 0,
                     "Farore chest signal did not return Link input before collection.");
                 Vector2 south = new(0x58, 0x98);
                 FailIf(_collision.Collides(south) || _entities.BlocksLink(south) ||

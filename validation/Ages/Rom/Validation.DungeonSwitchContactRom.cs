@@ -92,7 +92,7 @@ public partial class ValidationRoot
                                 hook.CollisionEnabled != ((rom[0xd624] & 0x80) != 0),context + ": Hook state/clock/full XY/collision mask differs.");
                     }
                     else if (!seedShot) FailIf(_player.IsAttacking != (rom[0xd200] != 0),context + ": Sword parent ownership differs.");
-                    FailIf(_inventory.EmberSeeds != rom[0xc6b9],$"{context}: seed spending differs: runtime={_inventory.EmberSeeds}, native={rom[0xc6b9]}, parent=${rom[0xd200]:x2}/${rom[0xd204]:x2}/${rom[0xd207]:x2}, child=${rom[0xd600]:x2}/${rom[0xd604]:x2}, seed=${rom[0xd700]:x2}/${rom[0xd704]:x2}, post={_seedSatchel.ShooterPostShotCounter}.");
+                    FailIf(_inventory.EmberSeeds != rom[0xc6b9],$"{context}: seed spending differs: runtime={_inventory.EmberSeeds}, native={rom[0xc6b9]}, parent=${rom[0xd200]:x2}/${rom[0xd204]:x2}/${rom[0xd207]:x2}, child=${rom[0xd600]:x2}/${rom[0xd604]:x2}, seed=${rom[0xd700]:x2}/${rom[0xd704]:x2}, post={_seedShooter.ShooterPostShotCounter}.");
                     if (seedShot)
                     {
                         FailIf(_player.IsUsingSeedShooter != (rom[0xd200] != 0),context + ": Shooter parent ownership differs.");

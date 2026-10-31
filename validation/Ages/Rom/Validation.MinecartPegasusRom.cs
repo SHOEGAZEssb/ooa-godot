@@ -36,11 +36,11 @@ public sealed partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(center, track, 0, 0);
             _currentRoom.SetPositionTileAndCollision(center + (Vector2)directions[direction] * 16, track, 0, 0);
             _currentRoom.SetPositionTileAndCollision(center - (Vector2)directions[direction] * 16, 0x5f, 0, 0);
-            MinecartRuntimeState.Reset(_runtimeState, []);
-            MinecartRuntimeState.BeginRide(_runtimeState, 0, 0x00, center, direction);
+            ResetMinecartsForValidation(_runtimeState, []);
+            MinecartValidationView.PrepareMountedBody(_runtimeState, center, direction);
             var cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, direction, true),
-                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
-                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
+                _currentRoom, _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound, _entities);
             _entities.AddEntity(cart);
             _player.WarpTo(center + new Vector2(0.25f, 0.5f)); _player.Face(directions[direction]);
             _player.FinishMinecartMount(center, direction, 0);
@@ -55,6 +55,7 @@ public sealed partial class ValidationRoot
             // Execute state0 separately: it clears Pegasus before the first
             // Link update. The tested activation occurs on an initialized cart.
             rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
+            MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
             var sounds = _sound.AttachPlayRequestAudit();
             int button = primary ? 1 : 2, update = 0, previousHeld = 0;
             void Step(int count = 1, bool satchel = false)
@@ -62,7 +63,7 @@ public sealed partial class ValidationRoot
                 int held = satchel ? button : 0, pressed = held & ~previousHeld; previousHeld = held;
                 StepGameplayUpdates(count, Vector2.Zero, MenuRomActions(held), MenuRomActions(pressed), batched, () =>
                 {
-                    rom.UpdateGameplay(pressed, held, 0xff, _entities.FrameCounter - 1); pressed = 0; update++;
+                    rom.UpdateGameplay(pressed, held, 0xff, _saveData.ReadField("wPlaytimeCounter")); pressed = 0; update++;
                     string context = $"Minecart Pegasus A={primary} ring=${ring:x2} direction={direction} update={update} batch={batched}";
                     FailIf(_inventory.PegasusSeeds != rom[0xc6bb] || _seedSatchel.Pegasus.RawCounter != rom.Word(0xcc6c) ||
                         _player.IsUsingSeedSatchel || Enumerable.Range(0xd2, 4).Any(page =>
@@ -94,7 +95,7 @@ public sealed partial class ValidationRoot
             _dialogue.ShowMessage("Minecart Pegasus pause.", _player.Position.Y); rom[0xcba0] = 1;
             Step(6, true); _dialogue.Close(); rom[0xcba0] = 0;
             Step(38, true);
-            FailIf(!cart.Dismounting || !_seedSatchel.Pegasus.Active,
+            FailIf(!cart.Finished || !_seedSatchel.Pegasus.Active,
                 "Minecart must retain the active timer into its airborne platform dismount.");
             Step(48, true);
             FailIf(_player.MinecartJumpActive || !_seedSatchel.Pegasus.Active,

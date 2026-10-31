@@ -6,7 +6,7 @@ namespace Oracles;
 
 internal sealed class AnglerFishRoomEntity : CombatEnemyRoomEntityAdapter<AnglerFishCharacter>,IFixedRoomEntity,
     INativeEnemySlotRoomEntity,INativeEnemyCounter1RoomEntity,IScreenTransitionPreloadRoomEntity,
-    IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze,IPlayerForcedMovement,
+    IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze,
     ILinkSwordStateAwareRoomEntity,IPostObjectMeleeCollisionRoomEntity,IItemCollisionHittableRoomEntity,
     ISeedCollisionTarget,IExpertPunchHittableRoomEntity,ISomariaBlockCollisionRoomEntity,IBoomerangCollisionRoomEntity
 {
@@ -31,8 +31,6 @@ internal sealed class AnglerFishRoomEntity : CombatEnemyRoomEntityAdapter<Angler
     public void BindEnemySlot(int slot,Func<int,IRoomEntity?> resolve)=>Entity.Slot=slot;
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)=>
         Entity.UpdateFrame(frame.Player,frame.ScentSeedTarget??frame.Player.Position,frame.Counter);
-    public void UpdatePlayerForcedMovement(Player player)
-    {if(!Entity.IsBubble && !Entity.IsAntenna && !Finished)_world.Entry.Update(player);}
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {Entity.InitializeNative(true);return ScreenTransitionPresentation.Hidden;}
     public void SetLinkSwordState(SwordActionState state,int level,int? itemCollisionType=null)=>_sword=itemCollisionType??SwordCollision.Type(state,level);

@@ -15,8 +15,7 @@ internal sealed class GibdoRoomEntity : CombatEnemyRoomEntityAdapter<GibdoCharac
         EnemyCombatSourceDescriptor combat, Action<int> sound, Func<bool> canSpawnPart, Func<byte> random)
         : base(gibdo, gibdo.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(combat, gibdo, gibdo.Record.DamageQuarters,
-                gibdo.TakeSwordHit, _ => false, gibdo.ApplySwordNoKnockback, sound,
-                EnemySwordResponse.NoKnockback), collisionZ: () => gibdo.ZFixed >> 8)
+                gibdo.TakeSwordHit, _ => false, gibdo.ApplySwordNoKnockback, sound), collisionZ: () => gibdo.ZFixed >> 8)
     { _source = source; _canSpawnPart = canSpawnPart; _random = random; }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

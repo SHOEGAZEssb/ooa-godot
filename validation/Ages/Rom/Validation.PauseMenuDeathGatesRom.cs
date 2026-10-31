@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
             Vector2 position = Enumerable.Range(1, 6).SelectMany(y => Enumerable.Range(1, 8)
                 .Select(x => new Vector2(x * 16 + 8, y * 16 + 8)))
                 .First(point => !_collision.Collides(point) && landing.CanStandOnTile(_currentRoom, point, false) &&
-                    !WarpDatabase.IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(point)));
+                    !WarpDatabase.For(AgesGameContent.AssetRoot).IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(point)));
             _player.WarpTo(position); _player.Face(Vector2I.Down);
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 2, (int)position.X, (int)position.Y);
@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
                     // consumes it into $e7 and advances Link's death state.
                     menus.Update(edge, held, _saveData.ReadWramByte(0xc622));
                     rom.AdvanceDeathPrelude();
-                    rom.UpdateGameplay(edge, held, 0xff, _entities.FrameCounter - 1);
+                    rom.UpdateGameplay(edge, held, 0xff, _saveData.ReadField("wPlaytimeCounter"));
                     menus.UpdateHud(_saveData.ReadWramByte(0xc622)); edge = 0;
                     string context = $"Death menu gates intro={introDone} keys=${keys:x2} batch={batched} update={++update}";
                     FailIf(_menuLifecycle.IsActive || rom[0xcbcb] != 0 || !_player.IsDying || rom[0xcdd5] != 0xe7 ||

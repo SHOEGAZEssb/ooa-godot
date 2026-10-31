@@ -12,6 +12,10 @@ namespace Oracles;
 internal static class OracleGraphicsCache
 {
     private static int _applicationOwners;
+    private static readonly HashSet<Action> ApplicationCacheReleases = new();
+
+    // Static feature caches register once and participate in every root lifetime.
+    internal static void RegisterApplicationCache(Action clear) => ApplicationCacheReleases.Add(clear);
 
     internal static void ApplicationEnteredTree() => _applicationOwners++;
 
@@ -177,12 +181,12 @@ internal static class OracleGraphicsCache
         return Image.CreateFromData(width, height, false, Image.Format.Rgba8, pixels);
     }
 
-    internal static Image AppendGraphics(Image source, string extraPath)
+    internal static Image AppendGraphics(Image source, string extraPath, bool invertExtra = false)
     {
         Image extra = LoadImage(extraPath);
         int extraOffset = Mathf.CeilToInt(source.GetWidth() / 128.0f) * 128;
         CompositeKey key = new CompositeKey(
-            source.GetInstanceId(), extra.GetInstanceId(), extraOffset);
+            source.GetInstanceId(), extra.GetInstanceId(), extraOffset, invertExtra);
         if (CompositeImages.TryGetValue(key, out Image? cached))
         {
             if (_observer is not null)
@@ -207,6 +211,18 @@ internal static class OracleGraphicsCache
             extra,
             new Rect2I(0, 0, extra.GetWidth(), extra.GetHeight()),
             new Vector2I(extraOffset, 0));
+        if (invertExtra)
+        {
+            byte[] pixels = combined.GetData();
+            for (int y = 0; y < extra.GetHeight(); y++)
+            for (int x = extraOffset; x < combined.GetWidth(); x++)
+            for (int channel = 0; channel < 3; channel++)
+            {
+                int index = (y * combined.GetWidth() + x) * 4 + channel;
+                pixels[index] = (byte)(255 - pixels[index]);
+            }
+            combined.SetData(combined.GetWidth(), combined.GetHeight(), false, Image.Format.Rgba8, pixels);
+        }
 
         CompositeImages.Add(key, combined);
         ImmutableImages.Add(combined.GetInstanceId());
@@ -415,6 +431,7 @@ internal static class OracleGraphicsCache
 
     private static void Shutdown()
     {
+        foreach (Action clear in ApplicationCacheReleases) clear();
         ImagePixels.Clear();
         ImmutableImages.Clear();
         MonochromeFonts.Clear();
@@ -486,7 +503,7 @@ internal enum CompositionMode : byte
     Positioned
 }
 
-internal readonly record struct CompositeKey(ulong BaseImageId, ulong ExtraImageId, int ExtraOffset);
+internal readonly record struct CompositeKey(ulong BaseImageId, ulong ExtraImageId, int ExtraOffset, bool InvertExtra);
 
 internal readonly record struct OamKey(ulong SourceImageId, ulong SourceHash, string EncodedOam, int TileBase, int BasePalette, int SourceOffset, bool HasPaletteOverride, ulong PaletteColors01, ulong PaletteColors23, string PaletteOverrides, bool SourceGrayscaleInverted, CompositionMode Composition);
 

@@ -31,6 +31,7 @@ internal static class BraceletLiftSequence
             return false;
         }
 
+        player.SetBraceletActionPose(BraceletActionPose.LiftHigh);
         setLiftOffset(2);
         if (counter < finishedBoundary)
             return false;

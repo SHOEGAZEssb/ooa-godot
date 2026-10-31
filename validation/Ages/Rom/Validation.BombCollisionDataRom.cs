@@ -4,9 +4,9 @@ public sealed partial class ValidationRoot
 {
     private void CompareBombCollisionDataRom()
     {
-        var native = new ObjectCollisionRom(); var data = BombCollisionDatabase.Shared;
+        var native = new ObjectCollisionRom(); var data = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
         for (int mode = 0; mode < 0x7d; mode++)
-            FailIf(data.Effect(mode) != native.Table(0x6d0a + mode * 32 + 0x18),
+            FailIf(data.Effect(mode, ItemCollisionType.Bomb) != native.Table(0x6d0a + mode * 32 + 0x18),
                 $"ITEMCOLLISION_BOMB mode ${mode:x2} must retain its clean-US effect.");
         foreach (bool part in new[] { false, true })
         for (int type = 0; type < (part ? 0x5a : 128); type++)
@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             native[0xd70b] = 64; native[0xd70d] = 80;
             native[0xd724] = 0x98; native[0xd726] = native[0xd727] = 0x18; native[0xd728] = 0xfc;
             native.Call(ObjectCollisionRom.Scan);
-            FailIf(native.Dispatches.Count != ((part ? data.PartEnabled(type) : data.EnemyEnabled(type)) ? 1 : 0),
+            FailIf(native.Dispatches.Count != ((part ? data.PartEnabled(type, ItemCollisionType.Bomb) : data.EnemyEnabled(type, ItemCollisionType.Bomb)) ? 1 : 0),
                 $"ITEMCOLLISION_BOMB {(part ? "PART" : "ENEMY")} ${type:x2} native active mask differs.");
         }
     }

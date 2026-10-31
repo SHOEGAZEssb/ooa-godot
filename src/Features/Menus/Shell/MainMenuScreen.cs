@@ -36,6 +36,8 @@ public partial class MainMenuScreen : Node2D
     private Texture2D _eraseMenu = null!;
     private Texture2D _newFileMenu = null!;
     private Texture2D[] _nameEntryMenus = null!;
+    private Texture2D? _kidNameEntryMenu;
+    private bool _enteringKidName;
     private Texture2D _textSpeedMenu = null!;
     private Texture2D _font = null!;
     private Texture2D _fileFont = null!;
@@ -113,7 +115,7 @@ public partial class MainMenuScreen : Node2D
         if (Game == OracleGame.Seasons)
         {
             var titleOam = new Dictionary<string, IReadOnlyList<MenuOamPart>>(StringComparer.Ordinal);
-            MenuPresentationDatabase.LoadOamLayouts(AssetRoot + "menu/title_oam.tsv", "Seasons title OAM", titleOam,
+            MenuPresentationTable.LoadOamLayouts(AssetRoot + "menu/title_oam.tsv", "Seasons title OAM", titleOam,
                 new Dictionary<string,int> { ["logo"] = 18, ["press-start"] = 10 });
             int[,] Parts(IReadOnlyList<MenuOamPart> parts)
             {
@@ -197,7 +199,7 @@ public partial class MainMenuScreen : Node2D
             Page.CopySource or Page.CopyDestination or Page.CopyConfirm => _copyMenu,
             Page.EraseSelect or Page.EraseConfirm => _eraseMenu,
             Page.NewFileOptions => _newFileMenu,
-            Page.NameEntry => _nameEntryMenus[SelectedSlot],
+            Page.NameEntry => _enteringKidName ? _kidNameEntryMenu! : _nameEntryMenus[SelectedSlot],
             Page.SecretEntry => _secretEntryMenu!,
             Page.TextSpeed => _textSpeedMenu,
             _ => _fileMenu
@@ -251,6 +253,7 @@ public partial class MainMenuScreen : Node2D
 
     internal void ShowNameEntry(int slot, string initialName)
     {
+        _enteringKidName = false;
         CurrentPage = Page.NameEntry;
         SelectedSlot = slot;
         Array.Clear(_enteredName);
@@ -261,6 +264,13 @@ public partial class MainMenuScreen : Node2D
         _nameLowerChoice = 0;
         NameCursor = 0;
         QueueRedraw();
+    }
+    internal void ShowKidNameEntry(string initialName)
+    {
+        ShowNameEntry(0, initialName);
+        _enteringKidName = true;
+        _nameEntryPosition = 0;
+        _kidNameEntryMenu ??= BuildNameEntryTexture(-1);
     }
     internal void ShowSecretEntry(int length = 5, int slot = 0, bool retainInput = false)
     {
@@ -979,7 +989,7 @@ public partial class MainMenuScreen : Node2D
 
         // label_02_038 writes hActiveFileSlot+$20 into this tile before the
         // $9c00 tilemap upload, producing the original FILE 1/2/3 digit.
-        if (!secret) map[0x49] = (byte)(0x20 + slot);
+        if (!secret && slot >= 0) map[0x49] = (byte)(0x20 + slot);
         if (error)
         {
             Overlay(map, ReadBytes(AssetRoot + "menu/map_secret_entry_error.bin", 64), 0x140);

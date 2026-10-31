@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
                 if (gate == 0) _saveData.WriteWramByte(0xc647,0x80);
                 int direction = gate == 4 ? 0 : 2;
                 _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(new(104,96),direction,0,0x89,Riding:true));
-                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,0x0c,0x89,new(104,96),direction);
+                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,0x0c,new(104,96),direction);
             }
             if (gate == 1) _saveData.WriteWramByte(0xc614,1);
             var barrier = _entities.Entities<CompanionBarrierRoomEntity>().Single();
@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
             {
                 int edge = dismount ? 2 : 0;
                 StepGameplayUpdates(count,Vector2.Zero,dismount ? ["item"] : [],dismount ? ["item"] : [],batch,afterUpdate:() => {
-                    rom.AdvanceDeathPrelude(); rom.UpdateGameplay(edge,dismount ? 2 : 0,0xff,_entities.FrameCounter-1); edge = 0;
+                    rom.AdvanceDeathPrelude(); rom.UpdateGameplay(edge,dismount ? 2 : 0,0xff,_saveData.ReadField("wPlaytimeCounter")); edge = 0;
                     FailIf(barrier.Finished != (rom[0xd340] == 0) ||
                         !barrier.Finished && barrier.State != rom[0xd344] ||
                         tutorial.Finished != (rom[0xd240] == 0) || !tutorial.Finished && tutorial.State != rom[0xd244],

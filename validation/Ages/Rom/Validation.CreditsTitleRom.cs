@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
             // closeup -> native0a handoff. These are fixture inputs only.
             foreach(var pair in new[]{(0xc2ef,9),(0xcbc1,1),(0xcbc2,8),(0xcbb3,14),(0xcbba,1),(0xcbc3,255),(0xcbc4,255),(0xcbc5,255)})
             {_runtimeState.SetWramByte(pair.Item1,(byte)pair.Item2);rom[pair.Item1]=(byte)pair.Item2;}
-            var screen=_scene.EndingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,titleStart=0,fadeStart=0,finished=0;
+            var screen=_endingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,titleStart=0,fadeStart=0,finished=0;
             Texture2D? previousBackground=null;bool clearedTerrain=false;
             void Compare()
             {

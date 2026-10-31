@@ -5,11 +5,13 @@ namespace Oracles;
 
 // parentItemGenericState1 owns only the throw pose and movement/turning lock.
 // Physical children retain their independent lifetime after the parent clears.
-internal sealed class ItemThrowParent
+internal class ItemThrowParent
 {
     private readonly Dictionary<int, List<Frame>> _frames = new();
     private int _index;
     private int _counter;
+    protected readonly OracleRuntimeState Memory;
+    private readonly int _itemId;
     internal bool Active { get; private set; }
     internal bool Pending { get; private set; }
     internal int Slot { get; private set; }
@@ -18,8 +20,10 @@ internal sealed class ItemThrowParent
     internal int Parameter => Active && !Pending ? _frames[Mode][_index].Parameter : 0;
     internal int Counter => _counter;
 
-    internal ItemThrowParent(string assetRoot)
+    internal ItemThrowParent(string assetRoot, OracleRuntimeState memory, int itemId)
     {
+        Memory = memory;
+        _itemId = itemId;
         var table = GeneratedTable.Load(assetRoot + "metadata/item_throw_parent_animations.tsv",
             new GeneratedTableSchema("parentItemGenericState1 animations", GeneratedTableKeySemantics.Unique,
                 ["mode", "frame", "duration", "graphic", "parameter", "source"],
@@ -65,8 +69,9 @@ internal sealed class ItemThrowParent
         if (--_counter == 0) _counter = _frames[Mode][++_index].Duration;
     }
 
-    internal void Clear()
+    internal virtual void Clear()
     {
+        if (Slot != 0) ParentItemAnimationState.Clear(Memory, Slot, _itemId);
         Active = false;
         Pending = false;
         Slot = 0;

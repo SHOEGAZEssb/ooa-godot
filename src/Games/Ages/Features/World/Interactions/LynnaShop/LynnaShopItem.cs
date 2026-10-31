@@ -28,6 +28,16 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
     internal ulong CurrentPixelHash => HashImage(_frames[_frame].Texture.GetImage());
     internal ulong DigitPixelHash => HashImage(_digitTextures[0].GetImage());
     internal int DigitColorCount => CountColors(_digitTextures[0].GetImage());
+    internal bool Initialized => _frames.Count != 0;
+
+    internal void Place(StockRecord stock)
+    {
+        Record = stock.Item;
+        Order = stock.Order;
+        _shelfPosition = new Vector2(stock.X, stock.Y);
+        Position = _shelfPosition;
+        _pricePosition = new Vector2((Record.PriceTile & 0x1f) * 8, (Record.PriceTile >> 5) * 8);
+    }
 
     public void Initialize(
         StockRecord stock,
@@ -36,13 +46,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
     {
         AssetRoot = room.AssetRoot;
         using var diagnostics = OracleRoomLoadDiagnostics.Begin("shop-item", room.Group, room.Id);
-        Record = stock.Item;
-        Order = stock.Order;
-        _shelfPosition = new Vector2(stock.X, stock.Y);
-        Position = _shelfPosition;
-        _pricePosition = new Vector2(
-            (Record.PriceTile & 0x1f) * 8,
-            (Record.PriceTile >> 5) * 8);
+        Place(stock);
 
         Image source = OracleGraphicsCache.LoadImage(
             AgesGameContent.AssetRoot + $"gfx/{Record.Sprite}.png");
@@ -104,7 +108,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
         int negativePointOffset,
         int positivePointOffset)
     {
-        if (Held || Removed || player.CutsceneControlled ||
+        if (!Initialized || Held || Removed || player.CutsceneControlled ||
             player.IsHoldingItemOneHand || player.IsHoldingItemTwoHands ||
             player.IsCarryingObject)
         {

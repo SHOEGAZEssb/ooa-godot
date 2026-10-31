@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
                     StepSomariaMotionRom(rom,count,batch,input,afterUpdate:() => {
                         string context = $"Block hazard/grave={spec.Grave}, L{spec.Level}, full={spec.Full}, repeat={repeat}, batch={batch}, update={++update}";
                         FailIf(_pushBlocks.Active != (rom[0xd140] != 0) ||
-                            _pushBlocks.LinkMovementDisabled != ((rom[0xcc8a] & 1) != 0) ||
+                            _runtimeState.ReadField("wDisabledObjects") != rom[0xcc8a] ||
                             _pushBlocks.RemainingPushFrames != rom[0xcc6a],context + ": reserved allocation/contact clock/Link lock differs.");
                         if (_pushBlocks.Active)
                             FailIf(_pushBlocks.BlockTopLeft+new Vector2(8,6) !=
@@ -73,25 +73,25 @@ public sealed partial class ValidationRoot
                 {
                     for (int index = 0; index < 14; index++)
                     {
-                        var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                        var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                         int slot = 0xd000+_entities.InteractionSlot(puff)*256+0x40;
                         rom[slot] = 1; rom[slot+1] = 5; rom[slot+2] = 0x80;
                         rom[slot+0xb] = rom[slot+0xd] = 24;
                     }
                 }
                 Step();
-                FailIf(_pushBlocks.Active || _pushBlocks.LinkMovementDisabled || IsTransitioning ||
+                FailIf(_pushBlocks.Active || (_runtimeState.ReadField("wDisabledObjects") & 1) != 0 || IsTransitioning ||
                     _currentRoom.GetMetatile(center) != (spec.Grave ? 0xdc : 0xa0) ||
                     _currentRoom.GetMetatile(center+direction*16) != (spec.Grave ? 2 : 0xf7),
                     "Source completion must clear the reserved block/lock, preserve the hole or place the grave, and retain Link outside stair bounds.");
                 if (spec.Grave)
                     FailIf(
-                        !AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x58,0x28)) ||
-                        AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x53,0x28)) ||
-                        !AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x54,0x20)) ||
-                        !AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x5d,0x29)) ||
-                        AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x5e,0x29)) ||
-                        AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x58,0x2a)),
+                        !RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x58,0x28)) ||
+                        RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x53,0x28)) ||
+                        !RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x54,0x20)) ||
+                        !RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x5d,0x29)) ||
+                        RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x5e,0x29)) ||
+                        RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x58,0x2a)),
                         "Revealed room0:7c/$25 staircase must retain bounds $54-$5d/$20-$29.");
                 if (!spec.Grave && !spec.Full)
                 {

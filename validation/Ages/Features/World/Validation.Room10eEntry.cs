@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         ];
         for (int collisions = 0; collisions < sourceWarpTiles.Length; collisions++)
         for (int tile = 0; tile <= 0xff; tile++)
-            FailIf(WarpDatabase.IsWarpTile(collisions, (byte)tile) !=
+            FailIf(WarpDatabase.For(AgesGameContent.AssetRoot).IsWarpTile(collisions, (byte)tile) !=
                 (System.Array.IndexOf(sourceWarpTiles[collisions], (byte)tile) >= 0),
                 $"warpTileTable collision set ${collisions:x2} misclassified tile ${tile:x2}.");
 
@@ -47,8 +47,8 @@ public sealed partial class ValidationRoot
                     _currentRoom.GetMetatile(_player.Position) != 0xef,
                     "Room 1:0e's $ef arrival floor incorrectly triggered dungeon 6.");
                 var warps = new WarpDatabase(AgesGameContent.AssetRoot);
-                FailIf(warps.TryGetTileWarp(1, _currentRoom, 0x65, 0xef, out _) ||
-                    !warps.TryGetTileWarp(1, _currentRoom, 0x16, 0xaf, out Warp dungeon) ||
+                FailIf(TryGetResolvedTileWarp(warps,1, _currentRoom, 0x65, 0xef, out _) ||
+                    !TryGetResolvedTileWarp(warps,1, _currentRoom, 0x16, 0xaf, out Warp dungeon) ||
                     dungeon.DestinationGroup != 5 || dungeon.DestinationRoom != 0x26,
                     "Room 1:0e must reject floor $ef and retain its indoor $af warp to 5:26.");
                 StepGameplayUpdates(8, Vector2.Up, batched: batched);

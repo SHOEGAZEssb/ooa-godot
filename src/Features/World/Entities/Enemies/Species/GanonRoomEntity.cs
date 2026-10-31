@@ -35,9 +35,9 @@ internal sealed class GanonRoomEntity : CombatEnemyRoomEntityAdapter<GanonCharac
             case 0x1c:case 0x20:Entity.PublishHit(item);return true;
             case 0x15:case 0x16:
                 _attackerRecoil=effect==0x15?EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback.LowFrames:EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback.NormalFrames;
-                Entity.PublishHit(item,0,-28);Entity.World.Entities.TryCreateBoomerangClink(CollisionMidpoint(Entity.Position,origin),0);
+                Entity.PublishHit(item,0,-28);Entity.World.Entities.TryCreateItemCollisionClink(CollisionMidpoint(Entity.Position,origin),0);
                 Entity.World.Entities.OnSoundRequested(SoundId.SndBombLand);return true;
-            case 0x1b:Entity.PublishHit(item,0,-20);Entity.World.Entities.TryCreateBoomerangClink(CollisionMidpoint(Entity.Position,origin),0);return true;
+            case 0x1b:Entity.PublishHit(item,0,-20);Entity.World.Entities.TryCreateItemCollisionClink(CollisionMidpoint(Entity.Position,origin),0);return true;
             case 0x2c:
                 _attackerRecoil=EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback.NormalFrames;
                 Entity.World.Entities.OnSoundRequested(SoundId.SndBombLand);goto case 0x21;

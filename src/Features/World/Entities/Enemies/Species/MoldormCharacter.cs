@@ -19,6 +19,9 @@ internal partial class MoldormCharacter : EnemyCharacter
     private int _angle;
     private int _angularSpeed;
     private bool _justHit;
+    internal override bool NativeHitPending => _justHit;
+    internal override void DeferNativeHitStatus() => _justHit = true;
+    private protected override void ClearNativeHitStatus() => _justHit = false;
     internal MoldormTailCharacter? Tail1 { get; set; }
     internal MoldormTailCharacter? Tail2 { get; set; }
     internal Action<MoldormCharacter>? KillRelatedParts { get; set; }
@@ -183,9 +186,9 @@ internal partial class MoldormCharacter : EnemyCharacter
         return true;
     }
 
-    internal override bool TryApplyShieldBump(Rect2 hitbox, Vector2 sourcePosition, EnemyKnockbackStrength strength)
+    internal override bool TryApplyCollisionBump(Rect2 hitbox, Vector2 sourcePosition, EnemyKnockbackStrength strength)
     {
-        if (!base.TryApplyShieldBump(hitbox, sourcePosition, strength)) return false;
+        if (!base.TryApplyCollisionBump(hitbox, sourcePosition, strength)) return false;
         _justHit = true;
         return true;
     }

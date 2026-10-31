@@ -85,7 +85,7 @@ public partial class ValidationRoot
                 Room();
                 _currentRoom.SetPositionTileAndCollision(new(104, 88), 0x2e, 0x0f, 0);
                 if (full)
-                    for (int i = 0; i < 14; i++) _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), SoundId.MusNone));
+                    for (int i = 0; i < 14; i++) _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200, 120), SoundId.MusNone));
                 var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(95.5f, 80.5f), ObjectAngle.Right, -5));
                 _sound.ClearPlayRequestAudit();
                 Step(2);

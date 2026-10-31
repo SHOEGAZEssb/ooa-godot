@@ -10,7 +10,7 @@ namespace Oracles;
 public sealed class NewGameIntroDatabase
 {
     public NewGameIntroRecord Record { get; }
-    private readonly Dictionary<string, IntroSpriteFrame[]> _spriteFrames = new();
+    private readonly Dictionary<string, ObjectSpriteFrame[]> _spriteFrames = new();
 
     public NewGameIntroDatabase(string assetRoot)
     {
@@ -50,8 +50,8 @@ public sealed class NewGameIntroDatabase
         LoadSpriteFrames(assetRoot);
     }
 
-    public IntroSpriteFrame[] SpriteFrames(string kind) =>
-        _spriteFrames.TryGetValue(kind, out IntroSpriteFrame[]? frames)
+    public ObjectSpriteFrame[] SpriteFrames(string kind) =>
+        _spriteFrames.TryGetValue(kind, out ObjectSpriteFrame[]? frames)
             ? frames
             : throw new InvalidOperationException($"New-game intro sprite kind is missing: {kind}.");
 
@@ -65,7 +65,7 @@ public sealed class NewGameIntroDatabase
                 ["kind", "index", "duration", "source-offset", "base-palette", "oam-parts"],
                 ["kind"],
                 headerRequired: true));
-        var grouped = new Lookup<string, IntroSpriteFrame>(
+        var grouped = new Lookup<string, ObjectSpriteFrame>(
             StringComparer.Ordinal);
         foreach (GeneratedTableRow row in table.Rows)
         {
@@ -76,23 +76,23 @@ public sealed class NewGameIntroDatabase
                 string[] fields = value.Split(',');
                 if (fields.Length != 4)
                     throw new InvalidOperationException("Invalid new-game intro OAM part.");
-                return new IntroOamPart(
+                return new ObjectSpritePart(
                     Convert.ToInt32(fields[0], 16),
                     Convert.ToInt32(fields[1], 16),
                     Convert.ToInt32(fields[2], 16),
                     Convert.ToInt32(fields[3], 16));
             }).ToArray();
-            List<IntroSpriteFrame> frames = grouped.GetOrAdd(kind);
+            List<ObjectSpriteFrame> frames = grouped.GetOrAdd(kind);
             if (index != frames.Count)
                 throw new InvalidOperationException(
                     $"New-game intro sprite {kind} expected frame {frames.Count}, got {index}.");
-            frames.Add(new IntroSpriteFrame(
+            frames.Add(new ObjectSpriteFrame(
                 row.UnsignedDecimal(2),
                 row.HexWord(3),
                 row.UnsignedDecimal(4),
                 parts));
         }
-        foreach ((string kind, IReadOnlyList<IntroSpriteFrame> frames) in grouped)
+        foreach ((string kind, IReadOnlyList<ObjectSpriteFrame> frames) in grouped)
             _spriteFrames[kind] = frames.ToArray();
     }
 
@@ -106,7 +106,3 @@ public sealed class NewGameIntroDatabase
 }
 
 public readonly record struct NewGameIntroRecord(int InitialWaitFrames, int VoiceWaitFrames, int PostVanishWaitFrames, int SummonFrames, int LinkX, int LinkY, int LinkSummonedFlag, int PregameIntroDoneFlag, int TextPosition, int TextId, int SpinFrameDuration, int[] SpinGraphics, int[] VanishDurations, int[] VanishGraphics, int[] DescendOscillation, int[] HoverOscillation, string Text);
-
-public readonly record struct IntroSpriteFrame(int Duration, int SourceOffset, int BasePalette, IntroOamPart[] Parts);
-
-public readonly record struct IntroOamPart(int Y, int X, int Tile, int Flags);

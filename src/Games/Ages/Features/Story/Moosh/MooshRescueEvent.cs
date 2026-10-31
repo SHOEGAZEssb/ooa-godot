@@ -10,9 +10,8 @@ namespace Oracles;
 /// the persistent mounted-companion runtime at companionForceMount.
 /// </summary>
 internal sealed class MooshRescueEvent :
-    InteractiveCutsceneCommandHost,
+    RoomCutsceneCommandHost,
     IRoomEntryEvent,
-    IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
 {
     private const string Ghini0 = "Ghini0";
@@ -31,14 +30,10 @@ internal sealed class MooshRescueEvent :
     private readonly Dictionary<string, int> _ghiniAngles =
         new(StringComparer.Ordinal);
     private NpcCharacter? _moosh;
+    private ScriptedCompanionRoomEntity? _scriptedCompanion;
     private MooshCompanionRoomEntity? _companion;
-    private NpcCharacter? _exclamation;
-    private MooshRescueStage _stage;
-    private int _signal;
-    private int _exclamationCounter;
-    private bool _mooshTalkable;
-    private bool _mooshTalked;
-    private bool _screenTransitionsDisabled;
+    private IRoomEntity? _exclamation;
+    private MooshRescueControllerRoomEntity? _controller;
 
     internal MooshRescueEvent(RoomEventContext context)
     {
@@ -47,15 +42,16 @@ internal sealed class MooshRescueEvent :
         _lanes = new CutsceneCommandLaneScheduler(this);
     }
 
-    public bool HasState => _stage == MooshRescueStage.Running;
+    public bool HasState => _lanes.Active || SourceHandlersAllowed() && _actors.Count != 0;
+    public bool RequiresRoomEventUpdate => false;
     public bool BlocksGameplay => InputControlHeld;
     public override RoomEventContext Context => _context;
-    public bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
+    public bool ScreenTransitionsDisabled => HasState && _context.Entities.RuntimeState.ReadField("wDisableScreenTransitions") != 0;
     // The source gate reads wLinkObjectIndex == >w1Companion. That remains
     // true while Moosh is airborne, charging, falling, or recovering too;
     // it is not a test for the grounded riding state alone.
-    internal bool CompanionMounted => _companion?.LinkRiding == true;
-    internal int Signal => _signal;
+    internal bool CompanionMounted => _context.Entities.RuntimeState.ReadField("wLinkObjectIndex") == 0xd1;
+    internal int Signal => CompanionRuntimeState.ReadScriptSignals(_context.Entities.RuntimeState);
     internal MooshRescueEventDatabase Database => _database;
     internal NpcCharacter? MooshActor => _moosh;
 
@@ -75,127 +71,101 @@ internal sealed class MooshRescueEvent :
         AddPlacedGhini(Ghini0, 0);
         AddPlacedGhini(Ghini1, 1);
         AddPlacedGhini(Ghini2, 2);
-
-        OracleSaveData save = _context.Rooms.SaveData;
-        bool prerequisite =
-            (save.ReadWramByte(_record.EssenceAddress) & _record.EssenceMask) != 0 &&
-            save.HasRoomFlag(
-                _record.FlagGroup, _record.FlagRoom, (byte)_record.FlagMask);
-        int mooshState = save.ReadWramByte(_record.MooshStateAddress);
-        bool ghiniActive = prerequisite &&
-            (mooshState & _record.ActiveMask) == 0;
-        bool spawnerActive = prerequisite &&
-            !_context.Inventory.HasTreasure(_record.ChevalRopeTreasure) &&
-            (mooshState & 0x40) == 0;
-
-        if (!ghiniActive)
-        {
-            DeactivatePlacedGhinis();
-            if (spawnerActive)
-                SpawnWaitingMoosh();
-            return;
-        }
-        if (!spawnerActive)
-        {
-            throw new InvalidOperationException(
-                "Room 0:6c activated INTERAC_GHINI_HARASSING_MOOSH and " +
-                "INTERAC_COMPANION_SCRIPTS without a source-eligible " +
-                "INTERAC_COMPANION_SPAWNER $67:$00 Moosh actor.");
-        }
-
-        SpawnMoosh();
-        // ghiniHarassingMoosh.s state 0 sets visiblec0 after its deletion
-        // gates. moosh.s state A initializes the rescue pose with visiblec3.
-        // Neither visibility write waits for the event's first script tick.
-        foreach (string name in new[] { Ghini0, Ghini1, Ghini2 })
-            Actor(name).SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex);
-        _moosh!.ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
-        _moosh.ShowInitializedPresentation();
-        _stage = MooshRescueStage.Running;
-        _screenTransitionsDisabled = true;
-        // companionScript_subid00 leaves this room-local gate set until loading.
-        _context.Entities.RuntimeState.SetWramByte(
-            AgesWramAddress.wDiggingUpEnemiesForbidden, 1);
-        _lanes.StartLane(Ghini0, _database.Ghini0, beforeAdvance: () => AdvanceGhiniCircle(Ghini0));
-        _lanes.StartLane(Ghini1, _database.Ghini1, beforeAdvance: () => AdvanceGhiniCircle(Ghini1));
-        _lanes.StartLane(Ghini2, _database.Ghini2, beforeAdvance: () => AdvanceGhiniCircle(Ghini2));
-        _lanes.StartLane(Moosh, _database.Companion);
+        _controller = _context.Entities.EntityAdapters<MooshRescueControllerRoomEntity>().SingleOrDefault();
     }
 
-    public void UpdateFrame()
-    {
-        if (!HasState)
-            return;
+    private bool PrerequisiteMet() =>
+        (_context.Rooms.SaveData.ReadWramByte(_record.EssenceAddress) & _record.EssenceMask) != 0 &&
+        _context.Rooms.SaveData.HasRoomFlag(_record.FlagGroup, _record.FlagRoom, (byte)_record.FlagMask);
 
-        if (_stage == MooshRescueStage.Running)
-            _lanes.AdvanceFrame();
-        UpdateExclamation();
-    }
+    private bool SourceHandlersAllowed() => PrerequisiteMet() &&
+        (_context.Rooms.SaveData.ReadWramByte(_record.MooshStateAddress) & _record.ActiveMask) == 0;
 
-    public void UpdateDuringDialogueFrame()
+    internal bool InitializeGhini(NpcCharacter actor)
     {
-        // INTERAC_GHINI_HARASSING_MOOSH sets its always-update bit. Its script
-        // is held by showtext, but animation and the native speed/angle loop
-        // run before interactionRunScript and keep advancing.
-        AnimatePlacedGhini(Ghini0);
-        AdvanceGhiniCircle(Ghini0);
-        AnimatePlacedGhini(Ghini1);
-        AdvanceGhiniCircle(Ghini1);
-        AnimatePlacedGhini(Ghini2);
-        AdvanceGhiniCircle(Ghini2);
-        if (_moosh is not null && GodotObject.IsInstanceValid(_moosh))
-            _moosh.AnimateAndUpdateDrawPriorityOneUpdate(_context.Player);
-    }
-
-    internal bool TryInteractNpc(NpcCharacter npc)
-    {
-        if (_stage != MooshRescueStage.Running || !_mooshTalkable ||
-            _context.DialogueOpen || !ReferenceEquals(npc, _moosh))
+        string name = $"Ghini{actor.Record.SubId}";
+        if (!_actors.TryGetValue(name, out NpcCharacter? current) || !ReferenceEquals(actor, current)) return false;
+        if (!SourceHandlersAllowed())
         {
+            _actors.Remove(name); _positions.Remove(name);
             return false;
         }
-
-        _mooshTalkable = false;
-        _mooshTalked = true;
-        npc.SetScriptButtonSensitive(false);
-        // SPECIALOBJECT_MOOSH state $0a/var03 $01 observes var3d on its next
-        // update and writes both wDisabledObjects and wMenuDisabled. Retain
-        // that lease through the fear shake so the later angle-to-Link helper
-        // sees the side from which Link initiated the conversation.
-        SetInputEnabled(false);
+        actor.SetActive(true);
+        actor.SetScriptVisible(true);
+        actor.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex);
+        _lanes.StartLane(name, actor.Record.SubId switch
+        { 0 => _database.Ghini0, 1 => _database.Ghini1, 2 => _database.Ghini2, _ => throw UnsupportedCommand($"initialize $73:${actor.Record.SubId:x2}") });
         return true;
+    }
+
+    internal bool AdvanceGhini(NpcCharacter actor)
+    {
+        string name = $"Ghini{actor.Record.SubId}";
+        if (!_actors.TryGetValue(name, out NpcCharacter? current) || !ReferenceEquals(actor, current)) return false;
+        if (actor.Record.SubId == 0 && (_context.Entities.RuntimeState.ReadField("wScrollMode") & 0x0e) != 0) return true;
+        AnimatePlacedGhini(name);
+        AdvanceGhiniCircle(name);
+        return _lanes.AdvanceLane(name);
+    }
+
+    internal bool InitializeController(MooshRescueControllerRoomEntity controller)
+    {
+        if (!ReferenceEquals(controller, _controller)) return false;
+        if (_context.Player.IsDying) { SetDisabledObjects(0); return false; }
+        if (!SourceHandlersAllowed()) return false;
+        EventResources.ScriptInput.SetScreenTransitionsDisabled(1);
+        _context.Entities.RuntimeState.SetField("wDiggingUpEnemiesForbidden", 1);
+        _lanes.StartLane(Moosh, _database.Companion);
+        return true;
+    }
+
+    internal bool AdvanceController(MooshRescueControllerRoomEntity controller)
+    {
+        if (!ReferenceEquals(controller, _controller)) return false;
+        if (_context.Player.IsDying) { SetDisabledObjects(0); _lanes.StopLane(Moosh); return false; }
+        if (controller.ShakeCounter != 0 && (--controller.ShakeCounter & 3) == 0) ShakeCompanion();
+        if (_lanes.AdvanceLane(Moosh)) return true;
+        OracleRuntimeState memory = _context.Entities.RuntimeState;
+        memory.SetField("wStatusBarNeedsRefresh", (byte)(memory.ReadField("wStatusBarNeedsRefresh") | 2));
+        return false;
+    }
+
+    public void UpdateFrame() => throw new InvalidOperationException("Moosh rescue scripts advance only from their native interaction slots.");
+
+    internal void SpawnPreset()
+    {
+        if (!_context.Entities.SpecialObjectSlotAvailable || !PrerequisiteMet() ||
+            _context.Inventory.HasTreasure(_record.ChevalRopeTreasure) ||
+            (_context.Rooms.SaveData.ReadWramByte(_record.MooshStateAddress) & 0x40) != 0) return;
+        CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, _context.Rooms.SaveData, new(_record.MooshX, _record.MooshY));
+        if ((_context.Rooms.SaveData.ReadWramByte(_record.MooshStateAddress) & _record.RescuedMask) == 0) SpawnMoosh();
+        else SpawnWaitingMoosh();
     }
 
     public void Cancel()
     {
         ReleaseInputControl();
         _lanes.Clear();
+        if (_scriptedCompanion is not null) _context.Entities.RetireEntity(_scriptedCompanion);
         if (_moosh is not null && GodotObject.IsInstanceValid(_moosh))
             _moosh.SetScriptButtonSensitive(false);
-        if (_exclamation is not null && GodotObject.IsInstanceValid(_exclamation))
-            _exclamation.SetActive(false);
+        if (_exclamation is not null) _context.Entities.RetireEntity(_exclamation);
         _actors.Clear();
         _positions.Clear();
         _ghiniAngles.Clear();
         _moosh = null;
+        _scriptedCompanion = null;
         _companion = null;
         _exclamation = null;
-        _stage = MooshRescueStage.Inactive;
-        _signal = 0;
-        _exclamationCounter = 0;
-        _mooshTalkable = false;
-        _mooshTalked = false;
-        _screenTransitionsDisabled = false;
+        _controller = null;
     }
 
     private void AddPlacedGhini(string name, int subId)
     {
-        NpcCharacter ghini = _context.RequireNpc(
-            _record.Group,
-            _record.Room,
-            _record.GhiniId,
-            subId,
-            "INTERAC_GHINI_HARASSING_MOOSH");
+        NpcCharacter? ghini = _context.Entities.Entities<NpcCharacter>().SingleOrDefault(npc =>
+            npc.Record.Group == _record.Group && npc.Record.Room == _record.Room &&
+            npc.Record.Id == _record.GhiniId && npc.Record.SubId == subId);
+        if (ghini is null) return; // A full source interaction stream skips its remaining placements.
         ghini.SetScriptDrawOffset(Vector2.Up * 2.0f);
         _actors.Add(name, ghini);
         _positions.Add(
@@ -203,23 +173,17 @@ internal sealed class MooshRescueEvent :
             OracleObjectMovement.Shared.PositionFromPixels(ghini.Position));
     }
 
-    private void DeactivatePlacedGhinis()
-    {
-        foreach (string name in new[] { Ghini0, Ghini1, Ghini2 })
-            Actor(name).SetActive(false);
-        _actors.Clear();
-        _positions.Clear();
-    }
-
     private void SpawnMoosh()
     {
-        CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, _context.Rooms.SaveData, new(_record.MooshX, _record.MooshY));
-        _moosh = _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
-            _database.CreateMooshRecord(), Moosh, Talkable: true, Solid: true));
-        _actors.Add(Moosh, _moosh);
-        _positions.Add(
-            Moosh,
-            OracleObjectMovement.Shared.PositionFromPixels(_moosh.Position));
+        if (!_context.Entities.SpecialObjectSlotAvailable) return;
+        _moosh = NpcCharacter.CreateFromRecord(_database.CreateMooshRecord(), _context.Entities.AssetRoot);
+        _moosh.SetScriptAnimation(_database.Visual.Animations[0]);
+        _moosh.SetActive(false);
+        _scriptedCompanion = new AgesMooshScriptedCompanionRoomEntity(_moosh,
+            _context.Entities.RuntimeState, _context.Rooms.SaveData, () => _context.Rooms.CurrentRoom, _database.Visual,
+            new MooshGoodbyeEventDatabase().Record, ContinueWithOrdinaryCompanion,
+            value => SetDisabledObjects(value), SetNativeMenuDisabled, _context.Entities.OnRoomEntityDialogueRequested);
+        _context.Entities.AddEntity(_scriptedCompanion);
     }
 
     private void SpawnWaitingMoosh()
@@ -242,42 +206,19 @@ internal sealed class MooshRescueEvent :
         if (CompanionRuntimeState.AnyActive(_context.Entities.RuntimeState) ||
             _context.Entities.EntityAdapters<IRoomEntity>().Any(actor => actor is IRoomInitializedCompanion)) return;
         CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, _context.Rooms.SaveData, new(_record.MooshX, _record.MooshY));
-        _companion = _context.Entities.Spawn<MooshCompanionRoomEntity>(
-            new MooshCompanionSpawn(
-                new Vector2(_record.MooshX, _record.MooshY),
-                ObjectDirection.Down,
-                _record.Group,
-                _record.Room));
+        SpawnMoosh();
     }
 
-    private void BeginMooshMount()
+    private void ContinueWithOrdinaryCompanion(ScriptedCompanionRoomEntity body, Player player, bool mounting)
     {
-        if (_moosh is null || !GodotObject.IsInstanceValid(_moosh))
-            throw UnsupportedCommand("force-mount missing Moosh");
-        bool meetingAgain =
-            _context.Rooms.SaveData.IsLinkedGame &&
-            _context.Inventory.AnimalCompanion == _record.MooshId;
-        // The clean-US first-meeting handoff enters companionForceMount in
-        // the left-facing ride pose. The preceding angle-to-Link helper owns
-        // only the cutscene actor's response pose; do not leak a below/right
-        // approach into SPECIALOBJECT_MOOSH's initial mounted direction.
-        int direction = meetingAgain
-            ? _moosh.FacingVector == Vector2I.Up ? 0
-                : _moosh.FacingVector == Vector2I.Right ? 1
-                : _moosh.FacingVector == Vector2I.Down ? 2
-                : 3
-            : 3;
-        Vector2 position = _moosh.Position;
-        _moosh.SetActive(false);
-        _actors.Remove(Moosh);
-        _positions.Remove(Moosh);
-        _companion = _context.Entities.Spawn<MooshCompanionRoomEntity>(
-            new MooshCompanionSpawn(
-                position,
-                direction,
-                _record.Group,
-                _record.Room,
-                ForceMount: true));
+        body.CompleteNativeUpdate();
+        int frame = body.Npc.CurrentAnimationFrame, counter = body.Npc.CurrentAnimationCounter;
+        body.Npc.SetScriptButtonSensitive(false); body.Npc.SetActive(false);
+        _companion = (MooshCompanionRoomEntity)_context.Entities.ReplaceSpecialObjectPresentation(body,
+            new MooshCompanionSpawn(body.NativeSpecialObjectPosition, ObjectDirection.Down,
+                _record.Group, _record.Room, ForceMount: mounting));
+        _companion.ContinueNativePresentation(player, frame, counter, mounting);
+        _moosh = null; _scriptedCompanion = null;
     }
 
     private NpcCharacter Actor(string name) =>
@@ -300,60 +241,41 @@ internal sealed class MooshRescueEvent :
         _positions.Remove(actorName);
         _ghiniAngles.Remove(actorName);
         _context.Entities.TryCreateEnemy(
-            new GhiniSpawn(position, $"Rescue{actorName}"));
+            new GhiniSpawn(position,0,$"Rescue{actorName}","scripts/ages/scripts.s:ghiniHarassingMoosh_*:spawnenemyhere"));
     }
 
     private void SpawnExclamation()
     {
-        if (_moosh is null)
-            throw UnsupportedCommand("spawn an exclamation without Moosh");
-        Vector2 position = _moosh.Position + new Vector2(
+        Vector2 position = new Vector2(_record.ControllerX, _record.ControllerY) + new Vector2(
             _record.ExclamationXOffset,
             _record.ExclamationYOffset);
-        _exclamation = _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
-            _database.CreateExclamationRecord(
-                Mathf.RoundToInt(position.Y),
-                Mathf.RoundToInt(position.X)),
-            "MooshExclamation"));
-        _context.Sound.PlaySound(_record.ExclamationSound);
-        _exclamationCounter = _record.ExclamationFrames;
-    }
-
-    private void UpdateExclamation()
-    {
-        if (_exclamationCounter <= 0 || _exclamation is null)
-            return;
-        if (--_exclamationCounter == 0)
-        {
-            _exclamation.SetActive(false);
-            _exclamation = null;
-        }
+        _exclamation = _context.Entities.TryCreateInteractionEntity(new ExclamationMarkSpawn(position, Duration: _record.ExclamationFrames));
     }
 
     public override bool HasActorBinding(CutsceneActorId actor) =>
-        actor.Value is Ghini0 or Ghini1 or Ghini2 or Moosh;
+        actor.Value is Ghini0 or Ghini1 or Ghini2 or Moosh or "Controller";
 
     public override void SetDisabledObjects(int value)
     {
-        if (value is not (0 or 0x11))
+        if (value is not (0 or 1 or 0x11))
             throw UnsupportedCommand($"set wDisabledObjects=${value:x2}");
-        SetInputEnabled(value == 0);
+        base.SetDisabledObjects(value);
     }
 
     public override bool MemoryEquals(string binding, int value) =>
         binding switch
         {
-            "SignalBit01" => ((_signal & 0x01) != 0 ? 1 : 0) == value,
-            "SignalBit02" => ((_signal & 0x02) != 0 ? 1 : 0) == value,
-            "SignalBit04" => ((_signal & 0x04) != 0 ? 1 : 0) == value,
-            "SignalBit08" => ((_signal & 0x08) != 0 ? 1 : 0) == value,
-            "SignalBit10" => ((_signal & 0x10) != 0 ? 1 : 0) == value,
+            "SignalBit01" => ((Signal & 0x01) != 0 ? 1 : 0) == value,
+            "SignalBit02" => ((Signal & 0x02) != 0 ? 1 : 0) == value,
+            "SignalBit04" => ((Signal & 0x04) != 0 ? 1 : 0) == value,
+            "SignalBit08" => ((Signal & 0x08) != 0 ? 1 : 0) == value,
+            "SignalBit10" => ((Signal & 0x10) != 0 ? 1 : 0) == value,
             "RoomEnemyCount" => _context.Entities.RoomEnemyCount == value,
-            "MooshTalked" => (_mooshTalked ? 1 : 0) == value,
-            "AlreadyMooshCompanion" =>
-                (_context.Rooms.SaveData.IsLinkedGame &&
-                 _context.Inventory.AnimalCompanion == _record.MooshId ? 1 : 0) == value,
+            "MooshButton" => CompanionRuntimeState.ReadScriptButton(_context.Entities.RuntimeState) == value,
             "MooshMounted" => (CompanionMounted ? 1 : 0) == value,
+            "IsLinkedGame" => (_context.Rooms.SaveData.IsLinkedGame ? 1 : 0) == value,
+            "AnimalCompanion" => _context.Inventory.AnimalCompanion == value,
+            "ShakeCounter" => (_controller?.ShakeCounter ?? 0) == value,
             "Ghini0Speed" => (_ghiniAngles.ContainsKey(Ghini0) ? _record.GhiniSpeed : 0) == value,
             "Ghini1Speed" => (_ghiniAngles.ContainsKey(Ghini1) ? _record.GhiniSpeed : 0) == value,
             "Ghini2Speed" => (_ghiniAngles.ContainsKey(Ghini2) ? _record.GhiniSpeed : 0) == value,
@@ -361,14 +283,24 @@ internal sealed class MooshRescueEvent :
         };
 
     public override void ShowText(int textId, string message) =>
-        _context.ShowDialogue(message);
+        _context.ShowDialogue(message, sourceTextId: textId);
+
+    public override void WriteObjectByte(string actor, int address, int value)
+    {
+        if (actor != "Controller" || address != 0x7a || _controller is null || (uint)value > 0xff)
+            throw UnsupportedCommand($"write {actor}.${address:x2}=${value:x2}");
+        _controller.ShakeCounter = (byte)value;
+    }
 
     public override void WriteMemory(string binding, int value)
     {
         switch (binding)
         {
             case "SignalOr":
-                _signal |= value;
+                CompanionRuntimeState.OrScriptSignals(_context.Entities.RuntimeState, value);
+                break;
+            case "MooshVar03":
+                _context.Entities.RuntimeState.SetWramByte(0xd103, checked((byte)value));
                 break;
             case "MooshStateOr":
             {
@@ -412,17 +344,8 @@ internal sealed class MooshRescueEvent :
                 SpawnEnemy(Ghini2);
                 break;
             case "RestoreRoomMusic":
-                _context.Sound.PlayRoomMusic(_record.Group, _record.Room);
-                break;
-            case "SetMooshTalkable":
-                if (_moosh is null)
-                    throw UnsupportedCommand("make missing Moosh talkable");
-                _mooshTalkable = true;
-                _moosh.SetScriptButtonSensitive(true);
-                break;
-            case "SetMooshAwaitingLink":
-                _mooshTalkable = false;
-                _moosh?.SetScriptButtonSensitive(false);
+                _context.Sound.SetNativeActiveMusic(_context.Sound.NativeRoomMusic);
+                _context.Sound.PlayNativeSound(_context.Sound.NativeRoomMusic);
                 break;
             case "SpawnExclamation":
                 SpawnExclamation();
@@ -430,36 +353,14 @@ internal sealed class MooshRescueEvent :
             case "FaceMooshTowardLink":
                 FaceMooshTowardLink();
                 break;
-            case "BeginMooshMount":
-                BeginMooshMount();
-                break;
             case "CompleteMooshRescue":
                 // companionScript_subid00Script checks wLinkObjectIndex before
                 // TX_2205. After the text closes it clears this byte and ends
                 // without checking the companion state a second time.
-                _screenTransitionsDisabled = false;
-                _stage = MooshRescueStage.Inactive;
+                EventResources.ScriptInput.SetScreenTransitionsDisabled(0);
                 break;
             default:
                 throw UnsupportedCommand($"run native handler '{handler}'");
-        }
-    }
-
-    public override bool UpdateNativeHandler(
-        string handler,
-        CutsceneActorId? actor,
-        int commandUpdate,
-        int frames,
-        string payload)
-    {
-        if (actor is null)
-            throw UnsupportedCommand($"run '{handler}' without an actor");
-        switch (handler)
-        {
-            case "ShakeMoosh":
-                return UpdateMooshShake(actor.Value.Value, commandUpdate, frames);
-            default:
-                throw UnsupportedCommand($"update native handler '{handler}'");
         }
     }
 
@@ -484,24 +385,12 @@ internal sealed class MooshRescueEvent :
             _ghiniAngles[actor] = angle;
     }
 
-    private bool UpdateMooshShake(string actor, int update, int frames)
+    internal void ShakeCompanion()
     {
-        if (actor != Moosh || frames != _record.ShakeFrames)
-            throw UnsupportedCommand($"shake {actor} for {frames} updates");
-        if (update == 0)
-            return false;
-
-        int remaining = frames - update;
-        if ((remaining & 3) == 0)
-        {
-            OracleObjectPosition position = _positions[actor];
-            int x = (Mathf.FloorToInt(position.PixelPosition.X) ^ 0x02);
-            position = OracleObjectMovement.Shared.PositionFromPixels(
-                new Vector2(x, position.PixelPosition.Y));
-            _positions[actor] = position;
-            Actor(actor).SetStatePosition(position.PixelPosition);
-        }
-        return update >= frames;
+        OracleRuntimeState memory = _context.Entities.RuntimeState;
+        memory.SetWramByte(0xd10d, (byte)(memory.ReadWramByte(0xd10d) ^ 2));
+        if (_scriptedCompanion is not null && _context.Entities.IsSpecialObjectOwner(_scriptedCompanion))
+            _scriptedCompanion.NativeSpecialObjectPosition = CompanionRuntimeState.Read(memory).Position;
     }
 
     public override void ScriptEnded()
@@ -512,10 +401,8 @@ internal sealed class MooshRescueEvent :
 
     private void FaceMooshTowardLink()
     {
-        NpcCharacter moosh = Actor(Moosh);
         Vector2I direction = RoomEventResources.DirectionToward(
-            moosh.Position, _context.Player.Position);
-        moosh.SetFacingDirection(direction);
+            new Vector2(_record.ControllerX, _record.ControllerY), _context.Player.Position);
 
         // companionScript_writeAngleTowardLinkToCompanionVar3f stores
         // direction + 1, then SPECIALOBJECT_MOOSH_CUTSCENE state $0a calls
@@ -524,12 +411,6 @@ internal sealed class MooshRescueEvent :
             : direction == Vector2I.Right ? 0x02
             : direction == Vector2I.Down ? 0x03
             : 0x04;
-        moosh.SetScriptAnimation(_database.Visual.Animations[animation]);
+        _context.Entities.RuntimeState.SetWramByte(0xd13f, (byte)animation);
     }
-}
-
-internal enum MooshRescueStage
-{
-    Inactive,
-    Running
 }

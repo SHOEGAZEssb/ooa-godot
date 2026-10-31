@@ -8,7 +8,7 @@ namespace Oracles;
 internal sealed partial class TargetGhiniCharacter : EnemyCharacter
 {
     private TargetGhiniBehaviorProfile? _dataSourceCache;
-    private TargetGhiniBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).TargetGhini;
+    private TargetGhiniBehaviorProfile _data => _dataSourceCache ??= GhiniDatabase.For(AssetRoot).Target;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private OracleRuntimeState _memory = null!;

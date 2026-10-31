@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
                             _player.PendingContactDamageRaw != unchecked((sbyte)rom[0xd025]) ||
                             _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) ||
                             SomariaPrivate<float>(_player, "_enemyKnockbackFrames") != rom[0xd02d] ||
-                            (SomariaPrivate<int>(_player, "_forcedRespawnPhase") == 1) != (rom[0xcc4f] == 2) ||
+                            _runtimeState.ReadField("wLinkForceState") != rom[0xcc4f] ||
                             _player.NativeNormalStateForInteraction != (rom[0xd004] == 1),
                             $"{context}: XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; " +
                             $"PART={sea.State}:{sea.Counter:x2}/{rom[0xd0c4]}:{rom[0xd0c6]:x2}; " +

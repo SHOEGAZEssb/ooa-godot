@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
                 () => rom.UpdateGameplay(button, button, 0xff, _entities.FrameCounter));
             int angle = (direction * 8) ^ 0x10;
             Vector2 start = _player.Position + OracleObjectMath.StrictCardinalVector(direction * 8) * 32;
-            if (arrow && arrowSubId == 0) start -= EnemyBehaviorTables.For(AgesGameContent.AssetRoot).EnemyArrowSpawnOffsets[angle / 8].Vector;
+            if (arrow && arrowSubId == 0) start -= EnemyArrowDatabase.For(AgesGameContent.AssetRoot).SpawnOffsets[angle / 8].Vector;
             Node2D projectile = arrow
                 ? _entities.Spawn<EnemyArrowProjectile>(new EnemyArrowSpawn(start, angle, arrowSubId))
                 : _entities.Spawn<OctorokRockProjectile>(new OctorokRockSpawn(start, angle));

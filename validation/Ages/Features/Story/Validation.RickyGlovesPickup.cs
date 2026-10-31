@@ -28,6 +28,7 @@ public sealed partial class ValidationRoot
                 StateMask: talkedMask | completeMask,
                 StateValue: talkedMask,
                 RequireTreasureClear: glovesTreasure,
+                NativeSpawnerId: 0x74,
                 BuriedInitialSpeedZ: -0x100,
                 Gravity: 0x10,
                 BuriedMoveSpeed: 0x14
@@ -57,6 +58,7 @@ public sealed partial class ValidationRoot
         {
             Configure(state, gloves);
             LoadValidationRoom(group, room);
+            StepGameplayUpdates(1, Vector2.Zero);
             FailIf(
                 _entities.Entities<GroundTreasurePickup>().Any() ||
                 _rooms.CurrentRoom.GetMetatile(dirtPoint) != 0x3a,
@@ -75,6 +77,10 @@ public sealed partial class ValidationRoot
 
         Configure(talkedMask, gloves: false);
         LoadValidationRoom(group, room);
+        FailIf(_entities.Entities<GroundTreasurePickup>().Any() ||
+            _runtimeState.ReadWramByte(0xd241)!=0x74 || _runtimeState.ReadWramByte(0xd341)!=0x71,
+            "Room 0:98 must allocate $74 then $71:$06 before the glove child exists.");
+        StepGameplayUpdates(1, Vector2.Zero);
         GroundTreasurePickup gloves =
             _entities.Entities<GroundTreasurePickup>().Single();
         OracleRoomData gloveRoom = _rooms.CurrentRoom;
@@ -83,12 +89,12 @@ public sealed partial class ValidationRoot
                 gloveRoom.GetOriginalMetatile(dirtPoint) ||
             gloveRoom.GetMetatile(dirtPoint) == 0x3a ||
             gloves.Position != new Vector2(0x48, 0x28) ||
-            gloves.State != PickupState.Initializing || gloves.Visible ||
+            gloves.State != PickupState.Spawning || gloves.SpawnSubstate!=0 || gloves.Visible ||
+            _entities.InteractionSlot(gloves)!=4 || _runtimeState.ReadWramByte(0xd240)!=0 ||
             gloves.PixelHash == 0,
-            "Eligible room 0:98 did not retain its dirt and preload hidden gloves.");
+            "Eligible $74 must create the hidden $60:$48 in later slot D4 before deleting D2.");
 
-        _entities.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             gloves.State != PickupState.Spawning ||
             gloves.SpawnSubstate != 1 || gloves.Visible,
@@ -100,7 +106,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !_shovel.TryDig(gloves.Position, Vector2I.Right),
             "The original room 0:98 dirt tile was not shovel-breakable.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             gloves.SpawnSubstate != 2 || !gloves.Visible ||
             gloves.BuriedAngle != 0x08 || gloves.SpeedZ != -0x100 ||
@@ -110,8 +116,8 @@ public sealed partial class ValidationRoot
             "Digging packed position $24 did not launch the gloves right on the " +
             "following $74/$60 update without collecting them under Link.");
 
-        _entities.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         AssertMovementPublication(_runtimeState, 0, 128, "INTERAC $60:$05 buried flight");
         FailIf(
             gloves.Position.X != 0x49 || gloves.ZFixed >= 0 ||
@@ -124,7 +130,7 @@ public sealed partial class ValidationRoot
             update < 100 && gloves.State != PickupState.Waiting;
             update++)
         {
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             gloves.State != PickupState.Waiting || gloves.ZFixed != 0 ||
@@ -134,7 +140,7 @@ public sealed partial class ValidationRoot
         TreasureObjectRecord gloveObject =
             _treasures.GetObject("TREASURE_OBJECT_RICKY_GLOVES_00");
         _player.WarpTo(gloves.Position);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             gloves.State != PickupState.Collected ||
             !_inventory.HasTreasure(glovesTreasure) ||
@@ -147,7 +153,7 @@ public sealed partial class ValidationRoot
             "room flag $20 and open TX_0067.");
 
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         InitializeGetItemStateForValidation();
         FailIf(
             !gloves.Held || !_player.IsHoldingItemOneHand ||
@@ -158,13 +164,14 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _player.IsHoldingItemOneHand ||
             _entities.Entities<GroundTreasurePickup>().Any(),
             "Closing TX_0067 did not release Link and delete the gloves.");
 
         LoadValidationRoom(group, room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _entities.Entities<GroundTreasurePickup>().Any() ||
             _rooms.CurrentRoom.GetMetatile(dirtPoint) != 0x3a,

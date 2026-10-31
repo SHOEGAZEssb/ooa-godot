@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
             var owner=_roomEvents.Get<BlackTowerEndingEvent>();owner.Begin();var type=typeof(BlackTowerEndingEvent);
             type.GetField("_initialize",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(owner,false);
             type.GetMethod("BeginScreen",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(owner,null);
-            var screen=_scene.EndingScreen;var scene=_scene;int saves=_saveWriteRequests;
+            var screen=_endingScreen;var scene=_scene;int saves=_saveWriteRequests;
             var seed=_random.CaptureState();var rom=new SomariaRom(_saveData,seed,_currentRoom,0,0,0);
             rom.InitializeLinkGameplay();rom.EnableVramDma();rom.EnableResetHandoff();var menu=rom.CreateMenuView();
             menu.LoadHudGraphics();menu.LoadRoomGraphics();rom.LoadCutsceneGraphics(0x98,0xa9);
@@ -130,7 +130,7 @@ public sealed partial class ValidationRoot
                     poolFull=true;
                     for(int index=0;index<14;index++)
                     {
-                        var filler=_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));
+                        var filler=_entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));
                         int at=0xd040+_entities.InteractionSlot(filler)*256;rom[at]=1;rom[at+1]=5;rom[at+2]=0x80;rom[at+11]=144;rom[at+13]=224;
                     }
                     Step(_runtimeState.ReadWramByte(0xcbb3)+2);

@@ -34,8 +34,8 @@ public sealed partial class ValidationRoot
                         context + ": Cane animation clock/parameter differs.");
                 if (weapon) FailIf(cane.Weapon!.State != rom[0xd604], context + ": Cane creation state differs.");
                 FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
-                    SomariaPrivate<int>(_player, "_shieldParentButton") != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
-                    SomariaPrivate<bool>(_player, "_shieldParentInitialized") != (rom[0xd504] != 0),
+                    _player.ShieldParentButton != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
+                    _player.ShieldParentInitialized != (rom[0xd504] != 0),
                     context + ": retained Shield slot/initialization/raise differs.");
                 int boomParent = Enumerable.Range(0xd3, 2).Select(page => page << 8)
                     .FirstOrDefault(slot => rom[slot] != 0 && rom[slot + 1] == 6);

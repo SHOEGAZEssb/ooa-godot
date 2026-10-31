@@ -37,6 +37,11 @@ if (-not $mooshGoodbyePlacement.Success -or
     $mooshGoodbyePlacement.Groups['controllerx'].Value -ne '08') {
     throw 'Room 0:6b companion-controller/spawner order or placement changed.'
 }
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\moosh_goodbye_placements.tsv'), @(
+    "# order`tid`tsubid`ty`tx`tsource",
+    "0`t71`t01`t$($mooshGoodbyePlacement.Groups['controllery'].Value)`t$($mooshGoodbyePlacement.Groups['controllerx'].Value)`tmainData.s:group0Map6bObjectData",
+    "1`t67`t01`t00`t00`tmainData.s:group0Map6bObjectData"
+))
 
 $mooshScriptsPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
 $mooshScriptsSource = Read-ImportText $mooshScriptsPath
@@ -434,13 +439,6 @@ for ($index = 0; $index -le 0x32; $index++) {
     $mooshLinkFrames.Add("127@$rawOam")
     $mooshLinkSourceOffsets.Add($sourceOffset.ToString('x4'))
 }
-$mooshVisualRows = @(
-    "# sprite`ttile-base`tpalette`tanimations-base64`tlink-sprite`tlink-palette`tlink-frames-base64`tlink-source-offsets`twater-hazard`twater-hover-frames`twater-exclamation-z-offset`tsource",
-    "spr_moosh`t0`t1`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshAnimations -join "`n")))`tspr_link`t0`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshLinkFrames -join "`n")))`t$($mooshLinkSourceOffsets -join ',')`t$mooshWaterHazard`t$mooshWaterHoverFrames`t$mooshWaterExclamationZOffset`tspecialObjectAnimationData.s:specialObject0d,specialObject09;moosh.s:mooshState8Substate1/mooshState8Substate5"
-)
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\moosh_companion_visual.tsv'),
-    $mooshVisualRows)
 Copy-GeneratedFile 'gfx\common\spr_moosh.png' 'gfx\spr_moosh.png'
 
 $mooshGoodbyeRows = @(
@@ -475,10 +473,27 @@ $rickyPlacement = [regex]::Match(
 if (-not $rickyPlacement.Success) {
     throw 'Room 0:6a Ricky spawner/controller order changed.'
 }
+$rickyPlacementRows = @("# order`tid`tsubid`ty`tx`tsource")
+$rickyOrder = 0
+foreach ($entry in [regex]::Matches($rickyPlacement.Value,
+    '(?m)^\s*obj_Interaction \$(?<id>[0-9a-f]{2}) \$(?<subid>[0-9a-f]{2})(?: \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}))?\s*$')) {
+    $y = if ($entry.Groups['y'].Success) { $entry.Groups['y'].Value } else { '00' }
+    $x = if ($entry.Groups['x'].Success) { $entry.Groups['x'].Value } else { '00' }
+    $rickyPlacementRows += "$rickyOrder`t$($entry.Groups['id'].Value)`t$($entry.Groups['subid'].Value)`t$y`t$x`tmainData.s:group0Map6aObjectData"
+    $rickyOrder++
+}
+if ($rickyOrder -ne 6) { throw 'Room0:6a requires its complete six-interaction source stream.' }
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\ricky_gloves_placements.tsv'), $rickyPlacementRows)
 $rickySpecialSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\ricky.s')
 $rickyCollisionSource = Read-ImportText (
     Join-Path $Disassembly 'code\bank0.s')
+$rickyScriptingSource = Read-ImportText (
+    Join-Path $Disassembly 'code\scripting.s')
+if ($rickyScriptingSource -notmatch '(?ms)^scriptCmd_jumpIfMemorySet:.*?and \(hl\)\s*jp z,scriptFunc_add3ToHl\s*inc hl\s*jp scriptFunc_jump_scf' -or
+    $rickyScriptingSource -notmatch '(?ms)^scriptCmd_df:\s*pop hl\s*inc hl\s*ldi a,\(hl\)\s*call checkTreasureObtained\s*ld \(\$cfc1\),a\s*jr nc,\+\s*jp scriptFunc_jump\s*\+\s*inc hl\s*inc hl\s*ret') {
+    throw 'Ricky glove bit/query branch carry behavior or related-byte scratch write changed.'
+}
 $rickyAttackItemSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\rickyMooshAttack.s')
 $rickyTornadoItemSource = Read-ImportText (
@@ -600,27 +615,27 @@ foreach ($command in $rickyCommands) {
     $arg1 = ''
     $payload = ''
     switch ($command.Index) {
-        0 { $opcode = 'checkabutton'; $actor = 'Ricky' }
+        0 { $opcode = 'checkmemoryeq'; $arg0 = '01'; $payload = 'RickyButton' }
         1 { }
-        2 { $opcode = 'jumpifmemoryeq'; $arg0 = '01'; $arg1 = '8'; $payload = 'RickyTalked' }
+        2 { $opcode = 'jumpifmemoryeqyieldonmiss'; $arg0 = '01'; $arg1 = '8'; $payload = 'RickyTalked' }
         3 { $opcode = 'writememory'; $arg0 = '01'; $payload = 'RickyStateOr' }
         4 { $opcode = 'jumpifmemoryeq'; $arg0 = '0b'; $arg1 = '7'; $payload = 'AnimalCompanion' }
         5 { $payload = $rickyIntroText; $arg0 = '2000' }
-        6 { $arg0 = '8' }
+        6 { $opcode = 'scriptjumpyield'; $arg0 = '8' }
         7 { $payload = $allTexts[0x2001]; $arg0 = '2001' }
-        8 { $opcode = 'jumpifmemoryeq'; $arg0 = '01'; $arg1 = '13'; $payload = 'HasRickyGloves' }
+        8 { $opcode = 'jumpifmemoryeqyield'; $arg0 = '01'; $arg1 = '13'; $payload = 'HasRickyGloves' }
         9 { $payload = $allTexts[0x2003]; $arg0 = '2003' }
-        10 { $opcode = 'native'; $payload = 'ResetRickyButton' }
+        10 { $opcode = 'writememory'; $arg0 = '00'; $payload = 'RickyButton' }
         11 { }
         12 { $arg0 = '0' }
         13 { $payload = $allTexts[0x2004]; $arg0 = '2004' }
         14 { $opcode = 'native'; $payload = 'LoseRickyGloves' }
-        15 { $opcode = 'native'; $payload = 'BeginRickyMount' }
-        16 { $opcode = 'native'; $payload = 'EnableObjectsForRickyMount' }
+        15 { $opcode = 'writememory'; $arg0 = '01'; $payload = 'RickyVar03' }
+        16 { $opcode = 'setdisabledobjectscontinue'; $arg0 = '00' }
         17 { $opcode = 'checkmemoryeq'; $arg0 = '01'; $payload = 'RickyMounted' }
         18 { $payload = $allTexts[0x2005]; $arg0 = '2005' }
         19 { $opcode = 'writememory'; $arg0 = '20'; $payload = 'RickyStateOr' }
-        20 { $opcode = 'native'; $payload = 'EnableRickyMenu' }
+        20 { }
         21 { }
         default { throw "Unexpected Ricky command index $($command.Index)." }
     }
@@ -793,56 +808,8 @@ $rickyAnimations = @($rickyResolvedAnimations | ForEach-Object { $_.Encoded })
 $rickyAnimationSourceOffsets = @($rickyResolvedAnimations | ForEach-Object {
     $_.SourceOffsets -join ','
 })
-$rickyVisualRows = @(
-    "# sprite`ttile-base`tpalette`tanimations-base64`tanimation-source-offsets-base64`tlink-sprite`tlink-palette`tlink-frames-base64`tlink-source-offsets`tsource",
-    "spr_ricky`t0`t$rickyPalette`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rickyAnimations -join "`n")))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rickyAnimationSourceOffsets -join "`n")))`tspr_link`t0`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshLinkFrames -join "`n")))`t$($mooshLinkSourceOffsets -join ',')`tspecialObjectAnimationData.s:specialObject0b,specialObject09;commonCode.s:specialObjectSetOamVariables"
-)
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\ricky_companion_visual.tsv'),
-    $rickyVisualRows)
 Copy-GeneratedFile 'gfx\common\spr_ricky.png' 'gfx\spr_ricky.png'
 
-# SPECIALOBJECT_DIMITRI $0c uses the same incremental VRAM/OAM format as
-# Ricky, including graphics rows which retain tiles from earlier frames.
-$dimitriGfxStart = $specialAnimationSource.IndexOf('specialObject0cGfxPointers:')
-$dimitriAnimStart = $specialAnimationSource.IndexOf('specialObject0cAnimationDataPointers:')
-$dimitriOamStart = $specialAnimationSource.IndexOf('specialObject0cOamDataPointers:')
-$dimitriOam = $specialOamTables['specialObject0cOamDataPointers']
-if ($null -eq $dimitriOam) { $dimitriOam = $specialOamTables['specialObject10OamDataPointers'] }
-$dimitriOffsets = @{}; $dimitriCounts = @{}; $dimitriIndices = @{}
-$dimitriGfx = 0
-foreach ($line in ($specialAnimationSource.Substring(
-    $dimitriGfxStart, $dimitriAnimStart - $dimitriGfxStart) -split '\r?\n')) {
-    if ($line -match 'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_dimitri\s+\$(?<offset>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})') {
-        $dimitriIndices[$dimitriGfx] = [Convert]::ToInt32($Matches['oam'], 16)
-        $dimitriOffsets[$dimitriGfx] = [Convert]::ToInt32($Matches['offset'], 16) / 16
-        $dimitriCounts[$dimitriGfx] = [Convert]::ToInt32($Matches['size'], 16)
-        $dimitriGfx++
-    } elseif ($line -match 'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+\$0000') {
-        $dimitriIndices[$dimitriGfx] = [Convert]::ToInt32($Matches['oam'], 16)
-        $dimitriOffsets[$dimitriGfx] = 0
-        $dimitriCounts[$dimitriGfx] = 0
-        $dimitriGfx++
-    }
-}
-$dimitriLabels = @([regex]::Matches($specialAnimationSource.Substring(
-    $dimitriAnimStart, $dimitriOamStart - $dimitriAnimStart),
-    '(?m)^\s*\.dw\s+(?<label>animationData[0-9a-f]+)') | ForEach-Object { $_.Groups['label'].Value })
-if ($dimitriGfx -ne 54 -or $dimitriLabels.Count -ne 40 -or $null -eq $dimitriOam -or
-    $specialObjectCommonSource -notmatch '(?m)^\s*\.db \$60 \$0a ; 0x0c') {
-    throw "SPECIALOBJECT_DIMITRI `$0c graphics/OAM/animation contract changed: gfx=$dimitriGfx animations=$($dimitriLabels.Count) OAM=$($dimitriOam.Count)."
-}
-$dimitriResolved = @($dimitriLabels | ForEach-Object {
-    Resolve-CompanionSpecialAnimation $_ Dimitri $dimitriOffsets $dimitriCounts `
-        $dimitriIndices $dimitriOam $dimitriOamStart
-})
-$dimitriAnimations = @($dimitriResolved | ForEach-Object { $_.Encoded })
-$dimitriSourceOffsets = @($dimitriResolved | ForEach-Object { $_.SourceOffsets -join ',' })
-$dimitriRows = @(
-    '# sprite`tpalette`tanimations-base64`tanimation-source-offsets-base64`tlink-frames-base64`tlink-source-offsets`tsource',
-    "spr_dimitri`t2`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($dimitriAnimations -join "`n")))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($dimitriSourceOffsets -join "`n")))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshLinkFrames -join "`n")))`t$($mooshLinkSourceOffsets -join ',')`tspecialObjectAnimationData.s:specialObject0c,specialObject09")
-Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_visual.tsv'), $dimitriRows)
-Copy-GeneratedFile 'gfx\common\spr_dimitri.png' 'gfx\spr_dimitri.png'
 $dimitriSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\dimitri.s')
 if ($dimitriSource -notmatch '(?ms)^dimitriState5:.*?BTN_BIT_A.*?dimitriGotoEatingState.*?BTN_BIT_B.*?^dimitriUpdateMovement:.*?SPEED_c0.*?SPEED_100' -or
     $dimitriSource -notmatch '(?ms)^dimitriAddWaterfallResistance:.*?TILEINDEX_WATERFALL.*?TILEINDEX_WATERFALL_BOTTOM.*?add \$c0') {
@@ -859,6 +826,18 @@ Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_texts.ts
 # Companion forest scripts retain every instruction, label and source line.
 $forestOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 foreach ($op in @('showtext','checkmemoryeq','jumpifmemoryeq','jumpiftextoptioneq','scriptjump','wait','writememory','orroomflag','unsetglobalflag','setglobalflag','enableinput','disableinput','scriptend','asm15','writeobjectbyte','checktext')) { [void]$forestOpcodes.Add($op) }
+$forestSymbols = $globalFlagValues.Clone()
+$forestSymbols['>w1Companion'] = 0xd1
+foreach ($binding in @('wTmpcfc0.fairyHideAndSeek.cfd2','w1Companion.var3d','w1Companion.var03','wLinkObjectIndex')) {
+    $forestSymbols[$binding] = $binding
+}
+$forestBindings = @{
+    'asm15|companionScript_noticeLink' = @{Opcode='native';Payload='NoticeLink'}
+    'asm15|companionScript_spawnFairyAfterFindingCompanionInForest' = @{Opcode='native';Payload='SpawnRescueFairy'}
+    'asm15|companionScript_warpOutOfForest' = @{Opcode='native';Payload='WarpOut'}
+    'writeobjectbyte|Interaction.state, $02' = @{Opcode='nativeyield';Payload='GiveFlute'}
+    'unsetglobalflag|GLOBALFLAG_FOREST_UNSCRAMBLED' = @{Opcode='native';Payload='ScrambleForest'}
+}
 foreach ($sub in @('08','09','0a','0b')) {
     $script = "companionScript_subid${sub}Script_body"
     $commands = @(Read-AssemblyCutsceneCommands (Join-Path $Disassembly 'scripts\ages\scriptHelper.s') $script $forestOpcodes)
@@ -866,40 +845,13 @@ foreach ($sub in @('08','09','0a','0b')) {
         $tail = @(Read-AssemblyCutsceneCommands (Join-Path $Disassembly 'scripts\ages\scriptHelper.s') 'script15_6e71' $forestOpcodes)
         $commands += $tail
     }
-    $targets = @{}
-    for ($i = 0; $i -lt $commands.Count; $i++) { if (!$targets.ContainsKey($commands[$i].Label)) { $targets[$commands[$i].Label] = $i } }
-    $rows = [Collections.Generic.List[string]]::new()
-    $rows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
     for ($i = 0; $i -lt $commands.Count; $i++) {
-        $command = $commands[$i]; $op = $command.Opcode; $args = ([string]$command.Operands).Trim(); $arg0 = ''; $arg1 = ''; $payload = ''
-        switch ($op) {
-            'showtext' { $arg0 = $args.Substring(3); $payload = $allTexts[[Convert]::ToInt32($arg0,16)] }
-            'wait' { $arg0 = $args }
-            'scriptjump' { if (!$targets.ContainsKey($args)) { throw "Unresolved forest jump $script : $args" }; $arg0 = "$($targets[$args])" }
-            'jumpiftextoptioneq' { if ($args -notmatch '^\$(?<value>[0-9a-f]{2}), (?<target>@\w+)$') { throw "Invalid forest choice: $args" }; if (!$targets.ContainsKey($Matches.target)) { throw "Unresolved forest choice $script : $args" }; $arg0=$Matches.value; $arg1="$($targets[$Matches.target])" }
-            { $_ -in @('checkmemoryeq','jumpifmemoryeq','writememory') } {
-                if ($args -notmatch '^(?<binding>[^,]+), (?<value>\$[0-9a-f]{2}|>w1Companion)(?:, (?<target>@\w+))?$') { throw "Invalid forest memory command $script : $args" }
-                $payload = $Matches.binding; $arg0 = if ($Matches.value -eq '>w1Companion') {'01'} else {$Matches.value.Substring(1)}
-                if ($op -eq 'jumpifmemoryeq') { if (!$targets.ContainsKey($Matches.target)) { throw "Unresolved forest memory jump $script : $args" }; $arg1="$($targets[$Matches.target])" }
-                if ($op -eq 'writememory' -and $payload -eq 'w1Companion.var03') { $op='native'; $payload='ForceMount'; $arg0='' }
-            }
-            'writeobjectbyte' { if ($args -ne 'Interaction.state, $02') { throw "Unknown forest state write: $args" }; $op='nativeyield'; $payload='GiveFlute' }
-            'asm15' {
-                $op='native'; $payload = switch ($args) {
-                    'companionScript_noticeLink' {'NoticeLink'}
-                    'companionScript_spawnFairyAfterFindingCompanionInForest' {'SpawnRescueFairy'}
-                    'companionScript_warpOutOfForest' {'WarpOut'}
-                    default { throw "Unknown forest helper $args" }
-                }
-            }
-            'orroomflag' { $arg0 = $args.TrimStart('$') }
-            'setglobalflag' { if (!$globalFlagValues.ContainsKey($args)) { throw "Unknown forest flag $args" }; $arg0 = $globalFlagValues[$args].ToString('x2') }
-            'unsetglobalflag' { if ($args -ne 'GLOBALFLAG_FOREST_UNSCRAMBLED') {throw "Unknown forest flag $args"}; $op='native'; $payload='ScrambleForest' }
-            { $_ -in @('enableinput','disableinput','scriptend','checktext') } { }
-            default { throw "Unsupported forest command $script : $op" }
-        }
-        $rows.Add((New-CutsceneCommandRow $script $i $command.Label $command.Line $op '' "$arg0" "$arg1" $payload))
+        $commands[$i].Index = $i
+        $commands[$i].Script = $script
     }
+    # mainScripts loads these bodies into wBigBuffer; local jumps yield.
+    $rows = ConvertTo-CutsceneCommandRows $commands '' -symbols $forestSymbols -texts $allTexts `
+        -bindings $forestBindings -yieldOnJump $true
     Write-CutsceneGeneratedTable((Join-Path $destination "cutscenes\companion_forest_$sub.tsv"), $rows)
 }
 $forestTextRows = [Collections.Generic.List[string]]::new()
@@ -939,13 +891,48 @@ for ($index = 0; $index -lt 3; $index++) {
 }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_forest_companions.tsv'), $forestCompanions)
 $forestRooms = [Collections.Generic.List[string]]::new()
-$forestRooms.Add("# group`troom`tsubid`tsource")
-foreach ($roomMatch in [regex]::Matches($mainObjectSource, '(?ms)^group(?<group>[0-9])Map(?<room>[0-9a-f]{2})ObjectData:\s*(?<body>.*?)(?=^\w+:|\z)')) {
-    foreach ($placement in [regex]::Matches($roomMatch.Groups['body'].Value, 'obj_Interaction \$71 \$(?<sub>0[89abc])')) {
-        $forestRooms.Add("$($roomMatch.Groups['group'].Value)`t$($roomMatch.Groups['room'].Value)`t$($placement.Groups['sub'].Value)`tmainData.s:$($roomMatch.Value.Split(':')[0])")
+$forestRooms.Add("# group`troom`torder`tid`tsubid`ty`tx`tsource")
+$forestObjectPath = Join-Path $Disassembly 'objects/ages/mainData.s'
+$forestSpecs = @(
+    @(0,0x34,0,0x71,0x08,0,0), @(0,0x63,0,0x71,0x0a,0,0), @(0,0x63,1,0x67,0x05,0,0),
+    @(0,0x73,0,0x71,0x0b,0,0), @(0,0x81,1,0x71,0x09,0x58,0x50), @(0,0x81,3,0x67,0x04,0,0),
+    @(2,0x5e,4,0x71,0x0c,0,0), @(4,0xe6,1,0x71,0x0c,0,0), @(5,0xf6,3,0x71,0x0c,0,0))
+if ([regex]::Matches($mainObjectSource, '(?m)^\s*obj_Interaction \$71 \$0[89abc]\b').Count -ne 7) {
+    throw 'objects/ages/mainData.s: expected all seven placed forest companion controllers $71:$08-$0c.'
+}
+foreach ($spec in $forestSpecs) {
+    $label = 'group' + $spec[0] + 'Map' + $spec[1].ToString('x2') + 'ObjectData'
+    $nodes = @(Read-AssemblyLabelNodes $forestObjectPath $label | Where-Object { $_.Kind -eq 'MacroInvocation' })
+    $matching = @($nodes | Where-Object {
+        $_.Name -eq 'obj_Interaction' -and (Convert-AssemblyInteger $_.Operands[0]) -eq $spec[3] -and
+        (Convert-AssemblyInteger $_.Operands[1]) -eq $spec[4]
+    })
+    if ($matching.Count -ne 1) { throw "objects/ages/mainData.s:${label}: expected one forest object $($spec[3].ToString('x2')):$($spec[4].ToString('x2'))." }
+    $order = [array]::IndexOf($nodes, $matching[0])
+    $values = @($matching[0].Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if ($values.Count -eq 2) { $values += @(0,0) }
+    if ($order -ne $spec[2] -or $values.Count -ne 4 -or $values[2] -ne $spec[5] -or $values[3] -ne $spec[6]) {
+        throw "objects/ages/mainData.s:${label}: forest object order or coordinates changed."
     }
+    $forestRooms.Add("$($spec[0])`t$($spec[1].ToString('x2'))`t$order`t$($values[0].ToString('x2'))`t$($values[1].ToString('x2'))`t$($values[2].ToString('x2'))`t$($values[3].ToString('x2'))`tobjects/ages/mainData.s:${label}")
 }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_forest_rooms.tsv'), $forestRooms)
+$forestPresets = @([regex]::Matches($companionSpawnerSource,
+    '(?m)^\s*\.db \$00,\s+\$(?<y>[0-9a-f]{2}), \$(?<x>[0-9a-f]{2}), \$00 ; \$0(?<sub>[45])\s*$'))
+if ($forestPresets.Count -ne 2) { throw 'companionSpawner.s:@presetCompanionData: expected both Ages forest presets.' }
+$forestPresetRows = [Collections.Generic.List[string]]::new()
+$forestPresetRows.Add("# subid`ty`tx`tsource")
+foreach ($preset in $forestPresets) {
+    $forestPresetRows.Add("0$($preset.Groups['sub'].Value)`t$($preset.Groups['y'].Value)`t$($preset.Groups['x'].Value)`tcompanionSpawner.s:@presetCompanionData")
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/companion_forest_presets.tsv'), $forestPresetRows)
+$forestReturn = [regex]::Match($mooshHelperSource,
+    '(?ms)^@outOfForestWarp:\s+m_HardcodedWarpA ROOM_AGES_(?<room>[0-7][0-9a-f]{2}),\s*\$(?<transition>[0-9a-f]{2}),\s*\$(?<position>[0-9a-f]{2}),\s*\$(?<request>[0-9a-f]{2})')
+if (!$forestReturn.Success) { throw 'scriptHelper.s:@outOfForestWarp: missing hardcoded companion return warp.' }
+$forestReturnRoom = [Convert]::ToInt32($forestReturn.Groups['room'].Value,16)
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/companion_forest_return_warp.tsv'), @(
+    "# group`troom`ttransition`tposition`trequest`tsource",
+    "$((0x80 -bor ($forestReturnRoom -shr 8)).ToString('x2'))`t$(($forestReturnRoom -band 255).ToString('x2'))`t$($forestReturn.Groups['transition'].Value)`t$($forestReturn.Groups['position'].Value)`t$($forestReturn.Groups['request'].Value)`tscriptHelper.s:@outOfForestWarp"))
 $forestFluteGraphic = $interactionGraphics['113:0']
 $forestFluteAnimation = Resolve-NpcAnimation 0x71 $forestFluteGraphic.DefaultAnimation
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_forest_flute.tsv'), @(
@@ -972,74 +959,56 @@ $dimitriRooms = [Collections.Generic.List[string]]::new()
 $dimitriRooms.Add("# group`troom`trole`tx`ty`tsource")
 foreach ($roomMatch in [regex]::Matches($mainObjectSource, '(?ms)^group(?<group>[0-9])Map(?<room>[0-9a-f]{2})ObjectData:\s*(?<body>.*?)(?=^\w+:|\z)')) {
     $body = $roomMatch.Groups['body'].Value
-    $role = if ($body -match 'obj_Interaction \$67 \$03') { 'preset' }
-        elseif ($body -match 'obj_Interaction \$71 \$06') { 'goodbye' } else { $null }
+    $role = if ($body -match 'obj_Interaction \$67 \$03') { 'preset' } else { $null }
     if ($null -ne $role) {
         $dimitriRooms.Add("$($roomMatch.Groups['group'].Value)`t$($roomMatch.Groups['room'].Value)`t$role`t30`t48`tmainData.s:$($roomMatch.Value.Split(':')[0])")
     }
 }
-if ($dimitriRooms.Count -ne 5) { throw 'Expected Dimitri preset and three mainland departure placements.' }
+if ($dimitriRooms.Count -ne 2) { throw 'Expected the native Dimitri preset placement.' }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_rooms.tsv'), $dimitriRooms)
-$dimitriCollisionSource = Read-ImportText (Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
-$dimitriCollisionBytes = @([regex]::Matches($dimitriCollisionSource, '(?m)^\s*\.db (?<bytes>[^;\r\n]+)') |
-    ForEach-Object { [regex]::Matches($_.Groups['bytes'].Value, '\$([0-9a-f]{2})') } |
-    ForEach-Object { [Convert]::ToInt32($_.Groups[1].Value, 16) })
-if ($dimitriCollisionBytes.Count % 32 -ne 0) { throw 'objectCollisionTable.s row stride changed.' }
-$dimitriCollisionRows = [Collections.Generic.List[string]]::new()
-$dimitriCollisionRows.Add("# enemy-mode`teffect`tsource")
-for ($mode = 0; $mode -lt $dimitriCollisionBytes.Count / 32; $mode++) {
-    $effect = $dimitriCollisionBytes[$mode * 32 + 0x0f]
-    if ($effect -notin @(0,0x1c,0x25,0x26)) { throw "Unsupported Dimitri mouth collision effect `$$( $effect.ToString('x2')) in enemy mode `$$( $mode.ToString('x2'))." }
-    $dimitriCollisionRows.Add("$($mode.ToString('x2'))`t$($effect.ToString('x2'))`tobjectCollisionTable.s:ITEMCOLLISION_DIMITRI_MOUTH")
-}
-Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_collisions.tsv'), $dimitriCollisionRows)
-
-$dimitriActiveSource = Read-ImportText (Join-Path $Disassembly 'data\ages\enemyActiveCollisions.s')
-$dimitriActiveRows = [Collections.Generic.List[string]]::new()
-$dimitriActiveRows.Add("# collision-type`tenabled`tsource")
-$dimitriActiveMatches = [regex]::Matches($dimitriActiveSource, '(?m)^\s*dbrev (?<bits>(?:%[01]{8}\s+){3}%[01]{8})\s*; 0x(?<id>[0-9a-f]{2})')
-foreach ($match in $dimitriActiveMatches) {
-    $bits = $match.Groups['bits'].Value -replace '[%\s]', ''
-    $id = $match.Groups['id'].Value
-    $dimitriActiveRows.Add("$id`t$($bits[0x0f])`tenemyActiveCollisions.s:0x$id/ITEMCOLLISION_DIMITRI_MOUTH")
-}
-if ($dimitriActiveMatches.Count -ne 128) { throw 'Expected 128 enemyActiveCollisions.s rows for Dimitri collision gating.' }
-Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_active_collisions.tsv'), $dimitriActiveRows)
-
-# Native directional probes are ordered Y/X byte pairs. Collision probes are
-# cumulative deltas; carry and cliff probes are independent offsets.
-$dimitriNativeRows = [Collections.Generic.List[string]]::new()
-$dimitriNativeRows.Add("# kind`tindex`tx`ty`tsource")
-$dimitriCommonSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
-foreach ($probe in @(
-    @{ Kind='carry'; Source=$dimitriSource; Pattern='(?ms)^dimitriTileOffsets:(?<body>(?:\s*\.db[^\r\n]*[\r\n]+){4})'; Count=4; Cumulative=$false; Label='dimitri.s:dimitriTileOffsets' },
-    @{ Kind='cliff'; Source=$dimitriCommonSource; Pattern='(?ms)^companionCheckHopDownCliff:.*?^@directionOffsets:(?<body>(?:\s*\.db[^\r\n]*[\r\n]+){4})'; Count=4; Cumulative=$false; Label='commonCode.s:companionCheckHopDownCliff@directionOffsets' },
-    @{ Kind='collision'; Source=$dimitriCommonSource; Pattern='(?ms)^companionCalculateAdjacentWallsBitset:.*?^@offsets:(?<body>(?:\s*\.db[^\r\n]*[\r\n]+){8})'; Count=8; Cumulative=$true; Label='commonCode.s:companionCalculateAdjacentWallsBitset@offsets' }
-)) {
-    $match = [regex]::Match($probe.Source, $probe.Pattern)
-    if (!$match.Success) { throw "Missing Dimitri native probes: $($probe.Label)" }
-    $pairs = @([regex]::Matches($match.Groups['body'].Value, '\.db\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})'))
-    if ($pairs.Count -ne $probe.Count) { throw "Dimitri probe count changed: $($probe.Label)" }
-    $nativeX = 0; $nativeY = 0
-    for ($index=0; $index -lt $pairs.Count; $index++) {
-        $x = [Convert]::ToInt32($pairs[$index].Groups['x'].Value,16)
-        $y = [Convert]::ToInt32($pairs[$index].Groups['y'].Value,16)
-        if ($x -ge 128) { $x -= 256 }; if ($y -ge 128) { $y -= 256 }
-        if ($probe.Cumulative) { $nativeX += $x; $nativeY += $y } else { $nativeX=$x; $nativeY=$y }
-        $dimitriNativeRows.Add("$($probe.Kind)`t$index`t$nativeX`t$nativeY`t$($probe.Label)")
+$departurePlacements=[Collections.Generic.List[string]]::new()
+$departurePlacements.Add('# group`troom`torder`tsource')
+foreach ($roomMatch in [regex]::Matches($mainObjectSource,'(?ms)^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:\s*(?<body>.*?)(?=^\w+:|\z)')) {
+    $objects=@([regex]::Matches($roomMatch.Groups['body'].Value,'(?m)^\s*obj_(?!End)\w+[^\r\n]*'))
+    for($index=0;$index -lt $objects.Count;$index++) {
+        if($objects[$index].Value -match 'obj_Interaction \$71 \$06\s*$') {
+            $departurePlacements.Add("$($roomMatch.Groups['group'].Value)`t$($roomMatch.Groups['room'].Value)`t$index`tobjects/ages/mainData.s:$($roomMatch.Value.Split(':')[0])")
+        }
     }
 }
-Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_native_probes.tsv'), $dimitriNativeRows)
-$nativeCollisionSource = Read-ImportText (Join-Path $Disassembly 'code\bank0.s')
-$nativeCollisionMatch = [regex]::Match($nativeCollisionSource, '(?ms)^checkCollisionPosition_disallowSmallBridges:.*?^@specialCollisions:(?<body>.*?)^_simpleCollision:')
-$nativeMasks = @([regex]::Matches($nativeCollisionMatch.Groups['body'].Value, '%([01]{8})'))
-if ($nativeMasks.Count -ne 16) { throw 'Companion special collision mask count changed.' }
-$nativeMaskRows = @("# index`tmask`tsource")
-for ($index=0; $index -lt 16; $index++) {
-    $nativeMaskRows += "$index`t$([Convert]::ToInt32($nativeMasks[$index].Groups[1].Value,2).ToString('x2'))`tbank0.s:checkCollisionPosition_disallowSmallBridges@specialCollisions"
+if($departurePlacements.Count -ne 4) { throw 'companionScripts.s:$71:$06 requires all three native mainland placements.' }
+Write-GeneratedTable((Join-Path $destination 'objects/dimitri_departure_placements.tsv'),$departurePlacements)
+$departureOps=[Collections.Generic.HashSet[string]]::new([string[]]@(
+    'checkmemoryeq','writememory','disablemenu','setdisabledobjectsto11','turntofacelink','showtext','scriptend'))
+$departureCommands=@(Read-AssemblyCutsceneCommands (Join-Path $Disassembly 'scripts/ages/scripts.s') 'companionScript_subid06Script' $departureOps)
+$departureBindings=@{
+    'checkmemoryeq|wLinkObjectIndex, >w1Link'=@{Opcode='checkmemoryeq';Arg0='d0';Payload='LinkObject'}
+    'checkmemoryeq|wLinkInAir, $00'=@{Opcode='checkmemoryeq';Arg0='00';Payload='LinkInAir'}
+    'writememory|wUseSimulatedInput, $00'=@{Opcode='writememory';Arg0='00';Payload='SimulatedInput'}
+    'writememory|w1Companion.var03, $03'=@{Opcode='writememory';Arg0='03';Payload='CompanionVar03'}
+    'writememory|wDisableScreenTransitions, $00'=@{Opcode='writememory';Arg0='00';Payload='ScreenTransitions'}
+    'disablemenu|'=@{Opcode='native';Payload='DisableMenu'}
+    'setdisabledobjectsto11|'=@{Opcode='setdisabledobjects';Arg0='11'}
+    'turntofacelink|'=@{Opcode='native';Payload='FaceLink'}
 }
-Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_collision_masks.tsv'), $nativeMaskRows)
-
+if($departureCommands.Count -ne 10) { throw 'companionScript_subid06Script: native US command sequence changed.' }
+Write-GeneratedTable((Join-Path $destination 'cutscenes/dimitri_departure_commands.tsv'),
+    (ConvertTo-CutsceneCommandRows $departureCommands '' -texts $allTexts -bindings $departureBindings))
+$departureFacing=@('# direction`tcounter`tparameter`tpointer`toam-address`tsource')
+$animationTable=[int]$agesSymbols['interactionAnimationTable']; $animationBank=$animationTable -band (-bnot 0x3fff)
+$readDepartureWord={param([int]$at) [int]$romBytes[$at] -bor ([int]$romBytes[$at+1] -shl 8)}
+$animationRoot=$animationBank+((& $readDepartureWord ($animationTable+0x71*2)) -band 0x3fff)
+$oamRoot=$animationBank+((& $readDepartureWord ([int]$agesSymbols['interactionOamDataTable']+0x71*2)) -band 0x3fff)
+for($direction=0;$direction -lt 4;$direction++) {
+    $at=$animationBank+((& $readDepartureWord ($animationRoot+$direction*2)) -band 0x3fff)
+    if($romBytes[$at] -eq 0xff) { $at=$at+1+[int]$romBytes[$at+1]-256 }
+    $counter=[int]$romBytes[$at]; $gfx=[int]$romBytes[$at+1]; $parameter=[int]$romBytes[$at+2]
+    if($counter -eq 0 -or $counter -eq 0xff -or ($gfx -band 1) -ne 0) { throw "interaction71Animations: unsupported first frame for direction$direction." }
+    $pointer=(($at+3) -band 0x3fff) -bor 0x4000
+    $oam=((& $readDepartureWord ($oamRoot+$gfx)) -band 0x3fff) -bor 0x4000
+    $departureFacing+="$direction`t$($counter.ToString('x2'))`t$($parameter.ToString('x2'))`t$($pointer.ToString('x4'))`t$($oam.ToString('x4'))`tdata/ages/interactionAnimations.s:interaction71Animations"
+}
+Write-GeneratedTable((Join-Path $destination 'objects/dimitri_departure_facing.tsv'),$departureFacing)
 # SPECIALOBJECT_RICKY's mounted state owns A/B, movement hopping, ITEM_28's
 # direction-dependent punch, and ITEM_RICKY_TORNADO. Keep the gameplay
 # constants and tornado composition typed instead of reconstructing them from
@@ -1101,16 +1070,6 @@ $rickyTornadoDamageByte = [Convert]::ToInt32(
     $rickyTornadoAttributes.Groups['damage'].Value, 16)
 $rickyPunchDamage = 0x100 - $rickyPunchDamageByte
 $rickyTornadoDamage = 0x100 - $rickyTornadoDamageByte
-$companionWeaponRows = @("# item`tcollision-type`tdamage`tsource")
-foreach ($item in @('28', '2a', '2b')) {
-    $attributes = [regex]::Match($rickyItemAttributesSource,
-        ('(?m)^\s*\.db \$(?<type>[0-9a-f]{2}) \$[0-9a-f]{2} \$(?<damage>[0-9a-f]{2}) \$00 ; \$' + $item + ': .*$'))
-    if (-not $attributes.Success) { throw "Missing companion ITEM_$item attributes." }
-    $type = [Convert]::ToInt32($attributes.Groups['type'].Value, 16) -band 0x7f
-    $damage = 256 - [Convert]::ToInt32($attributes.Groups['damage'].Value, 16)
-    $companionWeaponRows += "$item`t$($type.ToString('x2'))`t$damage`titemAttributes.s:ITEM_$item"
-}
-Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_weapons.tsv'), $companionWeaponRows)
 $rickyTornadoRadius = [Convert]::ToInt32(
     $rickyTornadoAttributes.Groups['radius'].Value, 16)
 $rickyTornadoTile = [Convert]::ToInt32(
@@ -1128,13 +1087,10 @@ if ($rickyPunchDamage -ne 4 -or $rickyTornadoDamage -ne 4 -or
     $rickyItemOamSource -notmatch '(?ms)^itemOamData4cfb4:\s*\.db \$02\s*\.db \$08 \$00 \$02 \$20\s*\.db \$08 \$08 \$00 \$20') {
     throw 'Ricky ITEM_28/ITEM_RICKY_TORNADO attributes or OAM changed.'
 }
-$rickyBehaviorRows = @(
-    "# idle-animation`tcancel-animation`tpunch-animation`tcharge-animation`thop-animation`tground-speed`thop-delay`thop-speed-z`thop-gravity`thop-speed`tlanding-delay`tpunch-lifetime`tpunch-damage`tpunch-boxes`tcharge-updates`ttornado-speed`ttornado-radius-y`ttornado-radius-x`ttornado-damage`ttornado-offsets`ttornado-sprite`ttornado-tile-base`ttornado-palette`ttornado-animation-base64`tjump-sound`tcharge-sound`tsword-spin-sound`tsword-slash-sound`tpunch-cue-sound`tlong-jump-animation`tlong-jump-speed-z`tlong-jump-delay`tlong-jump-speed`tcliff-down-delay`tcliff-down-speed-z`tvine-top-tile`tcompanion-collision-masks`thole-tiles`thole-offsets`tcliff-up-probes`tlanding-probes`twater-animation`thole-animation`tdeparture-air-animation`tdeparture-ground-animation-base`tdeparture-punch-animation`tdeparture-diagonal-angle`tdeparture-wall-probe-angle`tdeparture-exit-angle`tdeparture-hop-delay`tsource",
-    "20`t05`t09`t13`t19`t1e`t16`t-384`t40`t50`t8`t20`t$rickyPunchDamage`t16,12,-12,0;12,18,-2,8;16,12,8,0;12,18,-2,-8`t30`t78`t$((($rickyTornadoRadius -shr 4) -band 0x0f))`t$($rickyTornadoRadius -band 0x0f)`t$rickyTornadoDamage`t-16,0;0,12;8,0;0,-12`tspr_common_sprites`t$($rickyTornadoTile.ToString('x2'))`t$rickyTornadoPalette`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rickyTornadoAnimationEncoded)))`t53`t4f`t6b`t74`t75`t0f`t-768`t8`t32`t20`t-704`td4`t00,ff,03,c0,c3,c3,c3,00,00,ff,03,c0,c1,c1,ff,00`tf3,fd`t-8,0;5,8;8,0;5,-8`t-8,6;-8,-6;-24,6;-24,-6`t4,0;4,6;-2,0;4,-6`t0e`t0d`t03`t05`t18`t14`t18`t10`t8`tricky.s:rickyState2/rickyState5/rickyState7/rickyState8/rickyStateA;rickyMooshAttack.s:itemCode28;rickyTornado.s:itemCode2a;bank0.s:checkCollisionPosition_disallowSmallBridges;gfxHeaders.s:GFXH_COMMON_SPRITES"
-)
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\ricky_companion_behavior.tsv'),
-    $rickyBehaviorRows)
+$rickyDepartureRows = @(
+    '# air-animation`tground-animation-base`tpunch-animation`tdiagonal-angle`twall-probe-angle`texit-angle`thop-delay`tleft-mask`tsource',
+    "03`t05`t18`t14`t18`t10`t8`t40`tobject_code/common/specialObjects/ricky.s:rickyStateASubstate2-7 (ROM_AGES)")
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/ricky_departure.tsv'), $rickyDepartureRows)
 
 $rickyEventRows = @(
     "# group`troom`tcontroller-id`tcontroller-subid`tspawner-id`tspawner-subid`tricky-id`tricky-y`tricky-x`tprerequisite-global-flag`tricky-state-address`ttalked-mask`tcomplete-mask`tleft-mask`tgloves-treasure`tanimal-companion-id`tinitial-animation`tjump-speed-z`tjump-gravity`tricky-sound`tinitial-special-object-updates`tinitial-script-updates`tsource",
@@ -1171,6 +1127,20 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\moosh_rescue_event.tsv'),
     $mooshEventRows)
 
+$mooshPlacementRows = [Collections.Generic.List[string]]::new()
+$mooshPlacementRows.Add("# order`tid`tsubid`ty`tx`tsource")
+$mooshOrder = 0
+foreach ($placement in [regex]::Matches($mooshPlacement.Value,
+    '(?m)^\s*obj_Interaction \$(?<id>[0-9a-f]{2}) \$(?<sub>[0-9a-f]{2})(?: \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}))?\s*$')) {
+    $y = if ($placement.Groups['y'].Success) { $placement.Groups['y'].Value } else { '00' }
+    $x = if ($placement.Groups['x'].Success) { $placement.Groups['x'].Value } else { '00' }
+    $mooshPlacementRows.Add("$mooshOrder`t$($placement.Groups['id'].Value)`t$($placement.Groups['sub'].Value)`t$y`t$x`tmainData.s:group0Map6cObjectData")
+    $mooshOrder++
+}
+if ($mooshOrder -ne 6) { throw 'Room0:6c requires its complete six-interaction source stream.' }
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\moosh_rescue_placements.tsv'), $mooshPlacementRows)
+
 function Write-MooshRescueCommands {
     param([string]$file, [string]$script, [object[]]$specs)
     $line = Get-AssemblySourceLine `
@@ -1178,8 +1148,15 @@ function Write-MooshRescueCommands {
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add($cutsceneCommandHeader)
     $expanded = [Collections.Generic.List[object]]::new()
+    $labels = [Collections.Generic.Dictionary[string,int]]::new([StringComparer]::Ordinal)
     foreach ($spec in $specs) {
-        if ($spec[0] -eq 'ghinicircle') {
+        if ($spec[0] -eq 'label') {
+            $labels.Add($spec[1], $expanded.Count)
+        } elseif ($spec[0] -eq 'signalwait') {
+            $start = $expanded.Count
+            $expanded.Add(@('jumpifmemoryeqyieldonmiss','','01',($start + 2).ToString(),$spec[1]))
+            $expanded.Add(@('scriptjump','',$start.ToString(),'',''))
+        } elseif ($spec[0] -eq 'ghinicircle') {
             # The native mover runs before interactionRunScript, including
             # during text. Keep the script's actual wait/jump yield loop.
             $actor = $spec[1]
@@ -1194,12 +1171,27 @@ function Write-MooshRescueCommands {
     }
     for ($index = 0; $index -lt $expanded.Count; $index++) {
         $spec = $expanded[$index]
+        foreach ($operand in @(2,3)) {
+            if (([string]$spec[$operand]).StartsWith('@')) {
+                $target = [string]$spec[$operand]
+                if (-not $labels.ContainsKey($target)) { throw "${script}: unresolved label $target." }
+                $spec[$operand] = $labels[$target].ToString()
+            }
+        }
         $rows.Add((New-CutsceneCommandRow `
             $script $index $script $line `
             $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
     }
     Write-CutsceneGeneratedTable(
         (Join-Path $destination "cutscenes\$file"), $rows)
+}
+
+$agesMooshCutscene = [regex]::Match($mooshSpecialSource,
+    '(?ms)^\.ifdef ROM_AGES\r?\n;;\r?\n; State A: cutscene stuff\r?\n(?<body>.*?)^\.else').Groups['body'].Value
+if ($agesMooshCutscene -notmatch '(?ms)^mooshStateASubstate1:.*?SpecialObject\.var3d.*?ld a,\$01\s*ld \(wDisabledObjects\),a\s*ld \(wMenuDisabled\),a' -or
+    $agesMooshCutscene -notmatch '(?ms)^mooshStateASubstate3:.*?wMooshState.*?and \$20.*?wStatusBarNeedsRefresh.*?SpecialObject\.var3d.*?objectRemoveFromAButtonSensitiveObjectList.*?companionSetAnimation.*?companionForceMount' -or
+    $mooshScriptsSource -notmatch '(?ms)^companionScript_subid00Script:.*?writememory\s+w1Companion\.var03, \$02\s*checkmemoryeq w1Companion\.var3d, \$01.*?showtext TX_2201\s*writememory w1Companion\.var03, \$03.*?writememory wDisableScreenTransitions, \$00\s*enablemenu\s*scriptend') {
+    throw 'Ages mooshStateA controls or companionScript_subid00 native handoff/enablemenu changed.'
 }
 
 $ghiniCircleLoop = 'asm15 scriptHelp\.ghiniHarassingMoosh_beginCircularMovement\s*' +
@@ -1224,23 +1216,31 @@ function Moosh-Text([int]$id) {
     return $text
 }
 
+$mooshControllerScript = [regex]::Match($mooshScriptsSource,
+    '(?ms)^companionScript_subid00Script:.*?(?=^companionScript_subid03Script:)').Value
+if ([regex]::Matches($mooshControllerScript,
+        'writeobjectbyte Interaction\.var3a, 60\s*callscript @delayFrames').Count -ne 2 -or
+    $mooshControllerScript -notmatch '(?ms)^@delayFrames:\s*jumpifobjectbyteeq Interaction\.var3a, \$00, \+\+\s*wait 1\s*scriptjump @delayFrames\s*\+\+\s*retscript') {
+    throw 'Moosh controller var3a writes or native delay call/wait/jump/return flow changed.'
+}
+
 Write-MooshRescueCommands 'moosh_rescue_ghini0.tsv' `
     'ghiniHarassingMoosh_subid00Script' @(
         @('setdisabledobjects','','11','',''),
         @('ghinicircle','Ghini0','','',''),
         @('showtext','','1204','',(Moosh-Text 0x1204)),
         @('writememory','','01','','SignalOr'),
-        @('checkmemoryeq','','01','','SignalBit10'),
+        @('signalwait','SignalBit10','','',''),
         @('setdisabledobjects','','00','',''),
         @('native','','','','SpawnEnemyGhini0'),
         @('scriptend','','','',''))
 Write-MooshRescueCommands 'moosh_rescue_ghini1.tsv' `
     'ghiniHarassingMoosh_subid01Script' @(
-        @('checkmemoryeq','','01','','SignalBit01'),
+        @('signalwait','SignalBit01','','',''),
         @('ghinicircle','Ghini1','','',''),
         @('showtext','','1205','',(Moosh-Text 0x1205)),
         @('writememory','','02','','SignalOr'),
-        @('checkmemoryeq','','01','','SignalBit08'),
+        @('signalwait','SignalBit08','','',''),
         @('ghinicircle','Ghini1','','',''),
         @('showtext','','1207','',(Moosh-Text 0x1207)),
         @('playsound','','c8','',''),
@@ -1250,42 +1250,55 @@ Write-MooshRescueCommands 'moosh_rescue_ghini1.tsv' `
         @('scriptend','','','',''))
 Write-MooshRescueCommands 'moosh_rescue_ghini2.tsv' `
     'ghiniHarassingMoosh_subid02Script' @(
-        @('checkmemoryeq','','01','','SignalBit04'),
+        @('signalwait','SignalBit04','','',''),
         @('ghinicircle','Ghini2','','',''),
         @('showtext','','1206','',(Moosh-Text 0x1206)),
         @('writememory','','08','','SignalOr'),
-        @('checkmemoryeq','','01','','SignalBit10'),
+        @('signalwait','SignalBit10','','',''),
         @('native','','','','SpawnEnemyGhini2'),
         @('scriptend','','','',''))
 Write-MooshRescueCommands 'moosh_rescue_companion.tsv' `
     'companionScript_subid00Script' @(
-        @('checkmemoryeq','','01','','SignalBit02'),
-        @('nativeblock','Moosh','60','','ShakeMoosh'),
+        @('signalwait','SignalBit02','','',''),
+        @('writeobjectbyte','Controller','7a','3c',''),
+        @('callscript','','@shake-delay','',''),
         @('showtext','','2200','',(Moosh-Text 0x2200)),
         @('writememory','','04','','SignalOr'),
-        @('checkmemoryeq','','01','','SignalBit10'),
+        @('signalwait','SignalBit10','','',''),
         @('checkmemoryeq','','00','','RoomEnemyCount'),
         @('playsound','','c8','',''), @('wait','','20','',''),
         @('playsound','','c8','',''), @('wait','','20','',''),
         @('playsound','','c8','',''),
         @('native','','','','RestoreRoomMusic'),
-        @('native','','','','SetMooshTalkable'),
-        @('checkmemoryeq','','01','','MooshTalked'),
-        @('nativeblock','Moosh','60','','ShakeMoosh'),
+        @('writememory','','02','','MooshVar03'),
+        @('checkmemoryeq','','01','','MooshButton'),
+        @('writeobjectbyte','Controller','7a','3c',''),
+        @('callscript','','@shake-delay','',''),
         @('showtext','','2201','',(Moosh-Text 0x2201)),
-        @('native','','','','SetMooshAwaitingLink'),
+        @('writememory','','03','','MooshVar03'),
         @('native','','','','SpawnExclamation'),
         @('setdisabledobjects','','11','',''),
         @('native','','','','FaceMooshTowardLink'),
         @('wait','','60','',''),
-        @('jumpifmemoryeq','','01','24','AlreadyMooshCompanion'),
-        @('showtext','','2203','',(Moosh-Text 0x2203)),
-        @('scriptjump','','25','',''),
+        @('jumpifmemoryeq','','00','@first-meeting','IsLinkedGame'),
+        @('jumpifmemoryeq','','0d','@meeting-again','AnimalCompanion'),
+        @('scriptjump','','@first-meeting','',''),
+        @('label','@meeting-again','','',''),
         @('showtext','','2204','',(Moosh-Text 0x2204)),
+        @('scriptjump','','@meeting-done','',''),
+        @('label','@first-meeting','','',''),
+        @('showtext','','2203','',(Moosh-Text 0x2203)),
+        @('label','@meeting-done','','',''),
         @('writememory','','20','','MooshStateOr'),
         @('setdisabledobjects','','00','',''),
-        @('native','','','','BeginMooshMount'),
         @('checkmemoryeq','','01','','MooshMounted'),
         @('showtext','','2205','',(Moosh-Text 0x2205)),
         @('native','','','','CompleteMooshRescue'),
-        @('scriptend','','','',''))
+        @('enablemenu','','','',''),
+        @('scriptend','','','',''),
+        @('label','@shake-delay','','',''),
+        @('jumpifmemoryeq','','00','@shake-return','ShakeCounter'),
+        @('wait','','1','',''),
+        @('scriptjump','','@shake-delay','',''),
+        @('label','@shake-return','','',''),
+        @('return','','','',''))

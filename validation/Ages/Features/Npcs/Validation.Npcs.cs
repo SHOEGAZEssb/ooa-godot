@@ -453,8 +453,8 @@ public sealed partial class ValidationRoot
             // conditional map text verifies their content and control flow.
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
-            ["cutscenes/family_npc_texts.tsv|\\Child"] = 34,
-            ["cutscenes/family_npc_scripts.tsv|\\Child"] = 31,
+            ["cutscenes/family_npc_texts.tsv|\\Child"] = 36,
+            ["cutscenes/family_npc_scripts.tsv|\\Child"] = 33,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
             ["objects/linked_game_npcs.tsv|\\secret1"] = 15,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
@@ -721,7 +721,7 @@ public sealed partial class ValidationRoot
             "The room 0:48 villager did not face down toward Link after talking.");
 
         int dialogueAnimationFrame = villager.CurrentAnimationFrame;
-        _entities.Update(16.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(16.0 / 60.0, _player);
         FailIf(
             villager.CurrentAnimationFrame != dialogueAnimationFrame,
             "wTextIsActive did not freeze the ordinary room 0:48 " +
@@ -752,7 +752,7 @@ public sealed partial class ValidationRoot
             "The villager did not return to facing down when Link left the $28 awareness radius.");
 
         _dialogue.Close();
-        _transitions.BeginScroll(_player, Vector2I.Down, 0x58);
+        _transitions.BeginValidationScroll(_player, Vector2I.Down, 0x58);
         NpcCharacter destinationNpc = _npcNodes.Find(npc =>
             npc.Record.Room == 0x58 &&
             npc.Record.Id == 0x41 &&
@@ -834,7 +834,6 @@ public sealed partial class ValidationRoot
     {
         string[] expectedSources =
         [
-            "blossom.s:MENU_KIDNAME",
             "impaInCutscene.s:$31:$07;bird.s:$4c:$04",
             "zelda.s:$ad:$00",
             "goron.s:scriptTable;goronElder.s;shootingGallery.s",
@@ -853,8 +852,6 @@ public sealed partial class ValidationRoot
             "hardhatWorker.s:blackTowerEntrance",
             "ralph.s:ralphSubid0c",
             "makuSprout.s:interactionCode88",
-            "companionScripts.s:companionScript_subid00Script",
-            "companionScripts.s:companionScript_subid03Script",
             "tingle.s:interactionCodec8; scripts.s:tingleScript",
             "tokay.s:tokayScriptTable; rosa.s:interactionCode68",
             "makuTree.s:interactionCode87Subid02",
@@ -1034,7 +1031,7 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(oldLady.Position + Vector2.Right * 20.0f);
         for (int update = 0; update < 16; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             oldLady.FacingVector != Vector2I.Left ||
             oldLady.CurrentAnimationFrame != 1 ||
@@ -1094,24 +1091,24 @@ public sealed partial class ValidationRoot
             "Restored old lady $3d:$00 did not expose TX_3801 at $48,$78.");
 
         _player.WarpTo(boy.Position + Vector2.Up * 20.0f);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             boy.FacingVector != Vector2I.Down,
             "Restored boy $3c:$0d did not preserve the source's independent " +
             "initial DIR_UP angle byte when the visible animation began down.");
         _player.WarpTo(boy.Position + Vector2.Left * 20.0f);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             boy.FacingVector != Vector2I.Left,
             "Restored boy $3c:$0d did not face nearby Link on his first update.");
         _player.WarpTo(boy.Position + Vector2.Right * 20.0f);
         for (int update = 0; update < 29; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             boy.FacingVector != Vector2I.Left,
             "npcFaceLinkAndAnimate changed the restored boy's direction " +
             "before its $1d-to-$00 cooldown elapsed.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             boy.FacingVector != Vector2I.Right,
             "npcFaceLinkAndAnimate did not allow the restored boy's " +
@@ -1263,7 +1260,7 @@ public sealed partial class ValidationRoot
             });
         RoomEntityManager bipinManager = bipinManagerFixture.Manager;
         bipinManager.SoundRequested += bipinSounds.Add;
-        var bipinInteractions = new InteractionController(
+        var bipinInteractions = AgesInteractionValidation.Create(
             bipinRooms, bipinManager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
             bipinTreasures, bipinDialogue, bipinWorldRoot, bipinView,
             static position => position, () => bipinTick, bipinInventory,
@@ -1282,9 +1279,9 @@ public sealed partial class ValidationRoot
             "with animation $09 and the TX_4311 script entry.");
         _player.WarpTo(bipin.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
-        bipinManager.Update(frame, _player);
+        bipinManager.AdvanceEntityFrames(frame, _player);
         var bipinTrace = new ValidationCutsceneTrace();
-        bipinInteractions.NpcScriptsForValidation.TraceSink = bipinTrace;
+        bipinInteractions.AgesScripts().TraceSink = bipinTrace;
         FailIf(
             !bipinManager.BlocksLink(bipin.Position) ||
             bipin.ZIndex != ObjectDrawPriority.BehindLinkZIndex ||
@@ -1298,7 +1295,7 @@ public sealed partial class ValidationRoot
         bipinDialogue.Close();
         bipinInteractions.Update(frame, _player);
         GroundTreasurePickup? heldSeed =
-            bipinInteractions.PastBipinTreasureForValidation;
+            bipinInteractions.AgesScripts().PastBipinTreasure;
         TreasureObjectRecord seed =
             bipinTreasures.GetObject("TREASURE_OBJECT_GASHA_SEED_08");
         InitializeGetItemStateForValidation();
@@ -1332,9 +1329,9 @@ public sealed partial class ValidationRoot
         bipinDialogue.Close();
         _player.AdvanceApplicationUpdate();
         bipinInteractions.Update(frame, _player);
-        bipinManager.Update(frame, _player);
+        bipinManager.AdvanceEntityFrames(frame, _player);
         FailIf(
-            bipinInteractions.PastBipinTreasureForValidation is not null ||
+            bipinInteractions.AgesScripts().PastBipinTreasure is not null ||
             bipinManager.Entities<GroundTreasurePickup>().Count != 0 ||
             _player.IsHoldingItemTwoHands ||
             bipinDialogue.IsOpen,
@@ -1392,7 +1389,7 @@ public sealed partial class ValidationRoot
                 entry.Counter == 0) != 1,
             "bipinScript3's typed trace lost its one-time/repeat branches, " +
             "giveitem/checktext order, or exact wait-1 counter boundary.");
-        bipinInteractions.NpcScriptsForValidation.TraceSink = null;
+        bipinInteractions.AgesScripts().TraceSink = null;
 
         bipinManager.Clear();
         RemoveChild(bipinRoot);
@@ -1452,7 +1449,7 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(0x18, 0x70));
         for (int update = 0; update < 25; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             sounds.Count != 0 ||
             manager.Entities<Room148PickaxeDebris>().Count != 0 ||
@@ -1460,7 +1457,7 @@ public sealed partial class ValidationRoot
             worker.CurrentAnimationParameter != 0,
             "Pickaxe worker $57:$00 struck before animation $02's initial 26-update frame.");
 
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         List<Room148PickaxeDebris> debris =
             manager.Entities<Room148PickaxeDebris>();
         FailIf(
@@ -1501,7 +1498,7 @@ public sealed partial class ValidationRoot
             "INTERAC_FALLING_ROCK $92:$06 did not render fixed bank-1 " +
             "spr_common_sprites tile $02 as the 8x8 dirt chip.");
 
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         debris = manager.Entities<Room148PickaxeDebris>();
         FailIf(
             debris.Count != 2 ||
@@ -1516,7 +1513,7 @@ public sealed partial class ValidationRoot
             update < 30 && manager.Entities<Room148PickaxeDebris>().Count != 0;
             update++)
         {
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         }
         FailIf(
             manager.Entities<Room148PickaxeDebris>().Count != 0,
@@ -1526,7 +1523,7 @@ public sealed partial class ValidationRoot
         sounds.Clear();
         worker = Worker();
         for (int update = 0; update < 130; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         debris = manager.Entities<Room148PickaxeDebris>();
         FailIf(
             sounds.Count != 3 || sounds.Any(sound =>
@@ -1547,7 +1544,7 @@ public sealed partial class ValidationRoot
             worker.CurrentScriptAnimationSource != pickaxe.Record.TalkAnimation,
             "Talking to worker $57:$00 did not select static animation $03.");
         for (int update = 0; update < 100; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             sounds.Count != 0 ||
             manager.Entities<Room148PickaxeDebris>().Count != 0,
@@ -1560,9 +1557,9 @@ public sealed partial class ValidationRoot
             "Closing TX_1b00 did not jump back to work animation $02 " +
             "and run its same-update interactionAnimateAsNpc call.");
         for (int update = 0; update < 24; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(sounds.Count != 0, "Worker $57:$00 struck too early after closing TX_1b00.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             sounds.Count != 1 || worker.CurrentAnimationParameter != 1,
             "Worker $57:$00 did not restart its 26-update strike cycle at the script boundary.");
@@ -1650,13 +1647,13 @@ public sealed partial class ValidationRoot
         sounds.Clear();
         worker = Worker();
         for (int update = 0; update < 10; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         int frozenFrame = worker.CurrentAnimationFrame;
         int frozenParameter = worker.CurrentAnimationParameter;
         manager.BeginScreenTransition(
             1, _world.LoadRoom(1, 0x47), new Vector2(160, 0));
         for (int update = 0; update < 120; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             worker.CurrentAnimationFrame != frozenFrame ||
             worker.CurrentAnimationParameter != frozenParameter ||
@@ -1787,13 +1784,13 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(0x18, 0x70));
         for (int update = 0; update < 29; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             !ball.Idle || ball.Position != new Vector2(0x75, 0x4a) ||
             boy.CurrentAnimationFrame != 0,
             "The room 1:49 boy threw the ball before his initial 30-update wait.");
 
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             ball.Idle || ball.SubId != 1 || ball.Position != new Vector2(0x75, 0x4a) ||
             ball.ZFixed != 0 || ball.SpeedZ != -0x1c0 ||
@@ -1802,7 +1799,7 @@ public sealed partial class ValidationRoot
             "INTERAC_BALL $95 left from $4a/$75 at Z speed -$01c0.");
 
         for (int update = 0; update < 29; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             !ball.Idle || ball.Position != new Vector2(0x3c, 0x4a) ||
             // ball.s leaves the $01c0 impact speed after the 29-update
@@ -1812,9 +1809,9 @@ public sealed partial class ValidationRoot
             "position after the exact SPEED_200/-$01c0/$20 flight.");
 
         for (int update = 0; update < 30; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(!ball.Idle, "The father threw before his initial 60+30 update script waits.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             ball.Idle || ball.SubId != 0 ||
             ball.Position != new Vector2(0x3c, 0x4a) ||
@@ -1853,7 +1850,7 @@ public sealed partial class ValidationRoot
             {
                 LoadValidationRoom(1, 0x48);
                 _player.WarpTo(new Vector2(0x98, 0x68));
-                _transitions.BeginScroll(_player, Vector2I.Right, 0x49);
+                _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x49);
                 Room149Ball ball = _entities.Entities<Room149Ball>().Single();
                 NpcCharacter boy = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x3c);
                 int boyFrame = boy.CurrentAnimationFrame;
@@ -1888,7 +1885,7 @@ public sealed partial class ValidationRoot
             }
 
             LoadValidationRoom(1, 0x48);
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x49);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x49);
             Step(5);
             // Session teardown cancels the transition and owns actor cleanup.
             ReinitializeGameplayForValidation();
@@ -1949,7 +1946,7 @@ public sealed partial class ValidationRoot
 
         ulong downHash = villager.CurrentAnimationPixelHash;
         _player.WarpTo(new Vector2(0x21, 0x38));
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             villager.CurrentAnimationPixelHash == downHash,
             "Room 1:57's female villager did not use npcFaceLinkAndAnimate " +
@@ -2158,7 +2155,7 @@ public sealed partial class ValidationRoot
         ulong impaDownHash = impa.CurrentAnimationPixelHash;
         ulong nayruDownHash = nayru.CurrentAnimationPixelHash;
         _player.WarpTo(new Vector2(0x21, 0x48));
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             impa.CurrentAnimationPixelHash == impaDownHash ||
             nayru.CurrentAnimationPixelHash == nayruDownHash,
@@ -2472,11 +2469,11 @@ public sealed partial class ValidationRoot
                 _sound.PlayRequestsFor(SoundId.SndEnterCave) != 1,
                 $"Room 1:76 flag ${record.RoomFlagMask:x2}={flagSet} did not enter 4:{destination:x2} through $93/$ff/$01 with SND_ENTERCAVE.");
 
-            UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeInFrames / 60.0);
+            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
             FailIf(
                 _transitions.IsTransitioning ||
                 _player.Position != new Vector2(
-                    0x78, _currentRoom.Height - AgesRoomTransitionController.WarpEnterFrames) ||
+                    0x78, _currentRoom.Height - RoomTransitionController.WarpEnterFrames) ||
                 _player.FacingVector != Vector2I.Up,
                 "The room 1:76 destination did not complete its 28-update middle-bottom entrance within the 33-update fade.");
         }
@@ -2582,14 +2579,6 @@ public sealed partial class ValidationRoot
         stock = database.ResolveStock(predicateSave);
         FailIf(stock[1].Item.SubId != 0x12, "wShieldLevel bits 1+0 did not follow the L1 -> L2 -> L3 chain.");
 
-        predicateSave.WriteWramByte(
-            database.DimitriStateAddress, (byte)database.DimitriSavedMask);
-        database.ApplyCompanionEntryState(predicateSave);
-        FailIf(
-            predicateSave.ReadWramByte(database.DimitriStateAddress) !=
-            (database.DimitriSavedMask | database.DimitriDisappearMask),
-            "$71:$0c did not promote wDimitriState bit 5 to bit 6 on shop entry.");
-
         // Instantiate the real room and drive the native lift, theft, reject,
         // and successful recurring-heart purchase paths.
         bool linkedBefore = _saveData.IsLinkedGame;
@@ -2609,6 +2598,7 @@ public sealed partial class ValidationRoot
         _saveData.WriteWramByte(AgesWramAddress.wShieldLevel, 0);
         SetTreasure(_saveData, TreasureId.Bombs, value: false);
         LoadValidationRoom(group, roomId);
+        StepGameplayUpdates(1, Vector2.Zero);
 
         LynnaShopEvent shop = _roomEvents.Get<LynnaShopEvent>();
         List<LynnaShopItem> products = _entities.Entities<LynnaShopItem>();
@@ -2756,6 +2746,7 @@ public sealed partial class ValidationRoot
         object initialDigits = digitField.GetValue(products[0])!;
         LoadValidationRoom(0, 0x68);
         LoadValidationRoom(group, roomId);
+        StepGameplayUpdates(1, Vector2.Zero);
         List<LynnaShopItem> returnedProducts = _entities.Entities<LynnaShopItem>();
         FailIf(returnedProducts.Count == 0 || returnedProducts.Any(item =>
                 ReferenceEquals(initialDigits, digitField.GetValue(item)) ||
@@ -2776,6 +2767,7 @@ public sealed partial class ValidationRoot
             "entry helper, source OAM/TREE_GFXH_03 BG prices, static stock graphics, " +
             "$5c-$5f/$88-$8b held-walk pose, A/B lift/return, full-item denial, " +
             "10-Rupee heart purchase, and SPEED_200 theft-prevention route.");
+        CheckRetailShopItemGetBoundary();
     }
 
     private void ValidateVasuShopInteractions()
@@ -3268,7 +3260,7 @@ public sealed partial class ValidationRoot
             !isolatedHeart.TransitionDrawOffset.IsEqualApprox(
                 isolatedHeartIncomingOffset),
             "Room 1:86 did not preload its static Heart Piece at the incoming scroll offset.");
-        isolatedManager.Update(1.0, _player);
+        isolatedManager.AdvanceEntityFrames(1.0, _player);
         FailIf(
             isolatedHeart.State != PickupState.Spawning ||
             !isolatedHeart.Visible ||
@@ -3319,13 +3311,13 @@ public sealed partial class ValidationRoot
         int heartPiecesBefore = _inventory.HeartPieces;
         _sound.ClearPlayRequestAudit();
         _player.WarpTo(heart.Position);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             heart.State != PickupState.Spawning,
             "Ground Heart Piece did not retain its state-0 initialization update.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            _interactions.GroundTreasureForValidation != heart ||
+            _interactions.GroundTreasures.Active != heart ||
             heart.State != PickupState.Collected ||
             _inventory.HeartPieces != (heartPiecesBefore + 1) % 4 ||
             !_saveData.HasRoomFlag(
@@ -3335,7 +3327,7 @@ public sealed partial class ValidationRoot
             _dialogue.CurrentMessage.Contains("\\heartpiece", StringComparison.Ordinal),
             "Ground Heart Piece contact did not give the treasure, set $20, play SND_GETITEM, and open TX_0017.");
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !heart.Held || _player.IsHoldingItemTwoHands ||
             heart.Position != _player.Position + new Vector2(0, -14) ||
@@ -3346,7 +3338,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _player.IsHoldingItemTwoHands ||
             _entities.Entities<GroundTreasurePickup>().Count != 0,
@@ -3384,7 +3376,7 @@ public sealed partial class ValidationRoot
         {
             _transitions.Update(1.0 / 60.0);
             if (!_transitions.TimeWarpActive)
-                _entities.Update(1.0 / 60.0, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
             _interactions.Update(1.0 / 60.0, _player);
             _sound.Tick();
@@ -3621,7 +3613,7 @@ public sealed partial class ValidationRoot
         predicateManager.SoundRequested += sounds.Add;
         _player.WarpTo(new Vector2(0x18, 0x18));
         for (int update = 0; update < 26; update++)
-            predicateManager.Update(frame, _player);
+            predicateManager.AdvanceEntityFrames(frame, _player);
         List<Room148PickaxeDebris> chips =
             predicateManager.Entities<Room148PickaxeDebris>();
         FailIf(
@@ -3655,11 +3647,11 @@ public sealed partial class ValidationRoot
         RoomEntityManager entranceManager = entranceManagerFixture.Manager;
         // Keep the real placed population/slot counts while supplying the
         // entity-owned script lanes now required by its patrolling workers.
-        _ = new NpcInteractionScriptController(entranceRooms, entranceManager,
+        _ = new AgesNpcInteractionScripts(entranceRooms, entranceManager,
             _dialogue, _treasures, new BipinBlossomFamilyStateResolver(new NpcDatabase(AgesGameContent.AssetRoot)),
             new InventoryState(_treasures, entranceSave), static () => false,
             static () => { });
-        var respawn = new AgesDeathRespawnPointController(entranceRooms, _player);
+        var respawn = new DeathRespawnPointController(entranceRooms, _player);
         int entranceText = 0;
         string entranceMessage = string.Empty;
         entranceManager.DungeonEntranceTriggered += (textId, message) =>
@@ -3675,7 +3667,7 @@ public sealed partial class ValidationRoot
         FailIf(
             entranceManager.Entities<Node2D>().Count != 6,
             "Room 4:e7's screen warp did not insert dungeon-stuff second in its object stream.");
-        entranceManager.Update(frame, _player);
+        entranceManager.AdvanceEntityFrames(frame, _player);
         FailIf(
             entranceText != 0x020f ||
             entranceMessage != dungeonEntries.Entry(15).Message ||
@@ -3687,7 +3679,7 @@ public sealed partial class ValidationRoot
         FailIf(
             entranceManager.Entities<Node2D>().Count != 6,
             "Direct room 4:e7 load did not preserve dungeon-stuff's source interaction slot.");
-        entranceManager.Update(frame, _player);
+        entranceManager.AdvanceEntityFrames(frame, _player);
         FailIf(
             entranceManager.Entities<Node2D>().Count != 5,
             "Direct room 4:e7 load did not delete dungeon-stuff on its first non-whiteout update.");
@@ -3696,7 +3688,7 @@ public sealed partial class ValidationRoot
         entranceManager.LoadRoom(
             4, entranceRooms.CurrentRoom,
             EnemyPlacementContext.FromWarpDestination(0xff));
-        entranceManager.Update(frame, _player);
+        entranceManager.AdvanceEntityFrames(frame, _player);
         FailIf(
             entranceText != 0 || entranceManager.Entities<Node2D>().Count != 5,
             "Dungeon-stuff $12:$00 did not delete below the strict entry-side Y=$78 gate.");
@@ -3733,7 +3725,7 @@ public sealed partial class ValidationRoot
             });
         RoomEntityManager shovelManager = shovelManagerFixture.Manager;
         shovelManager.SoundRequested += shovelSounds.Add;
-        var shovelInteractions = new InteractionController(
+        var shovelInteractions = AgesInteractionValidation.Create(
             shovelRooms, shovelManager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
             shovelTreasures, shovelDialogue, shovelWorldRoot, shovelView,
             static position => position, () => shovelTick, shovelInventory,
@@ -3744,7 +3736,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(shovelWorker.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
         var shovelTrace = new ValidationCutsceneTrace();
-        shovelInteractions.NpcScriptsForValidation.TraceSink = shovelTrace;
+        shovelInteractions.AgesScripts().TraceSink = shovelTrace;
         FailIf(
             !shovelInteractions.TryInteract(_player) ||
             DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
@@ -3795,7 +3787,7 @@ public sealed partial class ValidationRoot
         shovelDialogue.Close();
         _player.AdvanceApplicationUpdate();
         shovelInteractions.Update(frame, _player);
-        shovelManager.Update(frame, _player);
+        shovelManager.AdvanceEntityFrames(frame, _player);
         FailIf(
             shovelManager.Entities<GroundTreasurePickup>().Count != 0,
             "Hardhat's caller-completed Shovel remained in the entity manager.");
@@ -3812,7 +3804,7 @@ public sealed partial class ValidationRoot
         shovelDialogue.Close();
         shovelInteractions.Update(frame, _player);
         HardhatShovelScriptHost hardhatHost =
-            shovelInteractions.NpcScriptsForValidation.Hardhat;
+            shovelInteractions.AgesScripts().Hardhat;
         FailIf(
             hardhatHost.CurrentCommandIndex != 14 ||
             !hardhatHost.InputDisabled,
@@ -3860,7 +3852,7 @@ public sealed partial class ValidationRoot
         shovelInteractions.Update(frame, _player);
         FailIf(
             shovelSave.HasRoomFlag(4, 0xe2, OracleSaveData.RoomFlagItem) ||
-            shovelInteractions.NpcScriptsForValidation.Hardhat
+            shovelInteractions.AgesScripts().Hardhat
                 .CurrentCommandIndex != 14,
             "Hardhat var03=$01 incorrectly set the shovel room flag in 4:e2.");
         shovelInteractions.Update(frame, _player);
@@ -3894,7 +3886,7 @@ public sealed partial class ValidationRoot
             $"targets [{string.Join(",", shovelJumpTargets)}], " +
             $"give starts {shovelGiveStarts}, wait updates " +
             $"{shovelWaitUpdates}, completions {shovelWaitCompletions}.");
-        shovelInteractions.NpcScriptsForValidation.TraceSink = null;
+        shovelInteractions.AgesScripts().TraceSink = null;
         shovelManager.Clear();
         RemoveChild(shovelRoot);
         shovelRoot.QueueFree();
@@ -4111,17 +4103,17 @@ public sealed partial class ValidationRoot
             bipinRunningRight != runningBipin.AlternateAnimationData,
             "Bipin $28:$00 did not import distinct animation $04/$05 running records.");
         for (int frame = 0; frame < 32; frame++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             newbornBipin.Position != new Vector2(0x28, 0x48),
             "Bipin $28:$00 did not move left at SPEED_100 to X=$28 after 32 updates.");
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             newbornBipin.Position != new Vector2(0x27, 0x48) ||
             newbornBipin.CurrentScriptAnimationSource != bipinRunningRight,
             "Bipin $28:$00 did not reverse and toggle animation $04->$05 after leaving X=$28.");
         for (int frame = 0; frame < 49; frame++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             newbornBipin.Position != new Vector2(0x58, 0x48) ||
             newbornBipin.CurrentScriptAnimationSource != bipinRunningLeft,
@@ -4131,7 +4123,7 @@ public sealed partial class ValidationRoot
         // Bipin's next leftward update creates a one-pixel overlap, which the
         // original objectPreventLinkFromPassing immediately resolves leftward.
         _player.WarpTo(new Vector2(0x4c, 0x48));
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             newbornBipin.Position != new Vector2(0x57, 0x48) ||
             _player.Position != new Vector2(0x4b, 0x48),
@@ -4511,160 +4503,5 @@ public sealed partial class ValidationRoot
             "351 imported visibility, 122 dialogue, and two position predicates, " +
             "room 0:68's phased talkable cast, lifecycle-safe event hiding, and deliberate " +
             "suppression of unsupported native handlers.");
-    }
-
-    private void ValidateBipinBlossomNaming()
-    {
-        Span<byte> emptyName = stackalloc byte[6];
-        emptyName.Clear();
-        bool changed = _saveData.WriteWramBytes(
-            AgesWramAddress.wKidName, emptyName);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wChildStatus, 0x00);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wChildStage, 0x00);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wNextChildStage, 0x00);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wc6e2, 0x00);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wChildPersonality, 0x00);
-        if (changed)
-            _saveData.CommitInventoryChange();
-        _saveData.SetGlobalFlag(AgesGlobalFlag.FinishedGame, value: false);
-        _entities.RuntimeState.SetWramByte(
-            AgesWramAddress.wSeedTreeRefilledBitset, 0x00);
-
-        LoadValidationRoom(2, 0xea);
-        NpcCharacter? blossom = _entities.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x2b && npc.Record.SubId == 0x00);
-        FailIf(blossom is null, "Room 2:ea did not provide Blossom $2b:$00 for child-name validation.");
-
-        _player.WarpTo(blossom.Position + Vector2.Down * 12.0f);
-        _player.Face(Vector2I.Up);
-        FailIf(
-            !_interactions.TryInteract(_player) ||
-            !_dialogue.CurrentMessage.Contains("would you call", StringComparison.Ordinal),
-            "Blossom $2b:$00 did not begin TX_4400's child-naming interaction.");
-        _dialogue.Close();
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-        FailIf(
-            !_interactions.GameplayMenuActive ||
-            _interactions.KidNameScreenForValidation is not { EnteredName.Length: 0 },
-            "Closing TX_4400 did not open MENU_KIDNAME $07 with an empty five-character field.");
-
-        _interactions.CommitKidNameForValidation(string.Empty);
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-        FailIf(
-            !_dialogue.CurrentMessage.Contains("more thought", StringComparison.Ordinal) ||
-            _saveData.ChildNamed,
-            "An empty child name did not show TX_440a without advancing family state.");
-        _dialogue.Close();
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-        FailIf(
-            _interactions.FamilyNamingActive,
-            "Blossom's empty-name response did not return to her ordinary talk loop.");
-
-        FailIf(
-            !_interactions.TryInteract(_player),
-            "Blossom could not restart child naming after an empty name.");
-        _dialogue.Close();
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-        _interactions.CommitKidNameForValidation("Pip");
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-        FailIf(
-            !_dialogue.ChoiceActive ||
-            !_dialogue.CurrentMessage.Contains("Pip", StringComparison.Ordinal) ||
-            !_dialogue.CurrentMessage.Contains("Yes", StringComparison.Ordinal) ||
-            !_dialogue.CurrentMessage.Contains("No", StringComparison.Ordinal),
-            "MENU_KIDNAME did not pass the candidate name into TX_4407's Yes/No confirmation.");
-
-        _dialogue.SubmitChoiceForValidation(1);
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-        FailIf(
-            !_interactions.GameplayMenuActive ||
-            _interactions.KidNameScreenForValidation?.EnteredName != "Pip" ||
-            _saveData.ChildNamed,
-            "Choosing No in TX_4407 did not reopen MENU_KIDNAME with the candidate preserved.");
-        _interactions.CommitKidNameForValidation("Pip");
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-        _dialogue.SubmitChoiceForValidation(0);
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-
-        // blossom_decideInitialChildStatus sums the encoded name's low
-        // nibbles: P=$0, i=$9, p=$0, so Pip selects status $01.
-        FailIf(
-            _saveData.ChildName != "Pip" || !_saveData.ChildNamed ||
-            _saveData.ReadWramByte(AgesWramAddress.wChildStatus) != 0x01 ||
-            _saveData.ReadWramByte(AgesWramAddress.wChildStage) != 0x00 ||
-            _saveData.ReadWramByte(AgesWramAddress.wNextChildStage) != 0x01,
-            "Confirming Pip did not reproduce wKidName/wChildStatus/wc6e2/wNextChildStage writes.");
-
-        NpcCharacter? bipin = _entities.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x28 && npc.Record.SubId == 0x00);
-        FailIf(
-            bipin is not { TextId: 0x4301 } || blossom.TextId != 0x4409 ||
-            !bipin.Message.Contains("Pip", StringComparison.Ordinal) ||
-            !blossom.Message.Contains("Pip", StringComparison.Ordinal) ||
-            bipin.BaseRecord.TextId != 0x4300 ||
-            blossom.BaseRecord.TextId != 0x4400,
-            "Naming the child did not live-switch Bipin/Blossom to TX_4301/TX_4409 with \\Child expanded.");
-
-        changed = _saveData.WriteWramByte(
-            AgesWramAddress.wc6e2, 0x00);
-        if (changed)
-            _saveData.CommitInventoryChange();
-        FailIf(
-            bipin.TextId != 0x4300 ||
-            blossom.TextId != 0x4400 ||
-            bipin.BaseRecord.TextId != 0x4300 ||
-            blossom.BaseRecord.TextId != 0x4400,
-            "Clearing the child-named bit did not restore imported TX_4300/" +
-            "TX_4400 through the shared family-state refresh.");
-        changed = _saveData.WriteWramByte(
-            AgesWramAddress.wc6e2, 0x01);
-        if (changed)
-            _saveData.CommitInventoryChange();
-        FailIf(
-            bipin.TextId != 0x4301 ||
-            blossom.TextId != 0x4409 ||
-            !bipin.Message.Contains("Pip", StringComparison.Ordinal) ||
-            !blossom.Message.Contains("Pip", StringComparison.Ordinal),
-            "Restoring the child-named bit did not reapply TX_4301/TX_4409 " +
-            "through the shared family-state refresh.");
-
-        for (int frame = 0; frame < 29; frame++)
-            _interactions.UpdateFamilyNamingForValidation(1.0 / 60.0);
-        FailIf(_dialogue.IsOpen, "Blossom showed TX_4408 before the original 30-update delay elapsed.");
-        _interactions.UpdateFamilyNamingForValidation(1.0 / 60.0);
-        FailIf(
-            !_dialogue.CurrentMessage.Contains("It's a fine", StringComparison.Ordinal) ||
-            !_dialogue.CurrentMessage.Contains("Come visit us", StringComparison.Ordinal),
-            "Blossom did not show TX_4408 after the original 30-update delay.");
-        _dialogue.Close();
-        _interactions.UpdateFamilyNamingForValidation(0.0);
-        FailIf(
-            _interactions.FamilyNamingActive,
-            "Blossom's child-naming interaction did not finish after TX_4408 closed.");
-
-        LoadValidationRoom(2, 0xea);
-        blossom = _entities.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x2b && npc.Record.SubId == 0x00);
-        bipin = _entities.Entities<NpcCharacter>().Find(npc =>
-            npc.Record.Id == 0x28 && npc.Record.SubId == 0x00);
-        FailIf(
-            blossom is not { TextId: 0x4409 } || bipin is not { TextId: 0x4301 } ||
-            !blossom.Message.Contains("Pip", StringComparison.Ordinal) ||
-            !bipin.Message.Contains("Pip", StringComparison.Ordinal),
-            "Reloading room 2:ea lost the named stage-$00 family dialogue state.");
-
-        changed = _saveData.WriteWramBytes(AgesWramAddress.wKidName, emptyName);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wChildStatus, 0x00);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wChildStage, 0x00);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wNextChildStage, 0x00);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wc6e2, 0x00);
-        changed |= _saveData.WriteWramByte(AgesWramAddress.wChildPersonality, 0x00);
-        if (changed)
-            _saveData.CommitInventoryChange();
-
-        GD.Print("Validated Bipin/Blossom stage-$00 movement and MENU_KIDNAME $07: empty-name " +
-            "handling, No/re-edit, Yes confirmation, original child-status/state writes, " +
-            "30-update TX_4408 delay, immutable base records, reversible live refresh, " +
-            "and persistent TX_4301/TX_4409 \\Child dialogue.");
     }
 }

@@ -58,7 +58,7 @@ internal sealed partial class RespawnableBushRoomEntity : Node2D,
         Action roomTileChanged)
     {
         if (packedPosition is < 0 or > 0xaf ||
-            !ItemDropDatabase.IsRuntimeSupported(dropSubId))
+            !ItemDropDatabase.For(room.AssetRoot).IsRuntimeSupported(dropSubId))
         {
             throw new ArgumentOutOfRangeException(nameof(packedPosition));
         }

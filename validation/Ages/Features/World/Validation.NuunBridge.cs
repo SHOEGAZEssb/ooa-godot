@@ -57,11 +57,11 @@ public sealed partial class ValidationRoot
                 AgesGameContent.AssetRoot + $"rooms/small/room{layoutGroup:x2}35.bin")),
                 $"RoomSession ignored companion ${companion:x2} when preloading Nuun 0:35.");
             _player.WarpTo(new Vector2(1, 0x48), recordSafe: false);
-            _transitions.BeginScroll(_player, Vector2I.Left, 0x35);
+            _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x35);
             for (int frame = 0; frame < 60 && _transitions.ScrollActive; frame++)
             {
                 _transitions.UpdateScroll(1.0 / 60.0);
-                _entities.Update(1.0 / 60.0, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
                 _roomEvents.Update(1.0 / 60.0);
             }
             FailIf(_transitions.ScrollActive || !ReferenceEquals(_rooms.CurrentRoom, expected) ||

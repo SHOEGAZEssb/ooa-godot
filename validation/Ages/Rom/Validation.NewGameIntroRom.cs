@@ -128,9 +128,11 @@ public sealed partial class ValidationRoot
                         $"{context}: arrival falling/visible runtime={root._player.IsNewGameSlowFalling}/{root._player.Visible}, native=${rom[0xd000]:x2}/${rom[0xd004]:x2}/${rom[0xd005]:x2}/${rom[0xd01a]:x2}.");
                     if (falling)
                     {
-                        var frames = (IntroSpriteFrame[])typeof(Player).GetField("_newGameFallFrames", fields)!.GetValue(root._player)!;
-                        IntroSpriteFrame frame = frames[root._player.NewGameSlowFallFrame];
-                        FailIf(frame.SourceOffset != rom.LinkSourceOffset || !frame.Parts.SequenceEqual(rom.OamParts(0xd000)),
+                        var frames = (ObjectSpriteFrame[])typeof(Player).GetField("_newGameFallFrames", fields)!.GetValue(root._player)!;
+                        ObjectSpriteFrame frame = frames[root._player.NewGameSlowFallFrame];
+                        var actualCells = frame.Parts.Select(part => part with { Tile = part.Tile + frame.SourceOffset / 16 });
+                        var nativeCells = rom.OamParts(0xd000).Select(part => part with { Tile = part.Tile + rom.LinkSourceOffset / 16 });
+                        FailIf(!actualCells.SequenceEqual(nativeCells),
                             $"{context}: arrival Link animation differs.");
                     }
                     FailIf(root._inventoryMenu.IsActive || root._mapMenu.IsActive || root._dialogue.IsOpen,

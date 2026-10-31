@@ -21,8 +21,7 @@ internal sealed class RopeRoomEntity
                 rope.TakeSwordHit,
                 rope.TakeBurnHit,
                 rope.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback),
+                soundRequested),
             collisionZ: () => rope.ZFixed >> 8)
     { }
 

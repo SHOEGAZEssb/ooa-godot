@@ -26,10 +26,18 @@ public sealed class ItemDropDatabase
     public const int PegasusSeeds = 0x07;
     public const int GaleSeeds = 0x08;
     public const int MysterySeeds = 0x09;
+    public const int OneOreChunk = 0x0c;
+    public const int TenOreChunks = 0x0d;
+    public const int FiftyOreChunks = 0x0e;
     public const int OneHundredRupeesOrEnemy = 0x0f;
 
     private readonly byte[] _selectionData;
     private readonly Dictionary<int, ItemDropDatabaseVisualRecord> _visuals = new();
+    private readonly ItemDropRule[] _rules = new ItemDropRule[16];
+    private readonly byte[] _magnetSpeeds;
+    private readonly Dictionary<(int Mode, int Tile), int> _conveyors = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ItemDropDatabase> Packs = new(StringComparer.Ordinal);
+    internal static ItemDropDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot, static root => new(root));
 
     public ItemDropDatabase(string assetRoot)
     {
@@ -63,6 +71,31 @@ public sealed class ItemDropDatabase
         if (_visuals.Count != 16)
             throw new InvalidOperationException($"Expected 16 item-drop visual records, got {_visuals.Count}.");
 
+        table = GeneratedTable.Load(AssetRoot + "metadata/item_drop_rules.tsv",
+            new GeneratedTableSchema("item-drop rules", GeneratedTableKeySemantics.Unique,
+                ["subid", "subrosia-drop", "availability-offset", "availability-mask", "treasure", "joy-ring", "parameter", "doubled-parameter"],
+                ["subid"], headerRequired: true));
+        if (table.Rows.Count != 16) throw new InvalidOperationException($"{AssetRoot}: expected all $10 native drop rules.");
+        int next = 0;
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            int id = row.HexByte(0), remap = row.HexByte(1);
+            if (id != next++ || remap >= 16) throw row.Invalid(0, "ordered native drop IDs $00-$0f and valid Subrosia remaps");
+            _rules[id] = new(remap,row.HexByte(2),row.HexByte(3),row.HexByte(4),row.HexByte(5),row.HexByte(6),row.HexByte(7));
+        }
+        _magnetSpeeds = OracleAssetCache.ReadBytes(AssetRoot + "metadata/item_drop_magnet_speeds.bin");
+        if (_magnetSpeeds.Length != (OracleAssetPack.GameFor(AssetRoot) == OracleGame.Seasons ? 8 : 0))
+            throw new InvalidOperationException($"{AssetRoot}: invalid native ore Magnet pull speed extent.");
+        table = GeneratedTable.Load(AssetRoot + "metadata/item_drop_conveyors.tsv",
+            new GeneratedTableSchema("item-drop conveyors",GeneratedTableKeySemantics.Unique,
+                ["collision-set","tile","angle"],["collision-set","tile"],headerRequired:true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            int angle = row.HexByte(2);
+            if (angle is not (0 or 8 or 16 or 24)) throw row.Invalid(2,"native cardinal conveyor angle");
+            _conveyors.Add((row.Decimal(0,0,5),row.HexByte(1)),angle);
+        }
+
         _ = OracleObjectMovement.Shared;
     }
 
@@ -73,33 +106,29 @@ public sealed class ItemDropDatabase
         ? record
         : throw new KeyNotFoundException($"PART_ITEM_DROP subid ${subId:x2} has no visual record.");
 
-    internal static bool IsRuntimeSupported(int subId) =>
-        subId is >= Fairy and <= MysterySeeds or OneHundredRupeesOrEnemy;
+    internal bool IsRuntimeSupported(int subId) => subId is >= 0 and < 16 && _rules[subId].Mask != 0;
+    internal ItemDropRule Rule(int subId) => subId is >= 0 and < 16 ? _rules[subId] :
+        throw new ArgumentOutOfRangeException(nameof(subId));
+    internal int ConveyorAngle(int mode, byte tile) => _conveyors.GetValueOrDefault((mode,tile),-1);
+    internal int MagnetPullSpeed(int index) => _magnetSpeeds[index];
 
-    internal static int TreasureForDrop(int subId) => subId switch
-    {
-        Fairy or Heart => TreasureId.HeartRefill,
-        OneRupee or FiveRupees or OneHundredRupeesOrEnemy =>
-            TreasureId.Rupees,
-        Bombs => TreasureId.Bombs,
-        >= EmberSeeds and <= MysterySeeds =>
-            TreasureId.EmberSeeds + subId - EmberSeeds,
-        _ => TreasureId.None
-    };
-
-    internal static bool IsAvailable(
+    internal int? ResolveAvailableDrop(
         int subId,
-        InventoryState? inventory,
-        OracleSaveData? saveData)
+        InventoryState? inventory = null,
+        OracleSaveData? saveData = null)
     {
-        // itemDropAvailabilityTable checks obtained-treasure flags, not the
-        // current quantity or capacity. Collection applies those limits later.
-        if (subId is >= Fairy and <= FiveRupees or OneHundredRupeesOrEnemy)
-            return true;
-        int treasure = TreasureForDrop(subId);
-        return treasure != TreasureId.None &&
-            (inventory?.HasTreasure(treasure) ??
-                saveData?.HasTreasure(treasure) == true);
+        if (subId is < 0 or >= 16) return null;
+        if (inventory is not null && inventory.AssetRoot != AssetRoot ||
+            saveData is not null && OracleAssetPack.ForGame(saveData.Game) != AssetRoot)
+            throw new ArgumentException("Item drops must read inventory and save bytes from their selected pack.");
+        if (saveData?.MinimapGroup == 1) subId = _rules[subId].SubrosiaDrop;
+        ItemDropRule rule = _rules[subId];
+        if (rule.Mask == 0) return null;
+        // Detached inventories expose obtained flags, not a minimap location.
+        int value = saveData?.ReadWramByte(0xc600 | rule.AvailabilityOffset) ??
+            (rule.AvailabilityOffset == 8 ? 0xff :
+                subId is >= Bombs and <= MysterySeeds && inventory?.HasTreasure(rule.Treasure) == true ? rule.Mask : 0);
+        return (value & rule.Mask) != 0 ? subId : null;
     }
 
     internal int? DecideDrop(
@@ -118,7 +147,7 @@ public sealed class ItemDropDatabase
 
         byte itemRoll = (byte)(random.Next().Value & 0x1f);
         int subId = DropSetValue(record & 0x1f, itemRoll);
-        return IsAvailable(subId, inventory, saveData) ? subId : null;
+        return ResolveAvailableDrop(subId, inventory, saveData);
     }
 
     internal int? DecideBreakableDrop(
@@ -143,7 +172,7 @@ public sealed class ItemDropDatabase
             return null;
 
         int subId = DropSetValue(record & 0x1f, itemRoll & 0x1f);
-        return IsAvailable(subId, inventory, saveData) ? subId : null;
+        return ResolveAvailableDrop(subId, inventory, saveData);
     }
 
     internal bool ProbabilityAllows(int probability, int roll)
@@ -165,3 +194,6 @@ public sealed class ItemDropDatabase
 }
 
 public readonly record struct ItemDropDatabaseVisualRecord(int SubId, int TileBase, int Palette, string Animation);
+
+internal readonly record struct ItemDropRule(int SubrosiaDrop, int AvailabilityOffset, int Mask,
+    int Treasure, int JoyRing, int Parameter, int DoubledParameter);

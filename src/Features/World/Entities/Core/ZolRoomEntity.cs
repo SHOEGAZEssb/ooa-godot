@@ -26,7 +26,6 @@ internal sealed class ZolRoomEntity
                 zol.TakeBurnHit,
                 zol.ApplySwordNoKnockback,
                 soundRequested,
-                EnemySwordResponse.NoKnockback,
                 completedOutcome: () => zol.DiedInHazard
                     ? RoomEnemyOutcome.HazardDeletion(
                         combatSource.CountsAsEnemy)

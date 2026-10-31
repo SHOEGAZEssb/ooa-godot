@@ -6,9 +6,9 @@ namespace Oracles;
 
 internal sealed class GiantGhiniChildRoomEntity
     : CombatEnemyRoomEntityAdapter<GiantGhiniChild>, IFixedRoomEntity,
-        IPlayerRestriction, IAfterPlayerUpdateRoomEntity
+        IPlayerRestriction, IAfterPlayerUpdateRoomEntity, IScreenTransitionPreloadRoomEntity
 {
-    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
+    protected override int GaleCollisionMode => ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
     public GiantGhiniChildRoomEntity(
         GiantGhiniChild child,
         Action<int> soundRequested)
@@ -46,6 +46,12 @@ internal sealed class GiantGhiniChildRoomEntity
     public bool DisablesItems => Entity.DisablesItems;
     public bool DisablesMovement => Entity.SlowsLink;
     public void AfterPlayerUpdate() => Entity.ClearRestrictions();
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.PrepareForScreenTransition(spawns);
+        return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(

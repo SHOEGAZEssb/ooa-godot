@@ -10,7 +10,7 @@ internal sealed class VireRoomEntity(VireCharacter actor,VireRoomEnvironment wor
         ISwordHittableRoomEntity, IPostObjectMeleeCollisionRoomEntity, ILinkSwordStateAwareRoomEntity,
         IPostObjectItemCollisionRoomEntity, IObjectCollisionHeightRoomEntity, IPostObjectLinkContactRoomEntity,
         ISeedCollisionTarget, IBoomerangCollisionRoomEntity, ISwitchHookHittableRoomEntity,
-        ISomariaBlockCollisionRoomEntity, IExpertPunchHittableRoomEntity, IPlayerRestriction, IPlayerForcedMovement,
+        ISomariaBlockCollisionRoomEntity, IExpertPunchHittableRoomEntity, IPlayerRestriction,
         IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private VireBehaviorProfile? _dataSourceCache;
@@ -26,7 +26,6 @@ internal sealed class VireRoomEntity(VireCharacter actor,VireRoomEnvironment wor
     public int CollisionZ => Entity.ZFixed >> 8;
     public bool MeleeReportsContact { get; private set; }
     public void BindEnemySlot(int slot,Func<int,IRoomEntity?> resolve) => Entity.Slot = slot;
-    public void UpdatePlayerForcedMovement(Player player) { if (Entity.MainForm && !Finished) world.Entry.Update(player); }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     { Entity.InitializeNative(true); return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden; }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(frame);

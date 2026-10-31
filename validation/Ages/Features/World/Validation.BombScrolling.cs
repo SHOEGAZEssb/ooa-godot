@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             // Declare a second, unheld child to exercise the complementary
             // enabled=$01 -> $02 cleanup, independent of its creation parent.
             BombEffect unheld = _entities.Spawn<BombEffect>(new BombSpawn(
-                _player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 0, _ => { }));
+                _player, new BombDatabase(AgesGameContent.AssetRoot).Data, 0, _ => { }));
             StepGameplayUpdates(1, Vector2.Zero, batched: batch);
             unheld.Throw(_player, new(0, -8), Vector2I.Zero, 0, ObjectSpeed.Speed0);
             for (int update = 0; !_transitions.ScrollActive && update < 24; update++)
@@ -87,7 +87,6 @@ public sealed partial class ValidationRoot
     {
         int frame = bomb.AnimationFrame, counter = bomb.AnimationCounter;
         int elapsed = bomb.ElapsedFrames;
-        Vector2 previousLink = _player.PrecisePosition;
         StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero,
             ["attack"], ["attack"], batch, afterUpdate: () =>
             {
@@ -99,9 +98,8 @@ public sealed partial class ValidationRoot
                     "wScrollMode $08 must freeze the fuse/parent and preserve held enabled=$03 through the final scroll update.");
                 if (_transitions.ScrollActive)
                     FailIf(bomb.Position != bomb.PrecisePosition.Floor() ||
-                        bomb.Position != previousLink.Floor(),
-                        "Held ITEM$03 must follow logical Link coordinates without applying the camera offset twice.");
-                previousLink = _player.PrecisePosition;
+                        bomb.Position != _player.PrecisePosition.Floor(),
+                        "updateGrabbedObjectPosition follows func_4000: held ITEM$03 must copy this update's logical Link coordinates once.");
             });
         FailIf(_transitions.ScrollActive || !_entities.Entities<BombEffect>().Contains(bomb) ||
             _entities.OutgoingEntities<BombEffect>().Count != 0 ||

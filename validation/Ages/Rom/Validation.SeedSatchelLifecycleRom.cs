@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             int button = primary ? 1 : 2, update = 0, contacts = 0;
             if (capacity)
             {
-                var bombs = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+                var bombs = new BombDatabase(AgesGameContent.AssetRoot).Data;
                 for (int index = 0; index < 4; index++)
                 {
                     _entities.Spawn<BombEffect>(new BombSpawn(_player, bombs, 0, _ => { }));

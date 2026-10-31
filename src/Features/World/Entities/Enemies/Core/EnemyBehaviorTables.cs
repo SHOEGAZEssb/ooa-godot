@@ -33,7 +33,6 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorValue> LynelBeamActiveCollisions { get; }
     internal IReadOnlyList<EnemyBehaviorValue> LynelBeamEffects { get; }
     internal IReadOnlyList<EnemyBehaviorValue> Gibdo { get; }
-    internal BeamosBehaviorProfile Beamos { get; }
     internal FireballShooterBehaviorProfile FireballShooter { get; }
     internal LikeLikeBehaviorProfile LikeLike { get; }
     internal BallChainBehaviorProfile BallChain { get; }
@@ -53,14 +52,9 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorValue> GibdoActiveCollisions { get; }
     internal IReadOnlyList<EnemyBehaviorValue> FireKeeseActiveCollisions { get; }
 
-    internal IReadOnlyList<EnemyBehaviorValue> KeeseDecelerationSpeeds { get; }
-    internal IReadOnlyList<EnemyBehaviorValue>
-        KeeseDecelerationAnimationMasks { get; }
-    internal IReadOnlyList<EnemyBehaviorValue> OctorokCounterValues { get; }
-    internal IReadOnlyList<EnemyBehaviorValue> OctorokWalkCounterValues { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> KeeseDecelerationSpeeds => KeeseDatabase.For(_assetRoot).KeeseDecelerationSpeeds;
+    internal IReadOnlyList<EnemyBehaviorValue> KeeseDecelerationAnimationMasks => KeeseDatabase.For(_assetRoot).KeeseDecelerationAnimationMasks;
     internal IReadOnlyList<EnemyBehaviorValue> BoomerangMoblinRouteCounters { get; }
-    internal IReadOnlyList<EnemyBehaviorPair> EnemyArrowSpawnOffsets { get; }
-    internal IReadOnlyList<EnemyBehaviorPair> EnemyArrowCollisionRadii { get; }
     internal IReadOnlyList<EnemyBehaviorPair> GiantGhiniChildSpawnOffsets { get; }
     internal IReadOnlyList<EnemyBehaviorValue> PumpkinHeadWalkDurations { get; }
     internal IReadOnlyList<EnemyBehaviorValue> PumpkinHeadStompTimers { get; }
@@ -73,18 +67,16 @@ internal sealed class EnemyBehaviorTables
         SpikedBeetleShakeXOffsets { get; }
     internal ArmoredSwordAttackerKnockbackProfile
         ArmoredSwordAttackerKnockback { get; }
-    internal IReadOnlyList<EnemyBehaviorPair> EnemySwordDamageProfiles { get; }
-    internal EnemyKnockbackBehaviorProfile EnemyKnockback { get; }
-    internal EnemyHazardBehaviorProfile EnemyHazards { get; }
-    internal ScentSeedAttractionBehaviorProfile ScentSeedAttraction { get; }
-    internal ProjectileBounceBehaviorProfile ProjectileBounce { get; }
-    internal KeeseStateBehaviorProfile KeeseState { get; }
-    internal ArrowMoblinBehaviorProfile ArrowMoblin { get; }
+    internal IReadOnlyList<EnemyBehaviorPair> EnemySwordDamageProfiles => CommonEnemyBehavior.Shared.EnemySwordDamageProfiles;
+    internal EnemyKnockbackBehaviorProfile EnemyKnockback => CommonEnemyBehavior.Shared.EnemyKnockback;
+    internal EnemyHazardBehaviorProfile EnemyHazards => CommonEnemyBehavior.Shared.EnemyHazards;
+    internal ScentSeedAttractionBehaviorProfile ScentSeedAttraction => CommonEnemyBehavior.Shared.ScentSeedAttraction;
+    internal KeeseStateBehaviorProfile KeeseState => KeeseDatabase.For(_assetRoot).KeeseState;
     internal IReadOnlyList<EnemyBehaviorValue> ArrowDarknutDirectionMask { get; }
     internal IReadOnlyList<EnemyBehaviorValue> ArrowDarknutCollisionEffects { get; }
-    internal IReadOnlyList<EnemyBehaviorValue> PodobooTower { get; }
-    internal IReadOnlyList<EnemyBehaviorValue> PodobooTowerRadii { get; }
-    internal IReadOnlyList<EnemyBehaviorValue> PodobooTowerCollisionEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> PodobooTower => PodobooTowerDatabase.For(_assetRoot).State;
+    internal IReadOnlyList<EnemyBehaviorValue> PodobooTowerRadii => PodobooTowerDatabase.For(_assetRoot).Radii;
+    internal IReadOnlyList<EnemyBehaviorValue> PodobooTowerCollisionEffects => PodobooTowerDatabase.For(_assetRoot).CollisionEffects;
     internal BabyCuccoBehaviorProfile BabyCucco { get; }
     internal CuccoBehaviorProfile Cucco { get; }
     internal GiantCuccoBehaviorProfile GiantCucco { get; }
@@ -93,8 +85,6 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorValue> OffscreenCrowState { get; }
     internal IReadOnlyList<EnemyBehaviorValue> OffscreenCrowSpawns { get; }
     internal IReadOnlyList<EnemyBehaviorValue> OffscreenCrowSpeeds { get; }
-    internal IReadOnlyList<EnemyBehaviorValue> SpawnGhiniState { get; }
-    internal IReadOnlyList<EnemyBehaviorValue> SpawnGhiniSpeeds { get; }
     internal IReadOnlyList<EnemyBehaviorValue> SpinyCoverTiles { get; }
     internal IReadOnlyList<EnemyBehaviorValue> SpinyCoverAttributes { get; }
     internal IReadOnlyList<EnemyBehaviorValue> SpinyBushEffects { get; }
@@ -103,7 +93,6 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorValue> GreenBladeTrap { get; }
     internal GelBehaviorProfile Gel { get; }
     internal ZolBehaviorProfile Zol { get; }
-    internal OctorokBehaviorProfile Octorok { get; }
     internal LeeverBehaviorProfile Leever { get; }
     internal RiverZoraBehaviorProfile RiverZora { get; }
     internal IReadOnlyList<EnemyBehaviorValue> GopongaFlower { get; }
@@ -111,7 +100,7 @@ internal sealed class EnemyBehaviorTables
     internal BuzzBlobBehaviorProfile BuzzBlob { get; }
     internal SandCrabBehaviorProfile SandCrab { get; }
     internal BoomerangMoblinBehaviorProfile BoomerangMoblin { get; }
-    internal RopeBehaviorProfile Rope { get; }
+    internal RopeBehaviorProfile Rope => RopeDatabase.For(_assetRoot).Behavior;
     internal IReadOnlyList<EnemyBehaviorValue> BladeTrap { get; }
     internal IReadOnlyList<EnemyBehaviorValue> RedBladeTrap { get; }
     internal IReadOnlyList<EnemyBehaviorValue> IronMaskState { get; }
@@ -132,8 +121,6 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorValue> ArmMimicCollisionEffects { get; }
     internal MoldormBehaviorProfile Moldorm { get; }
     internal IReadOnlyList<EnemyBehaviorValue> MoldormCollisionEffects { get; }
-    internal GhiniBehaviorProfile Ghini { get; }
-    internal TargetGhiniBehaviorProfile TargetGhini { get; }
     internal StalfosBehaviorProfile Stalfos { get; }
     internal HardhatBeetleBehaviorProfile HardhatBeetle { get; }
     internal SpikedBeetleBehaviorProfile SpikedBeetle { get; }
@@ -168,8 +155,11 @@ internal sealed class EnemyBehaviorTables
     internal FlyingTileBehaviorProfile FlyingTile { get; }
     internal IReadOnlyList<EnemyBehaviorValue> FlyingTileCollisionEffects { get; }
 
+    private readonly string _assetRoot;
+
     private EnemyBehaviorTables(string assetRoot)
     {
+        _assetRoot = assetRoot;
         GeneratedTable table = GeneratedTable.Load(
             assetRoot + "metadata/enemy_behavior_tables.tsv",
             new GeneratedTableSchema(
@@ -205,20 +195,8 @@ internal sealed class EnemyBehaviorTables
                 row.RequiredString(5)));
         }
 
-        KeeseDecelerationSpeeds = TakeValues(
-            groups, "keese", "deceleration-speeds", 8);
-        KeeseDecelerationAnimationMasks = TakeValues(
-            groups, "keese", "deceleration-animation-masks", 8);
-        OctorokCounterValues = TakeValues(
-            groups, "octorok", "counter-values", 8);
-        OctorokWalkCounterValues = TakeValues(
-            groups, "octorok", "walk-counter-values", 4);
         BoomerangMoblinRouteCounters = TakeValues(
             groups, "boomerang-moblin", "route-counters", 4);
-        EnemyArrowSpawnOffsets = TakePairs(
-            groups, "enemy-arrow", "spawn-offsets", 4);
-        EnemyArrowCollisionRadii = TakePairs(
-            groups, "enemy-arrow", "collision-radii", 4);
         GiantGhiniChildSpawnOffsets = TakePairs(
             groups, "giant-ghini-child", "spawn-offsets", 3);
         PumpkinHeadWalkDurations = TakeValues(
@@ -244,70 +222,7 @@ internal sealed class EnemyBehaviorTables
             armoredAttackerKnockbackValues[2].Value,
             armoredAttackerKnockbackValues);
 
-        EnemySwordDamageProfiles = TakePairs(
-            groups, "common-enemy", "sword-damage-profiles", 4);
-
-        EnemyBehaviorValue[] values = TakeValues(
-            groups, "common-enemy", "knockback-speeds", 2);
-        EnemyKnockback = new(
-            values[0].Value,
-            values[1].Value,
-            values);
-
-        values = TakeValues(groups, "common-enemy", "hazard-profile", 7);
-        EnemyHazards = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values[3].Value,
-            values[4].Value,
-            values[5].Value,
-            values[6].Value,
-            values);
-
-        values = TakeValues(
-            groups, "common-enemy", "scent-attraction-profile", 4);
-        ScentSeedAttraction = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values[3].Value,
-            values);
-
-        values = TakeValues(
-            groups, "common-projectile", "bounce-profile", 4);
-        ProjectileBounce = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values[3].Value,
-            values);
-
-        values = TakeValues(groups, "keese", "state-profile", 12);
-        KeeseState = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values[3].Value,
-            values[4].Value,
-            values[5].Value,
-            values[6].Value,
-            values[7].Value,
-            values[8].Value,
-            values[9].Value,
-            values[10].Value,
-            values[11].Value,
-            values);
-
-        values = TakeValues(groups, "arrow-moblin", "state-profile", 4);
-        ArrowMoblin = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values[3].Value,
-            values);
-
-        values = TakeValues(groups, "baby-cucco", "state-profile", 6);
+        EnemyBehaviorValue[] values = TakeValues(groups, "baby-cucco", "state-profile", 6);
         BabyCucco = new(
             values[0].Value,
             values[1].Value,
@@ -377,8 +292,6 @@ internal sealed class EnemyBehaviorTables
         OffscreenCrowState = TakeValues(groups, "crow", "offscreen-state", 10);
         OffscreenCrowSpawns = TakeValues(groups, "crow", "offscreen-spawns", 16);
         OffscreenCrowSpeeds = TakeValues(groups, "crow", "offscreen-speeds", 8);
-        SpawnGhiniState = TakeValues(groups, "ghini", "spawn-state-profile", 8);
-        SpawnGhiniSpeeds = TakeValues(groups, "ghini", "spawn-speeds", 3);
         SpinyCoverTiles = TakeValues(groups, "spiny-beetle", "cover-tiles", 4);
         SpinyCoverAttributes = TakeValues(groups, "spiny-beetle", "cover-attributes", 6);
         SpinyBushEffects = TakeValues(groups, "spiny-beetle", "cover-effects-40", 32);
@@ -416,16 +329,10 @@ internal sealed class EnemyBehaviorTables
             values[14].Value,
             values);
 
-        values = TakeValues(groups, "octorok", "state-profile", 2);
-        Octorok = new(values[0].Value, values[1].Value, values);
-
         values = TakeValues(groups, "river-zora", "state-profile", 7);
         GopongaFlower = TakeValues(groups, "goponga-flower", "state-profile", 5);
         ArrowDarknutDirectionMask = TakeValues(groups, "arrow-darknut", "direction-mask", 1);
         ArrowDarknutCollisionEffects = TakeValues(groups, "arrow-darknut", "collision-effects", 32);
-        PodobooTower = TakeValues(groups, "podoboo-tower", "state-profile", 5);
-        PodobooTowerRadii = TakeValues(groups, "podoboo-tower", "radii", 15);
-        PodobooTowerCollisionEffects = TakeValues(groups, "podoboo-tower", "collision-effects", 32);
         GopongaFlowerCollisionEffects = TakeValues(groups, "goponga-flower", "collision-effects", 32);
         RiverZora = new(values[0].Value, values[1].Value, values[2].Value,
             values[3].Value, values[4].Value, values[5].Value, values[6].Value);
@@ -461,7 +368,6 @@ internal sealed class EnemyBehaviorTables
         values = TakeValues(groups, "boomerang-moblin", "state-profile", 1);
         BoomerangMoblin = new(values[0].Value, values);
 
-        values = TakeValues(groups, "rope", "state-profile", 11);
         BladeTrap = TakeValues(groups, "blade-trap", "state-profile", 8);
         RedBladeTrap = TakeValues(groups, "blade-trap", "red-state-profile", 3);
         IronMaskState = TakeValues(groups,"iron-mask","state",9);
@@ -491,20 +397,6 @@ internal sealed class EnemyBehaviorTables
         GibdoActiveCollisions = TakeValues(groups, "gibdo", "active-collisions", 32);
         FireKeeseActiveCollisions = TakeValues(groups, "fire-keese", "active-collisions", 32);
         BladeTrapCollisionEffects = TakeValues(groups, "blade-trap", "collision-effects", 32);
-        Rope = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values[3].Value,
-            values[4].Value,
-            values[5].Value,
-            values[6].Value,
-            values[7].Value,
-            values[8].Value,
-            values[9].Value,
-            values[10].Value,
-            values);
-
         values = TakeValues(groups, "armos", "state-profile", 9);
         Armos = new(
             values[0].Value,
@@ -565,18 +457,6 @@ internal sealed class EnemyBehaviorTables
             values);
         MoldormCollisionEffects = TakeValues(
             groups, "moldorm", "collision-effects", 32);
-
-        values = TakeValues(groups, "ghini", "state-profile", 3);
-        Ghini = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values);
-        TargetGhini = new(TakeValues(groups, "target-ghini", "state-profile", 12),
-            TakeValues(groups, "target-ghini", "collision-effects", 32),
-            TakeValues(groups, "target-ghini", "active-collisions", 32),
-            TakeValues(groups, "target-ghini", "seed-status-2c", 4),
-            TakeValues(groups, "target-ghini", "seed-status-38", 4));
 
         values = TakeValues(groups, "stalfos", "state-profile", 7);
         Stalfos = new(values[0].Value, values[1].Value, values[2].Value,
@@ -773,12 +653,6 @@ internal sealed class EnemyBehaviorTables
         FlyingTileCollisionEffects = TakeValues(
             groups, "flying-tile", "collision-effects", 32);
 
-        Beamos = new(
-            TakeValues(groups, "beamos", "state-profile", 7),
-            TakeValues(groups, "beamos", "angle-to-animation", 32),
-            TakeValues(groups, "beamos-beam", "state-profile", 3),
-            TakeValues(groups, "beamos-beam", "angle-to-animation", 16));
-
         FireballShooter = new(
             TakeValues(groups, "fireball-shooter", "state-profile", 6),
             TakeValues(groups, "fireball-shooter", "timing-offsets", 4));
@@ -832,18 +706,16 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "vire-projectile", "split-angles", 5), TakeValues(groups, "vire-projectile", "collision-effects", 32),
             TakeValues(groups, "vire-projectile", "active-collisions", 32), TakePairs(groups, "vire-projectile", "boundary-offsets", 8));
         WallArrowShooter = new(TakeValues(groups, "wall-arrow-shooter", "part-data", 8),
-            TakeValues(groups, "wall-arrow-shooter", "arrow-part-data", 8),
-            TakeValues(groups, "wall-arrow-shooter", "state-profile", 4),
-            TakePairs(groups, "wall-arrow-shooter", "spawn-offsets", 4),
-            TakePairs(groups, "wall-arrow-shooter", "boundary-offsets", 8));
+            TakeValues(groups, "wall-arrow-shooter", "state-profile", 3),
+            TakePairs(groups, "wall-arrow-shooter", "spawn-offsets", 4));
         Vire = new(TakeValues(groups, "vire", "state-profile", 40),
             TakeValues(groups, "vire", "behaviors", 16), TakeValues(groups, "vire", "spawn-positions", 24),
             TakeValues(groups, "vire", "bat-z", 8), TakeValues(groups, "vire", "bat-offsets", 2),
             TakeValues(groups, "vire", "collision-effects", 32), TakeValues(groups, "vire", "active-collisions", 32));
-        if (table.Rows.Count != 3529 || groups.Count != 0)
+        if (table.Rows.Count != 3218 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 3529 rows and no " +
+                $"Enemy behavior table contract expected 3218 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -906,57 +778,6 @@ internal readonly record struct EnemyBehaviorPair(
 {
     internal Vector2 Vector => new(Second, First);
 }
-
-internal readonly record struct EnemyKnockbackBehaviorProfile(
-    int NormalSpeedRaw,
-    int HighSpeedRaw,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
-
-internal readonly record struct EnemyHazardBehaviorProfile(
-    int ProbeY,
-    int FirstProbeX,
-    int SecondProbeX,
-    int FallFrames,
-    int PullIntervalMask,
-    int PullSpeedRaw,
-    int AnimationDecrement,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
-
-internal readonly record struct ScentSeedAttractionBehaviorProfile(
-    int State,
-    int AngleRefreshMask,
-    int CardinalRounding,
-    int CardinalMask,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
-
-internal readonly record struct ProjectileBounceBehaviorProfile(
-    int Frames,
-    int Gravity,
-    int SpeedRaw,
-    int InitialSpeedZ,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
-
-internal readonly record struct KeeseStateBehaviorProfile(
-    int NormalSpeedRaw,
-    int ApproachSpeedRaw,
-    int InitialRestFrames,
-    int ApproachDistance,
-    int TurningInterval,
-    int TurningIntervals,
-    int MovementCounterBase,
-    int MovementCounterMask,
-    int DecelerationMoveLimit,
-    int DecelerationEnd,
-    int RestCounterBase,
-    int RestCounterMask,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
-
-internal readonly record struct ArrowMoblinBehaviorProfile(
-    int SpeedRaw,
-    int MoveCounterBase,
-    int MoveCounterMask,
-    int TurnWait,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct BabyCuccoBehaviorProfile(
     int SpeedRaw,
@@ -1038,11 +859,6 @@ internal readonly record struct ZolBehaviorProfile(
     int RedInitialSpeedRaw,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
-internal readonly record struct OctorokBehaviorProfile(
-    int ShootDelayFrames,
-    int PostShotWaitFrames,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
-
 internal readonly record struct LeeverBehaviorProfile(
     int ChaseSpeedRaw,
     int SinkSpeedRaw,
@@ -1064,20 +880,6 @@ internal readonly record struct SandCrabBehaviorProfile(
 
 internal readonly record struct BoomerangMoblinBehaviorProfile(
     int SpeedRaw,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
-
-internal readonly record struct RopeBehaviorProfile(
-    int WanderSpeedRaw,
-    int ChargeSpeedRaw,
-    int CooldownSpeedRaw,
-    int CooldownFrames,
-    int ApproachAxisRadius,
-    int WanderCounterBase,
-    int WanderCounterMask,
-    int FallDelayMask,
-    int InitialFallSpeedZ,
-    int FallScreenOffset,
-    int FallGravity,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct ArmosBehaviorProfile(
@@ -1127,12 +929,6 @@ internal readonly record struct MoldormBehaviorProfile(
     int AnimationAngleMask,
     int TailDelayFrames,
     int NeutralTailDelta,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
-
-internal readonly record struct GhiniBehaviorProfile(
-    int SpeedRaw,
-    int MoveCounterBase,
-    int MoveCounterMask,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct StalfosBehaviorProfile(

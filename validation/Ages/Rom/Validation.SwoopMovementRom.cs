@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             Vector2 start = kind == 1 && test == 1 ? new(134.5f, 80) : kind == 0 && test == 3 ? new(17, 24) : new(64.25f, 64.5f);
             if (kind == 0 && test is 0 or 1 or 2) start = new(64, 64);
             boss.Position = start; boss.Health = kind == 2 ? 8 : 12;
-            F1Set(owner, "_initialized", true); F1Set(boss, "_introStarted", true); F1Set(boss, "_introActive", false);
+            F1Set(boss, "_initialized", true); F1Set(boss, "_introStarted", true); F1Set(boss, "_introActive", false);
             SwoopState initialState = kind == 0 ? SwoopState.Flying : kind == 1 ? test == 0 ? SwoopState.Telegraph : SwoopState.Stomping : SwoopState.Bouncing;
             F1Set(boss, "_state", initialState);
             F1Set(boss, "_counter", kind == 0 ? test == 2 ? 1 : 60 : 11);

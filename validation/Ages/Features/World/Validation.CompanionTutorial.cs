@@ -99,7 +99,6 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.BeginAnimalRide(
             _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
-            room,
             new Vector2(record.X - 8, record.Y),
             direction: ObjectDirection.Right);
         LoadValidationRoom(group, room);
@@ -137,7 +136,6 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.Update(
             _runtimeState,
             CompanionRuntimeState.MooshId,
-            room,
             new Vector2(record.X, record.Y),
             direction: ObjectDirection.Right);
         tutorial.UpdateFrame(frame, spawns);
@@ -150,7 +148,6 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.Update(
             _runtimeState,
             CompanionRuntimeState.MooshId,
-            room,
             new Vector2(record.X + 1, record.Y),
             direction: ObjectDirection.Right);
         tutorial.UpdateFrame(frame, spawns);
@@ -185,7 +182,6 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.BeginAnimalRide(
             _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
-            leftNeighbor,
             new Vector2(0x88, record.Y),
             direction: ObjectDirection.Right);
         LoadValidationRoom(group, leftNeighbor);
@@ -196,7 +192,7 @@ public sealed partial class ValidationRoot
                 "Room 0:5a did not resolve room 0:5b as its source-derived " +
                 "right neighbor.");
         }
-        _transitions.BeginScroll(_player, Vector2I.Right, target);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, target);
         CompanionTutorialRoomEntity incomingTutorial =
             _entities.Entities<CompanionTutorialRoomEntity>().Single();
         FailIf(
@@ -209,7 +205,7 @@ public sealed partial class ValidationRoot
             frameIndex++)
         {
             _transitions.UpdateScroll(1.0 / 60.0);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         if (!_dialogue.IsOpen)
             StepRoomEventFrames(1);

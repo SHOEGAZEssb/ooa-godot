@@ -61,11 +61,11 @@ internal sealed partial class RoomOfRitesZeldaEvent
         }
     }
     private void Wave() => context.RoomView.SetHorizontalWave(_waveAmplitude,
-        (context.Entities.FrameCounter + 1) & 127, step: 2, normalEvenSamples: true,
+        context.Entities.FrameCounter & 127, step: 2, normalEvenSamples: true,
         cameraOrigin: -context.Transitions.WorldToGameplayScreen(Godot.Vector2.Zero),
         background: context.Rooms.CurrentRoom.UnderwaterBackgroundTexture);
     private void Interactions() => context.Entities.UpdateNativeInteractionPass(context.Player,
-        (context.Entities.FrameCounter + 1) & 255);
+        context.Entities.FrameCounter & 255);
     private void CancelWarp()
     {
         if (WarpActive)

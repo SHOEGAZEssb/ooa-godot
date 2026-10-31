@@ -31,8 +31,11 @@ public sealed partial class ValidationRoot
             _inventory.EquipA(0); _inventory.EquipB(0); _player.WarpTo(new(120,120)); _player.Face(Vector2I.Up);
             FailIf(_collision.Collides(_player.Position),"Essence approach must start on original south floor outside the pedestal.");
             var seed=_random.CaptureState();
-            var rom=new SomariaRom(_saveData,seed,_currentRoom,0,120,120) {HostilePartsEnabled=true};
+            var rom=new SomariaRom(_saveData,seed,_currentRoom,0,120,120) {HostilePartsEnabled=true,CompanionDispatchEnabled=true};
+            rom[0xd000]=3; // Retail initialized Link; execute its actual state dispatcher through collection.
             rom.InitializeLinkGameplay(); rom.InitializeLinkWalkingAnimation(); rom[0xcc39]=0x0c;
+            for (int offset = 0; offset < 64; offset++)
+                _runtimeState.SetWramByte(0xcd80 + offset, rom[0xcd80 + offset] = (byte)(offset * 7 + 3));
             int s=0xd040+_entities.InteractionSlot(essence)*256;
             rom[s]=1; rom[s+1]=0x7f; rom[s+11]=40; rom[s+13]=120;
             byte[] observedVelocity = new byte[4], expectedVelocity = new byte[4];
@@ -46,6 +49,7 @@ public sealed partial class ValidationRoot
             var partSlots=SomariaPrivate<Dictionary<IRoomEntity,int>>(_entities,"_partSlots");
             void Step(int count=1,bool approach=false) => StepGameplayUpdates(count,approach ? Vector2.Up : Vector2.Zero,
                 batched:batch,afterUpdate:() => {
+                rom.AdvancePaletteThread(); // darkenRoom must finish before Link consumes state04.
                 rom.UpdateGameplay(0,approach ? 0x40 : 0,approach ? 0 : 0xff,_entities.FrameCounter,
                     beforeInteractions: () => nativeApproaching = rom[s + 4] == 2,
                     afterInteractions: () => { for (int i = 0; i < 4; i++) expectedVelocity[i] = rom[0xcec0 + i]; });
@@ -57,7 +61,19 @@ public sealed partial class ValidationRoot
                 }
                 rom.AdvanceTileGraphics();
                 string context=$"Mermaid Essence batch={batch}, update{++update}";
+                if(!IsTransitioning && _rooms.ActiveGroup==5 && _currentRoom.Id==0x37 && rom[0xd004] is 1 or 4)
+                {
+                    FailIf(_runtimeState.ReadField("wDisabledObjects")!=rom[0xcc8a] ||
+                        _runtimeState.ReadField("wMenuDisabled")!=rom[0xcc02] ||
+                        _runtimeState.ReadField("wDisableLinkCollisionsAndMenu")!=rom[0xcbca] ||
+                        _player.NativeNormalStateForInteraction!=(rom[0xd004]==1) ||
+                        _player.IsHoldingItemTwoHands!=(rom[0xd004]==4 && rom[0xd005]==1),
+                        context+$": essence must use native mask/state04 ownership: masks {_runtimeState.ReadField("wDisabledObjects"):x2}/{rom[0xcc8a]:x2}, menu {_runtimeState.ReadField("wMenuDisabled"):x2}/{rom[0xcc02]:x2}, collision/menu {_runtimeState.ReadField("wDisableLinkCollisionsAndMenu"):x2}/{rom[0xcbca]:x2}, state04 pose {_player.IsHoldingItemTwoHands}, phase {SomariaPrivate<int>(_player,"_getItemStatePhase")}, force {_runtimeState.ReadField("wLinkForceState"):x2}/{rom[0xcc4f]:x2}, native {rom[0xd004]:x2}:{rom[0xd005]:x2}, essence {rom[s+4]:x2}/{rom[s+6]:x2}.");
+                }
                 CompareSomariaMotionRom(rom,context);
+                for (int offset = 0; offset < 64; offset++)
+                    FailIf(_runtimeState.ReadWramByte(0xcd80 + offset) != rom[0xcd80 + offset],
+                        context + $": essence state7 must clear static byte${0xcd80 + offset:x4} on its native exit publication.");
                 FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     context+": energy PARTs must retain the shared native RNG sequence.");
                 var beads=_entities.Entities<BlueEnergyBeadRoomEntity>();

@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
             rom[0xcc03]=1;rom[0xcd16]=0;rom[0xcd17]=0xd0;
             foreach(var pair in new[]{(0xc2ef,10),(0xcbc1,1),(0xcbc2,0),(0xcfde,1),(0xcbc3,255),(0xcbc4,255),(0xcbc5,255)})
             {_runtimeState.SetWramByte(pair.Item1,(byte)pair.Item2);rom[pair.Item1]=(byte)pair.Item2;}
-            var screen=_scene.EndingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,maxNotes=0,maxLap=0;
+            var screen=_endingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,maxNotes=0,maxLap=0;
             void CompareActor(NpcCharacter actor,int state,int at)
             {
                 CompareFullscreenActorPositionRom(rom,actor,at,"Credits performance");
@@ -57,14 +57,14 @@ public sealed partial class ValidationRoot
                 FailIf(maple.AnimationIndex!=rom[0xd130]||SomariaPrivate<int>(animation,"_frameCounter")!=rom[0xd120],$"Maple animation update{update}: port{maple.AnimationIndex}/{SomariaPrivate<int>(animation,"_frameCounter")}, ROM{rom[0xd130]}/{rom[0xd120]}.");
                 FailIf(SomariaPrivate<int>(maple,"_speedRaw")!=rom[0xd110]||maple.Angle!=rom[0xd109],"Maple credits must retain the source speed and alternating flight angle.");
                 if(update==1)FailIf(maple.CreditsState!=0||maple.Visible||rom[0xd104]!=0,"The final $a8:$03 slot must defer Maple's first update until the next special-object pass.");
-                int notes=_entities.EntityAdapters<NayruRescueMusicNoteRoomEntity>().Count();maxNotes=System.Math.Max(maxNotes,notes);maxLap=System.Math.Max(maxLap,maple.CreditsLap);
+                int notes=_entities.EntityAdapters<FloatingMusicNoteRoomEntity>().Count();maxNotes=System.Math.Max(maxNotes,notes);maxLap=System.Math.Max(maxLap,maple.CreditsLap);
                 int nativeNotes=Enumerable.Range(2,14).Count(slot=>rom[0xd040+slot*256]!=0&&rom[0xd041+slot*256]==0xa0);
                 FailIf(notes!=nativeNotes,$"Performance notes update{update}: port{notes}/ROM{nativeNotes}.");
-                foreach(var note in _entities.EntityAdapters<NayruRescueMusicNoteRoomEntity>())
+                foreach(var note in _entities.EntityAdapters<FloatingMusicNoteRoomEntity>())
                 {
                     int at=0xd040+_entities.InteractionSlot(note.Node)*256;var actor=(NpcCharacter)note.Node;
-                    FailIf(note.PrecisePosition!=new Vector2(rom.Word(at+12)/256f,rom.Word(at+10)/256f)||SomariaPrivate<int>(note,"_counter")!=rom[at+6],
-                        $"Performance note update{update} slot${at:x4}: port{actor.Position}/{SomariaPrivate<int>(note,"_counter")}, ROM{rom.Word(at+12)/256f},{rom.Word(at+10)/256f}/{rom[at+6]}.");
+                    FailIf(note.PrecisePosition!=new Vector2(rom.Word(at+12)/256f,rom.Word(at+10)/256f)||_runtimeState.ReadWramByte(at+6)!=rom[at+6],
+                        $"Performance note update{update} slot${at:x4}: port{actor.Position}/{_runtimeState.ReadWramByte(at+6)}, ROM{rom.Word(at+12)/256f},{rom.Word(at+10)/256f}/{rom[at+6]}.");
                     CompareActor(actor,1,at);
                 }
                 if(update is 1 or 64)
@@ -91,11 +91,11 @@ public sealed partial class ValidationRoot
                 {rom.AdvanceWarpPalette();rom.AdvanceBlackTowerEnding();rom.UpdateCredits(++update);FailIf(owner.State!=rom[0xcbc2],"Performance-to-caption handoff must wait for the source fade.");});
                 FailIf(owner.State!=3||_runtimeState.ReadWramByte(0xcbb3)!=90||rom[0xcbb3]!=90||!screen.Visible||
                     _entities.EntityAdapters<MapleCreditsRoomEntity>().Any()||_entities.EntityAdapters<NayruRescueActorRoomEntity>().Any()||
-                    _entities.EntityAdapters<ForestAudienceRoomEntity>().Any()||_entities.EntityAdapters<NayruRescueMusicNoteRoomEntity>().Any(),
+                    _entities.EntityAdapters<ForestAudienceRoomEntity>().Any()||_entities.EntityAdapters<FloatingMusicNoteRoomEntity>().Any(),
                     "The second caption card must clear the performance's actors, companion and notes before its 90-update hold.");
             }
             owner.Cancel();
-            FailIf(_entities.EntityAdapters<MapleCreditsRoomEntity>().Any()||_entities.EntityAdapters<NayruRescueMusicNoteRoomEntity>().Any()||
+            FailIf(_entities.EntityAdapters<MapleCreditsRoomEntity>().Any()||_entities.EntityAdapters<FloatingMusicNoteRoomEntity>().Any()||
                 _entities.EntityAdapters<NayruRescueActorRoomEntity>().Any()||_entities.EntityAdapters<ForestAudienceRoomEntity>().Any()||
                 !_hud.Visible||_transitions.NativeRoomUsesFullScreen||!before.Cast<Color>().SequenceEqual(_world.BackgroundPalettes.Capture().Cast<Color>()),"Credits performance cancellation must retire all scene actors/notes/companion and restore shared palettes.");
         }

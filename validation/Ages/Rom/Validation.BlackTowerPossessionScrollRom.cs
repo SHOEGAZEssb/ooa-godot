@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             if(completed)_saveData.SetRoomFlag(4,0xfc,0x80);
             LoadValidationRoom(4,0xfe);_entities.Clear();_inventory.EquipA(0);_inventory.EquipB(0);
             _player.WarpTo(new(120,16));_player.Face(Vector2I.Up);_transitions.ResetCamera();
-            FailIf(_collision.Collides(_player.Position)||!_transitions.TryGetScreenTransitionDestinationForValidation(Vector2I.Up,out int target)||target!=0xfc,
+            FailIf(_collision.Collides(_player.Position)||!_transitions.TryGetScreenTransitionDestination(Vector2I.Up,out int target)||target!=0xfc,
                 "Ambi scroll fixture must use the imported $4:fe north route to $4:fc on real floor.");
             var sounds=_sound.AttachPlayRequestAudit();
             for(int walk=0;walk<24&&!_transitions.ScrollActive;walk++)StepGameplayUpdates(1,Vector2.Up,["move_up"]);

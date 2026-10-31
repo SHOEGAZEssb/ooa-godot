@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
             bool held=mode==1;
             ReinitializeGameplayForValidation();LoadValidationRoom(4,0x13);
             var parent=_entities.EntityAdapters<PumpkinHeadBossRoomEntity>().Single();var boss=(PumpkinHeadBoss)parent.Node;
-            F1Retain(parent);F1Set(parent,"_initialized",true);F1Set(boss,"_initialized",true);
+            F1Retain(parent);F1Set(boss,"_initialized",true);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,144));_player.Face(Vector2I.Up);
             FailIf(_collision.Collides(_player.Position),"Pumpkin seek fixture must keep Link on room$4:$13's actual floor.");
             _runtimeState.SetWramByte(0xcc8a,1);_runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
@@ -57,7 +57,7 @@ public sealed partial class ValidationRoot
             native[0xd28b]=(byte)target.Y;native[0xd28d]=(byte)target.X;native[0xd2a9]=8;native.Word(0xd296,0xd080);native.SetEnemyAnimation(2,4);
             var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var stage=new PartMovementScratchProbe(()=>{for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
-            _entities.RegisterEnemySlot(stage,15);_entities.AddEntity(stage);
+            F1StageBeforeEnemyProbe(parent,stage);
             _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>

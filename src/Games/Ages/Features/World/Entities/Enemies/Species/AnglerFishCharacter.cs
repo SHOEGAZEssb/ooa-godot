@@ -98,7 +98,7 @@ internal sealed partial class AnglerFishCharacter : EnemyCharacter
             switch(State)
             {
                 case 8:
-                    if(!player.NativeObjectVulnerable || _world.Entry.IsActive)return;
+                    if(!player.NativeObjectVulnerable || player.NativeForcedMovementActive)return;
                     _world.DisableLink();_world.Tile(0x80,0x42);_world.Tile(0x90,0x52);
                     State=9;Counter1=_data.State[0];_world.Sound(SoundId.SndDoorClose);return;
                 case 9:

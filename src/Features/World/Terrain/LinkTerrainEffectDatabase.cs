@@ -13,6 +13,7 @@ namespace Oracles;
 internal sealed class LinkTerrainEffectDatabase
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<LinkTerrainEffectDatabase>> Packs = new(StringComparer.Ordinal);
+    static LinkTerrainEffectDatabase() => OracleGraphicsCache.RegisterApplicationCache(Packs.Clear);
     internal static LinkTerrainEffectDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
         static root => new Lazy<LinkTerrainEffectDatabase>(() => new(root))).Value;
 
@@ -174,22 +175,8 @@ internal sealed class LinkTerrainEffectDatabase
         return frames[index];
     }
 
-    internal bool WalkSoundWindowStarts(int walkingUpdate)
-    {
-        LinkTerrainEffectFrame puddle = _puddle.Frames[0];
-        return walkingUpdate >= puddle.SoundStart &&
-            (walkingUpdate - puddle.SoundStart) % puddle.SoundPeriod == 0;
-    }
+    internal bool IsPuddle(byte tile) => _definitions.TryGetValue(tile, out var definition) && ReferenceEquals(definition, _puddle);
 
-    internal bool WalkSoundWindowContains(int walkingUpdate)
-    {
-        LinkTerrainEffectFrame puddle = _puddle.Frames[0];
-        if (walkingUpdate < puddle.SoundStart)
-            return false;
-        int phase =
-            (walkingUpdate - puddle.SoundStart) % puddle.SoundPeriod;
-        return phase < puddle.SoundDuration;
-    }
 }
 
 internal enum LinkTerrainEffectKind

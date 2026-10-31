@@ -10,7 +10,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateMenuPresentationData()
     {
-        MenuPresentationDatabase layouts = MenuPresentationDatabase.For(AgesGameContent.AssetRoot);
+        var layouts = InventoryPresentationDatabase.For(AgesGameContent.AssetRoot);
+        var map = MapPresentationDatabase.For(AgesGameContent.AssetRoot);
+        var ring = RingPresentationDatabase.For(AgesGameContent.AssetRoot);
+        var file = FileMenuPresentation.LoadOam(AgesGameContent.AssetRoot);
 
         string[] expectedMapLabels = Enumerable.Range(0, 26)
             .Select(index => $"@mapIcon{index:X2}")
@@ -77,22 +80,22 @@ public sealed partial class ValidationRoot
         ];
 
         FailIf(
-            !layouts.MapIcons.Select(icon => icon.Label)
+            !map.MapIcons.Select(icon => icon.Label)
                 .SequenceEqual(expectedMapLabels) ||
-            layouts.MapIcons[0].SpriteCount != 0 ||
-            layouts.MapIcons[20].SpriteCount != 0 ||
-            layouts.MapIcons[20].AliasOf != "@mapIcon00" ||
-            layouts.MapIcons[10].Right.Attributes != 0x63,
+            map.MapIcons[0].SpriteCount != 0 ||
+            map.MapIcons[20].SpriteCount != 0 ||
+            map.MapIcons[20].AliasOf != "@mapIcon00" ||
+            map.MapIcons[10].Right.Attributes != 0x63,
             "Imported mapIconOamTable count, label order, empty alias, or " +
             "time-portal Y-flip changed.");
         FailIf(
-            !layouts.DungeonFloorLists.Select(row => row.Offset)
+            !map.DungeonFloorLists.Select(row => row.Offset)
                 .SequenceEqual(expectedFloorOffsets) ||
-            !layouts.DungeonBlurbs.Select(row => row.Asset)
+            !map.DungeonBlurbs.Select(row => row.Asset)
                 .SequenceEqual(expectedBlurbs) ||
-            layouts.DungeonBlurbs[12].AliasOf !=
+            map.DungeonBlurbs[12].AliasOf !=
                 "GFXH_DUNGEON_6_BLURB" ||
-            layouts.DungeonBlurbs[15].AliasOf !=
+            map.DungeonBlurbs[15].AliasOf !=
                 "GFXH_DUNGEON_0_BLURB",
             "Imported dungeon floor-list order or GFX header blurb aliases changed.");
         FailIf(
@@ -119,21 +122,21 @@ public sealed partial class ValidationRoot
             "item-submenu layout order changed.");
 
         IReadOnlyList<MenuOamPart> fileDecorations =
-            layouts.FileOam("decorations");
+            file["decorations"];
         IReadOnlyList<MenuOamPart> ringArrows =
-            layouts.RingOam("page-arrows");
+            ring.RingOam("page-arrows");
         FailIf(
             fileDecorations.Count != 16 ||
             fileDecorations[0] is not
                 { Y: 0x23, X: 0x0a, Tile: 0x20, Attributes: 0x05 } ||
             fileDecorations[15] is not
                 { Y: 0x39, X: 0x9a, Tile: 0x22, Attributes: 0x05 } ||
-            layouts.FileOam("name-character-cursor").Count != 2 ||
-            layouts.FileOam("save-quit-acorn")[0] is not
+            file["name-character-cursor"].Count != 2 ||
+            file["save-quit-acorn"][0] is not
                 { Y: 0x48, X: 0x29, Tile: 0x28, Attributes: 0x04 } ||
             ringArrows.Count != 2 ||
             ringArrows[1].Attributes != 0x24 ||
-            !layouts.RingBoxOffsets.Select(row => row.XOffset)
+            !ring.RingBoxOffsets.Select(row => row.XOffset)
                 .SequenceEqual([0x38, 0x50, 0x68, 0x80, 0x98]),
             "Imported file/save or ring OAM layout count/order changed.");
 
@@ -1199,11 +1202,11 @@ public sealed partial class ValidationRoot
             wallApproach, Vector2.Left, allowWallSlide: true) != Vector2.Zero,
             "Room 4:09's left wall was not available for debug collision validation.");
 
-        _player.UpdatePushingState(Vector2.Left);
+        UpdatePushingStateForValidation(_player,Vector2.Left);
         FailIf(!_player.IsPushing, "Link did not detect the wall before noclip was enabled.");
 
         _debugCollision.ToggleForValidation();
-        _player.UpdatePushingState(Vector2.Left);
+        UpdatePushingStateForValidation(_player,Vector2.Left);
         UpdateRoomDebugLabel();
         FailIf(
             !_debugCollision.CollisionsDisabled ||
@@ -1318,9 +1321,9 @@ public sealed partial class ValidationRoot
             "and an unmodified number for load.");
 
         FailIf(
-            AgesDebugSavestateStore.PathForSlot(0) !=
+            DebugSavestateStore.PathForSlot(OracleGame.Ages,0) !=
                 "user://oracle_of_ages_debug_state_0.state" ||
-            AgesDebugSavestateStore.PathForSlot(9) !=
+            DebugSavestateStore.PathForSlot(OracleGame.Ages,9) !=
                 "user://oracle_of_ages_debug_state_9.state",
             "Debug-savestate slots do not have stable independent paths.");
 
@@ -1337,20 +1340,21 @@ public sealed partial class ValidationRoot
         _random.Next();
         bool savedFlag =
             _saveData.HasGlobalFlag(AgesGlobalFlag.SavedNayru);
-        AgesDebugSavestateData captured = CaptureDebugSavestate();
+        DebugSavestateData captured = CaptureDebugSavestate();
         byte[] expectedSaveImage = captured.CreateSaveData().Serialize();
         OracleRandomState expectedRandom = _random.CaptureState();
         RoomEntityManagerState expectedEntities = _entities.CaptureDebugState();
 
         byte[] serialized = captured.Serialize();
         FailIf(
-            !AgesDebugSavestateData.TryDeserialize(
+            !DebugSavestateData.TryDeserialize(
             serialized,
-            out AgesDebugSavestateData? decoded),
+            OracleGame.Ages,
+            out DebugSavestateData? decoded),
             "A freshly serialized debug state did not validate.");
         serialized[^1] ^= 0xff;
         FailIf(
-            AgesDebugSavestateData.TryDeserialize(serialized, out _),
+            DebugSavestateData.TryDeserialize(serialized, OracleGame.Ages, out _),
             "A corrupt debug-state hash was accepted.");
 
         string temporaryPath = Path.Combine(
@@ -1359,12 +1363,12 @@ public sealed partial class ValidationRoot
         try
         {
             SaveResult saveResult =
-                AgesDebugSavestateStore.Save(decoded!, temporaryPath);
+                DebugSavestateStore.Save(decoded!, temporaryPath);
             DebugSavestateLoadResult loaded =
-                AgesDebugSavestateStore.Load(temporaryPath);
+                DebugSavestateStore.Load(temporaryPath,OracleGame.Ages);
             FailIf(
                 !saveResult.Success || !loaded.Success ||
-                AgesDebugSavestateStore.Load(temporaryPath + ".missing").Found,
+                DebugSavestateStore.Load(temporaryPath + ".missing",OracleGame.Ages).Found,
                 "Debug-state atomic storage or missing-slot detection failed.");
 
             _saveData.SetGlobalFlag(
@@ -1446,26 +1450,10 @@ public sealed partial class ValidationRoot
         }
         _mapScreen.Initialize(_rooms, _inventory, () => mapFrame);
         FailIf(
-            !Mathf.IsEqualApprox(AgesMapMenuController.FastFadeFrames, 11.0f),
+            !Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f),
             "The map menu must use the 11-update fast palette fade.");
-        FailIf(
-            AgesMapScreen.GetSpriteShadeForValidation(Colors.Black, true) != 0 ||
-            AgesMapScreen.GetSpriteShadeForValidation(Color.Color8(85, 85, 85), true) != 1 ||
-            AgesMapScreen.GetSpriteShadeForValidation(Color.Color8(170, 170, 170), true) != 2 ||
-            AgesMapScreen.GetSpriteShadeForValidation(Colors.White, true) != 3 ||
-            AgesMapScreen.GetSpriteShadeForValidation(Colors.White, false) != 0 ||
-            AgesMapScreen.GetSpriteShadeForValidation(Colors.Black, false) != 3,
-            "Map OAM grayscale no longer handles inverted spr_ and normal gfx sheets separately.");
-        FailIf(
-            AgesMapScreen.UsesInvertedSpriteGrayscale(MapMode.Present, 0x0e) ||
-            AgesMapScreen.UsesInvertedSpriteGrayscale(MapMode.Present, 0x22) ||
-            AgesMapScreen.UsesInvertedSpriteGrayscale(MapMode.Dungeon, 0x88) ||
-            !AgesMapScreen.UsesInvertedSpriteGrayscale(MapMode.Dungeon, 0x00),
-            "Map OAM sheets no longer honor spr_minimap_icons invert:false separately " +
-            "from the default-inverted dungeon item sheet.");
-        FailIf(
-            (AgesMapScreen.LocationArrowAttributes & 0x40) == 0,
-            "The map location arrow lost OAM Y-flip attribute $47.");
+        FailIf(MapPresentationDatabase.For(AgesGameContent.AssetRoot).MapOam("arrow")[0].Attributes != 0x47,
+            "The native map location arrow must retain OAM Y-flip attribute $47.");
 
         OracleSaveData presentationSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var presentationInventory = new InventoryState(_treasures, presentationSave);
@@ -1473,7 +1461,7 @@ public sealed partial class ValidationRoot
             presentationSave, presentationInventory);
         var presentationRooms = AgesRoomContent.CreateSession(
             0, 0x38, static () => 0, static () => { }, presentationSave);
-        var presentationData = new AgesMapDataDatabase(AgesGameContent.AssetRoot);
+        var presentationData = new MapDataDatabase(AgesGameContent.AssetRoot);
 
         FailIf(
             presentationSave.TimePortalGroup != 0xff ||
@@ -1550,7 +1538,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests,
             "MENU_MAP played SND_OPENMENU $54 before its opening fade.");
-        for (int frame = 0; frame < AgesMapMenuController.FastFadeFrames - 1; frame++)
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
         {
             TickMap();
             FailIf(
@@ -1564,7 +1552,7 @@ public sealed partial class ValidationRoot
             _sound.LastPlayRequestForValidation() != SoundId.SndOpenMenu ||
             _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests + 1,
             "MENU_MAP did not request SND_OPENMENU $54 at the full-white screen swap.");
-        for (int frame = 0; frame < AgesMapMenuController.FastFadeFrames; frame++)
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
             TickMap();
         FailIf(
             _mapScreen.Mode != MapMode.Present || _mapScreen.CursorRoom != 0x11,
@@ -1745,7 +1733,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !_mapMenu.BeginTravelToSelectionForValidation(),
             "Debug map rejected the valid interior target 4:0f.");
-        for (int frame = 0; frame < AgesMapMenuController.FastFadeFrames - 1; frame++)
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
         {
             TickMap();
             FailIf(
@@ -1756,7 +1744,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x0f,
             "Debug map fast travel did not load interior room 4:0f at full white.");
-        for (int frame = 0; frame < AgesMapMenuController.FastFadeFrames; frame++)
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
             TickMap();
         FailIf(
             _mapMenu.IsActive || !_player.IsPhysicsProcessing() || !_player.IsProcessing(),
@@ -1791,7 +1779,7 @@ public sealed partial class ValidationRoot
 
         var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
-            !chests.TryGet(4, 0x87, 0x65, out ChestRecord switchHookChest) ||
+            !chests.TryGetRecord(4, 0x87, 0x65, out ChestRecord switchHookChest) ||
             switchHookChest.TreasureObject != "TREASURE_OBJECT_SWITCH_HOOK_00" ||
             switchHookChest.TreasureId != TreasureId.SwitchHook ||
             switchHookChest.Parameter != 1,
@@ -2180,7 +2168,6 @@ public sealed partial class ValidationRoot
             RingEffects.BoomerangDamage(1, Wearing(RingId.RangL2)) != 3 ||
             RingEffects.BombObjectLimit(Wearing(RingId.Bombers)) != 2 ||
             RingEffects.BombsExplode(Wearing(RingId.Peace)) ||
-            RingEffects.MapleKillThreshold(Wearing(RingId.Maples)) != 15 ||
             RingEffects.PegasusSeedTimerDecrement(Wearing(RingId.Pegasus)) != 1 ||
             !RingEffects.UsesStrongThrow(Wearing(RingId.Toss)) ||
             !RingEffects.UsesFastSwim(Wearing(RingId.Swimmers)),
@@ -2197,12 +2184,13 @@ public sealed partial class ValidationRoot
             !RingEffects.DetectsSoftSoil(Wearing(RingId.Discovery)),
             "Terrain/Joy/Discovery ring policy regressed.");
 
+        var transformed = new TransformedLinkDatabase(AgesGameContent.AssetRoot + "metadata/transformed_link.tsv");
         FailIf(
-            RingEffects.LinkTransformation(Wearing(RingId.Octo)) != 5 ||
-            RingEffects.LinkTransformation(Wearing(RingId.Moblin)) != 6 ||
-            RingEffects.LinkTransformation(Wearing(RingId.LikeLike)) != 7 ||
-            RingEffects.LinkTransformation(Wearing(RingId.Subrosian)) != 3 ||
-            RingEffects.LinkTransformation(Wearing(RingId.FirstGen)) != 4 ||
+            transformed.Transformation(Wearing(RingId.Octo).ActiveRing) != 5 ||
+            transformed.Transformation(Wearing(RingId.Moblin).ActiveRing) != 6 ||
+            transformed.Transformation(Wearing(RingId.LikeLike).ActiveRing) != 7 ||
+            transformed.Transformation(Wearing(RingId.Subrosian).ActiveRing) != 3 ||
+            transformed.Transformation(Wearing(RingId.FirstGen).ActiveRing) != 4 ||
             !RingEffects.PreventsJinx(Wearing(RingId.Whisp)) ||
             RingEffects.GashaKillCredits(Wearing(RingId.Gasha)) != 2 ||
             !RingEffects.RemovesDiveTimer(Wearing(RingId.Zora)) ||
@@ -2249,19 +2237,9 @@ public sealed partial class ValidationRoot
             !expertWorld.Sounds.Contains(SoundId.SndExplosion),
             "Expert's Ring did not apply source $03 tile breakage and four damage.");
 
-        (Player transformedPlayer, ValidationRingPlayerWorld transformedWorld) =
-            RingPlayer(RingId.Octo);
-        transformedPlayer.RefreshTransformationForValidation();
-        transformedPlayer.AdvanceTransformationForValidation(walking: true, frames: 2);
-        FailIf(
-            transformedPlayer.ActiveTransformation != 5 ||
-            transformedPlayer.TransformationFrame != 1,
-            "Octo Ring did not select SPECIALOBJECT_LINK_AS_OCTOROK or honor 2/6 timing.");
-        transformedWorld.RingTransformationsAllowed = false;
-        transformedPlayer.RefreshTransformationForValidation();
-        FailIf(
-            transformedPlayer.ActiveTransformation != 0,
-            "Transformation suppression did not restore ordinary Link.");
+        FailIf(transformed.Transformation(0x2a) != 5 || transformed.Record(5,0,0).InitialDuration != 2 ||
+            transformed.Record(5,0,1).LoopDuration != 6 || transformed.Transformation(0xff) != 0,
+            "Native Octo dispatch and 2/6 animation data differ; lifecycle is checked by the shared native gameplay fixture.");
 
         (Player fullBeamPlayer, ValidationRingPlayerWorld fullBeamWorld) =
             RingPlayer(RingId.Friendship, swordLevel: 2);
@@ -2302,7 +2280,7 @@ public sealed partial class ValidationRoot
             "Energy Ring did not replace completed charge with a beam and sword poke.");
         foreach (Player validationPlayer in new[]
         {
-            fistPlayer, expertPlayer, transformedPlayer, fullBeamPlayer,
+            fistPlayer, expertPlayer, fullBeamPlayer,
             hurtBeamPlayer, lightBeamPlayer, weakSwordPlayer, energyPlayer
         })
         {

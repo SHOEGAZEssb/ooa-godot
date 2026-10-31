@@ -17,7 +17,8 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly CompanionBarrierRecord _record;
-    private ICompanionBarrierTarget? _target;
+    private readonly OracleRuntimeState _memory;
+    private readonly Action<bool, int> _setCoordinate;
     private readonly OracleSaveData _save;
     private readonly Action<int, string, Vector2> _showText;
     private int _state;
@@ -35,25 +36,20 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
 
     internal CompanionBarrierRoomEntity(
         CompanionBarrierRecord record,
-        ICompanionBarrierTarget? target,
         OracleSaveData save,
+        OracleRuntimeState memory,
+        Action<bool, int> setCoordinate,
         Action<int, string, Vector2> showText)
     {
         if (record.Id != 0x71 || record.SubId is not (1 or 2 or 4 or 5))
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
-        _target = target;
         _save = save;
+        _memory = memory;
+        _setCoordinate = setCoordinate;
         _showText = showText;
         Position = new Vector2(record.X, record.Y);
         Name = $"CompanionBarrier_{record.Order}";
-    }
-
-    internal void BindTarget(ICompanionBarrierTarget target)
-    {
-        // The restriction reads the current w1Companion slot every update.
-        // Only var30's dialogue index is retained from initialization.
-        _target = target;
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
@@ -111,17 +107,17 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
                 $"Companion barrier entered unsupported state ${_state:x2} " +
                 $"from {_record.Source}.");
         }
-        if (_target is not { BarrierMounted: true }) return;
         bool horizontal = _record.SubId is 1 or 5;
         bool higher = _record.SubId is 1 or 4;
         int boundary = horizontal ? _record.X : _record.Y;
-        int position = Mathf.FloorToInt(horizontal ? _target.BarrierPosition.X : _target.BarrierPosition.Y);
+        int position = _memory.ReadWramByte(horizontal ? 0xd10d : 0xd10b);
         if (higher ? position > boundary : position <= boundary) return;
-        _target.SetBarrierCoordinate(horizontal, higher ? unchecked((byte)(boundary + 1)) : boundary);
+        if ((_memory.ReadField("wLinkObjectIndex") & 1) == 0) return;
+        _setCoordinate(horizontal, higher ? unchecked((byte)(boundary + 1)) : boundary);
         _showText(
             _record.TextId(_companionId),
             _record.Message(_companionId),
-            _target.BarrierPosition);
+            CompanionRuntimeState.Read(_memory).Position);
     }
 
     private void InitializeBarrier()
@@ -131,11 +127,13 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
             Finished = true;
             return;
         }
-        if (_target is not { BarrierMounted: true })
+        if ((_memory.ReadField("wLinkObjectIndex") & 1) == 0)
             return;
 
         _state = 1;
-        _companionId = _target.CompanionId; // Interaction.var30 is captured on mount.
+        _companionId = _memory.ReadWramByte(0xd101); // Interaction.var30 is captured on mount.
+        if (_companionId is < 0x0b or > 0x0d)
+            throw new NotSupportedException($"{_record.Source}: INTERAC $71:${_record.SubId:x2} state0 aliases its species table for SPECIALOBJECT ${_companionId:x2}; this native table overrun is unsupported.");
         if ((_save.ReadWramByte(
                 _record.StateAddress(_companionId)) & 0x80) != 0)
         {

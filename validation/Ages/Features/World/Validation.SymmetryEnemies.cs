@@ -39,19 +39,25 @@ public partial class ValidationRoot
                 $"Restored Symmetry $0:${room:x2} still spawned a Podoboo Tower.");
         }
         _saveData.SetRoomFlag(0, 0x02, 1, false);
-        _entities.BeginScreenTransition(0, _world.LoadRoom(0, 0x02), Vector2.Right * 160);
+        void Preload(int room)
+        {
+            OracleRoomData incoming = _rooms.GetRoom(0,room);
+            _rooms.SetLoadedRoom(0,incoming,updateMinimap:false);
+            _entities.BeginScreenTransition(0,incoming,Vector2.Right * 160);
+        }
+        Preload(0x02);
         var incomingTowers = _entities.Entities<PodobooTowerCharacter>();
         FailIf(incomingTowers.Count != 2 || incomingTowers.Any(t => t.Visible || t.State != 8 || t.Counter != 60),
             "Podoboo incoming-room preload did not initialize hidden state $08.");
-        for (int i = 0; i < 8; i++) _entities.Update(1.0 / 60.0, _player);
+        for (int i = 0; i < 8; i++) _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(incomingTowers.Any(t => t.Counter != 60 || t.Visible), "Incoming Podoboo towers advanced while scrolling.");
         _entities.FinishScreenTransition();
-        _entities.BeginScreenTransition(0, _world.LoadRoom(0, 0x01), Vector2.Right * 160);
+        Preload(0x01);
         var incomingDarknuts = _entities.Entities<ArrowDarknutCharacter>();
         var positions = incomingDarknuts.Select(t => t.Position).ToArray();
         var counters = incomingDarknuts.Select(t => t.Counter).ToArray();
         int randomCalls = _entities.RandomCalls;
-        for (int i = 0; i < 8; i++) _entities.Update(1.0 / 60.0, _player);
+        for (int i = 0; i < 8; i++) _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(incomingDarknuts.Count != 3 || incomingDarknuts.Any(t => !t.Visible || t.State != ArrowMoblinState.Moving) ||
             !positions.SequenceEqual(incomingDarknuts.Select(t => t.Position)) ||
             !counters.SequenceEqual(incomingDarknuts.Select(t => t.Counter)) || _entities.RandomCalls != randomCalls,
@@ -149,8 +155,11 @@ public partial class ValidationRoot
         var spawns = new List<RoomEntitySpawn>();
         int frame = 0;
         void Step() => tower.UpdateFrame(++frame, spawns);
+        FailIf(random.Calls != 0, "Podoboo allocation must leave enemyStandardUpdate's common RNG draw for state zero.");
         Step();
-        FailIf(tower.State != 8 || tower.Counter != 60 || tower.CollisionEnabled, "Podoboo $2d initialization lost its dormant counter/collision state.");
+        predictor.Next(); // bank0.enemyStandardUpdate@uninitialized writes var3d before enemyCode2d.
+        FailIf(tower.State != 8 || tower.Counter != 60 || tower.CollisionEnabled || random.Calls != 1,
+            "Podoboo $2d initialization lost its common RNG draw or dormant counter/collision state.");
         for (int i = 1; i <= 59; i++)
         {
             Step();

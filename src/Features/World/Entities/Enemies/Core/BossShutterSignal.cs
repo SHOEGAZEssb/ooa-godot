@@ -1,9 +1,13 @@
 namespace Oracles;
 
 // Shared wcc93: doorController owns the count, boss initialization sets bit7.
-internal sealed class BossShutterSignal
+internal sealed class BossShutterSignal(OracleRuntimeState memory)
 {
-    internal byte Value { get; private set; }
+    internal byte Value
+    {
+        get => memory.ReadField("wcc93");
+        private set => memory.SetField("wcc93", value);
+    }
     internal void Clear() => Value = 0;
     internal void BeginBossEntry() => Value |= 0x80;
     internal void Opened() => Value = unchecked((byte)(Value + 1));

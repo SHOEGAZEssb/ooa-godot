@@ -64,15 +64,6 @@ internal abstract class RemoteMakuEvent :
         _runner.Start(_database.Commands);
     }
 
-    public override void SetInputEnabled(bool enabled)
-    {
-        base.SetInputEnabled(enabled);
-        // code/scripting.s: disableinput writes both bytes; Link control alone
-        // does not freeze SPECIALOBJECT_MAPLE through its companion gate.
-        Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, (byte)(enabled ? 0 : 0x81));
-        Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, (byte)(enabled ? 0 : 0x80));
-    }
-
     public void UpdateFrame()
     {
         if (!HasState)
@@ -105,8 +96,7 @@ internal abstract class RemoteMakuEvent :
     public virtual void Cancel()
     {
         _runner.Clear();
-        if (EventResources.InputLocked)
-            SetInputEnabled(true);
+        ReleaseInputControl();
         Context.Hud.ShowStatusBar();
         Context.RoomView.ClearBackgroundFade();
         RestoreFadePresentation();
@@ -244,7 +234,7 @@ internal abstract class RemoteMakuEvent :
         {
             case "SpawnTunnelGoron":
                 if(SpawnTunnelGoron is null) throw UnsupportedCommand("missing $66:$03 handoff");
-                SpawnTunnelGoron(); SetInputEnabled(true); break;
+                SpawnTunnelGoron(); RelinquishInputControl(); break;
             case "HideHud":
                 Context.Hud.HideStatusBar();
                 break;

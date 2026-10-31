@@ -91,7 +91,7 @@ public sealed partial class ValidationRoot
                 sawCard|=owner.Stage==1&&owner.State>=9;
                 if(sawCard&&!checkedCard&&!_transitions.NativePaletteFadeActive)
                 {
-                    checkedCard=true;var screen=_scene.EndingScreen;
+                    checkedCard=true;var screen=_endingScreen;
                     using var image=screen.BackgroundTexture!.GetImage();
                     for(int y=0;y<144;y++)for(int x=0;x<160;x++)
                     {

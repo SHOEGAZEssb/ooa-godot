@@ -17,7 +17,7 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
                 enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback,
-                soundRequested, EnemySwordResponse.Knockback), collisionZ: () => enemy.ZFixed >> 8)
+                soundRequested), collisionZ: () => enemy.ZFixed >> 8)
     { _freePartSlot = freePartSlot; _random = random; }
 
     public override int DimitriCollisionMode => Entity.CollisionMode;

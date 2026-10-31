@@ -13,6 +13,7 @@ namespace Oracles;
 internal partial class GrassDebrisEffect : TransitionOffsetNode2D
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, IReadOnlyDictionary<int, GrassDebrisDefinition>> Definitions = new(System.StringComparer.Ordinal);
+    static GrassDebrisEffect() => OracleGraphicsCache.RegisterApplicationCache(Definitions.Clear);
 
     private GrassDebrisDefinition _record = null!;
     private IReadOnlyList<GrassDebrisEffectFrameRecord> _animation = null!;
@@ -20,6 +21,11 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
     private int _animationCounter;
     private bool _initialized;
     private Action<int> _playSound = null!;
+    private Func<int> _grassModifier = null!;
+    private int _nativeSlot;
+    private bool _underwater;
+    internal int PaletteIndex { get; private set; }
+    internal void BindNativeSlot(int slot) => _nativeSlot = slot;
 
     internal bool Finished { get; private set; }
     internal bool Flickers { get; private set; }
@@ -38,7 +44,8 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
         int interactionId = Oracles.InteractionId.GrassDebris,
         bool flickers = false,
         bool underwater = false,
-        Action<int>? playSound = null)
+        Action<int>? playSound = null,
+        Func<int>? grassModifier = null)
     {
         AssetRoot = assetRoot;
         Position = position;
@@ -52,9 +59,13 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
         }
 
         _record = record;
-        _animation = underwater && interactionId == Oracles.InteractionId.GrassDebris
+        _underwater = underwater && interactionId == Oracles.InteractionId.GrassDebris &&
+            OracleAssetPack.GameFor(assetRoot) == OracleGame.Ages;
+        _animation = _underwater
             ? record.UnderwaterAnimation
             : record.Animation;
+        PaletteIndex = _underwater ? 6 : 0;
+        _grassModifier = grassModifier ?? (static () => 0);
         Flickers = flickers;
         // breakTileDebris.s leaves enabled bit 7 clear only when subid bit 1
         // selects the underwater variant.
@@ -74,6 +85,13 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
         if (!_initialized)
         {
             _initialized = true;
+            // breakTileDebris.@interac00 samples the live grass modifier at
+            // state0, after allocation; only Ages selects underwater palette 6.
+            if (!_underwater && InteractionId == Oracles.InteractionId.GrassDebris)
+            {
+                PaletteIndex = _grassModifier() & 3;
+                _animation = _record.SeasonAnimations[PaletteIndex];
+            }
             _playSound(_record.Sound);
             return;
         }
@@ -85,11 +103,9 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
             return;
         }
 
-        // Subid bit 0 uses (wFrameCounter XOR the interaction slot page) bit
-        // 0. Managed entities have no WRAM page; like item-drop flicker, use
-        // the global even phase while retaining the exact per-update cadence.
+        // Native interaction pages $d2-$df have the slot index's low parity.
         if (Flickers)
-            Visible = (globalFrameCounter & 1) == 0;
+            Visible = ((globalFrameCounter ^ _nativeSlot) & 1) == 0;
 
         _animationCounter--;
         if (_animationCounter == 0)
@@ -150,7 +166,8 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
                 sprite != "spr_common_sprites" ||
                 tileBase != 0x00 ||
                 palette != 0 ||
-                underwaterPalette != (interactionId == Oracles.InteractionId.GrassDebris ? 6 : 0) ||
+                underwaterPalette != (interactionId == Oracles.InteractionId.GrassDebris &&
+                    OracleAssetPack.GameFor(assetRoot) == OracleGame.Ages ? 6 : 0) ||
                 sound != SoundId.SndCutGrass)
             {
                 throw new InvalidOperationException(
@@ -168,6 +185,11 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
             List<GrassDebrisEffectFrameRecord> underwaterAnimation =
                 BuildAnimation(
                     animationDefinition, source, tileBase, underwaterPalette);
+            var seasonAnimations = new List<GrassDebrisEffectFrameRecord>[4];
+            seasonAnimations[0] = animation;
+            for (int modifier = 1; modifier < 4; modifier++)
+                seasonAnimations[modifier] = interactionId == Oracles.InteractionId.GrassDebris
+                    ? BuildAnimation(animationDefinition,source,tileBase,modifier) : animation;
 
             bool validAnimation = animation.Count == 9 &&
                 animation[^1].Duration == 0x7f &&
@@ -189,7 +211,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
             definitions.Add(
                 interactionId,
                 new GrassDebrisDefinition(
-                    interactionId, sound, animation, underwaterAnimation));
+                    interactionId, sound, animation, underwaterAnimation,seasonAnimations));
         }
         return definitions;
     }
@@ -222,7 +244,8 @@ internal sealed record GrassDebrisDefinition(
     int InteractionId,
     int Sound,
     List<GrassDebrisEffectFrameRecord> Animation,
-    List<GrassDebrisEffectFrameRecord> UnderwaterAnimation);
+    List<GrassDebrisEffectFrameRecord> UnderwaterAnimation,
+    List<GrassDebrisEffectFrameRecord>[] SeasonAnimations);
 
 internal sealed class GrassDebrisRoomEntity(GrassDebrisEffect debris)
     : RoomEntityAdapter<GrassDebrisEffect>(

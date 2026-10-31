@@ -68,7 +68,7 @@ public partial class ValidationRoot
             Vector2 point = new(40, 38);
             _currentRoom.SetPositionTileAndCollision(point, 0x0c, 0, 0);
             BombEffect? filler = seedFirst ? _entities.Spawn<BombEffect>(new BombSpawn(
-                _player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 4, _ => { })) : null;
+                _player, new BombDatabase(AgesGameContent.AssetRoot).Data, 4, _ => { })) : null;
             FailIf(!_entities.TryCreateSomariaBlock(_player, 4, point, 0), "Collision ordering fixture must allocate ITEM$18.");
             var blockAdapter = _entities.EntityAdapters<SomariaBlockRoomEntity>().Single();
             var block = blockAdapter.Block;

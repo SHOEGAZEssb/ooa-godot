@@ -82,6 +82,7 @@ public sealed partial class ValidationRoot
         var data = new SwitchHookDatabase();
         var sounds = new List<int>();
         var flight = new SwitchHookItem(data, 1, origin, 0, sounds.Add);
+        flight.BindMovementMemory(_runtimeState);
         flight.UpdateItem(_currentRoom, origin, false, () => true);
         flight.UpdateItem(_currentRoom, origin, false, () => false);
         flight.UpdatePost(origin, true);
@@ -101,6 +102,7 @@ public sealed partial class ValidationRoot
         flight.Free();
 
         var timed = new SwitchHookItem(data, 1, origin, 0, _ => { });
+        timed.BindMovementMemory(_runtimeState);
         timed.UpdateItem(_currentRoom, origin, false, () => true);
         for (int tick = 0; tick < 40; tick++) timed.UpdateItem(_currentRoom, origin, false, () => true);
         FailIf(timed.State != 1 || timed.Counter != 1 || timed.Position != new Vector2(120, 57),
@@ -119,6 +121,7 @@ public sealed partial class ValidationRoot
         FailIf(!timed.Finished, "Retraction hold failed to delete on update3.");
         timed.Free();
         var longHook = new SwitchHookItem(data, 2, origin, 0, _ => { });
+        longHook.BindMovementMemory(_runtimeState);
         longHook.UpdateItem(_currentRoom, origin, false, () => true);
         for (int tick = 0; tick < 37; tick++) longHook.UpdateItem(_currentRoom, origin, false, () => true);
         FailIf(longHook.State != 1 || longHook.Counter != 1 || longHook.Position != new Vector2(120, 26),

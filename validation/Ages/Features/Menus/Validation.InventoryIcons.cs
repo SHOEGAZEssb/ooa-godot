@@ -72,8 +72,8 @@ public partial class ValidationRoot
             "Clean-US Cane/Shooter/Power Glove selection or Boomerang/Feather label changed.");
         for (int sprite = 0x80; sprite < 0xa3; sprite++)
         for (int palette = 0; palette < 6; palette++)
-            FailIf(ItemIconAtlas.EquippedSprite(sprite) != sprite ||
-                ItemIconAtlas.EquippedLeftPalette(sprite, palette) !=
+            FailIf(ItemIconAtlas.EquippedSprite(OracleGame.Ages, sprite) != sprite ||
+                ItemIconAtlas.EquippedLeftPalette(OracleGame.Ages, sprite, palette) !=
                     (sprite < 0x84 ? ((palette - 3) | 1) & 7 : palette),
                 $"loadEquippedItemSpriteData: incorrect $84 boundary for ${sprite:x2}.");
 
@@ -87,9 +87,9 @@ public partial class ValidationRoot
             FailIf(_hud.ItemIconShadeHashForValidation(large[index]) != smallHashes[index] ||
                 _inventoryScreen.EquippedItemIconShadeHashForValidation(large[index]) != smallHashes[index],
                 $"loadItemIconGfx: equipped Harp ${large[index]:x2} did not select small pair +$02.");
-        FailIf(ItemIconAtlas.EquippedSprite(0x02) != 0x82,
+        FailIf(ItemIconAtlas.EquippedSprite(OracleGame.Ages, 0x02) != 0x82,
             "No-song equipped Harp must copy spr_item_icons_1+$40.");
-        MenuPresentationDatabase layouts = MenuPresentationDatabase.For(AgesGameContent.AssetRoot);
+        InventoryPresentationDatabase layouts = InventoryPresentationDatabase.For(AgesGameContent.AssetRoot);
         int[] tiles = [0x0e, 0x46, 0x4e, 0x56];
         int[] attributes = [0x08, 0x08, 0x0b, 0x09];
         for (int song = 0; song < 4; song++)
@@ -102,7 +102,7 @@ public partial class ValidationRoot
                     $"seedAndHarpSpriteTable+4: song ${song:x2}, part {part} differs from original OAM.");
         }
 
-        var screen = new AgesInventoryScreen { AssetRoot = AgesGameContent.AssetRoot, Visible = false };
+        var screen = new InventoryScreen { AssetRoot = AgesGameContent.AssetRoot, Visible = false };
         AddChild(screen);
         screen.Initialize(_treasures, inventory);
         for (int count = 1; count <= 4; count++)

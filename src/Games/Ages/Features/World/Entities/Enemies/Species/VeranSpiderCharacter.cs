@@ -9,7 +9,7 @@ internal sealed partial class VeranSpiderCharacter : EnemyCharacter, ISwitchHook
     private readonly OracleRoomData _room;
     private readonly EnemyTerrainMovement _movement;
     private ScentSeedAttraction? _scentCache;
-    private ScentSeedAttraction _scent => _scentCache ??= new(AgesGameContent.AssetRoot);
+    private ScentSeedAttraction _scent => _scentCache ??= new();
     private bool _collision, _scentEnabled, _burnCollisionDisabled;
     private int _z, _speedZ, _stun;
     internal int State { get; private set; }

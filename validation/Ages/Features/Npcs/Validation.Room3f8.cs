@@ -140,7 +140,8 @@ public sealed partial class ValidationRoot
             var plen = _roomEvents.Get<PlenEvent>();
             ApproachRoom3f8Npc(0x70, batched);
             TalkRoom3f8(batched);
-            FailIf(!_dialogue.ChoiceActive || !plen.BlocksGameplay || !plen.FreezesNonInteractionObjects,
+            FailIf(!_dialogue.ChoiceActive || !plen.BlocksGameplay || _player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                 "3:f8 finished-game Plen must offer TX_3700 and apply disableinput $81.");
             _dialogue.SubmitChoiceForValidation(1);
             StepGameplayUpdates(30, Vector2.Zero, batched: batched);

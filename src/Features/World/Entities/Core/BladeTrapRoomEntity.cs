@@ -10,11 +10,11 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
     IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly Action<int> _sound;
+    protected override int NativeItemReactionFlags => Entity.Record.SubId == 0 ? 1 : 8;
     internal BladeTrapRoomEntity(BladeTrapCharacter trap, EnemyCombatSourceDescriptor source,
         Action<int> sound) : base(trap, trap.SetTransitionDrawOffset,
         EnemyCombatDescriptor.WithContactDamage(source, trap, trap.Record.DamageQuarters,
-            trap.TakeSwordHit, trap.TakeBurnHit, (_, _) => { }, sound,
-            EnemySwordResponse.Armored, acceptedHitSound: 0)) => _sound = sound;
+            trap.TakeSwordHit, trap.TakeBurnHit, (_, _) => { }, sound, acceptedHitSound: 0)) => _sound = sound;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(Entity.Record.SubId == 5 ? frame.LinkTarget ?? frame.Player.EnemyContactPosition : frame.Player.Position);

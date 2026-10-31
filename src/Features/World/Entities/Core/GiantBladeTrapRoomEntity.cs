@@ -17,8 +17,7 @@ internal sealed class GiantBladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<Gi
         EnemyCombatSourceDescriptor source, Action<int> sound)
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
-                enemy.TakeSwordHit, enemy.TakeBurnHit, (_, _) => { }, sound,
-                EnemySwordResponse.Armored, acceptedHitSound: 0)) => _sound = sound;
+                enemy.TakeSwordHit, enemy.TakeBurnHit, (_, _) => { }, sound, acceptedHitSound: 0)) => _sound = sound;
 
     public bool UpdatesDuringDialogue => Entity.InitializationPending;
     public bool UpdatesDuringRoomEntityFreeze => Entity.InitializationPending;

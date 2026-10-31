@@ -17,7 +17,7 @@ internal sealed class BuzzBlobRoomEntity : CombatEnemyRoomEntityAdapter<BuzzBlob
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy,
                 enemy.Record.DamageQuarters, enemy.TakeSwordHit, enemy.TakeBurnHit,
-                enemy.ApplySwordNoKnockback, soundRequested, EnemySwordResponse.ElectricShock))
+                enemy.ApplySwordNoKnockback, soundRequested))
     {
         _showText = showText;
     }

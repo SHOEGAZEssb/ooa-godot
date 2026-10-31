@@ -12,7 +12,7 @@ internal static class ItemVerticalMotion
         position.Y = (byte)((int)position.Y + (sbyte)(byte)(z >> 8)) + position.Y - Mathf.Floor(position.Y);
         z = 0;
         Vector2 pixel = position.Floor();
-        int kind = ItemHazardDatabase.For(room.AssetRoot).Hazard(room.ActiveCollisions,
+        int kind = TilePropertyDatabase.For(room.AssetRoot).NativeHazardFlags(room.ActiveCollisions,
             room.GetMetatile(new(pixel.X, (byte)((int)pixel.Y + 5))));
         int previous = flags;
         flags = ((flags & 0xb8) ^ 0x80) | kind;

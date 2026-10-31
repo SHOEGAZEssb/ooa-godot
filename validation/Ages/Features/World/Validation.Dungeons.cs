@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
         var root = new Node { Name = "SpiritsGraveEntranceValidation" };
         AddChild(root);
         OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-        var runtime = AgesGameContent.CreateRuntimeState();
+        var runtime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             root, new() { SaveData = save, RuntimeState = runtime });
         RoomEntityManager manager = managerFixture.Manager;
@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
         Vector2[] frozenEyePositions =
             preloadedEyes.Select(eye => eye.Position).ToArray();
         int frozenPortalFrame = preloadedPortal.AnimationFrame;
-        manager.Update(1.0, _player);
+        manager.AdvanceEntityFrames(1.0, _player);
         FailIf(
             !preloadedEyes.Select(eye => eye.Position)
                 .SequenceEqual(frozenEyePositions) ||
@@ -104,7 +104,7 @@ public sealed partial class ValidationRoot
         FailIf(
             manager.Entities<Node2D>().Count != 3,
             "Room 4:24 did not initially retain its three placed source interactions.");
-        manager.Update(update, _player);
+        manager.AdvanceEntityFrames(update, _player);
         List<StatueEyeball> eyes = manager.Entities<StatueEyeball>();
         Vector2[] initialEyePositions =
         [
@@ -129,7 +129,7 @@ public sealed partial class ValidationRoot
         }
         // Entry slot $d2 was freed before scanner $d3 ran. Its first child
         // reuses $d2 and waits; later children in $d5-$d9 run immediately.
-        manager.Update(update, _player);
+        manager.AdvanceEntityFrames(update, _player);
         FailIf(!eyes[0].Visible || !eyes[0].Initialized || eyes[0].Position != initialEyePositions[0],
             "The lower-slot statue eye must initialize on the next pass without starting its aiming update.");
         ulong fixedEyePixelHash = eyes[0].PixelHash;
@@ -139,7 +139,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(
                 firstEyeTileCenter +
                 OracleObjectMovement.Shared.Direction(direction * 4) * 32);
-            manager.Update(update, _player);
+            manager.AdvanceEntityFrames(update, _player);
             DungeonEntranceInteractionDatabaseVisualRecord visual =
                 data.EyeVisuals[direction];
             Vector2 expectedPosition = new(0x90 + visual.LowX, 0x70 + visual.LowY);
@@ -167,7 +167,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(0x78, 0x88));
         manager.LoadRoom(
             4, room, EnemyPlacementContext.FromWarpDestination(0xff));
-        manager.Update(update, _player);
+        manager.AdvanceEntityFrames(update, _player);
         FailIf(
             entryText != 0x0201 || entryMessage != data.Entry(1).Message ||
             runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) != 0 ||
@@ -187,27 +187,27 @@ public sealed partial class ValidationRoot
         Vector2 portalPosition = new(0x78, 0x58);
         _player.WarpTo(portalPosition);
         manager.LoadRoom(4, room);
-        manager.Update(update, _player);
+        manager.AdvanceEntityFrames(update, _player);
         FailIf(
             manager.Entities<MinibossPortal>() is not [{ Visible: true }] ||
             sounds.Count != 0 || _player.CutsceneControlled,
             "Enabled room 4:24 portal did not enter its initial-overlap wait state.");
-        manager.Update(update, _player);
+        manager.AdvanceEntityFrames(update, _player);
         FailIf(sounds.Count != 0, "Room 4:24 portal retriggered while Link remained on its destination.");
         _player.WarpTo(new Vector2(0x78, 0x70));
-        manager.Update(update, _player);
+        manager.AdvanceEntityFrames(update, _player);
         _player.WarpTo(portalPosition);
-        manager.Update(update, _player);
+        manager.AdvanceEntityFrames(update, _player);
         FailIf(
             !_player.CutsceneControlled || sounds is not [SoundId.SndTeleport] ||
             requestedWarp.HasValue,
             "Room 4:24 portal did not start its fresh-contact teleport state and sound.");
         for (int frame = 0; frame < data.PortalSpinUpdates - 1; frame++)
-            manager.Update(update, _player);
+            manager.AdvanceEntityFrames(update, _player);
         FailIf(
             requestedWarp.HasValue || _player.Position != portalPosition,
             "Room 4:24 portal warped early or failed to pin Link during its $30 counter.");
-        manager.Update(update, _player);
+        manager.AdvanceEntityFrames(update, _player);
         FailIf(
             requestedWarp is not
             {
@@ -326,7 +326,7 @@ public sealed partial class ValidationRoot
             "three respawnable-bush scanners and two direct PART$0f placements, " +
             "and 73 ordered $13:$01/enemy-shutter dungeon placements.");
 
-        void Step() => _entities.Update(update, _player);
+        void Step() => _entities.AdvanceEntityFrames(update, _player);
         _entities.WorldToScreen = static position => position;
 
         // Room 4:08 uses the dungeon-$0d table's $20:$00 script: exact
@@ -368,7 +368,7 @@ public sealed partial class ValidationRoot
             "Room 4:08's button and $20:$00 script must react in the same update.");
         FailIf(
             _entities.Entities<TriggerChestRoomEntity>() is not [{ Counter: 15 }] ||
-            _entities.Entities<PuzzlePuffEffect>() is not
+            _entities.Entities<StationaryDebrisEffect>() is not
                 [{ ElapsedUpdates: 1, AnimationFrame: 0 }] ||
             room.GetMetatile(room408Chest) != 0xa3 ||
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
@@ -379,26 +379,26 @@ public sealed partial class ValidationRoot
         FailIf(
             room.GetMetatile(room408Chest) != 0xa3 ||
             _entities.Entities<TriggerChestRoomEntity>() is not [{ Counter: 1 }] ||
-            _entities.Entities<PuzzlePuffEffect>() is not
+            _entities.Entities<StationaryDebrisEffect>() is not
                 [{ ElapsedUpdates: 15, AnimationFrame: 2 }],
             "Room 4:08 installed its chest before wait 15 reached zero.");
         Step();
         FailIf(
             room.GetMetatile(room408Chest) != 0xf1 ||
             _entities.Entities<TriggerChestRoomEntity>().Count != 0 ||
-            _entities.Entities<PuzzlePuffEffect>() is not
+            _entities.Entities<StationaryDebrisEffect>() is not
                 [{ ElapsedUpdates: 16, AnimationFrame: 2 }],
             "Room 4:08 did not install chest tile $f1 on the wait-15 zero update.");
         Step();
         Step();
         Step();
         FailIf(
-            _entities.Entities<PuzzlePuffEffect>() is not
+            _entities.Entities<StationaryDebrisEffect>() is not
             [{ ElapsedUpdates: 19, CurrentParameter: 0xff }],
             "INTERAC_PUFF did not reach its imported terminal parameter after 6/8/4 updates.");
         Step();
         FailIf(
-            _entities.Entities<PuzzlePuffEffect>().Count != 0,
+            _entities.Entities<StationaryDebrisEffect>().Count != 0,
             "INTERAC_PUFF did not delete one update after terminal parameter $ff.");
 
         TreasureObjectVisualRecord smallKeyVisual =
@@ -559,7 +559,7 @@ public sealed partial class ValidationRoot
         // overlaps its $08/$0a radii before beginning the six-update close.
         _player.WarpTo(new Vector2(0xe8, 0x58));
         _sound.ClearPlayRequestAudit();
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x0b);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x0b);
         OracleRoomData scrollingRoom40b = _world.LoadRoom(4, 0x0b);
         Vector2 scrollingUpDoor = new(0x78, 0x08);
         Vector2 scrollingLeftDoor = new(0x08, 0x58);
@@ -781,7 +781,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(0x78, 0x08));
         _sound.ClearPlayRequestAudit();
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
-        _transitions.BeginScroll(_player, Vector2I.Up, 0x06);
+        _transitions.BeginValidationScroll(_player, Vector2I.Up, 0x06);
         OracleRoomData scrollingRoom406 = _world.LoadRoom(4, 0x06);
         Vector2 room406DownDoor = new(0x78, 0xa8);
         Vector2 room406RightDoor = new(0xe8, 0x88);
@@ -883,7 +883,7 @@ public sealed partial class ValidationRoot
                 enemy.UpdateFrame(_player.Position);
             }
             enemy.UpdateFrame(_player.Position);
-            _entities.Update(0.0, _player);
+            _entities.AdvanceEntityFrames(0.0, _player);
             FailIf(
                 _entities.Entities<StalfosCharacter>().Count !=
                     room406Stalfos.Length - index - 1 ||
@@ -990,7 +990,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x07);
         _player.WarpTo(new Vector2(0x08, 0x88));
         _sound.ClearPlayRequestAudit();
-        _transitions.BeginScroll(_player, Vector2I.Left, 0x06);
+        _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x06);
         scrollingRoom406 = _world.LoadRoom(4, 0x06);
         FailIf(
             scrollingRoom406.GetMetatile(room406DownDoor) != 0x7a ||
@@ -1374,7 +1374,7 @@ public sealed partial class ValidationRoot
         _interactions.Update(0.0, _player);
         FailIf(_interactions.ChestRewardActive, "The chest reward remained after its textbox closed.");
 
-        _currentRoom = _world.LoadRoom(0, 0x49);
+        _currentRoom = _rooms.GetRoom(0, 0x49);
         _roomView.SetRoom(_currentRoom.Texture);
         FailIf(
             _currentRoom.GetMetatile(chestPoint) != 0xf0 || TryInteract(_player),
@@ -1386,7 +1386,7 @@ public sealed partial class ValidationRoot
         const int missingChestPosition = 0x67;
         var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
-            chests.TryGet(
+            chests.TryGetRecord(
             4, 0xce, missingChestPosition, out _),
             "The missing-chest fixture unexpectedly exists in chestData.s.");
         _interactions.ResetChestForTesting(
@@ -1429,10 +1429,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateBraceletChestAndPushGate()
     {
-        BraceletDatabaseRecord braceletData = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
+        BraceletDatabaseRecord braceletData = new BraceletDatabase(AgesGameContent.AssetRoot).Data;
         var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
-            !chests.TryGet(5, 0xa6, 0x37, out ChestRecord braceletChest) ||
+            !chests.TryGetRecord(5, 0xa6, 0x37, out ChestRecord braceletChest) ||
             braceletChest.TreasureObject != "TREASURE_OBJECT_BRACELET_02" ||
             braceletChest.TreasureId != TreasureId.Bracelet ||
             braceletChest.Parameter != 2,
@@ -1729,7 +1729,7 @@ public sealed partial class ValidationRoot
             itemButtonJustPressed: true);
         // Parent setup precedes the independent physical ITEM C pass. The
         // weight-0 drop's first gravity update changes speedZ $00 to $1c.
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !throwing ||
             _bracelet.State != BraceletState.Throwing ||
@@ -1760,14 +1760,14 @@ public sealed partial class ValidationRoot
                 _player, Vector2.Zero,
                 primaryHeld: false, secondaryHeld: false,
                 itemButtonJustPressed: false);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             _bracelet.State != BraceletState.Idle ||
             _bracelet.LiftedObject is not null ||
             _entities.Entities<RockDebrisEffect>().Count != 1,
             "Thrown Bracelet tile did not break into its stored INTERAC_ROCKDEBRIS effect.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndBreakRock) != 1,
             "Thrown Bracelet tile's INTERAC_ROCKDEBRIS did not request SND_BREAK_ROCK.");

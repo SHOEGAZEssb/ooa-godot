@@ -9,7 +9,7 @@ internal sealed partial class LynelCharacter : EnemyCharacter, ITerrainShadowSou
     private EnemyBehaviorTables? _dataSourceCache;
     private EnemyBehaviorTables _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
     private ScentSeedAttraction? _scentCache;
-    private ScentSeedAttraction _scent => _scentCache ??= new(AssetRoot);
+    private ScentSeedAttraction _scent => _scentCache ??= new();
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private int _stun, _z, _speedZ;
@@ -110,9 +110,9 @@ internal sealed partial class LynelCharacter : EnemyCharacter, ITerrainShadowSou
     }
     private void UpdateAnimation(int offset) => SetAnimation((Angle >> 3) + offset);
     internal override void ApplyBoomerangStun(int updates) => _stun = updates;
-    internal override bool TryApplyShieldBump(Rect2 bounds, Vector2 origin, EnemyKnockbackStrength strength)
+    internal override bool TryApplyCollisionBump(Rect2 bounds, Vector2 origin, EnemyKnockbackStrength strength)
     {
-        if (!base.TryApplyShieldBump(bounds, origin, strength)) return false;
+        if (!base.TryApplyCollisionBump(bounds, origin, strength)) return false;
         // All three Lynel shield columns set var2a bit7 before recoil starts.
         DeferNativeHitStatus();
         return true;

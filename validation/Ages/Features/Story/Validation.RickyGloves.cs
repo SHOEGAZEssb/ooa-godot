@@ -12,6 +12,7 @@ public sealed partial class ValidationRoot
         RickyGlovesEventRecord record = database.Record;
         bool originalImpaCompleted = _saveData.HasRoomFlag(
             0, 0x6a, OracleSaveData.RoomFlag40);
+        void StepRoomEventFrames(int frames) => StepGameplayUpdates(frames, Vector2.Zero);
 
         void ClearCompanionSlot()
         {
@@ -21,6 +22,8 @@ public sealed partial class ValidationRoot
                     CompanionRuntimeState.Read(_runtimeState);
                 CompanionRuntimeState.Clear(_runtimeState, active.Id);
             }
+            // Each independent on-foot fixture replaces the prior rider too.
+            _runtimeState.SetField("wLinkObjectIndex", 0xd0);
             CompanionRuntimeState.ForgetRemembered(_runtimeState);
         }
 
@@ -41,8 +44,12 @@ public sealed partial class ValidationRoot
 
         void PositionForTalk()
         {
-            _player.WarpTo(new Vector2(record.RickyX, record.RickyY + 10));
-            _player.Face(Vector2I.Up);
+            _player.WarpTo(new Vector2(record.RickyX, record.RickyY + 28));
+            FailIf(_collision.Collides(_player.Position), "Ricky's approach must start on original room floor outside his native collision box.");
+            StepGameplayUpdates(16, Vector2.Up);
+            FailIf(_player.PrecisePosition.X != record.RickyX ||
+                _player.PrecisePosition.Y < record.RickyY + 10 || _player.PrecisePosition.Y > record.RickyY + 14,
+                $"Ricky must be reachable by walking up through room $0:$6a geometry, retaining native blocking (Link={_player.PrecisePosition}).");
         }
 
         void ExpectDialogue(int commandIndex, int textId, string phase)
@@ -56,8 +63,9 @@ public sealed partial class ValidationRoot
 
         Configure(prerequisite: false, state: 0, gloves: false);
         LoadValidationRoom(record.Group, record.Room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
-            rickyEvent.HasState || rickyEvent.RickyActor is not null ||
+            !rickyEvent.HasState || rickyEvent.RickyActor is not null ||
             _entities.Entities<RickyCompanionRoomEntity>().Any(),
             "Room 0:6a spawned $67:$02 Ricky before " +
             "GLOBALFLAG_GAVE_ROPE_TO_RAFTON `$15.");
@@ -67,6 +75,7 @@ public sealed partial class ValidationRoot
             state: record.CompleteMask,
             gloves: false);
         LoadValidationRoom(record.Group, record.Room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             rickyEvent.HasState || rickyEvent.RickyActor is not null ||
             _entities.Entities<RickyCompanionRoomEntity>().Count != 1,
@@ -77,8 +86,9 @@ public sealed partial class ValidationRoot
             state: record.LeftMask,
             gloves: false);
         LoadValidationRoom(record.Group, record.Room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
-            rickyEvent.HasState || rickyEvent.RickyActor is not null ||
+            !rickyEvent.HasState || rickyEvent.RickyActor is not null ||
             _entities.Entities<RickyCompanionRoomEntity>().Any(),
             "wRickyState bit `$40 did not suppress room 0:6a Ricky.");
 
@@ -86,12 +96,12 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.BeginAnimalRide(
             _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
-            record.Room,
             new Vector2(0x30, 0x30),
             direction: ObjectDirection.Down);
         LoadValidationRoom(record.Group, record.Room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
-            rickyEvent.HasState || rickyEvent.RickyActor is not null ||
+            !rickyEvent.HasState || rickyEvent.RickyActor is not null ||
             _entities.Entities<RickyCompanionRoomEntity>().Any(),
             "Room 0:6a overwrote an already-enabled w1Companion slot.");
 
@@ -106,20 +116,19 @@ public sealed partial class ValidationRoot
                 "Room 0:69 did not resolve room 0:6a as its source-derived " +
                 "right neighbor.");
         }
-        _transitions.BeginScroll(_player, Vector2I.Right, scrollTarget);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, scrollTarget);
         NpcCharacter? incomingRicky = rickyEvent.RickyActor;
         FailIf(
-            incomingRicky is null || !incomingRicky.Active ||
-            !incomingRicky.Visible || !rickyEvent.ButtonSensitive ||
+            incomingRicky is null || incomingRicky.Active ||
+            incomingRicky.Visible || rickyEvent.ButtonSensitive ||
             rickyEvent.CurrentCommandIndex != 0 ||
             incomingRicky.TransitionDrawOffset != new Vector2(160, 0),
-            "Room 0:6a destination preload did not resolve Ricky's two " +
-            "state-0 updates into a visible incoming-scroll presentation.");
+            "Room 0:6a destination preload must leave Ricky's actual native state0 visits pending.");
         ulong preloadedFrameHash = incomingRicky!.CurrentAnimationPixelHash;
         for (int update = 0; update < 10; update++)
         {
             UpdateScrollingTransition(1.0 / 60.0);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
         }
         FailIf(
@@ -154,6 +163,7 @@ public sealed partial class ValidationRoot
             new Vector2(0x22, 0x33));
         LoadValidationRoom(record.Group, record.Room);
 
+        StepGameplayUpdates(1, Vector2.Zero); // Placed $67 dispatch precedes the first D1 state0 visit.
         NpcCharacter? stagedRicky = rickyEvent.RickyActor;
         FailIf(
             stagedRicky is null,
@@ -222,16 +232,26 @@ public sealed partial class ValidationRoot
             !_interactions.TryInteract(_player),
             "Room 0:6a Ricky was not reachable through normal A-button routing.");
         StepRoomEventFrames(1);
+        FailIf(rickyEvent.CurrentCommandIndex != 1 || _dialogue.IsOpen ||
+            _runtimeState.ReadWramByte(0xd13d) != 1 || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0,
+            "The native var3d=$01 check must yield before disableinput while retaining the actual pressed-byte publication.");
+        StepRoomEventFrames(1);
+        FailIf(rickyEvent.CurrentCommandIndex != 3 || _dialogue.IsOpen ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x81,
+            "A missing already-explained bit must yield after disableinput before setting the flag.");
+        StepRoomEventFrames(1);
         ExpectDialogue(5, 0x2000, "first meeting");
         FailIf(
             (_saveData.ReadWramByte(record.RickyStateAddress) &
                 record.TalkedMask) == 0 ||
-            !rickyEvent.BlocksGameplay || !_player.CutsceneControlled ||
+            !rickyEvent.BlocksGameplay || _player.CutsceneControlled ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
             rickyEvent.CurrentCommandIndex != 6 ||
             _dialogue.CurrentMessage.Contains(
                 "\\jump", System.StringComparison.Ordinal),
             "Ricky's first talk did not set wRickyState bit `$01, retain " +
-            "the input lease, or expand TX_2000's TX_2002 jump " +
+            "the native input mask, or expand TX_2000's TX_2002 jump " +
             $"(state=${_saveData.ReadWramByte(record.RickyStateAddress):x2}, " +
             $"blocks={rickyEvent.BlocksGameplay}, " +
             $"cutscene={_player.CutsceneControlled}, " +
@@ -239,6 +259,12 @@ public sealed partial class ValidationRoot
             $"raw-jump={_dialogue.CurrentMessage.Contains("\\jump", System.StringComparison.Ordinal)}).");
 
         _dialogue.Close();
+        StepRoomEventFrames(1);
+        FailIf(rickyEvent.CurrentCommandIndex != 8 || _dialogue.IsOpen,
+            "Ricky's in-buffer jump must yield before checking the gloves.");
+        StepRoomEventFrames(1);
+        FailIf(rickyEvent.CurrentCommandIndex != 9 || _dialogue.IsOpen,
+            "The absent-gloves check must yield before opening its explanation.");
         StepRoomEventFrames(1);
         ExpectDialogue(9, 0x2003, "missing-gloves explanation");
         _dialogue.Close();
@@ -253,16 +279,29 @@ public sealed partial class ValidationRoot
         PositionForTalk();
         FailIf(!_interactions.TryInteract(_player),
             "Ricky rejected his repeat no-gloves interaction.");
-        StepRoomEventFrames(1);
+        StepRoomEventFrames(3);
         ExpectDialogue(9, 0x2003, "repeat missing-gloves explanation");
         _dialogue.Close();
         StepRoomEventFrames(1);
+
+        NpcCharacter retiredRicky = ricky;
+        rickyEvent.Cancel();
+        FailIf(CompanionRuntimeState.AnyActive(_runtimeState) ||
+            _entities.EntityAdapters<ScriptedCompanionRoomEntity>().Any() ||
+            !retiredRicky.IsRetired || _entities.TryInteractNativeSpecialObject(retiredRicky, _player) ||
+            (_saveData.ReadWramByte(record.RickyStateAddress) & record.CompleteMask) != 0,
+            "Cancelling a pre-mount controller must retire only its bound native actor, reject the old A target and leave completion untouched.");
+        LoadValidationRoom(record.Group, record.Room);
+        StepRoomEventFrames(3);
+        ricky = rickyEvent.RickyActor ?? throw new System.InvalidOperationException("Ricky re-entry did not create its native actor.");
+        FailIf(ReferenceEquals(ricky, retiredRicky) || !ricky.Active || _entities.TryInteractNativeSpecialObject(retiredRicky, _player),
+            "Re-entry must create one new native A target without accepting its retired predecessor.");
 
         _inventory.GiveTreasure(record.GlovesTreasure, 0);
         PositionForTalk();
         FailIf(!_interactions.TryInteract(_player),
             "Ricky rejected the retrieved-gloves interaction.");
-        StepRoomEventFrames(1);
+        StepRoomEventFrames(3);
         ExpectDialogue(13, 0x2004, "glove return");
         FailIf(
             !_inventory.HasTreasure(record.GlovesTreasure) ||
@@ -270,6 +309,13 @@ public sealed partial class ValidationRoot
             "Ricky removed treasure `$48 before TX_2004 closed.");
 
         _dialogue.Close();
+        StepRoomEventFrames(1);
+        FailIf(_inventory.HasTreasure(record.GlovesTreasure) || !ricky.Active ||
+            _entities.Entities<RickyCompanionRoomEntity>().Any() ||
+            _runtimeState.ReadWramByte(0xd103) != 1 || _runtimeState.ReadWramByte(0xd104) != 0x0a ||
+            rickyEvent.CurrentCommandIndex != 17 || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x80,
+            "Closing TX_2004 writes var03=$01 after D1; its force-mount and body transfer must wait until the next special-object visit, retaining menu $80.");
         StepRoomEventFrames(1);
         RickyCompanionRoomEntity companion =
             _entities.Entities<RickyCompanionRoomEntity>().Single();
@@ -285,7 +331,6 @@ public sealed partial class ValidationRoot
 
         for (int frame = 0; frame < 120 && !_dialogue.IsOpen; frame++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
         ExpectDialogue(18, 0x2005, "mounted tutorial");
@@ -316,6 +361,7 @@ public sealed partial class ValidationRoot
 
         ClearCompanionSlot();
         LoadValidationRoom(record.Group, record.Room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             rickyEvent.HasState || rickyEvent.RickyActor is not null ||
             _entities.Entities<RickyCompanionRoomEntity>().Count != 1,
@@ -328,7 +374,7 @@ public sealed partial class ValidationRoot
             fluteTreasure,
             record.AnimalCompanionId);
         LoadValidationRoom(record.Group, record.Room);
-        StepRoomEventFrames(record.InitialSpecialObjectUpdates);
+        StepRoomEventFrames(1 + record.InitialSpecialObjectUpdates);
         NpcCharacter? returningRicky = rickyEvent.RickyActor;
         FailIf(
             returningRicky is null || !returningRicky.Active ||
@@ -339,7 +385,7 @@ public sealed partial class ValidationRoot
             _entities.FindTalkTarget(_player) != returningRicky ||
             !_interactions.TryInteract(_player),
             "Returning-companion Ricky was not A-sensitive.");
-        StepRoomEventFrames(1);
+        StepRoomEventFrames(3);
         ExpectDialogue(7, 0x2001, "returning-companion greeting");
         FailIf(
             (_saveData.ReadWramByte(record.RickyStateAddress) &
@@ -348,7 +394,7 @@ public sealed partial class ValidationRoot
             "wAnimalCompanion `$0b did not select @notFirstMeeting after " +
             "setting wRickyState bit `$01.");
         _dialogue.Close();
-        StepRoomEventFrames(1);
+        StepRoomEventFrames(2);
         ExpectDialogue(9, 0x2003, "returning-companion missing-gloves explanation");
         _dialogue.Close();
         StepRoomEventFrames(1);

@@ -42,6 +42,12 @@ public sealed class GlobalFlagDatabase
         return _names[flag];
     }
 
+    internal int GetId(string name)
+    {
+        int id = Array.IndexOf(_names, name);
+        return id >= 0 ? id : throw new NotSupportedException($"{AssetRoot}: native global flag '{name}' is not imported.");
+    }
+
     public string GetShortName(int flag)
     {
         string name = GetName(flag);

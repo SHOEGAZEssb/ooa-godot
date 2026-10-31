@@ -12,28 +12,41 @@ public sealed class PushableTileDatabase
     private const int RecordSize = 4;
     private readonly byte[] _records;
     private readonly byte[] _nativeProperties;
+    private readonly bool _propertiesUseRoomGroup;
+    private readonly int _propertyProfiles;
     private readonly (byte Tile,byte Parameter)[] _somaria=new (byte,byte)[6];
+    private readonly bool[] _somariaEnabled = new bool[6];
 
     public PushableTileDatabase(string assetRoot)
     {
         AssetRoot = assetRoot;
+        bool ages = OracleAssetPack.GameFor(assetRoot) == OracleGame.Ages;
+        var profile = GeneratedTable.Load(AssetRoot + "metadata/pushblock_profiles.tsv",
+            new("INTERAC $14 property selector",GeneratedTableKeySemantics.Unique,
+                ["selector","count","source"],["selector"],headerRequired:true)).SingleRow();
+        _propertiesUseRoomGroup = profile.RequiredString(0) == "wActiveGroup";
+        _propertyProfiles = profile.Decimal(1,1,8);
+        if (profile.RequiredString(0) != (ages ? "wActiveCollisions" : "wActiveGroup") ||
+            _propertyProfiles != (ages ? 6 : 8))
+            throw profile.Invalid(0,"the selected build's native INTERAC $14 property selector");
 
         var table=GeneratedTable.Load(AssetRoot + "metadata/somaria_push_tiles.tsv",
             new GeneratedTableSchema("Somaria push dispatch",GeneratedTableKeySemantics.Unique,
                 ["active-collisions","tile","parameter","source"],["active-collisions"],headerRequired:true));
-        if(table.Rows.Count!=6) throw new InvalidOperationException("Somaria push dispatch requires all six collision modes.");
-        for(int mode=0;mode<6;mode++)
+        if(table.Rows.Count!=(ages?6:0)) throw new InvalidOperationException("Somaria push dispatch requires six Ages rows and no Seasons rows.");
+        for(int mode=0;mode<table.Rows.Count;mode++)
         {
             var row=table.Rows[mode];
             if(row.Decimal(0,0,5)!=mode) throw row.Invalid(0,"ordered collision mode");
             _somaria[mode]=((byte)row.HexByte(1),(byte)row.HexByte(2));
+            _somariaEnabled[mode]=true;
             if((_somaria[mode].Parameter&15)!=0) throw row.Invalid(2,"nextToPushableBlock dispatch");
             _=row.RequiredString(3);
         }
         _records = OracleAssetCache.ReadBytes(AssetRoot + "metadata/pushableTiles.bin");
         _nativeProperties = OracleAssetCache.ReadBytes(AssetRoot + "metadata/native_pushblock_properties.bin");
-        if (_nativeProperties.Length != CollisionModeCount * TileCount * 3)
-            throw new InvalidOperationException("Native INTERAC $14 properties require all six collision-mode tables.");
+        if (_nativeProperties.Length != _propertyProfiles * TileCount * 3)
+            throw new InvalidOperationException("Native INTERAC $14 properties require the selected build's complete selector table.");
         int expected = CollisionModeCount * TileCount * RecordSize;
         if (_records.Length != expected)
         {
@@ -45,23 +58,25 @@ public sealed class PushableTileDatabase
     internal bool TryGetSomaria(int mode,byte tile,out byte parameter)
     {
         parameter=0;
-        if(mode is <0 or >=6 || _somaria[mode].Tile!=tile) return false;
+        if(mode is <0 or >=6 || !_somariaEnabled[mode] || _somaria[mode].Tile!=tile) return false;
         parameter=_somaria[mode].Parameter;
         return true;
     }
 
-    internal PushableTileRecord GetNativeProperties(int mode, byte tile)
+    internal PushableTileRecord GetNativeProperties(int mode, byte tile, int? activeGroup = null)
     {
-        if (mode is < 0 or >= CollisionModeCount)
-            throw new InvalidOperationException($"INTERAC $14: unsupported collision mode ${mode:x2}.");
-        int offset = (mode * TileCount + tile) * 3;
+        int profile = _propertiesUseRoomGroup
+            ? activeGroup ?? throw new InvalidOperationException("Seasons INTERAC $14 properties require the live active room group.") : mode;
+        if (profile < 0 || profile >= _propertyProfiles)
+            throw new InvalidOperationException($"INTERAC $14: unsupported native property profile ${profile:x2}.");
+        int offset = (profile * TileCount + tile) * 3;
         // Native lookup returns at the zero terminator on a miss, leaving
         // the newly allocated interaction's var32..var34 bytes zero.
         return _nativeProperties[offset] == 0xff ? default :
             new(0, _nativeProperties[offset], _nativeProperties[offset + 1], _nativeProperties[offset + 2]);
     }
 
-    public bool TryGet(int activeCollisions, byte tile, out PushableTileRecord record)
+    public bool TryGet(int activeCollisions, byte tile, out PushableTileRecord record, int? activeGroup = null)
     {
         if (activeCollisions < 0 || activeCollisions >= CollisionModeCount)
         {
@@ -76,11 +91,8 @@ public sealed class PushableTileDatabase
             return false;
         }
 
-        record = new PushableTileRecord(
-            _records[offset],
-            _records[offset + 1],
-            _records[offset + 2],
-            _records[offset + 3]);
+        var properties = GetNativeProperties(activeCollisions,tile,activeGroup);
+        record = new PushableTileRecord(_records[offset],properties.SourceReplacement,properties.DestinationTile,properties.PropertyFlags);
         return true;
     }
 }

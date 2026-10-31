@@ -23,12 +23,15 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
     private bool _cannotBuy;
     private bool _theftTextPending;
     private RoomEventResources? _resources;
+    private NativeScriptInputControl? _input;
+    private NativeScriptInputControl Input => _input??=new(context.Rooms.RuntimeState);
     private int C(string name) => _data.Constant("syrup-" + name);
 
     public bool HasState => _syrup is not null;
-    public bool BlocksGameplay => HasState && (_cuccoState != 1 || _stage != SyrupShopStage.Idle);
-    public bool FreezesNonInteractionObjects => BlocksGameplay;
-    public bool MenusDisabled => BlocksGameplay;
+    private bool Busy => HasState && (_cuccoState!=1 || _stage!=SyrupShopStage.Idle);
+    public bool BlocksGameplay => _stage==SyrupShopStage.ItemText ? Input.LinkDisabled : Busy;
+    public bool FreezesNonInteractionObjects => _stage!=SyrupShopStage.ItemText && BlocksGameplay;
+    public bool MenusDisabled => _stage!=SyrupShopStage.ItemText && BlocksGameplay;
     internal SyrupShopStage Stage => _stage;
     internal int CuccoState => _cuccoState;
     internal int CuccoZ => _z;
@@ -58,7 +61,7 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
     public bool TryInteractPlayer(Player player)
     {
         if (!HasState || !Matches(context.Rooms.ActiveGroup, context.Rooms.CurrentRoom)) return false;
-        if (BlocksGameplay) return true;
+        if (Busy) return true;
         if (_held is not null)
         {
             // shopItemCheckGrabbed: lower X is exclusive, upper X inclusive.
@@ -84,7 +87,8 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
     {
         // $c9 is A-sensitive, but state1 never reads pressedAButton.
         if (npc == _cucco) return true;
-        if (npc != _syrup || BlocksGameplay) return false;
+        if (npc != _syrup || Busy) return false;
+        Input.SetDisabledObjects(0x81); // syrup.s state1.
         if (_held is null)
         {
             Show(context.Entities.Entities<LynnaShopItem>().Any(i => !i.Removed) ? 0x0d00 : 0x0d0b);
@@ -120,6 +124,7 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
         switch (_stage)
         {
             case SyrupShopStage.Talk:
+                Input.SetDisabledObjects(0);
                 _stage = SyrupShopStage.Idle;
                 break;
             case SyrupShopStage.Prompt:
@@ -134,6 +139,7 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
                 // Syrup drops wLinkGrabState as the script ends. The stock's
                 // state3/state4 waits for the continuation text to finish.
                 _held.BeginPurchase(context.Player);
+                Input.SetDisabledObjects(0); // state2 clears it before the stock's state3.
                 Show(text);
                 _stage = SyrupShopStage.Response;
                 break;
@@ -142,6 +148,7 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
                 else { ReturnItem(); _stage = SyrupShopStage.Idle; }
                 break;
             case SyrupShopStage.ItemText:
+                Input.SetDisabledObjects(0);Input.SetMenuDisabled(0); // shopItemState5.
                 _held!.FinishPurchase(context.Player);
                 _held = null;
                 _stage = SyrupShopStage.Idle;
@@ -229,7 +236,7 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
         if (sound != SoundId.MusNone) context.Sound.PlaySound(sound);
         _held.BeginPurchase(context.Player);
         _stage = SyrupShopStage.ItemText;
-        context.Player.RequestGetItemState(1, () => _stage == SyrupShopStage.ItemText);
+        context.Player.RequestGetItemState(1);
         Show(item.ItemTextId);
     }
 
@@ -243,6 +250,7 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
 
     public void Cancel()
     {
+        _input?.Cancel();
         if (_held?.Purchasing == true)
         {
             _held.FinishPurchase(context.Player);

@@ -17,7 +17,7 @@ foreach ($name in @(
 }
 $familyNames = [Collections.Generic.List[string]]::new()
 foreach ($name in @('bipinScript0', 'bipinScript1', 'bipinScript2')) { $familyNames.Add($name) }
-foreach ($stage in 1..9) { $familyNames.Add("blossomScript$stage") }
+foreach ($stage in 0..9) { $familyNames.Add("blossomScript$stage") }
 foreach ($stage in 4..6) {
     foreach ($kind in @('hyperactive', 'shy', 'curious')) {
         $familyNames.Add("childScript_stage$($stage)_$kind")

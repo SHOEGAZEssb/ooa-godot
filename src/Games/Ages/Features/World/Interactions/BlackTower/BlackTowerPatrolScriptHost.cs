@@ -7,7 +7,6 @@ internal sealed class BlackTowerPatrolScriptHost : NpcInteractionCommandHost
 {
     private readonly BlackTowerPatrollingWorkerRoomEntity _slot;
     private readonly BlackTowerWorkerDatabase _data;
-    private bool _ownsInput;
 
     internal BlackTowerPatrolScriptHost(BlackTowerPatrollingWorkerRoomEntity slot,
         BlackTowerWorkerDatabase data, RoomSession rooms, RoomEntityManager entities, DialogueBox dialogue)
@@ -22,16 +21,6 @@ internal sealed class BlackTowerPatrolScriptHost : NpcInteractionCommandHost
     protected override bool MatchesAndPrepare(NpcCharacter npc) => ReferenceEquals(npc, _slot.Npc);
     public override bool TryInteract(NpcInteractionTarget target, Player player) =>
         !ButtonPending && MatchesAndPrepare(target.Npc) && QueueObjectInteraction(target, player);
-    public override void SetInputEnabled(bool enabled)
-    {
-        NativeScriptInputControl.SetEnabled(Entities.RuntimeState, ScriptPlayer, enabled);
-        _ownsInput = !enabled;
-        if (enabled) base.SetInputEnabled(true);
-    }
-    protected override void ResetHostState()
-    {
-        if (_ownsInput) SetInputEnabled(true);
-    }
     public override int ReadMemory(string binding) => binding switch
     {
         "PatrolPattern" => ScriptActor.Record.Var03,

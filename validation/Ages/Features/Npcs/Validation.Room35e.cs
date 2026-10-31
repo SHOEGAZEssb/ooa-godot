@@ -80,7 +80,8 @@ public sealed partial class ValidationRoot
             void Talk()
             {
                 Step(1, Vector2.Zero, ["attack"], ["attack"]);
-                FailIf(!_dialogue.IsOpen || !_dialogue.ChoiceActive || !_player.CutsceneControlled,
+                FailIf(!_dialogue.IsOpen || !_dialogue.ChoiceActive || _player.CutsceneControlled ||
+                    _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                     "3:5e A-button interaction must open a choice and apply disableinput.");
             }
             void Choice(int choice, int updates = 21)
@@ -92,7 +93,8 @@ public sealed partial class ValidationRoot
             {
                 _dialogue.Close();
                 Step(2, Vector2.Zero);
-                FailIf(_player.CutsceneControlled || _interactions.NpcScriptsForValidation.BlocksGameplay,
+                FailIf(_player.CutsceneControlled || _interactions.AgesScripts().BlocksGameplay ||
+                    _runtimeState.ReadField("wDisabledObjects") != 0 || _runtimeState.ReadField("wMenuDisabled") != 0,
                     "3:5e enableinput failed to release Link after text.");
             }
 
@@ -108,7 +110,9 @@ public sealed partial class ValidationRoot
                 "3:5e active text must freeze Link, ordinary NPC animation, and secret generation.");
             _dialogue.SubmitChoiceForValidation(1);
             Step(20, Vector2.Zero);
-            FailIf(_dialogue.IsOpen || !_player.CutsceneControlled || _saveData.HasGlobalFlag(0x52),
+            FailIf(_dialogue.IsOpen || _player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
+                _saveData.HasGlobalFlag(0x52),
                 "3:5e offer choice wait completed before its 20-update boundary.");
             Step(1, Vector2.Zero);
             FailIf(PlainWords(_dialogue.CurrentMessage) != "Well, I won't make you." ||
@@ -170,7 +174,7 @@ public sealed partial class ValidationRoot
             // Cancelling after generation preserves the authoritative save flag.
             LoadValidationRoom(3, 0x5f);
             _dialogue.Close();
-            FailIf(_player.CutsceneControlled || _interactions.NpcScriptsForValidation.BlocksGameplay ||
+            FailIf(_player.CutsceneControlled || _interactions.AgesScripts().BlocksGameplay ||
                 !_saveData.HasGlobalFlag(0x52),
                 "3:5e room-exit cancellation must release input and retain flag $52.");
             FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out OracleSaveData? restored) ||

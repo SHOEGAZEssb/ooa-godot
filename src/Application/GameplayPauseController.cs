@@ -7,11 +7,12 @@ namespace Oracles;
 /// restores the exact processing and debug-label state it acquired instead of
 /// blindly enabling Link when an unrelated modal may still own the pause.
 /// </summary>
-public sealed class GameplayPauseController
+public sealed class GameplayPauseController : IDisposable
 {
     private readonly Player _player;
     private readonly Godot.Label _roomDebug;
     private PauseLease? _activeLease;
+    private bool _disposed;
 
     public bool IsLeased => _activeLease is not null;
 
@@ -33,13 +34,20 @@ public sealed class GameplayPauseController
         _roomDebug = roomDebug;
     }
 
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _activeLease?.Dispose();
+    }
+
     internal bool IsOwnedBy(object owner) =>
         _activeLease is not null && ReferenceEquals(_activeLease.Owner, owner);
 
     internal PauseLease? TryAcquire(object owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
-        if (_activeLease is not null)
+        if (_disposed || _activeLease is not null)
             return null;
 
         PauseLease lease = new PauseLease(

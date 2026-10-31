@@ -143,7 +143,7 @@ public sealed partial class ValidationRoot
             "with the strict 12-pixel combined Link boundary.");
 
         _player.WarpTo(firstRabbit.Position, recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             _player.Position !=
                 firstRabbit.Position + Vector2.Left * 12.0f ||
@@ -154,7 +154,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             firstRabbit.Position + Vector2.Up * 20.0f,
             recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             firstRabbit.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex,
             "Room 1:84's stone rabbit did not move in front of Link through " +
@@ -164,7 +164,7 @@ public sealed partial class ValidationRoot
         int randomCalls = manager.RandomCalls;
         _player.WarpTo(new Vector2(0x18, 0x70), recordSafe: false);
         for (int update = 0; update < 127; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             rabbits.Any(rabbit =>
                 rabbit.CurrentAnimationFrame != 0 ||

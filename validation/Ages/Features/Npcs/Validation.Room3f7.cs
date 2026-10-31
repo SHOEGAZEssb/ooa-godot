@@ -236,10 +236,10 @@ public sealed partial class ValidationRoot
             int afterPreload = _entities.RandomCalls;
             FailIf(afterPreload - callsBeforeScroll < 10,
                 "3:f7 scrolling skipped the ten initial direction RNG calls.");
-            _entities.Update(29.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(29.0 / 60.0, _player);
             FailIf(incoming.Any(b => b.TurnCounter != 1),
                 "3:f7 enabled-bit-$80 birds froze their native timers while scrolling.");
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(incoming.Any(b => b.TurnCounter != 30) || _entities.RandomCalls != afterPreload + 10,
                 "3:f7 scrolling lost its 30-update idle RNG boundary.");
             _entities.FinishScreenTransition();

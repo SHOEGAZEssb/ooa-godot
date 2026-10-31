@@ -21,7 +21,7 @@ public partial class ValidationRoot
             _player.WarpTo(new(24,24));
             _entities.Clear();
             for(int slot=2;slot<16;slot++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
             _entities.BeginScreenTransition(4,_currentRoom,new(240,0),_player);
             // mainData.s:4:bc places INTERAC$21:$17 then four PART$09
             // records. The full interaction pool must not consume PART slots.
@@ -29,7 +29,7 @@ public partial class ValidationRoot
                 _entities.Entities<GroundButtonRoomEntity>().Count!=4,
                 "Full INTERACTION pool must skip Crown's chest controller while still allocating its four buttons.");
             Step(20);
-            FailIf(_entities.OutgoingEntities<PuzzlePuffEffect>().Count!=0 ||
+            FailIf(_entities.OutgoingEntities<StationaryDebrisEffect>().Count!=0 ||
                 _entities.Entities<RetractableTriggerChestRoomEntity>().Count!=0,
                 "Freeing outgoing INTERACTION slots must not retry a skipped placed chest controller.");
             _entities.FinishScreenTransition();
@@ -47,7 +47,7 @@ public partial class ValidationRoot
                 _player.WarpTo(new(56,88));
                 _entities.Clear();
                 for(int occupied=0;occupied<14-free;occupied++)
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                 _entities.BeginScreenTransition(4,_currentRoom,new(240,0),_player);
                 FailIf(_entities.Entities<TorchTriggerTranslatorRoomEntity>().Count!=(free>=1?1:0) ||
                     _entities.Entities<DungeonDoorRoomEntity>().Count!=(free>=2?1:0) ||
@@ -122,7 +122,7 @@ public partial class ValidationRoot
                 _player.WarpTo(new(120,120));
                 _entities.Clear();
                 for(int occupied=0;occupied<14-free;occupied++)
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                 _entities.BeginScreenTransition(4,_currentRoom,new(240,0),_player);
                 // Source order is $12:$00, $e2:$01, $7e:$00. Parsing
                 // allocates all three before state0 can delete the entry.
@@ -147,7 +147,7 @@ public partial class ValidationRoot
                 _player.WarpTo(new(120,120));
                 _entities.Clear();
                 for(int occupied=0;occupied<14-free;occupied++)
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                 _entities.BeginScreenTransition(4,_currentRoom,new(240,0),_player);
                 // $7f:$00 allocates its pedestal before checking ROOMFLAG_ITEM.
                 // The glow uses reserved $d1, independently of dynamic capacity.
@@ -175,14 +175,14 @@ public partial class ValidationRoot
                 LoadValidationRoom(0,0x0a);
                 _entities.Clear();
                 for(int occupied=0;occupied<14-free;occupied++)
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                 var entrance=_roomEvents.Get<CrownDungeonEntranceEvent>();
                 _sound.ClearPlayRequestAudit();
                 // Exercise only scriptHelp's drawing/allocation helper.
                 // It attempts X=$60/$70/$80/$90 independently and keeps
                 // the already drawn facade/sound when allocation fails.
                 entrance.RunNativeHandler("Frame1");
-                var puffs=_entities.Entities<PuzzlePuffEffect>().Where(p=>p.Flickers).ToArray();
+                var puffs=_entities.Entities<StationaryDebrisEffect>().Where(p=>p.Flickers).ToArray();
                 FailIf(puffs.Length!=free ||
                     !puffs.Select(p=>p.Position).SequenceEqual(Enumerable.Range(0,free).Select(i=>new Vector2(0x60+i*0x10,0x20))) ||
                     puffs.Any(p=>p.ElapsedUpdates!=1 || !p.Visible) ||
@@ -190,10 +190,10 @@ public partial class ValidationRoot
                     _sound.PlayRequestsFor(SoundId.SndDoorClose)!=1,
                     $"Crown opening helper lost ordered partial allocation or non-allocation effects with {free} slots free.");
                 Step(20);
-                FailIf(_entities.Entities<PuzzlePuffEffect>().Count!=0,
+                FailIf(_entities.Entities<StationaryDebrisEffect>().Count!=0,
                     "Crown opening must not retry failed puff allocations on later updates.");
                 entrance.RunNativeHandler("Frame2");
-                FailIf(_entities.Entities<PuzzlePuffEffect>().Count(p=>p.Flickers)!=4,
+                FailIf(_entities.Entities<StationaryDebrisEffect>().Count(p=>p.Flickers)!=4,
                     "A later Crown opening helper must allocate after the earlier effects release their slots.");
             }
             foreach(int room in new[]{0x9b,0x9e,0xa5,0xad,0xba,0x95,0x96,0x97,0xb4,0xbf})
@@ -203,7 +203,7 @@ public partial class ValidationRoot
                 FailIf(!HasPuzzleController(),$"Room4:{room:x2} must contain the source controller tested by the full-pool fixture.");
                 _entities.Clear();
                 for(int slot=2;slot<16;slot++)
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                 _entities.BeginScreenTransition(4,_currentRoom,new(240,0),_player);
                 FailIf(HasPuzzleController(),$"Room4:{room:x2} allocated a puzzle controller in a full INTERACTION pool.");
                 Step(20);

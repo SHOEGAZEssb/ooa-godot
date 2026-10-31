@@ -136,8 +136,8 @@ public sealed partial class ValidationRoot
         int bridgeSounds = _sound.PlayRequestsFor(data.Constant("bridge-sound"));
         _roomEvents.CommandTraceSink = trace;
         StepRoomEventFrames(1);
-        FailIf(!quest.BlocksGameplay || !quest.MenusDisabled || !_player.CutsceneControlled || Actor(0).ScriptDrawOffset.Y != 0 ||
-            !_entities.EntityAdapters<CarpenterRoomEntity>().Any(e => e.FreezesRoomEntities),
+        FailIf(!quest.BlocksGameplay || !quest.MenusDisabled || _player.CutsceneControlled || Actor(0).ScriptDrawOffset.Y != 0 ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
             "Bridge build did not disable input at callscript while deferring the jump until the next update.");
         StepRoomEventFrames(1);
         FailIf(Actor(0).ScriptDrawOffset.Y != 0, "setzspeed moved the carpenter before the next native gravity update.");
@@ -199,7 +199,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x24);
         FailIf(quest.HasState || _player.CutsceneControlled || _saveData.HasGlobalFlag(data.Constant("bridge-flag")),
             "Leaving the carpenter cutscene leaked control or persisted an incomplete bridge.");
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x25);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x25);
         FailIf(!Actor(1).Visible,"Room $0:$25 carpenter blocker $9a:$01 remained hidden during scroll preload.");
         NpcCharacter incoming = Actor(0);
         Vector2 incomingPosition = incoming.Position;

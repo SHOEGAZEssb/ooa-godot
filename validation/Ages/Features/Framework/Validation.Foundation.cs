@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _sound.GetParent() != this || _sound.Owner != this ||
             _scene.GetParent() != this ||
-            _scene.SceneFilePath != AgesGameSceneGraph.ScenePath ||
+            _scene.SceneFilePath != AgesGameplaySceneResource.ScenePath ||
             GetChildCount() != 2 ||
             _scene.WorldRoot.GetParent() != _scene ||
             _scene.WorldRoot.Owner != _scene ||
@@ -60,7 +60,7 @@ public sealed partial class ValidationRoot
             _roomDebug.MouseFilter != Control.MouseFilterEnum.Ignore ||
             _roomDebug.GetThemeFontSize("font_size") != 8 ||
             _roomDebug.GetThemeConstant("outline_size") != 1,
-            $"{AgesGameSceneGraph.ScenePath} no longer preserves the fixed camera, UI, or draw-order values.");
+            $"{AgesGameplaySceneResource.ScenePath} no longer preserves the fixed camera, UI, or draw-order values.");
 
         Vector2 gameplayPosition =
             _transitions.WorldToGameplayScreen(_player.Position);
@@ -80,7 +80,7 @@ public sealed partial class ValidationRoot
         bool debugVisible = _roomDebug.Visible;
         var fade = new ColorRect { Color = new Color(1, 1, 1, 0) };
         var pause = new GameplayPauseController(_player, _roomDebug);
-        var lifecycle = new OracleMenuLifecycle(fade, pause);
+        var lifecycle = new OracleMenuLifecycle(fade, pause, static () => { });
         ValidationMenuClient inventory = new ValidationMenuClient("MENU_INVENTORY_VALIDATION");
         ValidationMenuClient map = new ValidationMenuClient("MENU_MAP_VALIDATION");
 
@@ -387,16 +387,18 @@ public sealed partial class ValidationRoot
         IReadOnlyList<CutsceneCommandSchemaEntry> entries =
             CutsceneCommandSchema.Entries;
         FailIf(
-            entries.Count != 58 ||
+            entries.Count != 60 ||
             entries.Select(entry => entry.CommandType)
                 .Distinct()
                 .Count() != entries.Count ||
             entries.Count(entry =>
                 entry.CommandType == typeof(CutsceneShowLoadedTextCommand)) != 1 ||
             entries.Count(entry =>
+                entry.CommandType == typeof(CutsceneEnableMenuCommand)) != 1 ||
+            entries.Count(entry =>
                 entry.CommandType == typeof(CutsceneCheckTextCommand)) != 1,
             "The cutscene command schema no longer declares exactly one entry " +
-            "for each of the 58 typed command records.");
+            "for each of the 60 typed command records.");
 
         var source = new CutsceneCommandSource(
             "validation/command-schema.tsv",
@@ -543,7 +545,7 @@ public sealed partial class ValidationRoot
         FailIf(
             room.GetMetatile(doorPoint) != 0xee || room.IsSolid(doorPoint) ||
             !warps.TryGetTileWarp(0, room, 0x23, 0xee, out Warp warp) ||
-            warp.DestinationGroup != 3 || warp.DestinationRoom != 0x9e,
+            warp.DestinationGroup != 3 || warps.ResolveDestination(warp,rooms.RuntimeState).DestinationRoom != 0x9e,
             "GLOBALFLAG_INTRO_DONE $0a did not open room 0:3a's $23/$ee door to 3:9e.");
 
         save.SetGlobalFlag(GlobalFlag.IntroDone, value: false);
@@ -1222,6 +1224,14 @@ public sealed partial class ValidationRoot
             composite.GetWidth() != expectedExtraX + extra.GetWidth() ||
             composite.GetHeight() != Math.Max(source.GetHeight(), extra.GetHeight()),
             "Chained graphics did not preserve `$20-tile slot alignment or cache identity.");
+        Image invertedComposite = OracleGraphicsCache.AppendGraphics(source, extraPath, invertExtra: true);
+        Color originalPixel = extra.GetPixel(0, 0), invertedPixel = invertedComposite.GetPixel(expectedExtraX, 0);
+        FailIf(ReferenceEquals(composite, invertedComposite) ||
+            !ReferenceEquals(invertedComposite, OracleGraphicsCache.AppendGraphics(source, extraPath, invertExtra: true)) ||
+            invertedComposite.GetPixel(0, 0) != source.GetPixel(0, 0) ||
+            invertedPixel != new Color(1 - originalPixel.R, 1 - originalPixel.G, 1 - originalPixel.B, originalPixel.A) ||
+            composite.GetPixel(expectedExtraX, 0) != originalPixel || extra.GetPixel(0, 0) != originalPixel,
+            "Mixed-polarity graphics must normalize only the appended sheet and cache separately without mutating either source.");
 
         const string encodedOam = "8,0,0,0;8,8,2,32";
         string encodedAnimation = $"2@{encodedOam}|4@{encodedOam}~1";

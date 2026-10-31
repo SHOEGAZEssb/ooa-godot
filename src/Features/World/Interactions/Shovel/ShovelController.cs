@@ -31,6 +31,11 @@ public sealed class ShovelController
         Action<int> playSound,
         Func<long> animationTick)
     {
+        if (rooms.AssetRoot != entities.AssetRoot || rooms.AssetRoot != breakables.AssetRoot ||
+            !ReferenceEquals(rooms.RuntimeState, entities.RuntimeState) || !ReferenceEquals(rooms.SaveData, saveData))
+            throw new ArgumentException("Shovel input requires the selected room, entity and save owners.");
+        if (entities.Shovel is not null)
+            throw new InvalidOperationException("Shovel input requires one reserved-child owner.");
         _rooms = rooms;
         _breakables = breakables;
         _roomView = roomView;
@@ -83,7 +88,7 @@ public sealed class ShovelController
             _playSound(SoundId.SndClink);
             return false;
         }
-        if ((record.Effect & 0x1f) != 0x0a)
+        if ((record.Effect & 0x1f) is not (0x00 or 0x09 or 0x19 or 0x0a or 0x1f))
         {
             throw new InvalidOperationException(
                 $"Unsupported shovel break effect ${record.Effect:x2} for " +
@@ -111,8 +116,10 @@ public sealed class ShovelController
             (drop, position) =>
                 _entities.SpawnBreakableDrop(drop, position, direction));
 
-        _entities.Spawn<ShovelDebrisEffect>(
-            new ShovelDebrisSpawn(result.TileCenter, direction));
+        if ((record.Effect & 0x1f) == 0x0a)
+            _entities.Spawn<ShovelDebrisEffect>(new ShovelDebrisSpawn(result.TileCenter, direction));
+        else if (BreakableTileEffectSpawn.Create(room, result.TileCenter, record.Effect) is { } effect)
+            _entities.Spawn(effect);
         _roomView.QueueRedraw();
         _saveData.AddGashaMaturity(1);
         _playSound(SoundId.SndDig);

@@ -13,6 +13,7 @@ internal sealed class NativeBraceletThrow(OracleRoomData room, int weight,
 {
     private readonly BraceletWeight _weight = weights.Weight(weight);
     private int _z, _speedZ;
+    private bool _initialized;
     internal bool Active { get; private set; }
     internal Vector2 Position { get; private set; }
     internal int ZFixed => _z;
@@ -47,6 +48,7 @@ internal sealed class NativeBraceletThrow(OracleRoomData room, int weight,
         _speedZ = angle == 0xff ? 0 : _weight.InitialSpeedZ;
         Speed = angle == 0xff ? 0 : tossRing ? _weight.TossSpeedRaw : _weight.SpeedRaw;
         Active = true;
+        _initialized = false;
         release(angle);
     }
 
@@ -56,9 +58,11 @@ internal sealed class NativeBraceletThrow(OracleRoomData room, int weight,
         Angle = angle;
     }
 
-    internal void Update(Action<int> sound)
+    internal void Update(Action<int> sound, bool frozen = false)
     {
-        if (!Active) return;
+        if (!Active || frozen && _initialized) return;
+        // updateItems always admits state $00, including its throwing tail.
+        _initialized = true;
         // braceletCheckDeleteSelfWhileThrowing runs before any movement.
         if (!relatedThrowing()) { Active = false; return; }
         if (Angle != 0xff)

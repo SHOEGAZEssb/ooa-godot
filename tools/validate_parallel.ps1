@@ -5,6 +5,7 @@ param(
     [ValidatePattern('^Validate[A-Za-z0-9_]+$')]
     [string]$ValidateOnly,
     [string]$Rom,
+    [string]$SeasonsRom,
     [switch]$SkipRomValidation,
     [switch]$ContinueOnFailure,
     [switch]$FailOnEngineDiagnostics,
@@ -77,6 +78,14 @@ if (-not $Rom -and -not $SkipRomValidation) {
 if ($Rom) {
     $romPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Rom)
     $validationArguments += '"--validation-rom=' + $romPath + '"'
+}
+if (-not $SeasonsRom -and -not $SkipRomValidation) {
+    . (Join-Path $PSScriptRoot 'Resolve-OracleRom.ps1')
+    $SeasonsRom = Resolve-OracleRom -Game seasons
+}
+if ($SeasonsRom) {
+    $seasonsPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($SeasonsRom)
+    $validationArguments += '"--validation-seasons-rom=' + $seasonsPath + '"'
 }
 if ($SkipRomValidation) {
     $validationArguments += '--skip-rom-validation'

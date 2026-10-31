@@ -162,33 +162,6 @@ foreach ($layout in @('extra_hearts', 'biggoron_sword')) {
 }
 Copy-GeneratedFile "gfx_compressible\common\spr_biggoron_sword_icon.png" "hud\spr_biggoron_sword_icon.png"
 
-# The map menu swaps in a complete 20x18 background tilemap. Preserve the
-# original VRAM-source pieces separately: the runtime composes them at their
-# GFXH_OVERWORLD_MAP / GFXH_PAST_MAP / GFXH_DUNGEON_MAP destinations, then
-# applies the tile attributes and map-menu palettes.
-foreach ($mapAsset in @(
-    @{ Source = 'gfx_compressible\ages\map_present_minimap.bin'; Destination = 'map\map_present.bin' },
-    @{ Source = 'gfx_compressible\ages\flg_present_minimap.bin'; Destination = 'map\flags_present.bin' },
-    @{ Source = 'gfx_compressible\ages\map_past_minimap.bin'; Destination = 'map\map_past.bin' },
-    @{ Source = 'gfx_compressible\ages\flg_past_minimap.bin'; Destination = 'map\flags_past.bin' },
-    @{ Source = 'gfx_compressible\common\map_dungeon_minimap.bin'; Destination = 'map\map_dungeon.bin' },
-    @{ Source = 'gfx_compressible\common\flg_dungeon_minimap.bin'; Destination = 'map\flags_dungeon.bin' },
-    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_common.png'; Destination = 'map\tiles_common.png' },
-    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_present_1.png'; Destination = 'map\tiles_present_1.png' },
-    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_present_2.png'; Destination = 'map\tiles_present_2.png' },
-    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_past_1.png'; Destination = 'map\tiles_past_1.png' },
-    @{ Source = 'gfx_compressible\ages\gfx_minimap_tiles_past_2.png'; Destination = 'map\tiles_past_2.png' },
-    @{ Source = 'gfx_compressible\common\gfx_minimap_tiles_dungeon.png'; Destination = 'map\tiles_dungeon.png' },
-    @{ Source = 'gfx_compressible\ages\spr_minimap_icons.png'; Destination = 'map\sprites.png' })) {
-    Copy-GeneratedFile $mapAsset.Source $mapAsset.Destination
-}
-foreach ($blurb in @(
-    'makupath', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8',
-    'blacktowerturret', 'roomofrites', 'heroscave')) {
-    $scope = if ($blurb -eq 'roomofrites') { 'common' } else { 'ages' }
-    Copy-GeneratedFile "gfx_compressible\$scope\gfx_blurb_$blurb.png" "map\blurb_$blurb.png"
-}
-
 function Export-PaletteBlock(
     [string]$label,
     [int]$colorCount,
@@ -228,13 +201,6 @@ function Read-PaletteBytes(
     }
     return $bytes
 }
-
-# PALH_07, PALH_08, PALH_09, plus the common sprite palettes used by
-# spr_minimap_icons. PALH_09 installs its four palettes into BG slots 2-5.
-Export-PaletteBlock 'paletteData4098' 32 'map\palette_present.bin'
-Export-PaletteBlock 'paletteData40d8' 32 'map\palette_past.bin'
-Export-PaletteBlock 'paletteData4118' 16 'map\palette_dungeon.bin'
-Export-PaletteBlock 'paletteData4138' 32 'map\palette_sprites.bin'
 
 # PALH_0a installs paletteData48e0 into BG palettes 0-1 and the first six
 # standard sprite palettes into BG palettes 2-7. The cursor and equipped item
@@ -374,47 +340,4 @@ function Normalize-DialogueText([string]$text, [bool]$preservePosition = $false)
     return [regex]::Replace($text, '\\pos\([^)]*\)', '')
 }
 
-# Signs are map metatile $f2 rather than ordinary room objects. Preserve the
-# original group/room/position lookup table and resolve its TX_2eXX strings to
-# UTF-8 here, while the human-readable disassembly sources are available.
 $textYaml = Read-ImportText (Join-Path $Disassembly "text\ages\text.yaml")
-$signTexts = @{}
-$textMatches = [regex]::Matches(
-    $textYaml,
-    '(?ms)^  - name: TX_2e(?<id>[0-9a-f]{2})\r?\n    index: 0x[0-9a-f]{2}\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
-)
-foreach ($match in $textMatches) {
-    $lines = $match.Groups['body'].Value -split '\r?\n' | ForEach-Object {
-        if ($_.Length -ge 6) { $_.Substring(6) } else { '' }
-    }
-    while ($lines.Count -gt 0 -and $lines[-1] -eq '') {
-        $lines = $lines[0..($lines.Count - 2)]
-    }
-    $text = Normalize-DialogueText ($lines -join "`n")
-    $signTexts[[Convert]::ToInt32($match.Groups['id'].Value, 16)] = $text
-}
-
-$signSource = Read-ImportLines (Join-Path $Disassembly "data\ages\signText.s")
-$signRows = [Collections.Generic.List[string]]::new()
-$signRows.Add("# group`troom`tposition`ttext-id`tutf8-base64")
-$currentSignGroup = -1
-foreach ($line in $signSource) {
-    if ($line -match '^signTextGroup(?<group>[0-7])Data:') {
-        $currentSignGroup = [int]$Matches['group']
-        continue
-    }
-    if ($currentSignGroup -lt 0 -or $line -notmatch '\.db\s+\$(?<position>[0-9a-f]{2}),\s*\$(?<room>[0-9a-f]{2}),\s*<TX_2e(?<text>[0-9a-f]{2})') {
-        continue
-    }
-    $textId = [Convert]::ToInt32($Matches['text'], 16)
-    if (-not $signTexts.ContainsKey($textId)) {
-        throw "Could not resolve sign text TX_2e$($textId.ToString('x2'))."
-    }
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($signTexts[$textId]))
-    $signRows.Add("$currentSignGroup`t$($Matches['room'])`t$($Matches['position'])`t$($Matches['text'])`t$encoded")
-}
-if ($signRows.Count -ne 43) {
-    throw "Expected 42 sign records, parsed $($signRows.Count - 1)."
-}
-$signPath = Join-Path $destination "objects\signs.tsv"
-Write-GeneratedTable($signPath, $signRows)

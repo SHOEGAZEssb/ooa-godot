@@ -6,13 +6,19 @@ internal sealed class MapleEncounterRoomEntity(MapleEncounter maple, RoomEntityM
     : RoomEntityAdapter<MapleEncounter>(
         maple, maple.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, IPlayerRestriction,
-        IScreenTransitionPreloadRoomEntity
+        IScreenTransitionPreloadRoomEntity, INativeSpecialObjectRoomEntity
 {
+    int INativeSpecialObjectRoomEntity.NativeSpecialObjectId => SpecialObjectId.Maple;
+    Godot.Vector2 INativeSpecialObjectRoomEntity.NativeSpecialObjectPosition
+    {
+        get => Entity.Stage == MapleEncounterStage.Initializing ? Entity.BirthPosition : Entity.BookTargetPosition;
+        set => Entity.SetNativePosition(value);
+    }
     // specialObjectCode_maple calls companionRetIfInactiveWithoutStateCheck:
     // wScrollMode & $0e suppresses even state0. Do not consume its RNG or
-    // entry delay while preparing the incoming screen.
+    // entry delay while preparing the incoming screen; retained visibility stays.
     public ScreenTransitionPresentation PrepareForScreenTransition(
-        ICollection<RoomEntitySpawn> spawns) => ScreenTransitionPresentation.Hidden;
+        ICollection<RoomEntitySpawn> spawns) => Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
 
     internal MapleEncounter Maple => Entity;
     public bool Finished => Entity.Finished;

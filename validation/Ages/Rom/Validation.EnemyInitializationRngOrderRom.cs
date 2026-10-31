@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         var database = EnemyDatabase.For(AgesGameContent.AssetRoot);
         var source = new RoomObjectRecord(4, 0xa1, order, RoomObjectKind.FixedEnemy,
             id, 0, 2, 1, 40, 120, 0x27, 0);
-        var factory = new RoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms);
+        var factory = new AgesRoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms);
         return factory.CreateOrderedEnemy(database.EnemyHandlers.ResolveHandler(source), source,
             _currentRoom, new(120, 40), 0, 0, EnemyPlacementContext.Unrestricted)
             ?? throw new InvalidOperationException($"Missing ordered ENEMY ${id:x2}:$00 factory.");

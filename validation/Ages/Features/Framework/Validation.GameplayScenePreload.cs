@@ -50,11 +50,13 @@ public sealed partial class ValidationRoot
             // the original dialogue waits for input.
             for (int host = 0; !GameplayPrepared && host < 256; host++)
                 AdvanceGameplayPreparation();
+            var expectedRuntime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
+            expectedRuntime.FrameCounter = save.ReadField("wPlaytimeCounter");
             FailIf(!GameplayPrepared || intro.CurrentStage != Stage.Dialogue ||
                 !SamePayloadExceptPlaytime(before, save) || _random.Calls != rng ||
                 _entities.EntityAdapters<IRoomEntity>().Any() ||
                 _sound.ActiveMusic != SoundId.MusEssenceRoom ||
-                !_runtimeState.CaptureState().Wram.SequenceEqual(AgesGameContent.CreateRuntimeState().CaptureState().Wram),
+                !_runtimeState.CaptureState().Wram.SequenceEqual(expectedRuntime.CaptureState().Wram),
                 "Prepared intro did not stop at the dormant, side-effect-free handoff boundary.");
             Read<NewGameIntroScreen>("_newGameIntroScreen")!.Dialogue.Close();
             base._Process(1.0 / 60.0);
@@ -340,12 +342,12 @@ public sealed partial class ValidationRoot
         resource.BeginPreload();
         PackedScene prepared = resource.Load();
         resource.BeginPreload();
-        FailIf(prepared != resource.Load() || prepared.ResourcePath != AgesGameSceneGraph.ScenePath,
+        FailIf(prepared != resource.Load() || prepared.ResourcePath != AgesGameplaySceneResource.ScenePath,
             "Gameplay scene preload did not retain its resource across repeated requests.");
         FailIf(!save.SequenceEqual(_saveData.Serialize()) || _random.Calls != rngCalls ||
             _currentRoom != room || GetChildCount() != children,
             "Gameplay resource preparation changed save, RNG, room identity or live nodes before the intro handoff.");
-        AgesGameSceneGraph instance = prepared.Instantiate<AgesGameSceneGraph>();
+        GameplaySceneGraph instance = prepared.Instantiate<GameplaySceneGraph>();
         try
         {
             FailIf(instance.IsInsideTree() || instance.GetNodeOrNull<Player>("World/Link") is null,

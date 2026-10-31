@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();LoadValidationRoom(4,0x13);
             var parent=_entities.EntityAdapters<PumpkinHeadBossRoomEntity>().Single();var boss=(PumpkinHeadBoss)parent.Node;
-            F1Retain(parent);F1Set(parent,"_initialized",true);F1Set(boss,"_initialized",true);
+            F1Retain(parent);F1Set(boss,"_initialized",true);
             Vector2 initial=new(120,88);if(fractional)initial+=new Vector2(.25f,.5f);
             var targets=(from y in Enumerable.Range(1,_currentRoom.Height/4-2) from x in Enumerable.Range(1,_currentRoom.Width/4-2)
                 let p=new Vector2(x*4,y*4) where !_collision.Collides(p)&&
@@ -54,7 +54,7 @@ public sealed partial class ValidationRoot
             {native[0xd18c]=0xc0;native[0xd18a]=0x40;native[0xd28c]=0x80;native[0xd28a]=0xc0;native[0xd18e]=0x40;native[0xd28e]=0x80;}
             var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,stompMoves=0;
             var stage=new PartMovementScratchProbe(()=>{for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
-            _entities.RegisterEnemySlot(stage,15);_entities.AddEntity(stage);
+            F1StageBeforeEnemyProbe(parent,stage);
             _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>

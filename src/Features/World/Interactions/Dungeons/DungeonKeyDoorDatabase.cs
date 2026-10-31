@@ -79,6 +79,8 @@ internal sealed class DungeonKeyDoorDatabase
         _activeCollisionModes = activeCollisionModes ??
             throw new InvalidOperationException(
                 "The imported dungeon-key door table is empty.");
+        int nativeModes = OracleAssetPack.GameFor(assetRoot) == OracleGame.Ages
+            ? (1 << 1) | (1 << 2) | (1 << 5) : (1 << 3) | (1 << 4);
 
         if (_records.Count != 8 ||
             !_records.TryGetValue(0x70, out DungeonKeyDoorDatabaseRecord up) ||
@@ -103,12 +105,7 @@ internal sealed class DungeonKeyDoorDatabase
             !bossDown.UsesBossKey || bossDown.Direction != Vector2I.Down ||
             !bossLeft.UsesBossKey || bossLeft.Direction != Vector2I.Left ||
             bossRight.KeyGraphic != 0x43 || bossRight.NoKeyTextId != 0x5101 ||
-            !_activeCollisionModes.Contains(1) ||
-            !_activeCollisionModes.Contains(2) ||
-            !_activeCollisionModes.Contains(5) ||
-            _activeCollisionModes.Contains(0) ||
-            _activeCollisionModes.Contains(3) ||
-            _activeCollisionModes.Contains(4) ||
+            _activeCollisionModes.Mask != nativeModes ||
             string.IsNullOrWhiteSpace(left.NoKeyMessage))
         {
             throw new InvalidOperationException(

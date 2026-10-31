@@ -12,8 +12,7 @@ internal sealed class LibraryKeyholeEvent : RoomCutsceneCommandHost, IRoomEntryE
     private bool _armed;
     public override RoomEventContext Context { get; }
     public bool HasState => _armed || _runner.Active;
-    public bool BlocksGameplay => _runner.Active;
-    public bool FreezesNonInteractionObjects => BlocksGameplay;
+    public bool BlocksGameplay => InputControlHeld;
     public bool MenusDisabled => BlocksGameplay;
     internal int Counter => _runner.Counter;
 
@@ -39,12 +38,13 @@ internal sealed class LibraryKeyholeEvent : RoomCutsceneCommandHost, IRoomEntryE
     internal bool CanTrigger(int group, int room) =>
         _armed && group == _placement.Group && room == _placement.Room;
 
-    internal void Trigger(int group, int room)
+    internal NativeScriptInputControl Trigger(int group, int room)
     {
         if (!CanTrigger(group,room) || !Context.Rooms.SaveData.HasRoomFlag(group,room,OracleSaveData.RoomFlag80))
             throw new InvalidOperationException($"{_placement.Source}: cannot trigger $90:$13 in {group:x}:{room:x2}.");
         _armed = false;
         _runner.Start((_database ??= new()).Commands);
+        return EventResources.ScriptInput;
     }
 
     public void UpdateFrame()
@@ -56,12 +56,13 @@ internal sealed class LibraryKeyholeEvent : RoomCutsceneCommandHost, IRoomEntryE
     {
         _runner.Clear();
         _armed = false;
+        ReleaseInputControl();
     }
 
     public override void SetInputEnabled(bool enabled)
     {
         if (!enabled) throw UnsupportedCommand("disable input from script");
-        // enableinput clears $81; ordinary Link/parents resume next pass.
+        base.SetInputEnabled(true);
     }
 
     public override void SetMusic(int music)

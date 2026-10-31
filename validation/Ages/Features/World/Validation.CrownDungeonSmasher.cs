@@ -33,7 +33,7 @@ public partial class ValidationRoot
             FailIf(_player.IsCarryingObject || ball.State != 14 || ball.Counter1 != 60 || ball.Visible ||
                 ball.ExpirationCounter != 0 || _entities.ReservedBraceletChildActive,
                 "$74 even tick180 must drop Link's held object and enter hidden state$0e with counter60, without a thrown child.");
-            var puff = _entities.Entities<PuzzlePuffEffect>().Single();
+            var puff = _entities.Entities<StationaryDebrisEffect>().Single();
             FailIf(puff.Position != heldPosition.Floor() || puff.ZHigh != -14,
                 "$74 held expiration puff must retain the high carry position and weight2 Z-14.");
             Step(59);
@@ -148,6 +148,7 @@ public partial class ValidationRoot
             ball.UpdateNormalFrame(Vector2.Zero,1,_ => true,() => { },_ => { });
             int sounds = 0;
             var hook = new SwitchHookItem(new SwitchHookDatabase(),1,new(64,64),1,_ => sounds++);
+            hook.BindMovementMemory(OracleRuntimeState.CreateInitialized(OracleGame.Ages));
             hook.UpdateItem(room,new(64,64),false,() => true);
             var actor = isBall ? ball : parent;
             actor.CopyCarriedPosition(hook.Position,z);
@@ -487,7 +488,7 @@ public partial class ValidationRoot
             FailIf(_entities.RoomEnemyCount != 1 || parent.Counter1 != 119 || ball.IsDead || ball.Health != 0 || disabled != 1 || deathSounds != 1,
                 "$74 parent death must retain the count and defer deletion of the earlier ball slot.");
             Step(1);
-            var puff = active.Select(e => e.Node).OfType<PuzzlePuffEffect>().Single();
+            var puff = active.Select(e => e.Node).OfType<StationaryDebrisEffect>().Single();
             FailIf(active.OfType<SmasherRoomEntity>().Count() != 1 || puff.ZHigh != -7 || puff.Position != new Vector2(88,88) ||
                 _entities.RoomEnemyCount != 1, "$74 ball death puff must keep world XY/Z separately and remain uncounted.");
             Step(117);
@@ -716,7 +717,7 @@ public partial class ValidationRoot
             var room = Room060MovementFixture(); var database = new EnemyDatabase(AgesGameContent.AssetRoot); var random = new OracleRandom();
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
             ball.InitializeLinked(database.ImportedEnemy(AgesEnemyId.Smasher,0), room, new(80.5f,64.25f), random, parent);
-            var memory = AgesGameContent.CreateRuntimeState();
+            var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
             ball.BindMovementMemory(memory);
             parent.InitializeLinked(database.ImportedEnemy(AgesEnemyId.Smasher,1), room, new(140,32), random, ball);
             ball.UpdateNormalFrame(Vector2.Zero, 1, _ => true, () => { }, _ => { }); ball.BeginGrab();
@@ -725,7 +726,7 @@ public partial class ValidationRoot
                 () => !ball.IsDead && ball.State == 2 && ball.GrabSubstate < 3,
                 () => ball.Position, () => ball.ZFixed, ball.CopyCarriedPosition,
                 ball.ReleaseGrab, ball.FinishGrabBounce, ball.ApplyMovementSpeed,
-                new BraceletWeightDatabase(AgesGameContent.AssetRoot), new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data);
+                new BraceletWeightDatabase(AgesGameContent.AssetRoot), new BombDatabase(AgesGameContent.AssetRoot).Data);
             motion.Hold(new(80.75f,64.5f), -4, 2, 1);
             FailIf(ball.Position != new Vector2(80.5f,64.25f) || ball.ZFixed != -18*256 || motion.Active,
                 "$74 held copy must include LinkZ and retain enemy fractions without creating the throw item.");
@@ -734,7 +735,7 @@ public partial class ValidationRoot
                 motion.SpeedZ != -0xe0 || motion.Speed != (toss ? 0x64 : 0x41) || ball.GrabSubstate != 2,
                 "$74 new reserved item must zero fractions, apply the facing offset and select weight2/Toss launch values.");
             int landings = 0;
-            motion.Update(_ => landings++);
+            motion.Update(_ => landings++, frozen: true);
             float firstX = toss ? 83.5f : 82.625f;
             FailIf(memory.ReadWramByte(AgesWramAddress.wTmpcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
                 memory.ReadWramByte(0xcec2) != (toss ? 0x80 : 0xa0) ||
@@ -743,6 +744,9 @@ public partial class ValidationRoot
             FailIf(motion.Position != new Vector2(firstX,64) || motion.ZFixed != -18*256-0xe0 || motion.SpeedZ != -0xb8 ||
                 ball.Position != new Vector2(Mathf.Floor(firstX)+0.5f,64.25f) || ball.ZFixed != -19*256,
                 "$74 first reserved-item update must apply weight2 motion before copying high bytes to its enemy.");
+            motion.Update(_ => landings++, frozen: true);
+            FailIf(motion.Position != new Vector2(firstX,64) || motion.ZFixed != -18*256-0xe0 || motion.SpeedZ != -0xb8,
+                "An initialized ITEM$16 must freeze after its eligible state-zero throwing update.");
             motion.SetAngle(ObjectAngle.Left); motion.Update(_ => landings++);
             FailIf(motion.Position != new Vector2(81,64) || ball.Angle != 8,
                 "$74 rebound must change item direction without mirroring it into the enemy's angle.");

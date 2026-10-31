@@ -53,6 +53,7 @@ internal partial class BeetleCharacter : EnemyCharacter, ITerrainShadowSource
         switch (State)
         {
             case 0:
+                _random.Next(); // enemyStandardUpdate@uninitialized publishes var3d before species state zero.
                 State = 8;
                 Speed = 0x14; // SPEED_80
                 return;

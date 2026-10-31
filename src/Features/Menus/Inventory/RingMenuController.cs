@@ -20,6 +20,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
     private readonly TreasureDatabase _treasures;
     private readonly VasuShopDatabase _database;
     private readonly Action<int> _playSound;
+    private readonly Action _loadCommonGraphics;
     private readonly FixedUpdateAccumulator _updates = new();
     private RingMenuMode _mode;
     private AppraisalState _appraisalState;
@@ -48,7 +49,8 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         OracleSaveData save,
         TreasureDatabase treasures,
         VasuShopDatabase database,
-        Action<int> playSound)
+        Action<int> playSound,
+        Action loadCommonGraphics)
     {
         _screen = screen;
         _dialogue = dialogue;
@@ -58,6 +60,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         _treasures = treasures;
         _database = database;
         _playSound = playSound;
+        _loadCommonGraphics = loadCommonGraphics;
     }
 
     internal bool Open(RingMenuMode mode, Action completion)
@@ -507,6 +510,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         // bank2.menuStateFadeIntoMenu@openMenu requests SND_OPENMENU $54
         // before dispatching either ring menu's graphics initialization.
         _playSound(SoundId.SndOpenMenu);
+        _loadCommonGraphics();
         if (_mode == RingMenuMode.Appraisal) _inventory.PrepareRingAppraisal();
         _screen.Open(_mode);
         _listResumePending = false;

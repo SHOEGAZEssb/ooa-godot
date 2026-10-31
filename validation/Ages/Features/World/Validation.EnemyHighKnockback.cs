@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
             _entities.AddEntity(observer);
             if (mode == "full")
                 while (_entities.InteractionSlotAvailable)
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
             Step(mode == "wall" ? 1 : 4);
             observeVelocity = false;
             if (mode == "wall")

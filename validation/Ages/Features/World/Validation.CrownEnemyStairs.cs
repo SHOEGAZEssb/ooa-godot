@@ -30,20 +30,20 @@ public sealed partial class ValidationRoot
                 _sound.PlaySound, puff);
             _entities.AddEntity(scan);
             for (int i = 0; i < 13 - freePuffSlots; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 136), SoundId.MusNone));
-            _entities.Update(1.0 / 60, _player);
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24, 136), SoundId.MusNone));
+            _entities.AdvanceEntityFrames(1.0 / 60, _player);
             byte[] expected = [0x40, 0x46, 0x47, 0x44, 0x45];
             for (int p = 0; p <= 4; p++)
                 FailIf(_currentRoom.GetMetatile(new(p * 16 + 8, 8)) != expected[p],
                     "Enemy-clear stair scan must preserve$00 and map$40..43 to$46,$47,$44,$45 even with no puff slots.");
-            var spawned = _entities.Entities<PuzzlePuffEffect>().Where(effect => effect.Position.Y == 8)
+            var spawned = _entities.Entities<StationaryDebrisEffect>().Where(effect => effect.Position.Y == 8)
                 .OrderBy(effect => _entities.InteractionSlot(effect)).ToArray();
             FailIf(spawned.Length != freePuffSlots || !_saveData.HasRoomFlag(4, 0xab, 0x80),
                 "Stair tile/flag changes must not depend on puff allocation success.");
             for (int i = 0; i < spawned.Length; i++)
                 FailIf(spawned[i].Position.X != (4 - i) * 16 + 8 || spawned[i].ElapsedUpdates != 1,
                     "Stair puffs must allocate in descending tile order and initialize later in the same interaction pass.");
-            _entities.Update(1.0 / 60, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60, _player);
             FailIf(_entities.Entities<EnemyClearStairsRoomEntity>().Count != 0,
                 "Even a full-pool stair reveal must delete its controller on the following update.");
         }
@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
             FailIf(_entities.RoomEnemyCount != 0 || !_saveData.HasRoomFlag(4, 0xab, 0x80) ||
                 _currentRoom.GetMetatile(stairs) != 0x45 || controller.Finished ||
                 _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
-                _entities.Entities<PuzzlePuffEffect>().Count(puff => puff.Position == stairs) != 1,
+                _entities.Entities<StationaryDebrisEffect>().Count(puff => puff.Position == stairs) != 1,
                 "The enemy-clear interaction pass must reveal$43->$45, set flag80 and create one puff before deleting.");
             Step();
             FailIf(_entities.Entities<EnemyClearStairsRoomEntity>().Count != 0 ||

@@ -5,9 +5,9 @@ namespace Oracles;
 
 // Uses a real INTERAC_PUFF node for native allocation; dispatch orchestration
 // stays in the validation assembly and does not change production handlers.
-internal sealed class InteractionSlotValidationEntity(PuzzlePuffEffect actor,
+internal sealed class InteractionSlotValidationEntity(StationaryDebrisEffect actor,
     Action<InteractionSlotValidationEntity> dispatch)
-    : RoomEntityAdapter<PuzzlePuffEffect>(actor, actor.SetTransitionDrawOffset),
+    : RoomEntityAdapter<StationaryDebrisEffect>(actor, actor.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity
 {
     internal int Updates { get; private set; }

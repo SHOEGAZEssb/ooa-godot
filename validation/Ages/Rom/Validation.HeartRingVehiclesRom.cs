@@ -79,7 +79,7 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previous; previous = held;
                 StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1); edge = 0;
+                    rom.UpdateGameplay(edge, held, angle, _saveData.ReadField("wPlaytimeCounter")); edge = 0;
                     string context = $"Heart Ring ${ring:x2} companion=${id:x2}, batch={batched}, update={++update}";
                     CompareHeartRingVehicle(rom, context);
                     FailIf(_player.CompanionRideActive != (rom[0xcc2c] == 0xd1) ||

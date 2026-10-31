@@ -6,7 +6,7 @@ namespace Oracles;
 
 internal sealed class BlueStalfosRoomEntity : CombatEnemyRoomEntityAdapter<BlueStalfosCharacter>,
     IFixedRoomEntity, INativeEnemySlotRoomEntity, IScreenTransitionPreloadRoomEntity,
-    IAlwaysUpdateDuringScreenTransitionRoomEntity, IPlayerForcedMovement,
+    IAlwaysUpdateDuringScreenTransitionRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     ILinkSwordStateAwareRoomEntity, ISwordAttackerKnockbackRoomEntity,
     IPostObjectMeleeCollisionRoomEntity, IPostObjectItemCollisionRoomEntity,
@@ -33,7 +33,6 @@ internal sealed class BlueStalfosRoomEntity : CombatEnemyRoomEntityAdapter<BlueS
     public void BindEnemySlot(int slot, Func<int, IRoomEntity?> resolve) => Entity.Slot = slot;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.ScentSeedTarget ?? frame.Player.EnemyContactPosition, frame.Counter);
-    public void UpdatePlayerForcedMovement(Player player) { if (Entity.Record.SubId is 0 or 1 && !Finished) _world.Entry.Update(player); }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     { Entity.InitializeNative(); return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden; }
     public void UpdateDuringScreenTransition(RoomEntityFrame frame) { if (Entity.State == 0) Entity.InitializeNative(); }

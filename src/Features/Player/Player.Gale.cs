@@ -4,7 +4,7 @@ namespace Oracles;
 
 public partial class Player
 {
-    private IntroSpriteFrame[]? _galeFrames;
+    private ObjectSpriteFrame[]? _galeFrames;
     private int _galeFrame;
     private int _galeFrameTicks;
     private int _galePending;
@@ -60,7 +60,7 @@ public partial class Player
             ClearShieldParent();
             CancelSwordAttack();
             CancelShovelAction();
-            _galeFrames ??= new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-gale");
+            _galeFrames ??= _linkItems.GaleFrames;
             _galeFrame = 0;
             _galeFrameTicks = _galeFrames[0].Duration;
         }
@@ -70,7 +70,7 @@ public partial class Player
             _galeFrameTicks = _galeFrames[_galeFrame].Duration;
         }
         _walking = false;
-        _pushing = false;
+
         SetCutsceneSpriteFrame(_galeFrames![_galeFrame]);
     }
 

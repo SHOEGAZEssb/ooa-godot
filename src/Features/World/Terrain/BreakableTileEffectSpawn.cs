@@ -15,6 +15,8 @@ internal static class BreakableTileEffectSpawn
     {
         int interaction = effect & 0x0f;
         bool flickers = (effect & 0x10) != 0;
+        if (interaction == InteractionId.SnowDebris)
+            return new SnowDebrisSpawn(position, flickers);
         if (interaction is 0x06 or 0x0c)
             return new RockDebrisSpawn(position, interaction);
         if (interaction is 0x00 or 0x01)

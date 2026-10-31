@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         var database = EnemyDatabase.For(AgesGameContent.AssetRoot);
         var source = new RoomObjectRecord(0, 0x33, 0, RoomObjectKind.FixedEnemy,
             9, sub, 2, 1, 72, 80, 0x47, 0);
-        return new RoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms)
+        return new AgesRoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms)
             .CreateOrderedEnemy(database.EnemyHandlers.ResolveHandler(source), source,
                 _currentRoom, new(80.25f, 72.5f), 0, 0, EnemyPlacementContext.Unrestricted)
             ?? throw new InvalidOperationException($"Missing Octorok $09:${sub:x2} initializer.");

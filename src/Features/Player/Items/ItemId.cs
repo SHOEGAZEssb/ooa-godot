@@ -8,6 +8,8 @@ public static class ItemId
     public const int None = 0x00;
     // constants/common/items.s: ITEM_SHIELD
     public const int Shield = 0x01;
+    // constants/common/items.s: ITEM_BOMB
+    public const int Bomb = 0x03;
     // constants/common/items.s: ITEM_CANE_OF_SOMARIA
     public const int CaneOfSomaria = 0x04;
     // constants/common/items.s: ITEM_SWORD
@@ -18,12 +20,18 @@ public static class ItemId
     public const int SwitchHook = 0x0a;
     // constants/common/items.s: ITEM_HARP
     public const int Harp = 0x11;
+    // constants/common/items.s: ITEM_SHOVEL
+    public const int Shovel = 0x15;
+    // constants/common/items.s: ITEM_BRACELET
+    public const int Bracelet = 0x16;
     // constants/common/items.s: ITEM_FEATHER
     public const int Feather = 0x17;
     // constants/common/items.s: ITEM_SEED_SATCHEL
     public const int SeedSatchel = 0x19;
     // constants/common/items.s: ITEM_DUST
     public const int Dust = 0x1a;
+    // constants/common/items.s: ITEM_MINECART_COLLISION
+    public const int MinecartCollision = 0x1d;
     // constants/common/items.s: ITEM_EMBER_SEED
     public const int EmberSeed = 0x20;
     // constants/common/items.s: ITEM_SCENT_SEED

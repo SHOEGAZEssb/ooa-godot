@@ -6,7 +6,7 @@ using System.Linq;
 namespace Oracles;
 
 /// <summary>INTERAC_PATCH $94: each native slot runs after the preceding slot's writes.</summary>
-internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent,
+internal sealed class PatchEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
     internal PatchDatabase Database { get; } = new();
@@ -157,7 +157,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
             if (_runner.Active) _patch!.AdvanceAnimationUpdates(1);
             else
             {
-                ReleaseInputControl(); Write(0xcfd2, 1);
+                SetInputEnabled(true); Write(0xcfd2, 1);
                 _patch!.SetActive(false); _patch = null;
             }
         }
@@ -187,14 +187,14 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
                 if (Read(0xcfd5) != 0)
                 {
                     if (!Context.Player.PatchCollisionsEnabled || MenusDisabled) return;
-                    SetInputEnabled(false); State = 5; BeginFade(1, 4); return;
+                    base.SetDisabledObjects(0x01); State = 5; BeginFade(1, 4); return;
                 }
                 if (_wonSignal != 0)
                 {
                     Write(0xcfd4, 0);
                     Context.Player.ClearInteractionKnockback();
                     if (!Context.Player.PatchCollisionsEnabled || MenusDisabled || Context.Player.InvincibilityFrames != 0) return;
-                    SetInputEnabled(false);
+                    base.SetDisabledObjects(0x80); SetNativeMenuDisabled(0x80);
                     _fixed = SpawnVisual(Read(0xcfd0) + 6, Vector2.Zero);
                     _fixed.SetScriptVisible(false); _fixedCounter = -1;
                     State = 3; StartScript("linkWonMinigameScript");
@@ -449,12 +449,14 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         switch (handler)
         {
             case "MetPatch": Context.Rooms.SaveData.SetRoomFlag(1, 0xbe, 6); break;
-            case "patch_jump": _speedZ = -0x180; SetInputEnabled(false); Context.Sound.PlaySound(Database.Constant("jump-sound")); break;
+            case "patch_jump":
+                _speedZ = -0x180; base.SetDisabledObjects(0x01); SetNativeMenuDisabled(0x01);
+                Context.Sound.PlaySound(Database.Constant("jump-sound")); break;
             case "patch_updateTextSubstitution": Write(0xcbaf, Read(0xcfd7)); break;
             case "patch_turnToFaceLink":
                 SetAnimation(((OracleObjectMovement.Shared.RelativeAngle(_patch!.Position, Context.Player.Position) + 4) & ObjectAngle.CardinalMask) >> 3); break;
             case "patch_setStairTile:160": _stairsClosed = true; SetTile(0x49, 0xa0); SpawnPuff(new Vector2(0x98, 0x48)); break;
-            case "patch_restoreControlAndStairs": _stairsClosed = false; ReleaseInputControl(); SetTile(0x49, 0x44); SpawnPuff(new Vector2(0x98, 0x48)); break;
+            case "patch_restoreControlAndStairs": _stairsClosed = false; SetInputEnabled(true); SetTile(0x49, 0x44); SpawnPuff(new Vector2(0x98, 0x48)); break;
             case "patch_moveLinkPositionAtMinigameEnd":
                 Context.Entities.ClearPhysicalPlayerItems(); Context.Player.PutOnGroundForScript();
                 Context.Player.ClearInteractionKnockback(clearInvincibility: true);

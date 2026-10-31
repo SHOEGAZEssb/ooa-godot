@@ -66,11 +66,12 @@ public abstract partial class TransitionOffsetNode2D : Node2D
     }
 
     public Vector2 TransitionDrawOffset { get; private set; }
+    internal Vector2 SourceScreenPosition => _worldToScreen(Position);
     internal void SetTerrainShadowRoom(OracleRoomData room) => _shadowRoom = room;
     internal Vector2 SourceOamWrapOffset =>
         // bank0's scroll projection retains 16-bit coordinates before culling.
         _usesTransitionProjection() ? Vector2.Zero :
-            OracleObjectMath.SourceOamWrapOffset(_worldToScreen(Position));
+            OracleObjectMath.SourceOamWrapOffset(SourceScreenPosition);
     protected Vector2 SourceOamDrawOffset =>
         TransitionDrawOffset + SourceOamWrapOffset;
 

@@ -94,7 +94,7 @@ public sealed partial class ValidationRoot
         _entities.RegisterEnemySlot(enemy, 0);
         _entities.AddEntity(enemy);
         _entities.AddEntity(interaction);
-        var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
+        var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
         var drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(ItemDropDatabase.OneRupee, new(200, 104)));
         // PART$01 also gets its state0 visit under $1e: top-down initialization
         // sets speedZ=-$160 and state1, then later initialized visits freeze.

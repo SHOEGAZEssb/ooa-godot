@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
         // Compare the screen's actual composed background with independent CGB
         // decoding of executed native loaders. Sprites and hardware timing are
         // separate boundaries. Recheck whenever the production texture changes.
-        var texture = (Texture2D)typeof(AgesMapScreen).GetField("_background",
+        var texture = (Texture2D)typeof(MapScreen).GetField("_background",
             BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_mapScreen)!;
         if (ReferenceEquals(texture, previous)) return;
         previous = texture;

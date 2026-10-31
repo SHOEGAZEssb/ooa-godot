@@ -29,6 +29,12 @@ public sealed partial class ValidationRoot
         _inventory.RefillHealth();
         _inventory.GiveTreasure(TreasureId.Sword, 1);
         _inventory.EquipA(TreasureId.Sword);
+        // Combat pauses can outlast cracked-floor$20. Use native protection
+        // for this cube route; shared floor ROM cases cover unprotected breaks.
+        _inventory.GiveTreasure(TreasureId.RingBox,1);
+        _inventory.GrantAppraisedRingForDebug((int)RingId.Rocs);
+        FailIf(!_inventory.SetRingBoxSlotFromList(0,(int)RingId.Rocs) || !_inventory.EquipRingAt(0),
+            "Cube route requires the native ROCS_RING$22 protection during combat pauses.");
         foreach (var (room, initial, initialOrientation, sensor, start) in new[] {
             (0x78, 0x2c, 1, 0x67, 0x1c), (0x90, 0x36, 0, 0x74, 0x26) })
         {
@@ -135,7 +141,10 @@ public sealed partial class ValidationRoot
                     Step(move: move);
                 }
                 FailIf(_player.Position.DistanceTo(target) > 0.8f,
-                    $"4:{room:x2} actual Link movement could not reach ${cell:x2}; Link={_player.Position}, cube={cube.Position}, health={_inventory.HealthQuarters}, falling={_player.IsFallingInHole}, knockback={_player.KnockbackFrames}, controlled={_player.CutsceneControlled}.");
+                    $"4:{room:x2} actual Link movement could not reach ${cell:x2}; Link={_player.Position}, cube={cube.Position}, health={_inventory.HealthQuarters}, falling={_player.IsFallingInHole}, knockback={_player.KnockbackFrames}, controlled={_player.CutsceneControlled}, " +
+                    $"pull={_player.IsPullingIntoHole}, active=${_runtimeState.ReadField("wActiveTileIndex"):x2}/${_runtimeState.ReadField("wActiveTileType"):x2}/{_runtimeState.ReadField("wStandingOnTileCounter")}, sword={_player.SwordState}, down={_collision.AdjacentWallsBitset(_player.Position):x2}, below={_currentRoom.GetTerrainInfo(_player.Position + Vector2.Down * 8)}, target={_currentRoom.GetTerrainInfo(target)}, respawn={_player.LocalRespawnPosition}, " +
+                    $"route={string.Join(';',(recoveryRoute ?? []).Select(p => $"{p:x2}/{_currentRoom.GetTerrainInfo(Point(p)).Tile:x2}/{_currentRoom.GetTerrainInfo(Point(p)).Hazard}"))}, " +
+                    $"enemies={string.Join(';',_entities.Entities<EnemyCharacter>().Select(enemy => $"{enemy.GetType().Name}/{enemy.Position}/{enemy.Health}"))}.");
             }
             foreach (char move in solution!)
             {
@@ -233,5 +242,6 @@ public sealed partial class ValidationRoot
             resetCube.ColoredCubePuzzleState.CubePosition != 0x36,
             "Cube's zero-counter fall did not replace the cracked tile with a hole, delete itself and retain native cube-position scratch.");
         GD.Print("Validated Skull Dungeon cubes, blue-flame chest, floor and cube switch gates through actual movement and source-ordered updates.");
+        _inventory.SetScriptedActiveRing(0xff);
     }
 }

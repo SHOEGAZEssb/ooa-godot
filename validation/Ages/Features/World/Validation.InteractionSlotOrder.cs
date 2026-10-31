@@ -23,7 +23,7 @@ public partial class ValidationRoot
                 StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             void Spawn(string name,int expectedSlot,Action<InteractionSlotValidationEntity>? dispatch = null)
             {
-                var puff = new PuzzlePuffEffect { Name = name };
+                var puff = new StationaryDebrisEffect { Name = name };
                 puff.Initialize(AgesGameContent.AssetRoot, new(80,64),SoundId.MusNone);
                 var actor = new InteractionSlotValidationEntity(puff,self => {
                     trace.Add(name);

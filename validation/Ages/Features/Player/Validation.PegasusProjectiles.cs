@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
             _seedSatchel.Pegasus.Clear();
-            _seedSatchel.InterruptShooter();
+            _seedShooter.InterruptShooter();
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
             _inventory.GiveTreasure(TreasureId.Shooter, 1);
             _inventory.GiveTreasure(TreasureId.PegasusSeeds, 0x20);
@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
 
             // Shoot the first native 4:6e Gibdo from a clear floor position;
             // retain its original spawn, movement, RNG, and collision geometry.
-            _seedSatchel.InterruptShooter();
+            _seedShooter.InterruptShooter();
             LoadValidationRoom(4, 0x6e);
             _player.WarpTo(new Vector2(124, 88));
             FailIf(_collision.Collides(_player.Position) || _currentRoom.GetTerrainInfo(_player.Position).Hazard != HazardType.None,

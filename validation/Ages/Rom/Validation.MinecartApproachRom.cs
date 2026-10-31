@@ -38,11 +38,12 @@ public sealed partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(center + (Vector2)directions[direction] * 16,
                 (byte)(direction % 2 == 0 ? 0x5e : 0x5d), 0, 0);
             _currentRoom.SetPositionTileAndCollision(center - (Vector2)directions[direction] * 16, 0x5f, 0, 0);
-            MinecartRuntimeState.Reset(_runtimeState, [new MinecartStaticRecord(0, 0x00, 72, 88, "ROM approach fixture")]);
-            var cart = new MinecartRoomEntity(new ActiveMinecart(0, 0x00, 72, 88, -1, false),
-                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
-                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
-            _entities.AddEntity(cart);
+            ResetMinecartsForValidation(_runtimeState, [new MinecartStaticRecord(0, 0x00, 72, 88, "ROM approach fixture")]);
+            var interaction = new MinecartInteractionRoomEntity(new MinecartInteractionSpawn(center, StaticSlot: 0),
+                _currentRoom, _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _entities);
+            _entities.AddEntity(interaction);
+            var cart = new MinecartValidationView(_entities, _player);
             Vector2 start = center - (Vector2)inputs[angle / 4] * 24 + new Vector2(0.25f, 0.5f);
             _player.WarpTo(start); _player.Face(directions[angle / 8]);
             var initialRandom = _random.CaptureState();
@@ -56,6 +57,7 @@ public sealed partial class ValidationRoot
             rom[slot + 0x0b] = 72; rom[slot + 0x0d] = 88;
             rom[slot + 0x16] = 0x80; rom[slot + 0x17] = 0xcd;
             rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
+            _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
             var sounds = _sound.AttachPlayRequestAudit();
             int update = 0, previousHeld = 0;
             int Z() => (int)typeof(Player).GetField("_topDownAirZFixed", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
@@ -67,8 +69,15 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previousHeld; previousHeld = held;
                 StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, movementAngle, _entities.FrameCounter - 1); edge = 0; update++;
+                    rom.UpdateGameplay(edge, held, movementAngle, _saveData.ReadField("wPlaytimeCounter")); edge = 0; update++;
                     string context = $"Minecart approach rail={direction}, angle=${angle:x2}, buttons=${buttons:x2}, sword={sword}, update={update}, batch={batched}";
+                    FailIf(_runtimeState.ReadField("wForceLinkPushAnimation") != rom[0xcc66] ||
+                        _runtimeState.ReadWramByte(0xd034) != rom[0xd034] || _player.World.TilePushingDirection != rom[0xcc65],
+                        $"{context}: native force/style/push publication differs: port ${_runtimeState.ReadField("wForceLinkPushAnimation"):x2}/${_runtimeState.ReadWramByte(0xd034):x2}/${_player.World.TilePushingDirection:x2}, ROM ${rom[0xcc66]:x2}/${rom[0xd034]:x2}/${rom[0xcc65]:x2}.");
+                    if (sword)
+                        FailIf(_runtimeState.ReadWramByte(0xd23f) != rom[0xd23f] ||
+                            _player.MinecartJumpActive && _player.AirborneLinkUsesJumpAnimation != (rom[0xd030] == 0x18),
+                            $"{context}: native Sword claim/air animation differs: claim${_runtimeState.ReadWramByte(0xd23f):x2}/${rom[0xd23f]:x2}, jump={_player.AirborneLinkUsesJumpAnimation}, native mode${rom[0xd030]:x2}.");
                     Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(_player.PrecisePosition != expected || Z() != unchecked((short)rom.Word(0xd00e)) ||
                         _player.MinecartRideActive != (rom[0xcc2c] == 0xd1),

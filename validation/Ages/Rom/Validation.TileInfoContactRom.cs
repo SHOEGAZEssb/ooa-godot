@@ -39,9 +39,9 @@ public sealed partial class ValidationRoot
                     if (row.Room == 0x56)
                     {
                         FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
-                            SomariaPrivate<int>(_player,"_shieldParentButton") !=
+                            _player.ShieldParentButton !=
                                 (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
-                            SomariaPrivate<bool>(_player,"_shieldParentInitialized") != (rom[0xd504] != 0),
+                            _player.ShieldParentInitialized != (rom[0xd504] != 0),
                             context + ": Shield raised/parent/button state differs.");
                         FailIf(_player.KnockbackFrames != rom[0xd02d] ||
                             _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) ||

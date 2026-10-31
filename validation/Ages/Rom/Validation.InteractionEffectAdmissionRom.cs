@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
     {
         while (14 - InteractionAdmissionPool.Count > free)
         {
-            var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(144, 104), SoundId.MusNone));
+            var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(144, 104), SoundId.MusNone));
             int at = 0xd040 + _entities.InteractionSlot(puff) * 256;
             native[at] = 1; native[at + 1] = 5; native[at + 2] = 0x80;
         }
@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
                 FailIf(_entities.InteractionSlot(bubbles.Single()) != (source.Single() >> 8) - 0xd0 ||
                     bubbles.Single().TurnCounter != 4 || bubbles.Single().TurnsRemaining != 5,
                     "Swimming bubble must own the source slot and initialize once in the later interaction pass.");
-            _entities.RetireEntity(InteractionAdmissionPool.First(pair => pair.Key.Node is PuzzlePuffEffect).Key);
+            _entities.RetireEntity(InteractionAdmissionPool.First(pair => pair.Key.Node is StationaryDebrisEffect).Key);
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
             FailIf(_entities.Entities<SideScrollBubbleRoomEntity>().Count != free,
                 "Released capacity must not retry a failed swimming bubble before Link's reloaded interval expires.");

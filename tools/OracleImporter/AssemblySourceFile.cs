@@ -117,6 +117,18 @@ public sealed class AssemblySourceFile
             .ToArray();
     }
 
+    public IReadOnlyList<AssemblyNode> GetActiveLabelBlockNodes(string name)
+    {
+        AssemblyLabel[] labels = GetLabels(name).Where(label => label.IsActive).ToArray();
+        if (labels.Length != 1)
+            throw new AssemblySourceException($"{RelativePath}: active label '{name}' " +
+                (labels.Length == 0 ? "was not found." : "is ambiguous at " + string.Join(", ", labels.Select(label => label.Span.Start)) + "."));
+        AssemblyLabel label = labels[0];
+        int endNode = FindLabelBlockEnd(label, activeOnly: true);
+        return Nodes.Skip(label.NodeIndex + 1).Take(endNode - label.NodeIndex - 1)
+            .Where(node => node.IsActive).ToArray();
+    }
+
     // Node offsets retain source order, including several nodes on one line.
     // Restrict queries before serializing or matching rather than streaming a
     // complete source file through every PowerShell consumer.
@@ -162,12 +174,12 @@ public sealed class AssemblySourceFile
             ? constants
             : Array.Empty<AssemblyConstant>();
 
-    private int FindLabelBlockEnd(AssemblyLabel label)
+    private int FindLabelBlockEnd(AssemblyLabel label, bool activeOnly = false)
     {
         for (int index = label.NodeIndex + 1; index < Nodes.Count; index++)
         {
             AssemblyNode node = Nodes[index];
-            if (node.Kind != AssemblyNodeKind.Label)
+            if (node.Kind != AssemblyNodeKind.Label || activeOnly && !node.IsActive)
                 continue;
 
             bool nextIsLocal = IsLocalLabel(node.Name);

@@ -35,6 +35,7 @@ public sealed partial class ValidationRoot
             else _inventoryMenu.OpenSaveImmediatelyForValidation();
             rom.OpenImmediately(3, gameOver: gameOver);
             var menu = _inventoryMenu;
+            var pause = _gameplayPause;
             var screen = _saveQuitScreen;
             var scene = _scene;
             var application = new ApplicationValidationFixture(this);
@@ -129,7 +130,7 @@ public sealed partial class ValidationRoot
                 "Save/Quit completed before the thirtieth delayed update.");
             Step();
             if (!gameOver && option != 2) Step(22);
-            FailIf(menu.IsActive || _gameplayPause.IsLeased,
+            FailIf(menu.IsActive || pause.IsLeased || _gameplayMenus?.Pause.IsLeased == true,
                 "Save/Quit final handoff retained modal ownership.");
             // Snapshot stays at the selection update; gameplay resume must not
             // imply another save. File-system generations have separate coverage.

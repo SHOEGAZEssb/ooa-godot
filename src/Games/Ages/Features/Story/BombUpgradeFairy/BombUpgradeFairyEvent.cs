@@ -6,7 +6,7 @@ using System.Linq;
 namespace Oracles;
 
 /// <summary>interactionCode83 and scriptHelp.bombUpgradeFairyScript_body.</summary>
-internal sealed class BombUpgradeFairyEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent,
+internal sealed class BombUpgradeFairyEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent
 {
     private readonly CutsceneCommandRunner _runner;

@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
                         _mapScreen.DungeonScrollY != rom[0xcbb8] || _mapScreen.IsScrolling != (rom[0xcbce] != 0) ||
                         _mapScreen.DungeonLinkIconPosition != new Vector2(80 + (cursor & 7) * 8, 32 + (cursor >> 3) * 8),
                         $"{context} update={update}: retained floor/scroll/cursor/icon position differs.");
-                    bool flicker = (bool)typeof(AgesMapScreen).GetField("_dungeonFlicker", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_mapScreen)!;
+                    bool flicker = (bool)typeof(MapScreen).GetField("_dungeonFlicker", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_mapScreen)!;
                     FailIf(flicker != (rom[0xcbb9] != 0), $"{context} update={update}: retained dungeon flicker counter differs.");
                     for (int y = 0; y < 18; y++)
                     for (int x = 0; x < 20; x++)
@@ -78,7 +78,7 @@ public sealed partial class ValidationRoot
                 void Step(int count = 1, int pressed = 0)
                 {
                     int edge = pressed;
-                    StepGameplayUpdates(count, Vector2.Left, MenuRomActions(pressed), MenuRomActions(pressed), batched, () =>
+                    StepGameplayUpdates(count, Vector2.Zero, MenuRomActions(pressed), MenuRomActions(pressed), batched, () =>
                     {
                         rom.Update(edge, pressed, _saveData.ReadWramByte(0xc622)); edge = 0; update++;
                         Compare();

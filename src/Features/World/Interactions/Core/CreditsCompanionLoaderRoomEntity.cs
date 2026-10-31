@@ -14,5 +14,13 @@ internal sealed class CreditsCompanionLoaderRoomEntity(RoomEventContext context,
     public bool UpdatesDuringRoomEntityFreeze=>true;
     public void SetTransitionDrawOffset(Vector2 offset) {}
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
-    {if(initialize is null)context.Entities.AddEntity(new MapleCreditsRoomEntity(context,position));else initialize(position);Finished=true;}
+    {
+        if(initialize is null)
+        {
+            CompanionRuntimeState.BeginCutscene(context.Entities.RuntimeState, SpecialObjectId.MapleCutscene, 0, position);
+            context.Entities.AddEntity(new MapleCreditsRoomEntity(context,position));
+        }
+        else initialize(position);
+        Finished=true;
+    }
 }

@@ -66,8 +66,8 @@ public sealed partial class ValidationRoot
                 FailIf(block.State != 1 || block.Counter != 1 || _entities.PlayerMenusDisabled,
                     "$9e started before the 30th consecutive centered push.");
                 var drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(ItemDropDatabase.OneRupee, new Vector2(0x78, 0x38)));
-                var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new Vector2(0x78, 0x38), SoundId.MusNone));
-                var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 1, _ => { }));
+                var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new Vector2(0x78, 0x38), SoundId.MusNone));
+                var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot).Data, 1, _ => { }));
                 _sound.ClearPlayRequestAudit();
                 int randomBefore = _entities.RandomCalls;
                 Vector2 initialBlock = block.Position;
@@ -263,7 +263,7 @@ public sealed partial class ValidationRoot
         block = _entities.Entities<WaterPushblockRoomEntity>().Single(b => !b.Finished);
         FailIf(!block.Visible || block.State != 1 || block.Counter != 30,
             "$9e scroll preload failed to resolve state 0 and its flag-selected graphics.");
-        _entities.Update(30.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(30.0 / 60.0, _player);
         FailIf(block.State != 1 || block.Counter != 30 || block.Position != new Vector2(0x58, 0x68),
             "$9e advanced ordinary behavior during destination scrolling.");
         _entities.FinishScreenTransition();

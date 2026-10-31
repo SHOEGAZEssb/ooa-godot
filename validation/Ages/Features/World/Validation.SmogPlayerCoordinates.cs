@@ -41,7 +41,7 @@ public partial class ValidationRoot
         _entities.Clear();
         FailIf(!_player.NativeNormalStateForInteraction || _player.NativeInAirForInteraction,
             "Ordinary grounded Link must expose state$01 and zero wLinkInAir.");
-        foreach (string field in new[] { "_electricShockPending", "_deathPending", "_enemyGrabRequested", "_topDownAirborne", "_usingShield" })
+        foreach (string field in new[] { "_electricShockPending", "_deathPending", "_enemyGrabRequested", "_topDownAirborne" })
         {
             var member = typeof(Player).GetField(field,flags)!;
             member.SetValue(_player,true);
@@ -49,6 +49,10 @@ public partial class ValidationRoot
                 $"Native state$01 must survive {field}; only an actual in-air owner changes wLinkInAir.");
             member.SetValue(_player,false);
         }
+        _player.Inventory.RuntimeState.SetField("wUsingShield", 1);
+        FailIf(!_player.NativeNormalStateForInteraction || _player.NativeInAirForInteraction,
+            "Native state$01 must survive raw shield use without changing wLinkInAir.");
+        _player.Inventory.RuntimeState.SetField("wUsingShield", 0);
         _player.BeginGale();
         FailIf(!_player.NativeNormalStateForInteraction,"Gale item pass queues state$07 without immediately replacing Link state$01.");
         typeof(Player).GetField("_galePending",flags)!.SetValue(_player,0);

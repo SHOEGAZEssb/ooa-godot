@@ -13,10 +13,10 @@ public sealed partial class ValidationRoot
         foreach(bool batched in new[]{false,true})
         {
             ReinitializeGameplayForValidation();
-            if(mounted)CompanionRuntimeState.Begin(_runtimeState,0x13,0xa8,new(x,118),3);
+            if(mounted)StageRidingRaftForValidation(new(x,118),3);
             LoadValidationRoom(1,0xa8);_inventory.SetScriptedEquippedItems(0,0);
             var owner=_roomEvents.Get<RaftwreckEvent>();var raft=_entities.Entities<RaftRoomEntity>().SingleOrDefault();
-            if(raft is not null)F1Set(raft,"_precisePosition",new Vector2(x+0.25f,118.5f));
+            if(raft is not null)((INativeSpecialObjectRoomEntity)raft).NativeSpecialObjectPosition = new Vector2(x+0.25f,118.5f);
             _player.WarpTo(new(x+0.75f,113.25f));owner.Start(_currentRoom);
             _runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);_runtimeState.SetWramByte(0xcd00,0);
             var native=new SomariaRom(_saveData,_random.CaptureState(),_currentRoom,3,x,113);

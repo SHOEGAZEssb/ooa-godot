@@ -206,6 +206,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         _spinnerAnimation.SetAnimation(_red ? 1 : 0);
         _phase = SpinnerPhase.Touched;
         _touchScriptPending = true;
+        _runtime.SetField("wcc95", (byte)(_runtime.ReadField("wcc95") | 0x80));
         player.BeginSpinnerTouch();
     }
 
@@ -223,7 +224,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         {
             _phase = SpinnerPhase.Waiting;
             _waitCounter = 0;
-            player.EndSpinnerControl();
+            _runtime.SetField("wcc95", (byte)(_runtime.ReadField("wcc95") & 0x7f));
             return;
         }
 
@@ -232,6 +233,8 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
             TurnData(entryDirection, clockwise: _red);
         _phase = SpinnerPhase.Turning;
         player.BeginSpinnerTurn(Position + _linkOffset, _exitDirection);
+        player.RequestNativeState08Control(this);
+        _runtime.SetField("wDisabledObjects", (byte)(_runtime.ReadField("wDisabledObjects") | 0x80));
         _beginScreenShake(4);
         _playSound(SoundId.SndOpenChest);
     }
@@ -243,7 +246,9 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         {
             _phase = SpinnerPhase.Exiting;
             _exitCounter = ExitUpdates;
+            _runtime.SetField("wDisabledObjects", 0);
             player.BeginSpinnerExit(_exitDirection);
+            _runtime.SetField("wcc95", (byte)(_runtime.ReadField("wcc95") & 0x7f));
             return;
         }
 
@@ -270,7 +275,6 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         _red = !_red;
         _phase = SpinnerPhase.Waiting;
         _waitNeedsStart = true;
-        player.EndSpinnerControl();
     }
 
     private bool TouchesLink(Player player)

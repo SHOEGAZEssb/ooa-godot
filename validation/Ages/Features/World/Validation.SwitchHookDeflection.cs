@@ -43,8 +43,8 @@ public sealed partial class ValidationRoot
             (0x70, 0x0e, 0x13, 0x1b), (0x7f, 0x13, 0x17, 0x1c),
             (0x88, 0x19, 0x1c, 0x1c), (0x7d, 0x4d, 0x38, 0x0d) })
         {
-            FailIf(!SwitchHookCollisionDatabase.Shared.EnemyEnabled(id) ||
-                SwitchHookCollisionDatabase.Shared.Effect(mode) != effect,
+            FailIf(!ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyEnabled(id, ItemCollisionType.SwitchHook) ||
+                ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(mode, ItemCollisionType.SwitchHook) != effect,
                 $"Enemy ${id:x2} lost its source hook mask/effect ${effect:x2}.");
 
             (Vector2 Enemy, int Invincibility, int Recoil, int State) Run(bool batch, bool repeat)

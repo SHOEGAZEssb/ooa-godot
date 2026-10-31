@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
                 if (spec.Full)
                     for (int index = 0; index < 14; index++)
                     {
-                        var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                        var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                         int slot = 0xd000+_entities.InteractionSlot(puff)*256+0x40;
                         rom[slot] = 1; rom[slot+1] = 5; rom[slot+2] = 0x80;
                         rom[slot+0xb] = rom[slot+0xd] = 24;

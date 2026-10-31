@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
                 "Scroll fixture must allocate both equipped items through gameplay input.");
             int loadedUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
-            _transitions.BeginScroll(_player, vector, route.Target);
+            _transitions.BeginValidationScroll(_player, vector, route.Target);
             // Destination parsing is outside the bounded native owners above.
             // Remove its consumers while retaining the outgoing ITEM $df.
             const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;

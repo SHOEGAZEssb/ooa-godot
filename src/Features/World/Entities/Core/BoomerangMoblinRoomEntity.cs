@@ -20,8 +20,7 @@ internal sealed class BoomerangMoblinRoomEntity
                 moblin.TakeSwordHit,
                 moblin.TakeBurnHit,
                 moblin.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback))
+                soundRequested))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

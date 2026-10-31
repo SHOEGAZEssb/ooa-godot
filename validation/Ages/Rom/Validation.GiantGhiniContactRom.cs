@@ -21,19 +21,19 @@ public sealed partial class ValidationRoot
                 "Giant Ghini contact must approach its child across the room's actual clear floor.");
             var data=new DungeonBossDatabase(AgesGameContent.AssetRoot);var parent=new GiantGhiniBoss();
             parent.Initialize(data.Enemy(0x70),_currentRoom,new(120,64),_random,_sound.PlaySound,
-                ()=>false,_entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen);
+                ()=>false,_entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen,_entities.InitializeBossRoom);
             F1Set(parent,"_initialized",true);F1Set(parent,"_state",GiantGhiniBossBossState.Moving);
             F1Set(parent,"_angle",24);F1Set(parent,"_targetScreenY",104);F1Set(parent,"_childRespawnCounter",180);F1Set(parent,"_childrenAlive",1);
             // Declared body collision gate isolates child contact from boss damage;
             // body steering, charge and its physical earlier ENEMY slot remain live.
             parent.GaleCollisionDisabled=true;
-            var body=new GiantGhiniBossRoomEntity(parent,Vector2I.Zero);F1Set(body,"_initialized",true);
+            var body=new GiantGhiniBossRoomEntity(parent);
             _entities.RegisterEnemySlot(body,0);_entities.AddEntity(body);
             var child=new GiantGhiniChild();child.Initialize(data.Enemy(0x3f),parent,_currentRoom,0,_random);
             var adapter=new GiantGhiniChildRoomEntity(child,_sound.PlaySound);
             _entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
             var seed=_random.CaptureState();var rom=new SomariaRom(_saveData,seed,_currentRoom,3,160,64)
-                {CompanionDispatchEnabled=true,HostileEnemiesEnabled=true,HostilePartsEnabled=true};
+                {CompanionDispatchEnabled=true,HostileEnemiesEnabled=true,HostilePartsEnabled=true,NativeGameKeysEnabled=true};
             rom.InitializeLinkGameplay();rom.InitializeLinkWalkingAnimation();rom[0xcc08]=0xad;
             rom[0xcd16]=0;rom[0xcd17]=0xd0; // Actual Link camera-focus pointer.
             rom[AgesWramAddress.wWarpsDisabled]=1;rom[AgesWramAddress.wScrollMode]=0;
@@ -45,11 +45,11 @@ public sealed partial class ValidationRoot
             rom.Word(bossAt+14,0xf800);rom.Word(bossAt+0x14,0x40);rom.SetEnemyAnimation(0,0);
             rom[at]=1;rom[at+1]=0x3f;rom[at+2]=3;rom[at+11]=64;rom[at+13]=120;rom[at+0x17]=0xd0;
             rom[0xcdd1]=2;
-            var sounds=_sound.AttachPlayRequestAudit();int update=0,pressed=0,held=0,angle=255;
+            var sounds=_sound.AttachPlayRequestAudit();int update=0,pressed=0,held=0,sampleHeld=0,angle=255;
             bool sawMove=false,sawStop=false;
             void Compare()
             {
-                rom.UpdateGameplay(pressed,held,angle,_entities.FrameCounter);rom.AdvanceTileGraphics();rom.AdvanceScreenShake();rom.AdvanceCameraPosition();update++;
+                rom.UpdateGameplay(pressed,sampleHeld,angle,_entities.FrameCounter);rom.AdvanceTileGraphics();rom.AdvanceScreenShake();rom.AdvanceCameraPosition();update++;
                 int state=child.InitializationPending?0:child.State switch
                 {ChildState.Waiting=>8,ChildState.SpawnDelay=>9,ChildState.Charging=>10,ChildState.Attached=>11,_=>12};
                 int bossState=parent.State==GiantGhiniBossBossState.Moving?9:10;
@@ -77,7 +77,11 @@ public sealed partial class ValidationRoot
                     $"Giant contact/update{update}: shared RNG differs {_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}.");
                 sawMove|=child.State==ChildState.Attached&&!_entities.PlayerMovementDisabled;sawStop|=_entities.PlayerMovementDisabled;pressed=0;
             }
-            void Step(int count,Vector2 movement)=>StepGameplayUpdates(count,movement,MenuRomActions(held),MenuRomActions(pressed),batched,Compare);
+            void Step(int count,Vector2 movement)
+            {
+                sampleHeld=held|pressed;
+                StepGameplayUpdates(count,movement,MenuRomActions(sampleHeld),MenuRomActions(pressed),batched,Compare);
+            }
             Step(1,Vector2.Zero);held=0x20;angle=24;
             for(int bound=0;bound<12&&!SomariaPrivate<bool>(child,"_linkContactPending");bound++)Step(1,Vector2.Left);
             FailIf(!SomariaPrivate<bool>(child,"_linkContactPending")||child.State!=ChildState.SpawnDelay||parent.State!=GiantGhiniBossBossState.Moving,

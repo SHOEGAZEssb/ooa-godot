@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
             type.GetField("_ringBeforeCredits",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(owner,0x20);
             type.GetMethod("BeginScreen",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(owner,null);
             type.GetMethod("Profile",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(owner,["credits-scroll",0xa0]);
-            var screen=_scene.EndingScreen;new EndingScreenDatabase().ApplyPalette(0x9f,_world.BackgroundPalettes,_entities);
+            var screen=_endingScreen;new EndingScreenDatabase().ApplyPalette(0x9f,_world.BackgroundPalettes,_entities);
             screen.Load("credits-waving",retainGraphics:true);screen.SetScrollY(0x98);_transitions.SetCutsceneCameraOrigin(new(0x10,0x98));
             var seed=_random.CaptureState();var rom=new SomariaRom(_saveData,seed,_currentRoom,0,0,0)
                 {CompanionDispatchEnabled=true,PostObjectCollisionsEnabled=false,NativeGameKeysEnabled=true};

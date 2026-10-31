@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
             {
                 while(owner.State==2)StepGameplayUpdates(1,Vector2.Zero,afterUpdate:()=>
                 {rom.AdvanceWarpPalette();rom.AdvanceBlackTowerEnding();rom.UpdateCredits(++update);FailIf(owner.State!=rom[0xcbc2],"Credits sword caption must wait for white fade completion.");});
-                FailIf(owner.State!=3||_runtimeState.ReadWramByte(0xcbb3)!=90||rom[0xcbb3]!=90||!_scene.EndingScreen.Visible||
+                FailIf(owner.State!=3||_runtimeState.ReadWramByte(0xcbb3)!=90||rom[0xcbb3]!=90||!_endingScreen.Visible||
                     _entities.EntityAdapters<LinkedSwordRoomEntity>().Any()||_entities.EntityAdapters<NayruRescueActorRoomEntity>().Any()||_player.Visible||_player.IsAttacking,
                     "Credits caption $02 must retire actors, Link and item parents before its 90-update hold.");
             }

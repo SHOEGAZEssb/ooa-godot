@@ -8,15 +8,15 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCrownBoomerangCollisions()
     {
-        var data = BoomerangCollisionDatabase.For(AgesGameContent.AssetRoot);
-        FailIf(data.StunCounter != 120 || data.StunInvincibility != -16 || data.DeflectionInvincibility != -20,
+        var data = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
+        FailIf(BoomerangStatusDatabase.Shared.StunCounter != 120 || BoomerangStatusDatabase.Shared.StunInvincibility != -16 || BoomerangStatusDatabase.Shared.DeflectionInvincibility != -20,
             "Boomerang status must retain ENEMYDMG_$24/$28's independent literal counters.");
         foreach (var (mode, effect) in new[] { (0x11, 0x22), (0x17, 0x35), (0x1c, 0x35),
             (0x20, 0x1b), (0x22, 0x22), (0x1f, 9), (0x29, 0x22), (0x33, 0x0b),
             (0x37, 0x1b), (0x45, 0x1c), (0x63, 0), (0x74, 0x1b) })
-            FailIf(data.Effect(mode) != effect, $"Boomerang column$17 mode${mode:x2} must select source effect${effect:x2}.");
-        FailIf(data.EnemyEnabled(0x16) || data.EnemyEnabled(0x50) || data.EnemyEnabled(0x7c) ||
-            data.PartEnabled(0x1a) || !data.PartEnabled(0x2a),
+            FailIf(data.Effect(mode, ItemCollisionType.L1Boomerang) != effect, $"Boomerang column$17 mode${mode:x2} must select source effect${effect:x2}.");
+        FailIf(data.EnemyEnabled(0x16, ItemCollisionType.L1Boomerang) || data.EnemyEnabled(0x50, ItemCollisionType.L1Boomerang) || data.EnemyEnabled(0x7c, ItemCollisionType.L1Boomerang) ||
+            data.PartEnabled(0x1a, ItemCollisionType.L1Boomerang) || !data.PartEnabled(0x2a, ItemCollisionType.L1Boomerang),
             "Beamos, Fireball Shooter, Smog and enemy arrows reject this column; SpikedBall accepts it.");
         FailIf(BoomerangCollisionResponse.Midpoint(new(101, 99), new(80, 84)) != new Vector2(90, 91) ||
             BoomerangCollisionResponse.Midpoint(new(1, 1), new(255, 255)) != Vector2.Zero,
@@ -183,7 +183,7 @@ public sealed partial class ValidationRoot
                 var head = _entities.Entities<SpikedBallPart>().Single(p => p.SubId == 0);
                 if (full)
                     while (_entities.InteractionSlotAvailable)
-                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(208, 144), SoundId.MusNone));
+                        _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(208, 144), SoundId.MusNone));
                 int health = head.Health;
                 var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(head.Position, ObjectAngle.Right, head.ZHigh));
                 _sound.ClearPlayRequestAudit();

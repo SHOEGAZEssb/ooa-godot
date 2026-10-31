@@ -37,6 +37,7 @@ public partial class ValidationRoot
                 StepSomariaMotionRom(rom,count,batch,angle,held,pressed,afterUpdate:() =>
             {
                 string context = $"Mermaid keyhole${entrance.Group:x1}:${entrance.Room:x2}, ownership={ownership}, batch={batch}, update={++update}";
+                CompareKeyholeControlBytesRom(rom,context);
                 FailIf(allocation.Initialized != (rom[0xd244] != 0) || allocation.Finished || rom[0xd240] == 0,
                     context + ": placed controller initialization/lifetime differs.");
                 FailIf(_rooms.InformativeTextsShown != rom[0xccd7] || _dialogue.IsOpen != (rom[0xcba0] != 0),

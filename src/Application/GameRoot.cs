@@ -47,6 +47,22 @@ public partial class GameRoot : Node2D
         sound?.SelectContent(new OracleSoundData(OracleAssetPack.ForGame(_selectedGame)));
     }
 
+    public override void _ExitTree()
+    {
+        _gameplaySession?.Dispose();
+        _preparedGameplayScene?.Free();
+        _preparedGameplayScene = null;
+        _preparedSeasonsOpening?.Free();
+        _preparedSeasonsOpening = null;
+        _bootCancellation?.Cancel();
+        _bootCancellation?.Dispose();
+        _bootResourceSteps?.Dispose();
+        _gameplayPreparation?.Dispose();
+        // Stopping play does not commit the live WRAM-style save image to SRAM.
+        OracleGraphicsCache.ApplicationExitedTree();
+        _gameplayScriptResources.Clear();
+    }
+
     public override void _Ready()
     {
         _launchOptions = new LaunchOptions();
@@ -91,7 +107,12 @@ public partial class GameRoot : Node2D
             return;
         }
 
-        if (_selectedGame == OracleGame.Ages) HandleAgesDebugInput(@event);
+        if (_gameplayMenus?.HandleInput(@event) == true)
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        HandleGameplayDebugInput(@event);
     }
 
     internal void BeginGameSelect(GameSelectScreen screen)
@@ -252,11 +273,14 @@ public partial class GameRoot : Node2D
             _gameSelect.AdvanceFrame();
             return;
         }
-        if (_seasonsOpening is not null) { _seasonsOpening.AdvanceFrame(); return; }
         if (_bootLoading is not null) return;
         if (_loadingSavedGame) return;
-        if (_selectedGame == OracleGame.Ages) AdvanceAgesApplicationState();
-        else _mainMenu?.Update(delta);
+        if (_frontendIntro is not null) { _frontendIntro.Update(delta); return; }
+        if (_mainMenu is not null) { _mainMenu.Update(delta); return; }
+        if (_newGameIntro is not null) { AdvancePregameFrame(); return; }
+        AdvanceDebugSavestateStatus(delta);
+        _gameplaySession?.Advance();
+        UpdateRoomDebugLabel();
     }
 
     // File-menu and gameplay commits share the same persistence boundary.

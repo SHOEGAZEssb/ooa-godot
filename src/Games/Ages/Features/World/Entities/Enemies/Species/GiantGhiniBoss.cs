@@ -30,6 +30,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
     private Action _disableLinkCollisionsAndMenu = null!;
     private Action _restoreRoomMusic = null!;
     private bool _initialized;
+    private Action _initializeBossRoom = null!;
     private bool _introDoorsClosed;
     private bool _dying;
     private int _deathCounter;
@@ -54,7 +55,8 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         Func<bool> shuttersClosed,
         Action disableLinkCollisionsAndMenu,
         Action restoreRoomMusic,
-        Func<Vector2,Vector2> worldToScreen)
+        Func<Vector2,Vector2> worldToScreen,
+        Action initializeBossRoom)
     {
         AssetRoot = record.AssetRoot;
         Record = record;
@@ -68,7 +70,18 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         _disableLinkCollisionsAndMenu = disableLinkCollisionsAndMenu;
         _restoreRoomMusic = restoreRoomMusic;
         _worldToScreen = worldToScreen;
+        _initializeBossRoom = initializeBossRoom;
         Visible = true;
+    }
+
+    internal void PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_initialized) return;
+        _random.Next(); // enemyStandardUpdate's common var3d initialization.
+        _initialized = true;
+        _counter = 120;
+        _initializeBossRoom();
+        SpawnChildren(spawns);
     }
 
     internal void UpdateFrame(
@@ -80,11 +93,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         BeginFrame();
         if (!_initialized)
         {
-            _random.Next(); // enemyStandardUpdate's common var3d initialization.
-            _initialized = true;
-            _counter = 120;
-            _playSound(SoundId.SndCtrlStopMusic);
-            SpawnChildren(spawns);
+            PrepareForScreenTransition(spawns);
             return;
         }
         if (_dying)

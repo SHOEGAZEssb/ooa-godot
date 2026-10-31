@@ -7,7 +7,7 @@ namespace Oracles;
 /// INTERAC_RALPH $37:$03 and ralphSubid03Script after giving Rafton the rope.
 /// </summary>
 internal sealed class RalphAfterRaftonEvent :
-    InteractiveCutsceneCommandHost,
+    RoomCutsceneCommandHost,
     IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
@@ -96,7 +96,8 @@ internal sealed class RalphAfterRaftonEvent :
         _speedZ = 0;
         _active = true;
         _menusDisabled = _record.MenuDisabled != 0;
-        SetInputEnabled(enabled: false);
+        SetDisabledObjects(0x01);
+        SetNativeMenuDisabled(0x01);
 
         // ralphState0 returns after initialization instead of dispatching
         // ralphSubid03, so this imported count is normally zero.

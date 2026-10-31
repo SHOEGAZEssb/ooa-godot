@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
     private void CompareMapFramePixelsRom(MenuRom rom, ref Texture2D? previousBackground,
         ref byte[]? previousCommands, string context)
     {
-        var background = (Texture2D)typeof(AgesMapScreen).GetField("_background",
+        var background = (Texture2D)typeof(MapScreen).GetField("_background",
             BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_mapScreen)!;
         int count = Math.Min(40, rom[0xff9f] / 4);
         byte[] commands = Enumerable.Range(0, count * 4).Select(offset => rom[0xcb00 + offset]).ToArray();

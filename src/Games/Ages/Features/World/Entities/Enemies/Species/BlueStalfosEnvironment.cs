@@ -10,4 +10,4 @@ internal sealed record BlueStalfosEnvironment(OracleRoomData Room, OracleRandom 
     Func<BlueStalfosCharacter, bool> Shadow, Func<Vector2, int, int> Puff,
     Func<int, int> PuffParameter, Func<BlueStalfosCharacter, bool> Projectile,
     Action DisableLinkCollisionsAndMenu, Func<BlueStalfosCharacter, bool> Explosion,
-    Action RestoreMusic, Action<int> Sound, BossEntryMovement Entry);
+    Action RestoreMusic, Action<int> Sound);

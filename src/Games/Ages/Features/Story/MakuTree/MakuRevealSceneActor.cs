@@ -78,7 +78,7 @@ internal sealed class MakuRevealSceneActor : RoomCutsceneCommandHost, IRoomEntit
     public override void RunNativeHandler(string handler)
     {
         if (handler != "Exclamation") throw UnsupportedCommand(handler);
-        if (Context.Entities.InteractionSlotAvailable) Context.Entities.CreatePalaceExclamation(_actor.Position + new Vector2(0, -13), 40);
+        if (Context.Entities.InteractionSlotAvailable) Context.Entities.TryCreateExclamation(_actor.Position + new Vector2(0, -13), 40);
     }
     public override void ScriptEnded() { }
 }

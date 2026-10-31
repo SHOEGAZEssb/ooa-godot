@@ -10,7 +10,12 @@ public sealed class PegasusSeedState
     internal string AssetRoot => _inventory.AssetRoot;
     internal PegasusSeedRecord Data { get; }
     internal PegasusSeedState(InventoryState inventory, RoomEntityManager entities)
-    { _inventory = inventory; _entities = entities; Data = PegasusSeedRecord.Load(AssetRoot); }
+    {
+        if (inventory.AssetRoot != entities.AssetRoot || !ReferenceEquals(inventory.RuntimeState, entities.RuntimeState) ||
+            !ReferenceEquals(inventory.SaveData, entities.SaveData))
+            throw new ArgumentException("Pegasus requires the selected inventory, save and runtime owners.");
+        _inventory = inventory; _entities = entities; Data = PegasusSeedRecord.Load(AssetRoot);
+    }
 
     internal int RawCounter
     {

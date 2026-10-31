@@ -17,13 +17,15 @@ public partial class SaveQuitScreen : Node2D
     // These ten finished backgrounds depend only on packaged graphics, maps,
     // and palettes. Publish the complete set after staged preparation; never
     // share cursor, options, error, or other live menu state.
-    private static (Texture2D Standard, Texture2D GameOver, Texture2D[] Options)?
-        _sharedBackgrounds;
+    private static readonly Dictionary<string, (Texture2D Standard, Texture2D GameOver, Texture2D[] Options)>
+        SharedBackgrounds = new(StringComparer.Ordinal);
+    static SaveQuitScreen() => OracleGraphicsCache.RegisterApplicationCache(SharedBackgrounds.Clear);
     private Texture2D _standardBackground = null!;
     private Texture2D _gameOverBackground = null!;
     private Texture2D _background = null!;
     private Image _fileSprites = null!;
     private Color[,] _spritePalette = null!;
+    private IReadOnlyDictionary<string, IReadOnlyList<MenuOamPart>> _fileOam = null!;
     private Label _saveError = null!;
     private int _delayCounter;
     private readonly Texture2D[] _optionsBackgrounds = new Texture2D[8];
@@ -71,7 +73,8 @@ public partial class SaveQuitScreen : Node2D
         if (_resourcesPrepared) yield break;
         _fileSprites = LoadPng(AssetRoot + "menu/spr_fileselect_decorations.png");
         _spritePalette = LoadPalette(AssetRoot + "menu/palette_file_sprites.bin");
-        if (_sharedBackgrounds is { } shared)
+        _fileOam = FileMenuPresentation.LoadOam(AssetRoot);
+        if (SharedBackgrounds.TryGetValue(AssetRoot, out var shared))
         {
             _standardBackground = shared.Standard;
             _gameOverBackground = shared.GameOver;
@@ -79,11 +82,11 @@ public partial class SaveQuitScreen : Node2D
         }
         else
         {
-            _standardBackground = new NativeMenuPresentation(AssetRoot).BuildBackground(gameOver: false);
+            using Texture2D template = new NativeMenuPresentation(AssetRoot).BuildBackground(gameOver: false);
             yield return false;
             _gameOverBackground = new NativeMenuPresentation(AssetRoot).BuildBackground(gameOver: true);
             yield return false;
-            using (Image original = _standardBackground.GetImage())
+            using (Image original = template.GetImage())
             {
                 for (int i = 0; i < 8; i++)
                 {
@@ -93,7 +96,7 @@ public partial class SaveQuitScreen : Node2D
                 }
                 _standardBackground = new NativeMenuPresentation(AssetRoot).BuildSave(original);
             }
-            _sharedBackgrounds = (_standardBackground, _gameOverBackground,
+            SharedBackgrounds[AssetRoot] = (_standardBackground, _gameOverBackground,
                 (Texture2D[])_optionsBackgrounds.Clone());
         }
         _background = _standardBackground;
@@ -195,11 +198,11 @@ public partial class SaveQuitScreen : Node2D
             return;
         DrawTexture(_background, Vector2.Zero);
         FileMenuPresentation.DrawDecorations(
-            this, _fileSprites, _spritePalette, MenuPresentationDatabase.For(AssetRoot).FileOam("decorations"));
+            this, _fileSprites, _spritePalette, _fileOam["decorations"]);
         if (!SaveErrorVisible && (DelayCounter & 0x04) == 0)
         {
             MenuOamPart acorn =
-                MenuPresentationDatabase.For(AssetRoot).FileOam("save-quit-acorn")[0];
+                _fileOam["save-quit-acorn"][0];
             OracleTileRenderer.DrawOamTile(
                 this,
                 _fileSprites,

@@ -12,7 +12,7 @@ internal sealed class CheepCheepRoomEntity
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy,
                 enemy.Record.DamageQuarters, enemy.TakeSwordHit, enemy.TakeBurnHit,
-                enemy.ApplySwordKnockback, soundRequested, EnemySwordResponse.Knockback))
+                enemy.ApplySwordKnockback, soundRequested))
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>

@@ -180,8 +180,9 @@ public sealed class DungeonMapDatabase
                 _dungeonByRoom[(group, room)] = -1;
             }
         }
-        if (_dungeons.Count != 16)
-            throw new InvalidOperationException($"Expected 16 dungeon map layouts, got {_dungeons.Count}.");
+        int expected = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages ? 16 : 12;
+        if (_dungeons.Count != expected)
+            throw new InvalidOperationException($"{AssetRoot}: expected {expected} native dungeon map layouts, got {_dungeons.Count}.");
     }
 }
 

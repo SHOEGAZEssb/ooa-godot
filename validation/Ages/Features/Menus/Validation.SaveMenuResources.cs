@@ -1,11 +1,12 @@
 using Godot;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace Oracles;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidateSaveMenuBackgroundIsolation()
+    private async Task ValidateSaveMenuBackgroundIsolation()
     {
         // Pixel hashes captured before sharing resources: ordinary save,
         // game over, then all eight port-options flag combinations. These
@@ -21,20 +22,37 @@ public sealed partial class ValidationRoot
         ];
         var first = new SaveQuitScreen { AssetRoot = AgesGameContent.AssetRoot };
         var second = new SaveQuitScreen { AssetRoot = AgesGameContent.AssetRoot };
+        var seasons = new SaveQuitScreen { AssetRoot = SeasonsGameContent.AssetRoot };
+        var seasonsSecond = new SaveQuitScreen { AssetRoot = SeasonsGameContent.AssetRoot };
         AddChild(first);
         AddChild(second);
+        AddChild(seasons);
+        AddChild(seasonsSecond);
         try
         {
+            // code/bank2.s:saveQuitMenu_drawSprites@acornSprite, shared by both US builds.
+            foreach (string pack in new[] { AgesGameContent.AssetRoot, SeasonsGameContent.AssetRoot })
+            {
+                MenuOamPart acorn = FileMenuPresentation.LoadOam(pack)["save-quit-acorn"][0];
+                FailIf(acorn.Y != 0x48 || acorn.X != 0x29 || acorn.Tile != 0x28 || acorn.Attributes != 0x04,
+                    $"{pack}: native save-menu OAM must preserve $48,$29,$28,$04.");
+            }
             for (int variant = 0; variant < 10; variant++)
             {
                 Select(first, variant);
                 Select(second, variant);
+                Select(seasons, variant);
+                Select(seasonsSecond, variant);
                 Texture2D firstTexture = Background(first);
                 Texture2D secondTexture = Background(second);
+                Texture2D seasonsTexture = Background(seasons);
                 using Image pixels = (Image)firstTexture.GetImage().Duplicate();
                 ulong hash = OracleGraphicsCache.PixelHash(pixels);
                 FailIf(firstTexture.GetInstanceId() != secondTexture.GetInstanceId(),
                     $"Save menu variant {variant} rebuilt an immutable background.");
+                FailIf(seasonsTexture.GetInstanceId() != Background(seasonsSecond).GetInstanceId() ||
+                    seasonsTexture.GetInstanceId() == firstTexture.GetInstanceId(),
+                    $"Save menu variant {variant} must share immutable resources within its pack, without retaining another game's resource set.");
                 FailIf(hash != expected[variant] ||
                     first.BackgroundPixelHash != second.BackgroundPixelHash ||
                     !first.BackgroundIsOpaque || !second.BackgroundIsOpaque,
@@ -42,6 +60,16 @@ public sealed partial class ValidationRoot
                 // Exercise reader disposal before inspecting the shared texture again.
                 FailIf(second.BackgroundPixelHash != hash,
                     $"Save menu variant {variant} lost its pixels after an opacity read.");
+                // The native save maps, graphics and palettes are common source;
+                // the HUD sheets differ but none of their differing cells is used here.
+                FailIf(seasons.BackgroundPixelHash != expected[variant] ||
+                    seasonsSecond.BackgroundPixelHash != expected[variant] || !seasons.BackgroundIsOpaque,
+                    $"Seasons save menu variant {variant} did not preserve the native common panel and port options.");
+                if (DisplayServer.GetName() != "headless")
+                {
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                    await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                }
             }
             first.Open();
             second.Open();
@@ -51,7 +79,8 @@ public sealed partial class ValidationRoot
             first.OpenOptions();
             first.Move(1);
             FailIf(second.Cursor != 0 || second.OptionsOpen || second.OptionsCursor != 0 ||
-                second.SaveErrorVisible || second.DelayCounter != 0,
+                second.SaveErrorVisible || second.DelayCounter != 0 || seasons.SaveErrorVisible ||
+                seasons.OptionsCursor != 0 || seasons.DelayCounter != 0,
                 "Save menu instances shared mutable menu state.");
             first.Free();
             second.Open(gameOver: true);
@@ -62,6 +91,8 @@ public sealed partial class ValidationRoot
         {
             if (GodotObject.IsInstanceValid(first)) first.Free();
             second.Free();
+            seasons.Free();
+            seasonsSecond.Free();
         }
 
         static void Select(SaveQuitScreen screen, int variant)

@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             LoadValidationRoom(2, 0x2f);
             PostmanCharacter postman = _entities.Entities<PostmanCharacter>().Single();
-            PostmanScriptHost host = _interactions.NpcScriptsForValidation.Postman;
+            PostmanScriptHost host = _interactions.AgesScripts().Postman;
             var motion = new ScriptMovementPublicationTrace(_runtimeState, source => source.Opcode != "move" ? null : source.CommandIndex switch
             {
                 18 => (0x50, 0x08, SomariaPrivate<Vector2>(postman, "_precisePosition")),
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
                 _ => throw new InvalidOperationException("postmanScript has an unexpected movement entry.")
             });
             var trace = new ValidationCutsceneTrace { Forward = motion };
-            _interactions.NpcScriptsForValidation.TraceSink = trace;
+            _interactions.AgesScripts().TraceSink = trace;
             _entities.AddEntity(new PartMovementScratchProbe(() =>
             { for (int i=0;i<4;i++) _runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i)); }));
             var observations = new List<string>();
@@ -93,7 +93,8 @@ public sealed partial class ValidationRoot
                 int animation = postman.CurrentAnimationFrame;
                 double ticks = NpcAnimationTicks(postman);
                 StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-                FailIf(!_dialogue.IsOpen || !host.InputDisabled || !_player.CutsceneControlled,
+                FailIf(!_dialogue.IsOpen || !host.InputDisabled || _player.CutsceneControlled ||
+                    _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                     "Postman's A probe was not consumed in its eligible object slot.");
                 FailIf(postman.CurrentAnimationFrame != (animation + (int)(ticks + 1) / 16) % 2 ||
                     NpcAnimationTicks(postman) != (ticks + 1) % 16,
@@ -198,7 +199,7 @@ public sealed partial class ValidationRoot
                     "Final Postman wait moved the actor or granted Stationery early.");
             }
             Step();
-            GroundTreasurePickup reward = _interactions.PostmanTreasureForValidation ??
+            GroundTreasurePickup reward = _interactions.AgesScripts().PostmanTreasure ??
                 throw new InvalidOperationException("Postman final wait did not grant Stationery on zero.");
             FailIf(_inventory.TradeItem != 1 || !_saveData.HasRoomFlag(2, 0x2f, 0x20) || postman.Active ||
                 !reward.Held || reward.Record.TreasureObject != "TREASURE_OBJECT_TRADEITEM_01" ||
@@ -212,7 +213,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             Step(2);
             FailIf(host.HasState || host.InputDisabled || _player.CutsceneControlled || _player.IsHoldingItemTwoHands ||
-                _interactions.PostmanTreasureForValidation is not null || _entities.Entities<GroundTreasurePickup>().Count != 0,
+                _interactions.AgesScripts().PostmanTreasure is not null || _entities.Entities<GroundTreasurePickup>().Count != 0,
                 "Postman completion retained a runner, input lease, held pose, or treasure node.");
             Animation(finalCalls); // flag suppression and scriptend do not run a tail
             FailIf(motion.Visited.Count!=2||motion.MotionVisits!=84,
@@ -249,7 +250,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(0x41, 0);
             LoadValidationRoom(2, 0x2f);
             PostmanCharacter postman = _entities.Entities<PostmanCharacter>().Single();
-            PostmanScriptHost host = _interactions.NpcScriptsForValidation.Postman;
+            PostmanScriptHost host = _interactions.AgesScripts().Postman;
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
             if (cancelAt == 0)
             {
@@ -275,7 +276,7 @@ public sealed partial class ValidationRoot
             if (cancelAt >= 3) Step(35); // held reward
             FailIf(cancelAt == 0 && postman.Leaving || cancelAt == 1 && host.MovementCounter == 0 ||
                 cancelAt == 2 && (host.MovementCounter != 0 || host.Counter != 29) ||
-                cancelAt == 3 && _interactions.PostmanTreasureForValidation is not { Held: true },
+                cancelAt == 3 && _interactions.AgesScripts().PostmanTreasure is not { Held: true },
                 $"Postman cancellation fixture missed phase {cancelAt}.");
             if (cancelAt == 1)
             {
@@ -300,7 +301,7 @@ public sealed partial class ValidationRoot
                     "Postman death gate did not freeze counter2 while retaining its native tail.");
                 death.SetValue(_player, false);
             }
-            GroundTreasurePickup? held = _interactions.PostmanTreasureForValidation;
+            GroundTreasurePickup? held = _interactions.AgesScripts().PostmanTreasure;
             bool completed = _saveData.HasRoomFlag(2, 0x2f, 0x20);
             if (batched)
             {
@@ -318,7 +319,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(2, 0x30);
             Step(2);
             FailIf(host.HasState || host.InputDisabled || _player.CutsceneControlled || _player.IsHoldingItemTwoHands ||
-                _interactions.PostmanTreasureForValidation is not null || _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+                _interactions.AgesScripts().PostmanTreasure is not null || _entities.Entities<GroundTreasurePickup>().Count != 0 ||
                 postman.ScriptButtonSensitive || held is { Held: true },
                 $"Postman cancellation phase {cancelAt} retained resources.");
             LoadValidationRoom(2, 0x2f);

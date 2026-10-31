@@ -41,6 +41,7 @@ internal sealed class MiscellaneousTreasureRoomEntity(
         ICollection<RoomEntitySpawn> spawns)
     {
         _ = spawns;
+        bool heldItemFinished = Entity.Finished;
         if (!_initialized)
         {
             // $6b state 0 loads the script, then falls through to state 1.
@@ -53,14 +54,17 @@ internal sealed class MiscellaneousTreasureRoomEntity(
             Entity.UpdateFrame(frame.Player);
         }
 
-        if (!_collectionStarted || !Entity.Finished)
+        if (!_collectionStarted || !heldItemFinished)
             return;
         if (!_postGrantHandled)
         {
-            // giveitem blocks until its held-item presentation finishes. Any
-            // following script command executes before the wait counter.
+            // Resume the producer after its $60 child has finished. Following
+            // commands execute before wait30's first decrement.
             postGrantCompleted?.Invoke();
             _postGrantHandled = true;
+            // The producer's script visit precedes the $60 child's deletion;
+            // its following visit installs wait30 without decrementing it.
+            return;
         }
         _postGrantCounter++;
         if (_postGrantCounter >= postGrantWait)

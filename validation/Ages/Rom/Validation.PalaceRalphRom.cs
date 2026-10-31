@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(1, 0x36);
             _player.WarpTo(new(0x50, 0x7f));
             FailIf(_collision.Collides(_player.Position), "Ralph scroll approach must use the $1:$36 south aisle.");
-            _transitions.BeginScroll(_player, Vector2I.Down, 0x46);
+            _transitions.BeginValidationScroll(_player, Vector2I.Down, 0x46);
             StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batched);
             _inventory.EquipA(0); _inventory.EquipB(0);
             NpcCharacter ralph = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x37);

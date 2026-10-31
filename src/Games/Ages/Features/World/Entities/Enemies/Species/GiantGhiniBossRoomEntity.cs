@@ -6,13 +6,11 @@ namespace Oracles;
 
 internal sealed class GiantGhiniBossRoomEntity
     : CombatEnemyRoomEntityAdapter<GiantGhiniBoss>, IFixedRoomEntity,
-        IPlayerRestriction, IPlayerForcedMovement
+        IPlayerRestriction, IScreenTransitionPreloadRoomEntity
 {
-    private readonly BossEntryMovement _entryMovement;
-    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
-    private bool _initialized;
+    protected override int GaleCollisionMode => ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
 
-    public GiantGhiniBossRoomEntity(GiantGhiniBoss boss, Vector2I entryDirection)
+    public GiantGhiniBossRoomEntity(GiantGhiniBoss boss)
         : base(
             boss, boss.SetTransitionDrawOffset,
             EnemyCombatDescriptor.Special(
@@ -31,7 +29,6 @@ internal sealed class GiantGhiniBossRoomEntity
                     RoomEnemyOutcome.BossTeardown(
                         killableEnemyIndex: 0)))
     {
-        _entryMovement = new BossEntryMovement(entryDirection);
     }
 
     public bool DisablesSword => false;
@@ -43,12 +40,12 @@ internal sealed class GiantGhiniBossRoomEntity
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         Entity.UpdateFrame(frame.Player, spawns);
-        if (_initialized)
-            return;
-        _initialized = true;
-        _entryMovement.Arm();
     }
 
-    public void UpdatePlayerForcedMovement(Player player) =>
-        _entryMovement.Update(player);
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.PrepareForScreenTransition(spawns);
+        return ScreenTransitionPresentation.Visible;
+    }
+
 }

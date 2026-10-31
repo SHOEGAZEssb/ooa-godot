@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
             rom[0xcc01]=1;rom[0xcc03]=1;rom[0xcd17]=0xd0;
             foreach(var pair in new[]{(0xc2ef,10),(0xcbc1,2),(0xcbc2,2),(0xcbb3,1),(0xcbb4,0),(0xcfdf,255),(0xc486,0x70),(AgesWramAddress.wTilesetAnimation,255)})
             {_runtimeState.SetWramByte(pair.Item1,(byte)pair.Item2);rom[pair.Item1]=(byte)pair.Item2;}
-            _scene.EndingScreen.SetScrollY(0x70);_transitions.SetCutsceneCameraOrigin(new(0x10,0));rom[0xffac]=0x10;rom[0xffaa]=0;
+            _endingScreen.SetScrollY(0x70);_transitions.SetCutsceneCameraOrigin(new(0x10,0));rom[0xffac]=0x10;rom[0xffaa]=0;
             int update=0;bool sawGlow=false,sawWave=false,sawReplacement=false;var sounds=_sound.AttachPlayRequestAudit();
             var pictures=new HashSet<int>();var checkedCells=new HashSet<(int,int,int)>();
             while(update<2200&&owner.Stage==2&&!(fixture==2&&sawGlow)&&!(fixture==3&&sawWave))
@@ -32,7 +32,7 @@ public sealed partial class ValidationRoot
             _sound.SetRequestObserver(null);
             FailIf(update>=2200||!sawGlow||fixture<2&&(!sawWave||!sawReplacement||owner.Stage!=3),"Linked staff roll must finish the Triforce, waving actors and replacement map.");
             owner.Cancel();
-            FailIf(_entities.EntityAdapters<CreditsSceneActorRoomEntity>().Any()||_scene.EndingScreen.ObjectOam.Count!=0||
+            FailIf(_entities.EntityAdapters<CreditsSceneActorRoomEntity>().Any()||_endingScreen.ObjectOam.Count!=0||
                 _transitions.WorldToGameplayScreen(Vector2.Zero)!=Vector2.Zero||!_hud.Visible,"Cancelling linked staff roll must release sprites, camera and presentation.");
             void Compare()
             {
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
                 }
                 sawGlow|=actors.Count(actor=>actor.Id==0x4a&&actor.Subid==10)==9;sawWave|=actors.Count(actor=>actor.Id==0xcf)==3;
                 sawReplacement|=owner.State==7&&rom[0xc486]>=0x60;
-                var screen=_scene.EndingScreen;var offset=screen.OamOffset;
+                var screen=_endingScreen;var offset=screen.OamOffset;
                 int scene=owner.State<6?0:rom[0xc486]<0x60?1:2;
                 if(!_transitions.NativePaletteFadeActive&&pictures.Add(scene))
                 {
@@ -66,7 +66,7 @@ public sealed partial class ValidationRoot
                         FailIf(color.A!=1||rgb!=menu.HudColor(false,flags&7,shade),$"Staff roll scene{scene} pixel{x},{y} differs from native map/palette.");
                     }
                 }
-                var parts=screen.Parts.Select(part=>new IntroOamPart((part.Y+offset.Y)&255,(part.X+offset.X)&255,part.Tile,part.Flags))
+                var parts=screen.Parts.Select(part=>new ObjectSpritePart((part.Y+offset.Y)&255,(part.X+offset.X)&255,part.Tile,part.Flags))
                     .Where(part=>part.Y<160&&part.X<168).Concat(screen.ObjectOam).ToArray();
                 FailIf(parts.Length!=rom[0xff9f]/4,$"Linked staff roll update{update}: OAM count{parts.Length}/{rom[0xff9f]/4}.");
                 for(int index=0;index<parts.Length;index++)

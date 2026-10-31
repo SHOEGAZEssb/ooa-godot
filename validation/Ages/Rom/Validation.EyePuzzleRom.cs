@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
             int calls = _random.Calls, updates = 0;
             StepGameplayUpdates(66, Vector2.Zero, batched: batched, afterUpdate: () =>
             {
-                rom.UpdateGameplay(0, 0, 0xff, (rom[0xcc00] + 1) & 0xff);
+                rom.UpdateGameplay(0, 0, 0xff, _saveData.ReadField("wPlaytimeCounter"));
                 updates++;
                 var eyes = _entities.EntityAdapters<EyePuzzleStatueRoomEntity>().ToArray();
                 int nativeEyes = Enumerable.Range(0, 16).Count(slot =>
@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
         for (int correct = 0; correct < 4; correct++)
         for (int direction = 0; direction < 4; direction++)
         {
-            var memory = AgesGameContent.CreateRuntimeState();
+            var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
             memory.SetWramByte(0xcc37, (byte)count); memory.SetWramByte(0xcc38, 0x55);
             memory.SetWramByte(0xcca5, (byte)correct);
             native[0xcc37] = (byte)count; native[0xcc38] = 0x55;
@@ -111,10 +111,10 @@ public sealed partial class ValidationRoot
         _entities.RuntimeState.SetWramByte(0xcc37, 3);
         _entities.RuntimeState.SetWramByte(0xcca5, 1);
         for (int probe = 0; probe < 3; probe++)
-            FailIf(!_transitions.TryGetScreenTransitionDestinationForValidation(Vector2I.Right, out int destination) ||
+            FailIf(!_transitions.TryGetScreenTransitionDestination(Vector2I.Right, out int destination) ||
                 destination != 0xf3 || _entities.RuntimeState.ReadWramByte(0xcc37) != 3,
                 "Eye maze repeated collision probes changed progress or lost the self-scroll destination.");
-        _transitions.BeginScroll(_player, Vector2I.Right, 0xf3);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0xf3);
         FailIf(_entities.RuntimeState.ReadWramByte(0xcc37) != 4,
             "Eye maze actual self-scroll did not commit exactly one successful direction.");
         int scrollUpdates = 0;
@@ -125,7 +125,7 @@ public sealed partial class ValidationRoot
         StepGameplayUpdates(66, Vector2.Zero);
         _entities.RuntimeState.SetWramByte(0xcc37, 5);
         _entities.RuntimeState.SetWramByte(0xcca5, 0);
-        FailIf(!_transitions.TryGetScreenTransitionDestinationForValidation(Vector2I.Up, out int finalRoom) || finalRoom != 0xf2,
+        FailIf(!_transitions.TryGetScreenTransitionDestination(Vector2I.Up, out int finalRoom) || finalRoom != 0xf2,
             "Eye maze completed north exit did not resolve through imported dungeon $0a layout.");
         int solveRequests = _sound.PlayRequestsFor(SoundId.SndSolvePuzzle);
         _player.WarpTo(new(0x78,24));

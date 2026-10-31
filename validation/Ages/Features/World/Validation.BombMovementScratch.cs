@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa1);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            var data = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+            var data = new BombDatabase(AgesGameContent.AssetRoot).Data;
             Vector2? start = null;
             for (int y = 40; y < 128 && start is null; y++)
             for (int x = 24; x < 216; x++)

@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             }
             // Other parsed producers and RNG/slot counts are excluded here;
             // the native per-controller capacity/retry fixture is separate.
-            _entities.Update(1.0/60.0,_player); rom.AdvanceInteractions(_entities.FrameCounter);
+            _entities.AdvanceEntityFrames(1.0/60.0,_player); rom.AdvanceInteractions(_entities.FrameCounter);
             FailIf(CountNative() != 0 || CountSource() != 0,
                 "Collected pattern controller must delete on its first pass, without spawning a treasure.");
         }

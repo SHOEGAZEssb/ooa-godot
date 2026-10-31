@@ -92,9 +92,9 @@ public sealed partial class ValidationRoot
                     "Biggoron must cast and complete again after the jinx expires.");
             }
         }
-        var collision=new ObjectCollisionRom(); var data=BiggoronSwordCollisionDatabase.For(AgesGameContent.AssetRoot);
+        var collision=new ObjectCollisionRom(); var data=ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
         for(int mode=0;mode<0x7d;mode++)
-            FailIf(data.Effect(mode)!=collision.Table(0x6d0a+mode*32+7),$"Biggoron native collision mode ${mode:x2} differs.");
+            FailIf(data.Effect(mode, ItemCollisionType.BiggoronSword)!=collision.Table(0x6d0a+mode*32+7),$"Biggoron native collision mode ${mode:x2} differs.");
         foreach(bool part in new[]{false,true})
         for(int type=0;type<(part?0x5a:128);type++)
         {
@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
             collision[0xd624]=0x87; collision[0xd626]=collision[0xd627]=11; collision[0xd628]=0xfb;
             collision.Call(ObjectCollisionRom.Scan);
             bool dispatched=collision.Dispatches.Any(entry=>entry.Type==7);
-            FailIf(dispatched!=(part?data.PartEnabled(type):data.EnemyEnabled(type)),
+            FailIf(dispatched!=(part?data.PartEnabled(type, ItemCollisionType.BiggoronSword):data.EnemyEnabled(type, ItemCollisionType.BiggoronSword)),
                 $"Biggoron native {(part?"part":"enemy")} active mask ${type:x2} differs.");
         }
         CompareBiggoronSwordContactsRom();

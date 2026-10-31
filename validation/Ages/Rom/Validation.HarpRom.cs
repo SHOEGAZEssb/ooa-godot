@@ -51,7 +51,7 @@ public sealed partial class ValidationRoot
             .SelectMany(y => Enumerable.Range(1, _currentRoom.WidthInTiles - 2).Select(x => new Vector2(x * 16 + 8, y * 16 + 8)))
             .First(point => !_collision.Collides(point) &&
                 landing.CanStandOnTile(_currentRoom, point, false) &&
-                !WarpDatabase.IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(point)) &&
+                !WarpDatabase.For(AgesGameContent.AssetRoot).IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(point)) &&
                 (group > 1 || landing.CanStandOnTile(_rooms.GetRoom(group ^ 1, room), point, false)));
         _player.WarpTo(position, recordSafe: false);
         _player.Face(Vector2I.Down);
@@ -75,8 +75,8 @@ public sealed partial class ValidationRoot
                 _inventoryMenu.IsActive || _mapMenu.IsActive, $"{context}: playback input escaped its owner.");
             if (playing)
             {
-                var frames = (IntroSpriteFrame[])typeof(Player).GetField("_harpFrames", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
-                IntroSpriteFrame frame = frames[_player.HarpPoseFrame];
+                var frames = (ObjectSpriteFrame[])typeof(Player).GetField("_harpFrames", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
+                ObjectSpriteFrame frame = frames[_player.HarpPoseFrame];
                 FailIf(frame.SourceOffset != 0 || !frame.Parts.SequenceEqual(rom.LinkParts),
                     $"{context}: Link retained graphic/OAM differs (runtime frame={_player.HarpPoseFrame}).");
             }
@@ -84,14 +84,14 @@ public sealed partial class ValidationRoot
                 $"{context}: ordered global RNG differs.");
             FailIf(!audit.Requests.SequenceEqual(rom.Sounds), $"{context}: sound requests differ: {string.Join(',', audit.Requests)} / {string.Join(',', rom.Sounds)}.");
             int[] slots = rom.Notes;
-            var notes = _entities.Entities<NpcCharacter>().Where(n => n.Active && n.Name.ToString().StartsWith("PlayableHarpMusicNote", StringComparison.Ordinal)).ToArray();
+            var notes = _entities.EntityAdapters<FloatingMusicNoteRoomEntity>().Where(n => !n.Finished && n.Node.Name.ToString().StartsWith("PlayableHarpMusicNote", StringComparison.Ordinal)).ToArray();
             FailIf(notes.Length != slots.Length || _harp.NoteSpawnCount != rom.NoteCount,
                 $"{context}: note count differs runtime={notes.Length}/{_harp.NoteSpawnCount}, ROM={slots.Length}/{rom.NoteCount}.");
             foreach (int address in slots)
             {
-                var note = notes.Single(n => n.Name == $"PlayableHarpMusicNote{rom.NoteSerial(address)}");
+                var note = notes.Single(n => n.Node.Name == $"PlayableHarpMusicNote{rom.NoteSerial(address)}");
                 Vector2 expected = new(rom.Word(address + 0x0c) / 256.0f, rom.Word(address + 0x0a) / 256.0f);
-                FailIf(note.Position != expected, $"{context}: INTERAC_FLOATING_IMAGE ${address:x4} position runtime={note.Position}, ROM={expected}.");
+                FailIf(note.PrecisePosition != expected, $"{context}: INTERAC_FLOATING_IMAGE ${address:x4} position runtime={note.PrecisePosition}, ROM={expected}.");
             }
             FailIf(_interactions.DialogueOpen != (rom[0xcba0] != 0) || _transitions.TimeWarpActive != (rom[0xcc04] == 0x1b),
                 $"{context}: tune effect text/timewarp differs, ROM text=${rom[0xcba0]:x2}, trigger=${rom[0xcc04]:x2}.");
@@ -117,7 +117,7 @@ public sealed partial class ValidationRoot
             string[] Actions(int mask) => new[] { "attack", "item", "map", "inventory", "move_right", "move_left", "move_up", "move_down" }
                 .Where((_, bit) => (mask & (1 << bit)) != 0).ToArray();
             int edge = pressed;
-            StepGameplayUpdates(count, movement ?? Vector2.Zero, Actions(held), Actions(pressed), batched, () =>
+            StepGameplayUpdates(count, movement ?? Vector2.Zero, Actions(held | pressed), Actions(pressed), batched, () =>
             {
                 rom.Update(edge, held, _entities.FrameCounter); edge = 0; update++;
                 Compare();
@@ -140,7 +140,7 @@ public sealed partial class ValidationRoot
         FailIf(_player.IsUsingHarp || rom[0xd500] != 0, "Harp retained its parent beyond native completion.");
         if (!DialogueOpen && !IsTransitioning)
         {
-            Step(1, held: button); // Completed signal is cleared by the next Link update.
+            Step(1); // Clear the completed signal without starting another performance.
             Step(1);
             Step(1, button, button);
             Step(259);

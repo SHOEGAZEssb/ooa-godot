@@ -6,7 +6,7 @@ using System.Linq;
 namespace Oracles;
 
 /// <summary>INTERAC_PLEN $cc:$00 and scriptHelp.plenSubid0Script.</summary>
-internal sealed class PlenEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent,
+internal sealed class PlenEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
     public override RoomEventContext Context { get; }
@@ -22,7 +22,6 @@ internal sealed class PlenEvent : InteractiveCutsceneCommandHost, IRoomEntryEven
     internal Func<int, Action<bool>, bool>? OpenSecretMenu { get; set; }
     public bool HasState => _npc is not null;
     public bool BlocksGameplay => InputControlHeld;
-    public bool FreezesNonInteractionObjects => InputControlHeld;
     public bool MenusDisabled => BlocksGameplay;
     public bool ScreenTransitionsDisabled => BlocksGameplay;
     public override bool DialogueOpen => Context.DialogueOpen || _secretPending;

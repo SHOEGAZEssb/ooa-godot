@@ -14,6 +14,7 @@ public partial class ItemDropProducer : Node2D
     private OracleSaveData? _save;
     private InventoryState? _inventory;
     private OracleRandom _random = null!;
+    private ItemDropDatabase _drops = null!;
     private int _subId;
     private byte _initialTile;
     private System.Func<RoomEntitySpawn, bool>? _createPart;
@@ -37,6 +38,7 @@ public partial class ItemDropProducer : Node2D
         _subId = subId;
         Position = position;
         _room = room;
+        _drops = ItemDropDatabase.For(room.AssetRoot);
         _inventory = inventory;
         _save = save;
         _random = random;
@@ -55,9 +57,9 @@ public partial class ItemDropProducer : Node2D
         if (_room.GetMetatile(Position) == _initialTile)
             return;
 
-        if (ItemDropDatabase.IsAvailable(_subId, _inventory, _save))
+        if (_drops.ResolveAvailableDrop(_subId, _inventory, _save) is int subId)
         {
-            var spawn = new ItemDropSpawn(_subId, Position, UpdateThisFrame: true);
+            var spawn = new ItemDropSpawn(subId, Position, UpdateThisFrame: true);
             // enemyCode59 retries getFreePartSlot while the tile is changed.
             if (_createPart is not null)
             {

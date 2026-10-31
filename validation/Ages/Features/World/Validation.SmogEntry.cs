@@ -9,7 +9,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogEntry()
     {
-        var signal = new BossShutterSignal();
+        var signal = new BossShutterSignal(new OracleRuntimeState(OracleGame.Ages));
         for (int value = 0; value < 256; value++)
         {
             signal.Clear();
@@ -27,37 +27,42 @@ public partial class ValidationRoot
         for (int i = 0; i < 256; i++) signal.Opened();
         FailIf(signal.Value != 0, "doorController open increments must retain byte wrapping.");
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var forced = typeof(Player).GetField("_forcedRoomEntryMovement",flags)!;
         LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(40,40));
-        var entry = new BossEntryMovement(Vector2I.Right);
+        var entry = new BossEntryRequest(_runtimeState);
+        void Step(Vector2 movement = default) =>
+            StepGameplayUpdates(1, movement, [], [], batched: true);
+        for (int y = 0; y < 8; y++) for (int x = 0; x < 10; x++)
+            _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8), 0x3a, 0, 0);
         // Normal Link consumes the force-state request without dispatching.
         // The next update enters state0b, which falls through to movement:
         // handler updates1-21 move,22 releases.
         for (int cycle = 0; cycle < 2; cycle++)
         {
-            Vector2 start = _player.Position; entry.Arm();
+            Vector2 start = _player.Position;
+            _runtimeState.SetField("wScrollMode",8);
+            _runtimeState.SetField("wScreenTransitionDirection",1);
+            entry.Publish();
+            _runtimeState.SetField("wScrollMode",1);
             FailIf(!_player.NativeNormalStateForInteraction,
                 "Arming boss entry must leave Link in state01 until the request is consumed.");
-            entry.Update(_player);
-            FailIf(_player.Position != start || !(bool)forced.GetValue(_player)! ||
+            Step();
+            FailIf(_player.Position != start || !_player.NativeForcedMovementActive ||
                 _player.NativeNormalStateForInteraction,
                 "Force-state request consumption must retain position before the state0b handler runs.");
             for (int tick = 1; tick <= 21; tick++)
             {
-                entry.Update(_player);
-                FailIf(_player.Position != start + new Vector2(tick,0) || !(bool)forced.GetValue(_player)! ||
+                Step();
+                FailIf(_player.Position != start + new Vector2(tick,0) || !_player.NativeForcedMovementActive ||
                     _player.NativeNormalStateForInteraction,
                     $"Boss entry handler update{tick} must move, including initialization and re-arming.");
             }
-            entry.Update(_player);
-            FailIf(_player.Position != start + new Vector2(21,0) || (bool)forced.GetValue(_player)! ||
+            Step();
+            FailIf(_player.Position != start + new Vector2(21,0) || _player.NativeForcedMovementActive ||
                 !_player.NativeNormalStateForInteraction,
                 "Boss entry update22 must release without an extra movement.");
-            entry.Update(_player);
+            Step();
             FailIf(_player.Position != start + new Vector2(21,0), "Completed forced entry must remain inert.");
         }
-        void Step(Vector2 movement = default) =>
-            StepGameplayUpdates(1, movement, [], [], batched: true);
         _saveData.SetRoomFlag(4,0xbf,0x80,false);
         // Isolate entry from Boss Key acquisition/opening; preserve the real
         // door's already-open flags on both sides and its actual geometry.
@@ -89,7 +94,7 @@ public partial class ValidationRoot
         for (int i = 0; i < 24; i++)
         {
             float x = _player.Position.X; Step();
-            FailIf(_player.NativeNormalStateForInteraction == (bool)forced.GetValue(_player)!,
+            FailIf(_player.NativeNormalStateForInteraction == _player.NativeForcedMovementActive,
                 "Smog's actual entry loop must expose state0b only during its consumed forced walk.");
             countedOpenDoor |= _entities.BossEntrySignal == 0x81;
             if (_player.Position.X != x)
@@ -98,7 +103,7 @@ public partial class ValidationRoot
                 moved++;
             }
         }
-        FailIf(moved != 21 || (bool)forced.GetValue(_player)!,
+        FailIf(moved != 21 || _player.NativeForcedMovementActive,
             "Smog must execute its short forced walk and release Link after scrolling.");
         Vector2 entryEnd = _player.Position;
         // Contact, respawn helper, count branch and setstate each yield
@@ -132,12 +137,12 @@ public partial class ValidationRoot
             Vector2 linkBefore = _player.Position;
             Step();
             FailIf(child.State != 8 || child.Speed != 1 || child.IsDead || _entities.RoomEnemyCount != retainedEnemyCount + 1 || stops != 1 ||
-                (bool)forced.GetValue(_player)! || _player.Position != linkBefore ||
+                _player.NativeForcedMovementActive || _player.Position != linkBefore ||
                 _entities.LinkCollisionsAndMenuDisabled || !_entities.PlayerUpdatesFrozen || _entities.BossEntrySignal != 0x80,
                 "Dynamic Smog state0 subid6 must reuse the placed room initializer in normal mode, clear the separate collision lock and retain the controller's Link lock without re-arming entry.");
             Step(); Step();
             FailIf(!child.IsDead || _entities.RoomEnemyCount != retainedEnemyCount || stops != 1 ||
-                (bool)forced.GetValue(_player)! || _player.Position != linkBefore,
+                _player.NativeForcedMovementActive || _player.Position != linkBefore,
                 "Reinitialized subid6 must delete once without a second entrance walk or repeated room setup.");
         }
         finally { _entities.SoundRequested -= Sound; }

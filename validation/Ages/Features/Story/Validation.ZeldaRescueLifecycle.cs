@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
             DrainRetiredValidationNodes();
             _player.WarpTo(new(0x9a, 0x70));
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x66);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x66);
             StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batched);
             FailIf(_activeGroup != 0 || _currentRoom.Id != 0x66 || _transitions.IsTransitioning ||
                 _roomEvents.Get<ZeldaRescueEvent>().HasState || _roomEvents.MenusDisabled,
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
 
             // Approach the actual house doorway from the walkable tile below.
             int door = Enumerable.Range(0, 80).Select(index => (index / 10) * 16 + index % 10).Single(position =>
-                WarpDatabase.IsWarpTile(_currentRoom.ActiveCollisions,
+                WarpDatabase.For(AgesGameContent.AssetRoot).IsWarpTile(_currentRoom.ActiveCollisions,
                     _currentRoom.GetMetatile(new Vector2((position & 15) * 16 + 8, (position >> 4) * 16 + 8))));
             _player.WarpTo(new((door & 15) * 16 + 8, (door >> 4) * 16 + 24));
             StepGameplayUpdates(24, Vector2.Up, batched: batched);
@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.Essence, 2);
             LoadValidationRoom(0, 0x66);
             _player.WarpTo(new(0,0x70));
-            _transitions.BeginScroll(_player, Vector2I.Left, 0x65);
+            _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x65);
             StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched:batched);
             var actors=_entities.EntityAdapters<ZeldaRescueActor>().ToArray();
             FailIf(actors.Length!=2 || actors.Any(a=>a.State!=1||!a.Node.Visible),

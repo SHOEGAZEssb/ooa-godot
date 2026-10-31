@@ -67,6 +67,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             for (int frame = 0; frame < 100 && remote.HasState; frame++)
                 StepRoomEventFrames(1);
+            _player.AdvanceApplicationUpdate(); // Link consumes the remote script's native release.
             FailIf(
                 postD3.HasState || remote.HasState || _roomEvents.Active ||
                 _player.CutsceneControlled ||
@@ -237,7 +238,8 @@ public sealed partial class ValidationRoot
                     Group: group, Room: room, InteractionId: AgesInteractionId.RemoteMakuCutscene,
                     SubId: 0, Var03: 4, EssenceMask: 0x04,
                     ConfettiKind: RemoteMakuConfettiKind.Present
-                } || !_player.CutsceneControlled ||
+                } || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 remote.CommandInstruction != 3 ||
                 _sound.ActiveMusic != SoundId.MusMakuTree,
                 "Room 0:ba did not transfer ownership to imported " +

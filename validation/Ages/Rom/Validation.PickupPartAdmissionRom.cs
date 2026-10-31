@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(16, 160)); _player.BeginCutsceneControl();
             var parent = _entities.EntityAdapters<HeadThwompBossRoomEntity>().Single();
             var boss = (HeadThwompBoss)parent.Node; F1Retain(parent);
-            F1Set(parent, "_initialized", true); F1Set(boss, "_initialized", true);
+            F1Set(boss, "_initialized", true);
             F1Set(boss, "_state", HeadThwompState.Red); F1Set(boss, "_phase", 0); boss.Position = new(80, 72); boss.Health = 4;
             var native = F1Native(0x79, 0, 0x10, boss.Position); native[0xd0a9] = 4; F1Fill(free, native);
             StepGameplayUpdates(1, Vector2.Zero, batched: batched); F1Enemy(native); F1Birth(native);

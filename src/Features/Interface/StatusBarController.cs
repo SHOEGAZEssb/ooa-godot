@@ -3,7 +3,7 @@ using System;
 namespace Oracles;
 
 /// <summary>
-/// Owns transient status-bar values which deliberately trail their live
+/// Advances runtime status-bar values which deliberately trail their live
 /// inventory values. updateStatusBar_body moves wDisplayedRupees by one BCD
 /// rupee on every original update, while displayed health recovers one quarter
 /// heart every four updates and requests SND_GAINHEART at full-heart boundaries.
@@ -14,11 +14,22 @@ internal sealed class StatusBarController : IDisposable
     private readonly Hud _hud;
     private readonly Action<int> _playSound;
     private readonly Func<int>? _frameCounterSource;
+    private readonly StatusBarCurrencyDatabase _currency;
+    private readonly OracleRuntimeState _memory;
     private double _updateTicks;
     private int _frameCounter;
 
-    internal int DisplayedRupees => _hud.Rupees;
-    internal int DisplayedHealth => _hud.HealthQuarters;
+    internal int DisplayedRupees
+    {
+        get
+        {
+            int low = _memory.ReadField("wDisplayedRupees"), high = _memory.ReadField("wDisplayedRupees", 1);
+            if ((low & 15) > 9 || (low >> 4) > 9 || high > 9)
+                throw new NotSupportedException($"bank2.s:updateStatusBar_body: invalid displayed money BCD ${high:x2}{low:x2}.");
+            return high * 100 + (low >> 4) * 10 + (low & 15);
+        }
+    }
+    internal int DisplayedHealth => _memory.ReadField("wDisplayedHearts");
 
     internal StatusBarController(
         InventoryState inventory,
@@ -30,8 +41,21 @@ internal sealed class StatusBarController : IDisposable
         _hud = hud;
         _playSound = playSound;
         _frameCounterSource = frameCounter;
+        if (inventory.AssetRoot != hud.AssetRoot)
+            throw new ArgumentException("Status display and inventory require the same native asset pack.");
+        _currency = hud.Currency; _memory = inventory.RuntimeState;
+        hud.LoadCommonGraphics(hud.TilesetFlags);
         _inventory.FullHealthRefillAttempted += PlayGainHeartSound;
         _inventory.RupeeCapExceeded += PlayRupeeSound;
+        _hud.HealthQuarters = inventory.HealthQuarters; _hud.MaxHealthQuarters = inventory.MaxHealthQuarters;
+        _hud.Rupees = _currency.MoneyValue(inventory,_currency.SelectMoney(hud.TilesetFlags));
+        _hud.Refresh();
+    }
+
+    internal void InitializeNativeState()
+    {
+        if (_currency.SelectorAddress >= 0)
+            _memory.SetWramByte(_currency.SelectorAddress,(byte)_currency.SelectMoney(_hud.TilesetFlags));
         SynchronizeHealth();
         SynchronizeRupees();
     }
@@ -44,7 +68,7 @@ internal sealed class StatusBarController : IDisposable
 
     internal void Update(double delta)
     {
-        if (delta <= 0.0 || _hud.StatusBarHidden)
+        if (delta <= 0.0 || _memory.ReadField("wDontUpdateStatusBar") != 0)
             return;
 
         _updateTicks += delta * OracleSoundEngine.UpdatesPerSecond;
@@ -53,13 +77,14 @@ internal sealed class StatusBarController : IDisposable
         {
             _updateTicks -= 1.0;
             _frameCounter = _frameCounterSource?.Invoke() ?? ((_frameCounter + 1) & 0xff);
-            int target = _inventory.Rupees;
-            if (_hud.Rupees != target)
+            int displayed = DisplayedRupees, target = TargetMoney;
+            if (displayed != target)
             {
-                _hud.Rupees += Math.Sign(target - _hud.Rupees);
+                WriteDisplayedMoney(displayed + Math.Sign(target - displayed));
                 _playSound(SoundId.SndRupee);
                 changed = true;
             }
+            else if (_hud.Rupees != displayed) { _hud.Rupees = displayed; changed = true; }
             // Native updateStatusBar_body requests the money cue before
             // advancing health, including coincident full-heart updates.
             changed |= UpdateDisplayedHealth();
@@ -87,12 +112,44 @@ internal sealed class StatusBarController : IDisposable
     internal void SynchronizeRupees()
     {
         _updateTicks = 0.0;
-        _hud.Rupees = _inventory.Rupees;
+        WriteDisplayedMoney(TargetMoney);
         _hud.Refresh();
+    }
+
+    private int TargetMoney => _currency.MoneyValue(_inventory, _currency.SelectorAddress < 0
+        ? _currency.RupeeSelector : _memory.ReadWramByte(_currency.SelectorAddress));
+
+    private void WriteDisplayedMoney(int value)
+    {
+        if (value is < 0 or > 999) throw new ArgumentOutOfRangeException(nameof(value));
+        _memory.SetField("wDisplayedRupees", (byte)(value % 10 | value / 10 % 10 << 4));
+        _memory.SetField("wDisplayedRupees", (byte)(value / 100), 1);
+        _hud.Rupees = value;
+    }
+
+    internal void LoadCommonGraphics(byte tilesetFlags)
+    {
+        if (_currency.SelectorAddress >= 0)
+        {
+            int selected = _currency.SelectMoney(tilesetFlags);
+            int previous = _memory.ReadWramByte(_currency.SelectorAddress);
+            _memory.SetWramByte(_currency.SelectorAddress, (byte)selected);
+            if (previous != selected) WriteDisplayedMoney(TargetMoney);
+        }
+        _hud.LoadCommonGraphics(tilesetFlags);
+        Update(ApplicationFixedUpdateScheduler.UpdateDelta);
+    }
+
+    internal void RestoreDisplay()
+    {
+        _hud.Rupees = DisplayedRupees;
+        _hud.HealthQuarters = DisplayedHealth;
+        _hud.LoadCommonGraphics(_hud.TilesetFlags);
     }
 
     internal void SynchronizeHealth()
     {
+        _memory.SetField("wDisplayedHearts",(byte)_inventory.HealthQuarters);
         _hud.HealthQuarters = _inventory.HealthQuarters;
         _hud.MaxHealthQuarters = _inventory.MaxHealthQuarters;
         _hud.Refresh();
@@ -100,25 +157,18 @@ internal sealed class StatusBarController : IDisposable
 
     private bool UpdateDisplayedHealth()
     {
+        int displayed = DisplayedHealth;
         int target = _inventory.HealthQuarters;
-        if (_hud.HealthQuarters == target)
-            return false;
-
-        if (_hud.HealthQuarters > target)
+        if (displayed > target) displayed--;
+        else if (displayed < target && (_frameCounter & 3) == 0)
         {
-            _hud.HealthQuarters--;
-            return true;
+            displayed++;
+            if ((displayed & 3) == 0) PlayGainHeartSound();
         }
-
-        // updateStatusBar_body fills one quarter-heart only when the global
-        // frame counter is divisible by four.
-        if ((_frameCounter & 3) != 0)
-            return false;
-
-        _hud.HealthQuarters++;
-        if ((_hud.HealthQuarters & 3) == 0)
-            PlayGainHeartSound();
-        return true;
+        _memory.SetField("wDisplayedHearts",(byte)displayed);
+        bool changed = _hud.HealthQuarters != displayed;
+        _hud.HealthQuarters = displayed;
+        return changed;
     }
 
     private void PlayGainHeartSound() => _playSound(SoundId.SndGainHeart);

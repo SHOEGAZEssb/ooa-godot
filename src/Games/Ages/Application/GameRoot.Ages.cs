@@ -14,6 +14,7 @@ public partial class GameRoot
         // initializeGame owns the live file before either the pregame cutscene
         // or room construction. Resource preparation must not delay this.
         _saveData = save;
+        _runtimeState = OracleRuntimeState.CreateInitialized(save.Game);
         _saveData.ResetHealthIfDepleted();
         _saveData.AdvancePlaytime();
         _mainMenuScreen?.QueueFree();
@@ -39,16 +40,7 @@ public partial class GameRoot
                 AddChild(_newGameIntroScreen);
             }
             _newGameIntroScreen.Visible = true;
-            _newGameIntroScreen.Dialogue.ApplicationUpdateOwned = true;
-            _newGameIntroScreen.Dialogue.MessageSpeed = save.TextSpeed;
-            _newGameIntroScreen.Dialogue.SetLinkNameProvider(
-                () => save.LinkName);
-            _newGameIntro = new NewGameIntroController(
-                _newGameIntroScreen,
-                () => CompleteNewGameIntro(save),
-                _sound,
-                initializing: true,
-                frameCounter: () => save.ReadWramByte(AgesWramAddress.wPlaytimeCounter));
+            BeginPregame(_newGameIntroScreen,() => CompleteNewGameIntro(save));
             // Health restoration has already run; dormant scene construction
             // may now prepare the initialized live file without advancing it.
             if (save.ReadWramByte(AgesWramAddress.wLinkHealth) is > 0 and < 0x80)
@@ -239,22 +231,6 @@ public partial class GameRoot
                 "Unknown initial room-load kind.")
         };
 
-    public override void _ExitTree()
-    {
-        _preparedGameplayScene?.Free();
-        _preparedGameplayScene = null;
-        _preparedSeasonsOpening?.Free();
-        _preparedSeasonsOpening = null;
-        _bootCancellation?.Cancel();
-        _bootCancellation?.Dispose();
-        _bootResourceSteps?.Dispose();
-        _gameplayPreparation?.Dispose();
-        // The original engine does not write SRAM merely because play stops.
-        // Unsaved changes remain only in the live WRAM-style save image.
-        OracleGraphicsCache.ApplicationExitedTree();
-        _gameplayScriptResources.Clear();
-    }
-
     private IEnumerable<bool> CreateControllersSteps()
     {
         var timePortals = new TimePortalDatabase();
@@ -268,47 +244,38 @@ public partial class GameRoot
             animationTick: () => (long)_animationTicks,
             treasures: _treasures,
             rooms: _rooms);
-        _entities.DisplayedHealthSource = () => _statusBar.DisplayedHealth;
+        BindGameplaySession(new GameplaySession(_scene,_rooms,_entities,_inventory,_sound,
+            new GameplayMenuBindings(
+                () => _transitions.GameplayMenusAvailable && !DialogueOpen &&
+                    !_player.GaleActive && !_player.IsDying && _harp.PlayingInstrument == 0 && !_roomEvents.Active &&
+                    !_roomEvents.MenusDisabled && !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
+                () => !IsTransitioning && !DialogueOpen && !_player.GaleActive && !_player.IsDying &&
+                    !_roomEvents.Active && !_roomEvents.MenusDisabled,
+                FastTravelFromMap, SaveActiveFile, ReturnToTitle,
+                RestartGameplayAfterDeath, RefreshDebugCompanionLayout,
+                () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
+                    !InventoryMenuOpen && !_player.GaleActive && !_player.IsDying &&
+                    !_player.IsUsingHarp && !_player.ElectricShockActive &&
+                    !_roomEvents.Active && !_roomEvents.MenusDisabled &&
+                    !_entities.PlayerMenusDisabled && !_gameplayMenus!.KidName.IsActive),
+            this,this,() => _presentationSettings.HudBottom),
+            () => ReleaseGameplayScene(), save => InitializeGameplay(save, forceDeathRespawn:true),
+            CanCaptureAgesDebugSavestate,() => _animationTicks,RestoreAgesDebugSavestate);
         yield return false;
-        _pushBlocks = new PushBlockController(
-            _rooms, new PushableTileDatabase(AgesGameContent.AssetRoot), _roomView,
-            () => (long)_animationTicks, _sound.PlaySound,
-            _entities.PushBlockPermittedByColoredCube,
-            _entities.RequestSomariaPush,
-            braceletLevelSource: () => _inventory.BraceletLevel,
-            movementMemory: _runtimeState)
-        {
-            Name = "PushBlock",
-            BraceletObtainedSource = () => _inventory.HasTreasure(TreasureId.Bracelet)
-        };
-        _scene.WorldRoot.AddChild(_pushBlocks);
-        _pushBlocks.SetPhysicsProcess(false);
-        _entities.ReservedPushBlock = _pushBlocks;
-        _keyDoors = new DungeonKeyDoorController(
-            _rooms, _inventory, _entities, _treasures,
-            () => (long)_animationTicks, _sound.PlaySound)
-        {
-            Name = "DungeonKeyDoors"
-        };
-        _scene.WorldRoot.AddChild(_keyDoors);
-        _keyDoors.SetPhysicsProcess(false);
-        _keyholes = new OverworldKeyholeController(
-            _rooms, _inventory, _entities, new OverworldKeyholeDatabase(AgesGameContent.AssetRoot),
-            _sound)
-        {
-            Name = "OverworldKeyholes"
-        };
-        _scene.WorldRoot.AddChild(_keyholes);
+        (_pushBlocks,_keyDoors) = _gameplaySession!.BindTileContacts(() => (long)_animationTicks,
+            _entities.PushBlockPermittedByColoredCube,_entities.RequestSomariaPush);
+        _keyholes = _gameplaySession.Keyholes;
         _collision = new RoomCollision(
             _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
-        _deathRespawnPoints = new AgesDeathRespawnPointController(
-            _rooms, _player, _runtimeState);
+        _deathRespawnPoints = new DeathRespawnPointController(
+            _rooms, _player);
         _entities.DeathRespawnPointRequested += _deathRespawnPoints.RecordCurrentPoint;
         _transitions = new AgesRoomTransitionController(
             _rooms, WarpDatabase.For(AgesGameContent.AssetRoot), _roomView, _scene.RoomLoadReveal,
             _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities,
             _deathRespawnPoints, _sound, timePortals);
+        _gameplaySession!.BindTransitions(_transitions);
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
         _dialogue.SetGameplayCameraYProvider(
             () => -_transitions.WorldToGameplayScreen(Vector2.Zero).Y);
@@ -317,20 +284,10 @@ public partial class GameRoot
             _transitions.ApplyTimePortalWarp(_player, portal);
         _entities.RoomWarpRequested += warp =>
             _transitions.ApplyWarp(_player, warp);
-        _entities.SoundRequested += _sound.PlaySound;
-        _entities.NativeMusicSelectionRequested += _sound.SetNativeMusicSelection;
-        _entities.NativeSoundRequested += _sound.PlayNativeSound;
-        _entities.NativeActiveMusicWritten += _sound.SetNativeActiveMusic;
-        _entities.NativeActiveMusicSource = () => _sound.NativeActiveMusic;
-        _entities.NativeChannelVolumeWritten += _sound.SetNativeChannelVolume;
-        _entities.NativeSoundAllocationAliasWritten += _sound.WriteNativeAllocationAlias;
-        _entities.NativeSoundAllocationAliasSource = _sound.ReadNativeAllocationAlias;
-        _entities.RoomMusicRequested += _sound.PlayRoomMusic;
         _entities.RoomInitializing += InitializeRoomEntryEffects;
         _entities.RoomInitialized += ApplyRoomMusic;
         _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;
         yield return false;
-        _entities.EnemyDefeated += _inventory.RecordEnemyKill;
         _entities.RoomTileChanged += _roomView.QueueRedraw;
         _roomEvents = new RoomEventController(
             _rooms, _entities, _transitions, _dialogue, _player, _roomView,
@@ -340,22 +297,15 @@ public partial class GameRoot
         _roomEvents.SetFileActions(SaveActiveFile,()=>_nativeResetRequested=true);
         foreach (bool step in _roomEvents.PrepareResources())
             yield return step;
-        _interactions = new InteractionController(
-            _rooms, _entities, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot), _treasures, _dialogue,
-            _scene.WorldRoot, _roomView, _transitions.WorldToGameplayScreen,
-            () => (long)_animationTicks,
-            _inventory, _scene.InterfaceLayer, _sound.PlaySound,
+        _npcInteractionScripts = new AgesNpcInteractionScripts(
+            _rooms, _entities, _dialogue, _treasures, _entities.FamilyStateResolver,
+            _inventory, () => _statusBar.DisplayedRupees == _inventory.Rupees,
+            () => _roomView.QueueRedraw());
+        _interactions = _gameplaySession!.BindInteractions(_npcInteractionScripts, () => (long)_animationTicks,
             () => _statusBar.DisplayedRupees == _inventory.Rupees &&
                 _statusBar.DisplayedHealth == _inventory.HealthQuarters,
-            _roomEvents.InteractionHandlers,
-            () => _statusBar.DisplayedRupees == _inventory.Rupees);
+            _roomEvents.InteractionHandlers);
         yield return false;
-        _pushBlocks.MessageRequested += message =>
-            _interactions.ShowRoomInteractionMessage(message, _player);
-        _keyDoors.MessageRequested += message =>
-            _interactions.ShowRoomInteractionMessage(message, _player);
-        _keyholes.MessageRequested += message =>
-            _interactions.ShowRoomInteractionMessage(message, _player);
         _entities.DungeonEntranceTriggered += (_, message) =>
         {
             _interactions.ShowRoomInteractionMessage(message, _player);
@@ -369,8 +319,7 @@ public partial class GameRoot
         _keyholes.SetEventHandler(
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);
-        _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects ||
-            _interactions?.FreezesNonInteractionObjects == true;
+        _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects;
         _entities.CameraUpdatesDisabledSource = () => _roomEvents.CameraUpdatesDisabled;
         _entities.PartPhaseUpdate = _roomEvents.UpdatePartPhase;
         _entities.InteractionPhaseUpdate = _roomEvents.UpdateInteractionPhase;
@@ -383,17 +332,21 @@ public partial class GameRoot
             _rooms, _roomView, _entities,
             new BreakableTileDatabase(AgesGameContent.AssetRoot), _saveData, _sound,
             () => (long)_animationTicks);
-        _bracelet = new BraceletController(
-            _scene.WorldRoot, _rooms, new BreakableTileDatabase(AgesGameContent.AssetRoot), _roomView,
-            _entities, _combat, _saveData, _sound.PlaySound,
-            () => (long)_animationTicks, _collision.HasFullWall);
-        _entities.Bracelet = _bracelet;
-        _bomb = new BombController(
-            _inventory,
-            _entities,
-            _rooms,
-            _sound.PlaySound,
-            () => (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0);
+        var seeds = new SeedSatchelDatabase(_rooms.AssetRoot);
+        _seedShooter = new SeedShooterController(_inventory, _entities, seeds, _rooms, _sound.PlaySound);
+        _entities.SwitchHook = new SwitchHookController(_scene.WorldRoot, _rooms, _entities, _sound.PlaySound,
+            () => (long)_animationTicks, _combat.SpawnBreakEffect, () => _pushBlocks.Active);
+        _entities.Somaria = new SomariaController(_scene.WorldRoot,_rooms,_entities,_sound.PlaySound);
+        _entities.Biggoron = new BiggoronSwordController(_scene.WorldRoot,_entities,_combat,_sound.PlaySound);
+        _harp = new HarpController(
+            _rooms, _entities, _transitions, _interactions, _sound);
+        yield return false;
+        _playerWorld = new AgesPlayerWorld(
+            _transitions, _interactions, _collision, _keyholes,
+            _combat, _entities,
+            _seedShooter, _harp, _roomEvents,
+            _inventory, _sound, () => _debugCollision.CollisionsDisabled, _rooms, _scene);
+        _terrain = _playerWorld.Terrain;
         _roomEvents.SetBraceletActions(
             discard => _bracelet.Interrupt(_player, discard),
             () => _bracelet.Update(
@@ -405,130 +358,20 @@ public partial class GameRoot
         _bracelet.TileLifted += _roomEvents.NotifyBraceletTileLifted;
         _bracelet.TileLiftCompleted +=
             _roomEvents.NotifyBraceletTileLiftCompleted;
-        _shovel = new ShovelController(
-            _rooms, new BreakableTileDatabase(AgesGameContent.AssetRoot), _roomView, _entities, _saveData,
-            _sound.PlaySound, () => (long)_animationTicks);
-        _seedSatchel = new SeedSatchelController(
-            _inventory, _entities, new SeedSatchelDatabase(AgesGameContent.AssetRoot), _rooms,
-            _sound.PlaySound);
-        _entities.SwitchHook = new SwitchHookController(_scene.WorldRoot, _rooms, _entities, _sound.PlaySound,
-            () => (long)_animationTicks, _combat.SpawnBreakEffect, () => _pushBlocks.Active);
-        _entities.Somaria = new SomariaController(_scene.WorldRoot,_rooms,_entities,_sound.PlaySound);
-        _entities.Biggoron = new BiggoronSwordController(_scene.WorldRoot,_entities,_combat,_sound.PlaySound);
-        _harp = new HarpController(
-            _rooms, _entities, _transitions, _interactions, _sound);
-        yield return false;
-        _entities.PlayingInstrumentSource = () => _harp.PlayingInstrument;
-        _terrain = new TerrainController(
-            _rooms, new BreakableTileDatabase(AgesGameContent.AssetRoot),
-            _collision.AdjacentWallsBitset, (position, hazard) => _entities.TryCreateSplash(position, hazard));
-        _entities.ItemDropEnteredHazard += _terrain.SpawnSplash;
-        _pushBlocks.EnteredHazard += (position, hazard) =>
-        {
-            if (hazard is HazardType.Water or HazardType.Lava)
-            {
-                // objectReplaceWithSplash retires $14 even when its checked
-                // INTERAC $03/$04 allocation fails.
-                _entities.TryCreateSplash(position, hazard);
-            }
-            else if (hazard == HazardType.Hole)
-            {
-                // objectCreateFallingDownHoleInteraction is checked. A full
-                // pool still retires $14, without a hole actor/cue/event.
-                if (!_entities.InteractionSlotAvailable) return;
-                _entities.Spawn<FallingDownHoleEffect>(
-                    new FallingDownHoleSpawn(position));
-                _roomEvents.NotifyObjectFellInHole(
-                    ObjectFellInHoleKind.PushBlock);
-            }
-        };
-        _debugCollision = new DebugCollisionController();
-        _playerWorld = new AgesPlayerWorld(
-            _transitions, _interactions, _collision, _pushBlocks, _keyDoors, _keyholes,
-            _terrain, _combat, _entities,
-            _bomb, _bracelet, _shovel, _seedSatchel, _harp, _roomEvents,
-            _inventory, _sound, () => _debugCollision.CollisionsDisabled, _rooms);
-        _gameplayPause = new GameplayPauseController(_player, _roomDebug);
-        _gameplayPause.SetRoomOverlayEnabled(_presentationSettings.RoomOverlayEnabled);
-        _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
-        _mapMenu = new AgesMapMenuController(
-            _mapScreen, _dialogue, _menuLifecycle,
-            () => _transitions.GameplayMenusAvailable && !DialogueOpen && !InventoryMenuOpen &&
-                !_player.GaleActive && !_player.IsDying && _harp.PlayingInstrument == 0 && !_roomEvents.Active &&
-                !_roomEvents.MenusDisabled &&
-                !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
-            () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone),
-            FastTravelFromMap, _sound.PlaySound, _sound.SetMusicVolume);
-        _mapMenu.ConfigureGale(_rooms,
-            target => _transitions.ApplyWarp(_player, new Warp(
-                _rooms.ActiveGroup, _rooms.CurrentRoom.Id, 0, 0, 0,
-                _rooms.ActiveGroup, target.Room, target.Position, 0, WarpDestinationTransition.Fall)),
-            () => _player.ReturnFromGale((int)_transitions.WorldToGameplayScreen(_player.Position).Y));
-        _entities.GaleMenuRequested += _mapMenu.OpenGale;
-        _inventoryMenu = new AgesInventoryMenuController(
-            _inventoryScreen, _saveQuitScreen, _menuLifecycle,
-            () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone),
-            () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone) &&
-                _transitions.GameplayMenusAvailable && !DialogueOpen && !MapMenuOpen &&
-                !_player.GaleActive && !_player.IsDying && _harp.PlayingInstrument == 0 && !_roomEvents.Active &&
-                !_roomEvents.MenusDisabled &&
-                !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
-            SaveActiveFile, ReturnToTitle, _sound.PlaySound,
-            RestartGameplayAfterDeath);
-        _inventoryMenu.ConfigureOptions(
-            option => option switch
-            {
-                0 => _debugCollision.CollisionsDisabled,
-                1 => _gameplayPause.RoomOverlayEnabled,
-                2 => _presentationSettings.HudBottom,
-                _ => throw new ArgumentOutOfRangeException(nameof(option))
-            },
-            (option, enabled) =>
-            {
-                if (option == 0)
-                    _debugCollision.SetEnabled(enabled);
-                else if (option == 1)
-                {
-                    _presentationSettings.RoomOverlayEnabled = enabled;
-                    _gameplayPause.SetRoomOverlayEnabled(enabled);
-                }
-                else if (option == 2)
-                {
-                    _presentationSettings.HudBottom = enabled;
-                }
-                else
-                    throw new ArgumentOutOfRangeException(nameof(option));
-                if (option is 1 or 2 && _persistSaveData &&
-                    _presentationSettings.Save() is var error && error != Error.Ok)
-                    GD.PushWarning($"Could not save presentation preference: {error}.");
-            });
-        _mapMenu.ConfigureSaveQuit(_inventoryMenu);
         _ringMenu = new RingMenuController(
             _ringMenuScreen, _dialogue, _menuLifecycle, _inventory, _saveData,
-            _treasures, _roomEvents.Get<VasuShopEvent>().Database, _sound.PlaySound);
+            _treasures, _roomEvents.Get<VasuShopEvent>().Database, _sound.PlaySound,
+            () => _statusBar.LoadCommonGraphics(_rooms.CurrentRoom.TilesetFlags));
         _roomEvents.SetRingMenuOpener(_ringMenu.Open);
         _roomEvents.Get<VasuShopEvent>().SetRingMenuCancellation(_ringMenu.CancelOwner);
         _secretEntry = new SecretEntryController(
             _scene.InterfaceLayer, _menuLifecycle, _saveData, _inventory, _sound.PlaySound);
         _roomEvents.SetSecretMenuOpener(_secretEntry.Open);
-        _interactions.SetFaroreSecretMenuOpener(_secretEntry.OpenAnyShortSecret);
+        _npcInteractionScripts.OpenFaroreSecretMenu = _secretEntry.OpenAnyShortSecret;
         _secretList = new SecretListController(_scene.SecretListScreen, _menuLifecycle, _saveData, _sound.PlaySound);
-        _interactions.SetSecretListOpener(_secretList.Open);
-        _interactions.BindFaroreTransitions(_transitions);
+        _npcInteractionScripts.OpenSecretList = _secretList.Open;
+        _npcInteractionScripts.OpenKidName = _gameplayMenus!.KidName.Open;
+        _npcInteractionScripts.FaroreTransitions = _transitions;
         _roomEvents.Get<VasuShopEvent>().SetRingSecretMenuOpener(_secretEntry.OpenRingSecret);
-        _debugFlagMenu = new DebugFlagMenuController(
-            _debugFlagScreen, _rooms, _gameplayPause,
-            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !InventoryMenuOpen && !_player.GaleActive && !_player.IsDying &&
-                !_roomEvents.Active && !_roomEvents.MenusDisabled,
-            _inventory, RefreshDebugCompanionLayout);
-        _scene.DebugObjectSpawnerScreen.Initialize(enemies);
-        _debugObjectSpawner = new DebugObjectSpawnerController(
-            _scene.DebugObjectSpawnerScreen, _rooms, _entities, _player, _gameplayPause,
-            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !InventoryMenuOpen && !_player.GaleActive && !_player.IsDying &&
-                !_player.IsUsingHarp && !_player.ElectricShockActive &&
-                !_roomEvents.Active && !_roomEvents.MenusDisabled &&
-                !_entities.PlayerMenusDisabled && !_interactions.GameplayMenuActive);
     }
 }

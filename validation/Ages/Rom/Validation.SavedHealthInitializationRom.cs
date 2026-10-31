@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
             InitializeTransientSession(save);
             LoadValidationRoom(0, 0x45);
             _inventory.ApplyDamage(_inventory.HealthQuarters);
-            AgesGameSceneGraph previousScene = _scene;
+            GameplaySceneGraph previousScene = _scene;
             BeginGameOver();
             var menu = _inventoryMenu;
             var application = new ApplicationValidationFixture(this);

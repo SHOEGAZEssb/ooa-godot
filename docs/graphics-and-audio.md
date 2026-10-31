@@ -10,6 +10,13 @@ The selected game binds the sound engine to its generated song-pointer and
 bank data while retaining the application audio owner and shared driver.
 Shared sprite, room-animation, dialogue and HUD presenters include the game
 asset root in their generated-data/cache identity.
+Both gameplay compositions bind entity sound requests and native driver reads
+and writes through the same application binding. Common debris and splashes
+request their cues at the native initialization update; failed checked
+allocation emits no effect-initialization cue.
+The gameplay session releases its entity-audio subscriptions and native readers
+on disposal. Retired entity references cannot write into the continuing
+application sound driver or another session's binding.
 
 `OracleGraphicsCache` owns immutable source images, monochrome font textures,
 composites, OAM frames, and OAM cells. Monochrome fonts are shared by dialogue
@@ -20,10 +27,26 @@ mode. Treat cached images as read-only. Each application root retains the shared
 cache while it is in the scene tree. Clear retained Godot resources when the
 last root exits; a temporary frontend or validation root must not invalidate
 another live root's images, fonts or cache observer.
+Feature caches that retain Godot graphics register their clear operation with
+this same application lifetime. Register static cache operations once and retain
+those registrations across root generations. Releasing a cache drops its
+references; it does not dispose resources still held by a reader. Immutable
+managed catalogs may remain cached by pack independently of graphics resources.
 Immutable source and composite sprite images also retain shared CPU pixel
 snapshots. Caller-owned and mutable VRAM images receive fresh snapshots per
 composition. Sprite builders compose in managed memory and dispose temporary
 upload images immediately.
+
+Link's ordinary walking and native scripted animation selection use the selected
+pack's animation pointers and ROM-bank data. Their counter, parameter, cursor,
+mode and graphics index live in runtime memory. Advancing follows the retained
+cursor; changing the mode byte alone does not select another stream. Selecting
+an animation reloads its first frame, including repeated selections. Item-get
+saves and restores the native mode byte, and puddles consume the animation's
+sound bit rather than maintaining a second walking timer. Long-held frames
+retain native fallthrough; they are not universal stream terminators.
+Chained sheets with opposite source grayscale encodings normalize only the
+appended pixels; that conversion participates in the composite cache key.
 Shared background-tile blits clip to the destination image while retaining
 the original source coordinates, flip flags, and palette selection.
 
@@ -105,8 +128,28 @@ and camera gates. Dedicated boss-shadow parts remain separate native objects.
 
 Animation definitions and assembled frames are immutable shared data. Changing
 an actor animation selects cached definitions; it does not rebuild textures.
+Companion imports also retain each frame's native animation cursor and graphics
+index, plus the complete graphics-to-OAM-address table. Native animation handlers
+publish those bytes during their object visit. The shared graphics phase consumes
+the live graphics index after interactions and rider attachment, retaining OAM
+address bytes when the cached index matches. Presentation and native aliases use
+the same selected game pack.
 Pixel-sensitive validations should assert dimensions, offsets, cell order,
 palette results, and hashes from real generated data.
+
+Link's walking style is selected in the object pass's graphics tail, after
+room interactions and rider/held-object position copies. Handlers publish native
+override and state bytes; the graphics tail publishes the style and pushing
+direction for rendering and the next Link update. Rendering consumes that
+publication without repeating selection. A native cutscene Link body uses its
+own animation table and does not select an ordinary walking style.
+
+Parent animation claims retain their native physical slot order and lifetime
+independently of the item. The graphics tail selects the highest priority,
+using the later parent for ties and Link for a tie with his own priority.
+Drawing consumes the published texture/region or immutable sprite frame.
+Clearing a parent after that publication leaves the displayed picture intact
+until the next graphics pass; physical children retain their own lifetime.
 
 Save-menu, game-over, and options backgrounds depend only on packaged graphics
 and palettes. Their finished textures are shared across gameplay scenes;
@@ -305,8 +348,10 @@ source-derived register, hardware-clock and gameplay-update checks. This
 distinguishes correct sequencing from merely consuming the same imported data.
 
 On shutdown, stop generated playback, detach buffers and signals, and release
-references. Headless validation must not leave an
-`AudioStreamGeneratorPlayback` retained.
+references. Validation must not leave an `AudioStreamGeneratorPlayback`
+retained. Rendered validation waits for the mixer's native reference handoff
+and collects its managed binding before exit; two process frames alone do not
+guarantee that the independent audio thread has retired playback.
 
 ## Adding graphics or sound behavior
 

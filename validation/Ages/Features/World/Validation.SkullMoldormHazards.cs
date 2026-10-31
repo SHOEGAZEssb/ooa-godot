@@ -64,7 +64,7 @@ public sealed partial class ValidationRoot
                 position.Invoke(head, [edge!.Value]);
                 foreach (var tail in tails) tail.Position = floor.Value;
                 head.Animation.SetFrameCounter(100);
-                FailIf(!head.TryApplyShieldBump(head.CollisionBounds, edge.Value - direction * 16, EnemyKnockbackStrength.Low),
+                FailIf(!head.TryApplyCollisionBump(head.CollisionBounds, edge.Value - direction * 16, EnemyKnockbackStrength.Low),
                     "Moldorm animated-hole recoil fixture rejected its shield bump.");
                 Step(); // JUST_HIT precedes the first recoil movement.
                 FailIf(head.IsFallingIntoHole || head.Position != edge.Value,

@@ -12,4 +12,4 @@ internal sealed record RamrockEnvironment(OracleRoomData Room, OracleRuntimeStat
     Func<RamrockPartSpawn, bool> SpawnPart, Func<IReadOnlyList<BombEffect>> Bombs,
     Func<Vector2, Vector2> ToScreen,
     Action DisableLinkCollisionsAndMenu, Func<RamrockCharacter, bool> Explosion,
-    Action<int> Sound, BossEntryMovement Entry);
+    Action<int> Sound);

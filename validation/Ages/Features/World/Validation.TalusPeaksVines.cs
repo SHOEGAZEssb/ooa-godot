@@ -139,6 +139,16 @@ public sealed partial class ValidationRoot
             byte start = (byte)(target + 0x10);
             _saveData.WriteWramByte(address, start);
             LoadValidationRoom(1, 0x61);
+            // mainData.s declares $62:$01 at $00,$00. Op$07 reserves that
+            // position before state zero restores wVinePositions+$01.
+            var nativePlacement = new BraceletRom(_currentRoom,_player.Position,2,0xff);
+            nativePlacement.LoadSave(_saveData);
+            nativePlacement.ParseObjectStream([0xf7,0,0x62,1,0,0,0xff]);
+            FailIf(_entities.Entities<VineSproutRoomEntity>().Single().Position != Vector2.Zero ||
+                _entities.RuntimeState.ReadWramByte(0xcec1) != nativePlacement[0xcec1] ||
+                _entities.RuntimeState.ReadWramByte(0xced0) != nativePlacement[0xced0] ||
+                nativePlacement[0xcec1] != 1 || nativePlacement[0xced0] != 0,
+                "Vine sprout placement must reserve declared $00 before resolving its saved position.");
             // Approach from real clear ground below the sprout, preserving all
             // source room geometry. No direct UpdatePushAttempt invocation.
             _player.WarpTo(Point(start + 0x10));

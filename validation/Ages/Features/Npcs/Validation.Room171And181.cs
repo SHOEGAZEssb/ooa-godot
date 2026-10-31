@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
             _sound,
             camera);
         var scrubEvent = new BusinessScrubEvent(context);
-        var interactions = new InteractionController(
+        var interactions = AgesInteractionValidation.Create(
             rooms,
             manager,
             new SignDatabase(AgesGameContent.AssetRoot),
@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
                 {
                     Order: 0,
                     Kind: RoomObjectKind.ItemDrop,
-                    Id: 0x57,
+                    Id: 0x59,
                     SubId: 0x05,
                     PackedPosition: 0x11
                 } ||
@@ -104,7 +104,7 @@ public sealed partial class ValidationRoot
                 {
                     Order: 1,
                     Kind: RoomObjectKind.ItemDrop,
-                    Id: 0x57,
+                    Id: 0x59,
                     SubId: 0x01,
                     PackedPosition: 0x12
                 } ||
@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
                 {
                     Order: 2,
                     Kind: RoomObjectKind.ItemDrop,
-                    Id: 0x57,
+                    Id: 0x59,
                     SubId: 0x05,
                     PackedPosition: 0x13
                 } ||
@@ -150,7 +150,7 @@ public sealed partial class ValidationRoot
             manager.RandomCalls != 256,
             "Room 1:71 did not instantiate only its three invisible drop " +
             "producers and two distinct Arrow Moblins with one placement buffer.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             producers.Any(producer => !producer.Initialized) ||
             producers.Any(producer => producer.Visible),
@@ -234,7 +234,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             scrubPosition + Vector2.Right * database.ProximityRadius,
             recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             scrub.CurrentScriptAnimationSource != database.Animation(0) ||
             manager.FindTalkTarget(_player) is not null,
@@ -244,7 +244,7 @@ public sealed partial class ValidationRoot
             scrubPosition + Vector2.Right *
                 (database.ProximityRadius - 1),
             recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             scrub.CurrentScriptAnimationSource != database.Animation(1) ||
             scrub.CurrentAnimationOpaquePixels != 149 ||
@@ -264,7 +264,7 @@ public sealed partial class ValidationRoot
             scrubPosition + Vector2.Down * 12.0f,
             recordSafe: false);
         _player.Face(Vector2I.Up);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         inventory.AddRupees(-inventory.Rupees);
         FailIf(
             manager.FindTalkTarget(_player) != scrub ||
@@ -282,7 +282,7 @@ public sealed partial class ValidationRoot
             "30-Rupee level-1 shield offer using its exact talking pose " +
             $"(hash=${scrub.CurrentAnimationPixelHash:x16}, " +
             $"pixels={scrub.CurrentAnimationOpaquePixels}).");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             bush.Position.Y != database.BushOffsetForParameter(2),
             "Business Scrub talk animation did not lift the mimicked bush " +
@@ -354,7 +354,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             scrubPosition + Vector2.Right * database.ProximityRadius,
             recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             scrub.CurrentScriptAnimationSource != database.Animation(3) ||
             bush.Position.Y != database.BushOffsetForParameter(1) ||

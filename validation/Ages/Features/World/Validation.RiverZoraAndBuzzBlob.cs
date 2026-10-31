@@ -132,7 +132,7 @@ public partial class ValidationRoot
         FailIf(blobRandom.Calls != beforeTalk + 2,
             "Cukeman's enemy pass did not consume text RNG before its next movement RNG.");
 
-        var fire = new ZoraFireProjectile(new ZoraFireSpawn(new Vector2(80, 48), SubId: 1), new ZoraFireDatabase(),
+        var fire = new ZoraFireProjectile(new ZoraFireSpawn(new Vector2(80, 48), SubId: 1), new ZoraFireDatabase(AgesGameContent.AssetRoot),
             point => point + Vector2.Down * 16, _runtimeState);
         var frame = new RoomEntityFrame(_player, 0, false, new Vector2(112, 48));
         fire.UpdateFrame(frame);
@@ -165,7 +165,7 @@ public partial class ValidationRoot
             "Room 0:43 re-entry retained a transient Cukeman form or lost its source Zoras.");
         _entities.BeginScreenTransition(0, _world.LoadRoom(0, 0x43), Vector2.Left * 160);
         int transitionRng = _entities.RandomCalls;
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(_entities.Entities<RiverZoraCharacter>().Any(enemy => enemy.State != 9 || enemy.Visible) ||
             _entities.Entities<BuzzBlobCharacter>().Single().State != 8 || _entities.RandomCalls != transitionRng,
             "Room 0:43 destination enemies advanced or consumed RNG during scrolling preload.");

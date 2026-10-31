@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace Oracles;
 
-internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
+internal sealed class GoronCaveScriptHost : RoomCutsceneCommandHost
 {
     private readonly GoronCaveEvent _owner;
     private readonly CutsceneCommandRunner _runner;
@@ -181,8 +181,8 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
     public override bool HasActorBinding(CutsceneActorId actor) => actor.Value == "Goron";
     public override void SetInputEnabled(bool enabled)
     {
+        base.SetInputEnabled(enabled);
         if(enabled) { _owner.EnableActorInput(); Gallery?.EnableInput(); }
-        else base.SetInputEnabled(false);
     }
     internal void ReleaseSharedInput() => ReleaseInputControl();
     public override void SetMusic(int music) => Context.Sound.PlayMusicIfChanged(music);

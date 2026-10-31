@@ -14,8 +14,8 @@ public partial class ValidationRoot
             LoadValidationRoom(7, roomId);
             var rows = database.GetRoomObjects(5, roomId).ToArray();
             var fish = _entities.Entities<CheepCheepCharacter>();
-            FailIf(rows.Length != fish.Count || _entities.RoomEnemyCount != rows.Length,
-                $"Room $7:${roomId:x2} lost its counted opcode-$09 fish: " +
+            FailIf(rows.Length != fish.Count || _entities.RoomEnemyCount != 0,
+                $"Room $7:${roomId:x2} lost its uncounted opcode-$09 fish admission: " +
                 $"rows={rows.Length}, fish={fish.Count}, count={_entities.RoomEnemyCount}.");
             for (int index = 0; index < rows.Length; index++)
             {
@@ -28,8 +28,8 @@ public partial class ValidationRoot
                     .CombatSource(row, 0);
                 FailIf(!combat.CountsAsEnemy || combat.KillableEnemyIndex != 0 ||
                     combat.CollisionMode != 0x94 || !combat.CollisionInitiallyEnabled,
-                    $"{row.Source} lost its counted, nonpersistent combat source.");
-                combat.ValidateSwordResponse(EnemySwordResponse.Knockback);
+                    $"{row.Source} lost its raw counter flags or nonpersistent combat source.");
+                combat.ValidateNativeCollisionData();
                 placements++;
             }
         }
@@ -95,7 +95,7 @@ public partial class ValidationRoot
         _entities.BeginScreenTransition(7, room, Vector2.Right * 160);
         CheepCheepCharacter incoming = _entities.Entities<CheepCheepCharacter>().Single();
         int randomCalls = _random.Calls;
-        for (int update = 0; update < 8; update++) _entities.Update(1.0 / 60, _player);
+        for (int update = 0; update < 8; update++) _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(incoming.State != 8 || !incoming.Visible || incoming.Counter != 0 ||
             incoming.Position != new Vector2(0xb8, 0x78) || incoming.AnimationIndex != 0 ||
             _random.Calls != randomCalls,
@@ -107,7 +107,7 @@ public partial class ValidationRoot
         FailIf(database.GetRoomObjects(5, 0x0a).Single().Var03 != 0x20,
             "Room $7:$0a must retain var03=$20.");
         _player.WarpTo(new Vector2(24, 24), recordSafe: false);
-        _entities.Update(2.0 / 60, _player);
+        _entities.AdvanceEntityFrames(2.0 / 60, _player);
         var killedBefore = _entities.CaptureDebugState().RecentEnemyDefeats.KilledEnemies;
         FailIf(!_entities.ApplySwordHit(target.CollisionBounds.Grow(1),
                 target.Position + Vector2.Left * 8, damage: 2,
@@ -115,15 +115,15 @@ public partial class ValidationRoot
             target.Health != 0 || !target.PendingKnockbackDeath || target.CollisionEnabled,
             "Cheep Cheep sword collision lost lethal recoil or collision suppression.");
         int patrolCounter = target.Counter;
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(target.Counter != patrolCounter, "Cheep Cheep advanced its patrol during recoil.");
-        for (int update = 0; update < 90; update++) _entities.Update(1.0 / 60, _player);
+        for (int update = 0; update < 90; update++) _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(_entities.Entities<CheepCheepCharacter>().Count != 0 || _entities.RoomEnemyCount != 0 ||
             !killedBefore.SequenceEqual(_entities.CaptureDebugState().RecentEnemyDefeats.KilledEnemies),
             "Cheep Cheep death did not release its room count or changed recent-defeat bits.");
         LoadValidationRoom(7, 0x09);
         LoadValidationRoom(7, 0x0a);
-        FailIf(_entities.Entities<CheepCheepCharacter>().Count != 1 || _entities.RoomEnemyCount != 1,
+        FailIf(_entities.Entities<CheepCheepCharacter>().Count != 1 || _entities.RoomEnemyCount != 0,
             "Opcode-$09 Cheep Cheep did not respawn on re-entry after defeat.");
         GD.Print("Validated all 12 Cheep Cheep placements, byte/fixed-point patrols, exact rests, combat, scrolling, and re-entry.");
     }

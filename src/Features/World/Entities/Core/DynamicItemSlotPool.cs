@@ -19,13 +19,15 @@ internal sealed class DynamicItemSlotPool
         for(int i=0;i<_slots.Length;i++) if(Live(i) is null) return i+0xd7;
         return -1;
     }
-    internal int TryAllocate(object owner,int itemId,Func<bool> isLive)
+    internal int TryAllocate(object owner,int itemId,Func<bool> isLive,int? restoredSlot=null)
     {
         if(itemId is <0 or >255) throw new ArgumentOutOfRangeException(nameof(itemId));
         for(int i=0;i<_slots.Length;i++)
             if(ReferenceEquals(Live(i)?.Owner,owner))
                 throw new InvalidOperationException($"ITEM${itemId:x2} already owns slot${i+0xd7:x2}.");
-        int slot=FindFree();
+        if (restoredSlot is { } saved && (saved is < 0xd7 or > 0xdb || Live(saved - 0xd7) is not null))
+            throw new InvalidOperationException($"ITEM${itemId:x2}: saved slot${saved:x2} cannot be rebound.");
+        int slot=restoredSlot ?? FindFree();
         if(slot>=0) _slots[slot-0xd7]=new(owner,itemId,isLive);
         return slot;
     }

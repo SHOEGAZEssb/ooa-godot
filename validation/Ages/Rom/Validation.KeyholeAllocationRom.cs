@@ -43,7 +43,7 @@ public partial class ValidationRoot
                 }
                 int nativePuffs = Enumerable.Range(0xd2,14).Count(page => rom[(page << 8) | 0x40] != 0 && rom[(page << 8) | 0x41] == 5);
                 var random = _random.CaptureState();
-                FailIf(_entities.Entities<PuzzlePuffEffect>().Count != nativePuffs ||
+                FailIf(_entities.Entities<StationaryDebrisEffect>().Count != nativePuffs ||
                     !sounds.Requests.SequenceEqual(rom.Sounds) || random.Rng1 != rom[0xff94] ||
                     random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
                     context + ": occupied-slot retirement/cues/RNG differ.");
@@ -58,7 +58,7 @@ public partial class ValidationRoot
             // ordinary muted puffs retire through their real later updates.
             for (int index = 0; index < 13 - row.Free; index++)
             {
-                var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                 int slot = 0xd000 + _entities.InteractionSlot(puff) * 0x100 + 0x40;
                 rom[slot] = 1; rom[slot+1] = 5; rom[slot+2] = 0x80;
                 rom[slot+0xb] = rom[slot+0xd] = 24;
@@ -84,7 +84,7 @@ public partial class ValidationRoot
                 "Native full-pool failure increments echo$e041 and writes key subid4 to$e042/$e043.");
             Step(120);
             FailIf(gate.BlocksGameplay || _entities.Entities<OverworldKeyUseEffect>().Count != 0 ||
-                _entities.Entities<PuzzlePuffEffect>().Count != 0 || _currentRoom.GetMetatile(new(40,40)) != 0xee ||
+                _entities.Entities<StationaryDebrisEffect>().Count != 0 || _currentRoom.GetMetatile(new(40,40)) != 0xee ||
                 _currentRoom.GetMetatile(new(56,40)) != 0xef || rom[0xcf22] != 0xee || rom[0xcf23] != 0xef,
                 "Allocation contention must not delay the native Library door script or retry after slots retire.");
             Step(12,0);

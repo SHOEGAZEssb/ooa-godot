@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
                 vector.Y < 0 ? 6.25f : vector.Y > 0 ? _currentRoom.Height - 6.75f : 64.25f);
             _player.WarpTo(start); _player.Face(Vector2I.Down);
             int target = route.Item3;
-            _transitions.BeginScroll(_player, vector, target);
+            _transitions.BeginValidationScroll(_player, vector, target);
             start = _player.PrecisePosition;
             int unique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
@@ -40,6 +40,11 @@ public sealed partial class ValidationRoot
                 Vector2 actual = new(((int)(_player.PrecisePosition.X * 256) & 0xffff) / 256.0f,
                     ((int)(_player.PrecisePosition.Y * 256) & 0xffff) / 256.0f);
                 bool finished = rom[0xcd04] == 2;
+                FailIf(_runtimeState.ReadField("wScreenTransitionState") != rom[0xcd04] ||
+                    _runtimeState.ReadField("wScreenTransitionState2") != rom[0xcd05] ||
+                    _runtimeState.ReadField("wScreenTransitionState3") != rom[0xcd06] ||
+                    _runtimeState.ReadField("wScrollMode") != rom[0xcd00],
+                    $"Native scroll phase differs on route {route}, direction{direction}, update{update}.");
                 FailIf(actual != expected || _transitions.ScrollActive == finished ||
                     _saveData.MinimapRoom != (finished ? target : sourceMinimap) || _player.FacingVector != Vector2I.Down,
                     $"ROM scroll large={large}, dir={direction}, batch={batched}, update={update}, state=${rom[0xcd04]:x2}/{rom[0xcd05]}/{rom[0xcd06]}: native={expected}, runtime={actual}, active={_transitions.ScrollActive}.");

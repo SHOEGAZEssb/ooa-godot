@@ -19,7 +19,7 @@ internal sealed class WaterTektiteRoomEntity : CombatEnemyRoomEntityAdapter<Wate
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
                 enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback,
-                soundRequested, EnemySwordResponse.Knockback)) { _scentTarget = scentTarget; }
+                soundRequested)) { _scentTarget = scentTarget; }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.ScentSeedTarget, frame.Counter);

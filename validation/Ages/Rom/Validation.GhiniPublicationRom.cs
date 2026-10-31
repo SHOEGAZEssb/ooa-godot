@@ -62,6 +62,7 @@ public sealed partial class ValidationRoot
             }
             FailIf(!found,"Ghini fixture must select each route using original shared RNG.");
             Step(2);_runtimeState.SetWramByte(0xcc8a,4);native[0xcc8a]=4;Step(3);_runtimeState.SetWramByte(0xcc8a,0);native[0xcc8a]=0;
+            StageDeferredNativeObjectPassCaller();
             _runtimeState.SetWramByte(0xcd00,4);native[0xcd00]=4;Step(3);_runtimeState.SetWramByte(0xcd00,0);native[0xcd00]=0;
             int remaining=200;while(actor.State==GhiniState.Moving&&remaining-->0)Step(1);
             FailIf(actor.State!=GhiniState.Choosing||atBoundary&&bounces==0,"Ghini must finish its native route and retain source boundary bounces without clamping.");

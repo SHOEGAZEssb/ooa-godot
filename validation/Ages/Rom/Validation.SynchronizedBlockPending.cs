@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             rom[0xd240] = 1; rom[0xd241] = 0x14; rom[0xd249] = 0;
             rom[0xd24b] = 54; rom[0xd24d] = 120; rom[0xd270] = 0x37;
             rom.SetOutgoingInteractions(); rom.ClearRoomVariables(scrolling:true); rom[0xcd00] = 8;
-            _transitions.BeginScroll(_player,Vector2I.Down,destination);
+            _transitions.BeginValidationScroll(_player,Vector2I.Down,destination);
             // Declare another tile owner's change after room loading and before
             // the next interaction pass. State0 reads this current-room byte.
             FailIf(!_rooms.TrySetTile(0x37,tile),"Declared current tile must fit its canonical queue.");

@@ -61,8 +61,11 @@ public sealed partial class ValidationRoot
                 _ => throw new InvalidOperationException($"{context}: unknown native jump graphic ${rom[0xd031]:x2}.")
             };
             FailIf(_player.AirborneLinkBodyFrame != nativePhase ||
-                nativePhase < 3 && _player.LinkAnimationCounter != rom[0xd020],
+                _player.LinkAnimationCounter != rom[0xd020],
                 $"{context}: runtime jump phase/counter={_player.AirborneLinkBodyFrame}/{_player.LinkAnimationCounter}, native={nativePhase}/{rom[0xd020]}.");
+            foreach (int address in new[] { 0xd020, 0xd021, 0xd022, 0xd023, 0xd030, 0xd031 })
+                FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                    $"{context}: native air animation ${address:x4} differs.");
         }
     }
 

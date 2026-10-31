@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             if (kind == 1) { rom[address+3] = 0x43; rom[address+0x30] = initialized ? ToggleFloorRoomEntity.LinkTilePosition(_player) : (byte)0; }
             if (kind >= 2) { rom[address+0xb] = 0x58; rom[address+0xd] = 0x78; if (kind == 3) rom[address+3] = 0x9e; }
             if (initialized && kind != 1) StepSomariaMotionRom(rom,1,batched);
-            _transitions.BeginScroll(_player,selected.Direction,selected.Target);
+            _transitions.BeginValidationScroll(_player,selected.Direction,selected.Target);
             var seed = _random.CaptureState(); int nativeCalls = rom.RandomCalls;
             rom[0xff94] = seed.Rng1; rom[0xff95] = seed.Rng2;
             rom.SetOutgoingInteractions(); rom.ClearRoomVariables(true);

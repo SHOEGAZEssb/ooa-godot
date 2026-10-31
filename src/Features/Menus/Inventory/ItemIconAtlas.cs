@@ -21,14 +21,21 @@ public static class ItemIconAtlas
         return hash;
     }
 
-    // Clean Ages bank2.s:loadEquippedItemSpriteData compares against $84.
-    public static int EquippedLeftPalette(int sprite, int palette) =>
-        sprite < 0x84 ? ((palette - 3) | 1) & 7 : palette & 7;
+    // bank2.s:loadEquippedItemSpriteData uses different seed-icon boundaries.
+    internal static int EquippedLeftPalette(OracleGame game, int sprite, int palette) =>
+        sprite < (game switch {
+            OracleGame.Ages => 0x84, OracleGame.Seasons => 0x86,
+            _ => throw new System.ArgumentOutOfRangeException(nameof(game))
+        }) ? ((palette - 3) | 1) & 7 : palette & 7;
 
     // loadItemIconGfx uses the smaller song pair only for equipped A/B items.
     // Inventory OAM and the song picker continue to address the large pair.
-    public static int EquippedSprite(int sprite) => sprite >= 0xa3 ? sprite + 2
-        : sprite is > 0 and < 0x80 ? sprite + 0x80 : sprite;
+    internal static int EquippedSprite(OracleGame game, int sprite) => game switch
+    {
+        OracleGame.Ages or OracleGame.Seasons => game == OracleGame.Ages && sprite >= 0xa3 ? sprite + 2
+            : sprite is > 0 and < 0x80 ? sprite + 0x80 : sprite,
+        _ => throw new System.ArgumentOutOfRangeException(nameof(game))
+    };
 
     public static bool Select(
         int sprite,

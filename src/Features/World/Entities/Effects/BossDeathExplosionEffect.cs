@@ -12,6 +12,7 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
 {
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<BossDeathExplosionEffectFrameRecord>> Definitions = new(System.StringComparer.Ordinal);
+    static BossDeathExplosionEffect() => OracleGraphicsCache.RegisterApplicationCache(Definitions.Clear);
     private List<BossDeathExplosionEffectFrameRecord> _animation = null!;
     private Action<int> _playSound = null!;
     private int _frame;

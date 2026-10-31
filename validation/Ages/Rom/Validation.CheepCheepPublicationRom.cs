@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
             Vector2 initial=new(4+(fractional?.25f:0),250+(fractional?.5f:0));
             var actor=new CheepCheepCharacter();actor.Initialize(EnemyDatabase.For(AgesGameContent.AssetRoot).ImportedEnemy(0x2c,subid),_currentRoom,initial.Floor(),distance,_random);
-            var source=new EnemyCombatSourceDescriptor(0x2c,subid,0x94,0,1,EnemyHandlerKind.CheepCheep,"cheepcheep.s:enemyCode2c");
+            var source=new EnemyCombatSourceDescriptor(AgesGameContent.AssetRoot,0x2c,subid,0x94,0,1,"cheepcheep.s:enemyCode2c");
             var adapter=new CheepCheepRoomEntity(actor,source,_sound.PlaySound);
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});

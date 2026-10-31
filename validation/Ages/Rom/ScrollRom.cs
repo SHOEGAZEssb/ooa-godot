@@ -8,7 +8,8 @@ namespace Oracles;
 // queued with LCD enabled; hardware transfer time and pixels are not compared.
 internal sealed class ScrollRom
 {
-    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom;
+    private readonly OracleGame _game;
     private readonly byte[] _memory = new byte[0x10000];
     private readonly byte[][] _wram = [new byte[0x1000], new byte[0x1000], new byte[0x1000], new byte[0x1000],
         new byte[0x1000], new byte[0x1000], new byte[0x1000], new byte[0x1000]];
@@ -16,12 +17,19 @@ internal sealed class ScrollRom
     private int _bank = 1;
     // Use unbanked scratch for the native stack while row copies select WRAM3.
     private readonly byte[] _caller = [0x31, 0xf0, 0xcf, 0xcd, 0x0b, 0x40, 0x31, 0xf0, 0xdf, 0xc9];
-    internal ScrollRom(bool large, int direction, int x, int y, int unique = 0, int loadedUnique = 0)
+    internal ScrollRom(bool large, int direction, int x, int y, int unique = 0, int loadedUnique = 0,
+        OracleGame game = OracleGame.Ages)
     {
+        _game = game;
+        _rom = ValidationRom.LoadCleanUs(game);
         _cpu = new OracleCpu(Read, Write, static _ => { },
             (pc, detail) => new InvalidDataException($"Scroll ROM ${_bank:x2}:${pc:x4}: {detail}."));
         this[0xff97] = 1; this[0xff40] = 0x80;
-        this[0xcc2c] = 0xd0; this[0xcc39] = 0xff;
+        this[game == OracleGame.Ages ? 0xcc2c : 0xcc48] = 0xd0;
+        this[game == OracleGame.Ages ? 0xcc39 : 0xcc55] = 0xff;
+        // Keep this phase fixture on the common non-outdoor palette route.
+        // Gameplay regressions independently exercise real room palettes.
+        if (game == OracleGame.Seasons) this[0xcc49] = 4;
         this[0xcd00] = 8; this[0xcd01] = (byte)(large ? 0 : 1);
         this[0xcd02] = (byte)direction; this[0xcd04] = 3;
         this[0xcd0a] = (byte)(large ? 15 : 10); this[0xcd0b] = (byte)(large ? 11 : 8);
@@ -43,7 +51,7 @@ internal sealed class ScrollRom
         if (this[0xcd04] == 2) throw new InvalidOperationException("Scroll ROM already finished.");
         // The preceding VBlank consumed the queue. The reference observes
         // gameplay state, not the resulting VRAM image or interrupt timing.
-        this[0xffa5] = 0;
+        this[_game == OracleGame.Ages ? 0xffa5 : 0xffa3] = 0;
         _cpu.RunCall(0xc100);
         if (_bank != 1 || this[0xff70] != 0)
             throw new InvalidDataException("Scroll ROM failed to restore ROM/WRAM bank ownership.");

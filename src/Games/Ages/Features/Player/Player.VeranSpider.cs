@@ -14,7 +14,7 @@ public partial class Player
     private void StartGrabRelease()
     {
         _enemyGrabSubstate=3;_enemyGrabReleaseCounter=30;_topDownAirSpeedZ=-0x1e0;Face(Vector2I.Up);
-        _galeFrames??=new NewGameIntroDatabase(AgesGameContent.AssetRoot).SpriteFrames("link-gale");_galeFrame=0;_galeFrameTicks=_galeFrames[0].Duration;
+        _galeFrames??=_linkItems.GaleFrames;_galeFrame=0;_galeFrameTicks=_galeFrames[0].Duration;
         SetCutsceneSpriteFrame(_galeFrames[0]);
     }
     private void AdvanceGrabRelease()
@@ -26,7 +26,7 @@ public partial class Player
         }
         OracleObjectMath.UpdateSpeedZ(ref _topDownAirZFixed,ref _topDownAirSpeedZ,0x20);
         _topDownAirborne=_topDownAirZFixed<0;
-        ApplyTopDownObjectSpeed(0x3c,16,allowWallSlide:true,allowLedgeHop:false);Position=OracleObjectMath.ToPixelPosition(_precisePosition);
+        ApplyTopDownObjectSpeed(0x3c,16,allowWallSlide:true);Position=OracleObjectMath.ToPixelPosition(_precisePosition);
         if(--_galeFrameTicks==0){_galeFrame=(_galeFrame+1)%_galeFrames!.Length;_galeFrameTicks=_galeFrames[_galeFrame].Duration;}
         SetCutsceneSpriteFrame(_galeFrames![_galeFrame]);
     }

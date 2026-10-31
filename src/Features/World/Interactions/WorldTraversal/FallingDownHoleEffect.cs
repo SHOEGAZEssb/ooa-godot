@@ -12,6 +12,7 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
 {
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, FallingDownHoleEffectDefinition> Definitions = new(System.StringComparer.Ordinal);
+    static FallingDownHoleEffect() => OracleGraphicsCache.RegisterApplicationCache(Definitions.Clear);
     private FallingDownHoleEffectDefinition _activeDefinition = null!;
     private Vector2 _precisePosition;
     private OracleRuntimeState? _movementMemory;

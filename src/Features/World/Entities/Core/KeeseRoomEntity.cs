@@ -6,7 +6,7 @@ namespace Oracles;
 
 internal sealed class KeeseRoomEntity
     : CombatEnemyRoomEntityAdapter<KeeseCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity,
-        IBoomerangCollisionRoomEntity, INativeEnemyCounter2RoomEntity
+        IBoomerangCollisionRoomEntity, INativeEnemyCounter2RoomEntity, IScreenTransitionPreloadRoomEntity
 {
     public int Counter2 { get => Entity.Counter2; set => Entity.Counter2 = value; }
     public KeeseRoomEntity(
@@ -24,16 +24,22 @@ internal sealed class KeeseRoomEntity
                 keese.TakeSwordHit,
                 keese.ApplySwordKnockback,
                 soundRequested,
-                EnemySwordResponse.Knockback,
-                deathPuffPosition: () =>
-                    keese.Position + Vector2.Down * keese.SpriteHeight))
+                deathPuffZHigh: () => keese.SpriteHeight),collisionZ:() => keese.SpriteHeight)
     { }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.InitializeStateZero();
+        return ScreenTransitionPresentation.Visible;
+    }
 
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
         ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
 
+    public override void HandleLinkContact(Player player) => HandleNativeLinkContact(player,Entity.Record.DamageQuarters);
+
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame(frame.Player.Position, frame.Counter);
+        Entity.UpdateFrame(frame.Player.Position,frame.Counter,frame.LinkTarget ?? frame.Player.EnemyContactPosition);
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {

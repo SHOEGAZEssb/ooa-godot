@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previous; previous = held;
                 StepGameplayUpdates(count, Vector2.Zero, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, 0xff, _entities.FrameCounter - 1); edge = 0;
+                    rom.UpdateGameplay(edge, held, 0xff, _saveData.ReadField("wPlaytimeCounter")); edge = 0;
                     string context = $"Companion ${id:x2} equipped ITEM${item:x2} A={primary} batch={batched} update={++update}";
                     FailIf(_player.CompanionRideActive != (rom[0xcc2c] == 0xd1) ||
                         _player.CompanionJumpActive != (rom[0xcc2c] == 0xd0 && rom[0xcc5c] != 0) ||

@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             native[at+11]=(byte)actor.Position.Y;native[at+13]=(byte)actor.Position.X;
             for(int i=0;i<13-free;i++)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
+                var puff=new StationaryDebrisEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
                 _entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int occupied=0xd040+_entities.InteractionSlot(puff)*256;
                 native[occupied]=1;native[occupied+1]=0;native[occupied+4]=1;native[occupied+0x20]=0xff;

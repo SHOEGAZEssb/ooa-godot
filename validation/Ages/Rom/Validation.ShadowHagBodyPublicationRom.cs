@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
                 SomariaPrivate<Action<int>>(template,"_playSound"),SomariaPrivate<Func<bool>>(template,"_shuttersClosed"),
                 SomariaPrivate<Action>(template,"_disableLink"),SomariaPrivate<Action>(template,"_enableLink"),
                 SomariaPrivate<Action>(template,"_restoreRoomMusic"),SomariaPrivate<Action<int,string,Vector2>>(template,"_showDialogue"),
-                SomariaPrivate<Func<bool>>(template,"_dialogueOpen"),SomariaPrivate<string>(template,"_introMessage"));_entities.Clear();
+                SomariaPrivate<Func<bool>>(template,"_dialogueOpen"),SomariaPrivate<string>(template,"_introMessage"),_entities.InitializeBossRoom);_entities.Clear();
             int angle=form==0?24:variant%4*8;
             Vector2 initial=form==0?new Vector2(new[]{119,120,145}[variant],96):form is 5 or 6?new(120,88):angle switch
                 {0=>new(120,130),8=>new(40,80),16=>new(120,30),_=>new(200,80)};
@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             int c1=form==0||form==3?0:form is 1 or 8?30:form is 2 or 7?1:60,z=(form==0?-256:0)+(fractional?128:0);
             F1Set(actor,"_state",state);F1Set(actor,"_counter1",c1);F1Set(actor,"_counter2",count2);F1Set(actor,"_angle",angle);F1Set(actor,"_zFixed",z);
             actor.Animation.SetAnimation(form is 0 or 7?0:form==8?4:angle>>3);
-            var adapter=new ShadowHagBossRoomEntity(actor,Vector2I.Zero);F1Set(adapter,"_initialized",true);
+            var adapter=new ShadowHagBossRoomEntity(actor);
             _entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
             var seed=_random.CaptureState();var native=new SomariaRom(_saveData,seed,_currentRoom,facing,(int)link.X,(int)link.Y)
                 {HostileEnemiesEnabled=true,HostilePartsEnabled=true,PostObjectCollisionsEnabled=false};

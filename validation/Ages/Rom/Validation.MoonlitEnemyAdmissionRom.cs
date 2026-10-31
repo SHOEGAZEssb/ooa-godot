@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
             // allocation from the existing small-key script-yield mismatch.
             var prior = InteractionAdmissionPool.First(pair => pair.Value == 3).Key;
             _entities.RetireEntity(prior);
-            var observerNode = new PuzzlePuffEffect(); observerNode.Initialize(AgesGameContent.AssetRoot, new(216, 152), SoundId.MusNone);
+            var observerNode = new StationaryDebrisEffect(); observerNode.Initialize(AgesGameContent.AssetRoot, new(216, 152), SoundId.MusNone);
             _entities.AddEntity(new InteractionSlotValidationEntity(observerNode, _ =>
             {
                 Node2D? watcher = orbCase ? _entities.Entities<EnemyClearChestRoomEntity>().SingleOrDefault() :

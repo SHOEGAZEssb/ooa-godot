@@ -11,6 +11,18 @@ internal sealed class PlayerSpriteLibrary(string assetRoot)
     private LinkItemDatabase _linkItems => LinkItemDatabase.For(AssetRoot);
     private SideScrollPlayerDatabase _sideScrollPlayerData => SideScrollPlayerDatabase.For(AssetRoot);
     private TopDownSwimmingDatabase _topDownSwimmingData => TopDownSwimmingDatabase.For(AssetRoot);
+    private readonly System.Collections.Generic.Dictionary<(int Phase,int Direction,bool Damage), (Texture2D Texture,Vector2 Offset)> _capeFrames = new();
+    internal (Texture2D Texture,Vector2 Offset) CapeFrame(int phase,int direction,bool damage)
+    {
+        var key = (phase,direction,damage);
+        if (_capeFrames.TryGetValue(key,out var frame)) return frame;
+        LinkGraphicRecord record = _linkItems.Graphic("cape",0,phase,direction);
+        frame = OracleOamCompositor.BuildPositionedOamTexture(
+            OracleGraphicsCache.LoadImage(AssetRoot + "gfx/spr_link.png"),record.Oam,0,
+            damage ? 5 : 0,null,true,sourceOffset:record.ByteOffset);
+        _capeFrames.Add(key,frame);
+        return frame;
+    }
     internal Texture2D WalkTexture { get; private set; } = null!;
 
     internal void PrepareWalkTexture() => WalkTexture = BuildLinkTexture(damagePalette: false);
@@ -277,8 +289,8 @@ internal sealed class PlayerSpriteLibrary(string assetRoot)
             AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
 
-        // LINK_ANIM_MODE_26 resolves the Sword's four 3/3/8/terminal body
-        // phases to $c8-$cb, $cc-$cf, $cc-$cf, and seated $58-$5b.
+        // LINK_ANIM_MODE_26 retains four 3/3/8/terminal body phases; their
+        // graphics indices differ between the native games.
         for (int phase = 0; phase < 4; phase++)
         for (int facing = 0; facing < 4; facing++)
         {
@@ -512,8 +524,7 @@ internal sealed class PlayerSpriteLibrary(string assetRoot)
             AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
-        // LINK_ANIM_MODE_DIG_2 ($1a) selects $f8-$ff. The first and second
-        // columns are the $f8-$fb and $fc-$ff phases respectively.
+        // LINK_ANIM_MODE_DIG_2 ($1a) supplies two directional digging poses.
         for (int facing = 0; facing < 4; facing++)
         for (int phase = 0; phase < 2; phase++)
         {

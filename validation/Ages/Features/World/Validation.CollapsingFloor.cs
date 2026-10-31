@@ -46,8 +46,8 @@ public sealed partial class ValidationRoot
             // The actual gameplay handoff to the underground is exercised below.
             void Collapse(int count = 1)
             {
-                if (batch) _entities.Update(count / 60.0, _player);
-                else for (int i = 0; i < count; i++) _entities.Update(1.0 / 60, _player);
+                if (batch) _entities.AdvanceEntityFrames(count / 60.0, _player);
+                else for (int i = 0; i < count; i++) _entities.AdvanceEntityFrames(1.0 / 60, _player);
             }
             Collapse(29);
             FailIf(trap.ScriptIndex != 0 || trap.Counter != 1, "$dc:$0b first floor must wait another 30 updates.");
@@ -95,15 +95,15 @@ public sealed partial class ValidationRoot
         _player.WarpTo(Point(0x11));
         _entities.BeginScreenTransition(2, destination, Vector2.Left * destination.Width);
         var incoming = _entities.EntityAdapters<CollapsingFloorRoomEntity>().Single();
-        _entities.Update(100.0 / 60, _player);
+        _entities.AdvanceEntityFrames(100.0 / 60, _player);
         FailIf(incoming.State != 1 || _entities.PlayerUpdatesFrozen,
             "$dc:$0b advanced beyond initialization during destination scrolling.");
         _entities.FinishScreenTransition();
         _runtimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,1);
-        _entities.Update(4.0 / 60, _player);
+        _entities.AdvanceEntityFrames(4.0 / 60, _player);
         FailIf(incoming.State != 1, "$dc:$0b ignored the collision/menu gate.");
         _runtimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,0);
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(incoming.State != 2, "$dc:$0b did not resume after scrolling and the collision gate cleared.");
         LoadValidationRoom(2, 0x9e);
     }

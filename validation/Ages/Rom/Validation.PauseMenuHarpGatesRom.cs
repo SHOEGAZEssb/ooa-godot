@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
             Vector2 position = Enumerable.Range(1, 6).SelectMany(y => Enumerable.Range(1, 8)
                 .Select(x => new Vector2(x * 16 + 8, y * 16 + 8)))
                 .First(point => !_collision.Collides(point) && landing.CanStandOnTile(_currentRoom, point, false) &&
-                    !WarpDatabase.IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(point)));
+                    !WarpDatabase.For(AgesGameContent.AssetRoot).IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(point)));
             _player.WarpTo(position, recordSafe: false); _player.Face(Vector2I.Down);
             var seed = _random.CaptureState();
             var rom = new HarpRom(_saveData, seed, _currentRoom.Group, _currentRoom.Id,

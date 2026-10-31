@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -7,13 +8,15 @@ namespace Oracles;
 /// Native INTERAC_FOREST_FAIRY $49:$00/$03/$04 movement. Coordinates and velocities
 /// retain the original unsigned high-byte checks and signed 8.8 word wrapping.
 /// </summary>
-internal sealed class ForestFairyFlight
+internal sealed class ForestFairyFlight : NpcCharacterRoomEntityAdapter,
+    INativeInteractionRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly FairiesWoodsDatabase _database;
     private readonly FairiesWoodsEventRecord _event;
     private readonly OracleRuntimeState _runtime;
     private readonly OracleSoundEngine _sound;
-    private readonly FairiesWoodsSparkleLayer _sparkles;
+    private readonly Action<Vector2> _spawnSparkle;
     private readonly Action<Vector2> _spawnPuff;
     private int _presetIndex;
     private int _yFixed;
@@ -32,6 +35,10 @@ internal sealed class ForestFairyFlight
 
     internal NpcCharacter Actor { get; }
     internal bool Active { get; private set; } = true;
+    public bool Finished => !Active;
+    public bool NativeInitializationPending => _stateZeroPending && Active;
+    public bool UpdatesDuringDialogue => _stateZeroPending;
+    public bool UpdatesDuringRoomEntityFreeze => _stateZeroPending;
     internal int PresetIndex => _presetIndex;
     internal int Angle => _angle;
     internal int Counter1 => _counter1;
@@ -45,17 +52,17 @@ internal sealed class ForestFairyFlight
         FairiesWoodsDatabase database,
         OracleRuntimeState runtime,
         OracleSoundEngine sound,
-        FairiesWoodsSparkleLayer sparkles,
+        Action<Vector2> spawnSparkle,
         NpcCharacter actor,
         int presetIndex,
         Action<Vector2> spawnPuff,
-        int subId = 0)
+        int subId = 0) : base(actor, actor.SetTransitionDrawOffset)
     {
         _database = database;
         _event = database.Event;
         _runtime = runtime;
         _sound = sound;
-        _sparkles = sparkles;
+        _spawnSparkle = spawnSparkle;
         _spawnPuff = spawnPuff;
         Actor = actor;
         _presetIndex = presetIndex;
@@ -64,18 +71,41 @@ internal sealed class ForestFairyFlight
         LoadPreset(setPosition: true);
     }
 
-    internal void InitializeState()
+    internal static ForestFairyFlight? TryCreate(RoomEventContext context, FairiesWoodsDatabase data,
+        int preset, int subId, string name) => context.Entities.TryAllocateInteraction(() =>
+    {
+        var movement = data.Movements[preset]; var visual = data.Event;
+        var record = new NpcRecord(context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id,
+            AgesInteractionId.ForestFairy, subId, movement.InitialY, movement.InitialX, preset, 0,
+            visual.FairySprite, visual.FairyTileBase, 0, 0, false,
+            visual.Animation0, visual.Animation0, visual.Animation0, visual.Animation0, string.Empty,
+            NpcImplementationClassification.EventOwned);
+        var actor = NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot);
+        actor.Name = name; actor.SetAnimationRate(0); actor.SetBlocksLink(false); actor.SetCollisionRadii(4, 4);
+        return new ForestFairyFlight(data, context.Entities.RuntimeState, context.Sound,
+            position => context.Entities.TryCreateInteraction(new InteractionSparkleSpawn(position, 0,
+                new(AgesGameContent.AssetRoot, visual.SparkleSprite, visual.SparkleTileBase, visual.SparklePalette, visual.SparkleAnimation), Subid: 2)),
+            actor, preset, position => context.Entities.TryCreateInteraction(new PuzzlePuffSpawn(position, visual.PuffSound)), subId);
+    });
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => Advance(frame.Counter);
+    public override ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_stateZeroPending) InitializeState();
+        return Actor.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
+
+    private void InitializeState()
     {
         if (!_stateZeroPending || !Active) return;
         _stateZeroPending = false;
         Actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // $49: objectSetVisiblec1
     }
 
-    internal void UpdateFrame(int globalFrame, bool textActive = false)
+    private void Advance(int globalFrame)
     {
         if (!Active)
             return;
-        if (textActive && !_stateZeroPending) return;
         if (_stateZeroPending)
         {
             InitializeState();
@@ -141,7 +171,7 @@ internal sealed class ForestFairyFlight
 
             case FairyFlightStage.Circle:
                 _sparkleCounter = (_sparkleCounter - 1) & 255;
-                if ((_sparkleCounter & 7) == 0) _sparkles.Spawn(Actor.Position);
+                if ((_sparkleCounter & 7) == 0) _spawnSparkle(Actor.Position);
                 if (--_counter2 == 0)
                 {
                     _counter2 = _counter1;
@@ -180,14 +210,17 @@ internal sealed class ForestFairyFlight
         }
 
         _sparkleCounter = unchecked((byte)(_sparkleCounter - 1));
-        int sparkleTest = _sparkleCounter;
+        bool spawnSparkle = (_sparkleCounter & 7) == 0;
         if (_sparkleCounter == 0)
         {
             _sparkleCounter = 0x5a;
+            // forestFairy_subid00State1's SRL carry-clear branch skips
+            // the sparkle; only rounding an odd counter falls through.
+            spawnSparkle = (_counter2 & 1) != 0;
             _counter2 = (_counter2 >> 1) + (_counter2 & 1);
         }
-        if ((sparkleTest & 7) == 0)
-            _sparkles.Spawn(Actor.Position);
+        if (spawnSparkle)
+            _spawnSparkle(Actor.Position);
 
         _counter1--;
         if (_counter1 == 0)

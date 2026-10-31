@@ -35,7 +35,7 @@ public partial class ValidationRoot
             foreach(var (x,expected) in new[]{(105.99f,0),(106f,1),(133.99f,1),(134f,0)})
             {
                 Arrange(new(x,136));
-                manager.Update(1.0/60,_player);
+                manager.AdvanceEntityFrames(1.0/60,_player);
                 FailIf(requests!=expected,$"Crown entrance XY boundary differs at X={x}.");
             }
             // _checkCollidedWithLink: (Link.zh - object.zh +7)&255 <14.
@@ -43,16 +43,16 @@ public partial class ValidationRoot
             {
                 Arrange(new(120,136));
                 _player.SetScriptedZHigh(unchecked((byte)height));
-                manager.Update(1.0/60,_player);
+                manager.AdvanceEntityFrames(1.0/60,_player);
                 FailIf(requests!=expected,$"Crown entrance height gate differs at zh={height}.");
             }
             Arrange(new(120,136));
             death.SetValue(_player,true);
-            manager.Update(1.0/60,_player);
+            manager.AdvanceEntityFrames(1.0/60,_player);
             FailIf(requests!=0,"Crown entrance must not show text while wLinkDeathTrigger is set.");
             death.SetValue(_player,false);
-            manager.Update(1.0/60,_player);
-            manager.Update(2.0/60,_player);
+            manager.AdvanceEntityFrames(1.0/60,_player);
+            manager.AdvanceEntityFrames(2.0/60,_player);
             FailIf(requests!=1,"Clearing the death gate must allow one entrance title, with no repeat.");
             foreach(bool defeated in new[]{false,true})
             {
@@ -61,7 +61,7 @@ public partial class ValidationRoot
                 manager.LoadRoom(4,room);
                 var freeze=new CrownEntranceFreeze();
                 manager.AddEntity(freeze);
-                manager.Update(1.0/60,_player);
+                manager.AdvanceEntityFrames(1.0/60,_player);
                 var portals=manager.Entities<MinibossPortal>();
                 FailIf(portals.Count!=(defeated?1:0) || defeated && !portals[0].Visible,
                     "Crown portal state0 must check Smasher's room flag even while interactions are disabled.");
@@ -69,11 +69,11 @@ public partial class ValidationRoot
                 {
                     var portal=portals.Single();
                     int frame=portal.AnimationFrame;
-                    manager.Update(8.0/60,_player);
+                    manager.AdvanceEntityFrames(8.0/60,_player);
                     FailIf(portal.AnimationFrame!=frame,
                         "An initialized Crown portal must stop updating while interactions are disabled.");
                     freeze.FreezesRoomEntities=false;
-                    for(int i=0;portal.AnimationFrame==frame && i<32;i++) manager.Update(1.0/60,_player);
+                    for(int i=0;portal.AnimationFrame==frame && i<32;i++) manager.AdvanceEntityFrames(1.0/60,_player);
                     FailIf(portal.AnimationFrame==frame,
                         "The Crown portal must resume animation when the interaction freeze is released.");
                 }

@@ -12,17 +12,22 @@ public sealed partial class ValidationRoot
         for (int y = 8; y < 128; y += 16)
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);
-        _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(72, 56), 0xf3, 0, 0);
         _player.WarpTo(new Vector2(8, 8), recordSafe: false);
         _player.SetLocalRespawnCoordinates(new Vector2(40, 40));
         int health = _player.HealthQuarters;
-        var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
+        _entities.Spawn(
             new DimitriCompanionSpawn(new Vector2(72, 56), ObjectDirection.Down, 0, 0x2a));
-        _entities.Update(1.0 / 60.0, _player);
+        // Ages state0 yields once, then initializes; the hazard belongs to state1.
+        _entities.AdvanceEntityFrames(2.0 / 60.0, _player);
+        var dimitri=_entities.Entities<DimitriCompanionRoomEntity>().Single();
+        FailIf(_runtimeState.ReadWramByte(0xd104) != 1 || dimitri.LinkRiding,
+            "Dimitri must finish native state0 as an unmounted state-$01 owner.");
+        _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(72, 56), 0xf3, 0, 0);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.Hazard || dimitri.LinkRiding || _player.CompanionRideActive,
             "Unmounted Dimitri entering a hole must not take over Link's companion pose.");
         for (int update = 0; update < 240 && dimitri.Phase == DimitriPhase.Hazard; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.PrecisePosition != new Vector2(40, 40) ||
             _player.HealthQuarters != health || _player.PrecisePosition != new Vector2(8, 8),
             "companionRespawn damaged or moved unmounted Link, or failed to restore Dimitri's local respawn coordinates.");
@@ -39,31 +44,31 @@ public sealed partial class ValidationRoot
         _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(72, 72), 0xd4, 3, 0);
         var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
             new DimitriCompanionSpawn(new Vector2(72, 64), ObjectDirection.Down, 0, 0x2a, Riding: true));
-        CompanionRuntimeState.BeginAnimalRide(_entities.RuntimeState, _saveData, SpecialObjectId.Dimitri, 0x2a, new Vector2(72, 64), ObjectDirection.Down);
+        CompanionRuntimeState.BeginAnimalRide(_entities.RuntimeState, _saveData, SpecialObjectId.Dimitri, new Vector2(72, 64), ObjectDirection.Down);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["move_down"], justPressed: [], movement: Vector2.Down));
         try
         {
-            _entities.Update(1.0 / 60.0, _player);
-            _entities.Update(1.0 / 60.0, _player);
-            _entities.Update(1.0 / 60.0, _player); // Angle change, wall probe, then cliff gate.
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player); // Angle change, wall probe, then cliff gate.
         }
         finally { Input.EndOriginalUpdate(); }
         FailIf(dimitri.Phase != DimitriPhase.CliffJump || dimitri.Counter != 20,
             "Dimitri did not recognize the native downward vine-top cliff after the angle-change update.");
         Vector2 start = dimitri.PrecisePosition;
         _sound.ClearPlayRequestAudit();
-        for (int update = 0; update < 19; update++) _entities.Update(1.0 / 60.0, _player);
+        for (int update = 0; update < 19; update++) _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.PrecisePosition != start || dimitri.Counter != 1 ||
             _sound.PlayRequestsFor(SoundId.SndJump) != 0,
             "Dimitri cliff anticipation moved or played its jump sound before counter $14 expired.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.PrecisePosition != start || _sound.PlayRequestsFor(SoundId.SndJump) != 1,
             "Dimitri cliff counter-zero update must play the sound without moving yet.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.PrecisePosition.Y != start.Y + 2 || dimitri.ZFixed >= 0,
             "Dimitri cliff launch did not apply SPEED_200 and the source vertical impulse.");
         for (int update = 0; update < 30 && dimitri.Phase == DimitriPhase.CliffJump; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.Riding,
             "Dimitri did not leave cliff state after the rear collision probes crossed the wall.");
         GD.Print("Validated Dimitri vine-top cliff, $14 anticipation, counter-zero sound, fixed-point launch and rear-wall exit.");
@@ -87,16 +92,16 @@ public sealed partial class ValidationRoot
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);
         _player.WarpTo(new Vector2(72, 72), recordSafe: false);
+        foreach (var enemy in _entities.Entities<EnemyCharacter>()) enemy.FinishGale();
+        StepGameplayUpdates(1,Vector2.Zero);
         int notes = _harp.NoteSpawnCount, random = _entities.RandomCalls;
         _inventory.EquipB(TreasureId.Flute);
-        Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["item"], justPressed: ["item"], movement: Vector2.Zero));
-        try { _player.AdvanceApplicationUpdate(); }
-        finally { Input.EndOriginalUpdate(); }
+        StepGameplayUpdates(1,Vector2.Zero,held:["item"],pressed:["item"]);
         FailIf(!_harp.IsPlayingFlute || !_player.IsUsingHarp || !_player.HarpPoseActive,
             "Equipped Dimitri flute did not allocate the shared instrument parent and native Link pose.");
         for (int update = 2; update <= 255; update++)
         {
-            _player.AdvanceHarpForValidation(1);
+            StepGameplayUpdates(1,Vector2.Zero,held:["item"]);
             FailIf(update < 255 && !_player.IsUsingHarp,
                 $"Dimitri flute finished before source update $ff (update {update}).");
         }
@@ -107,13 +112,13 @@ public sealed partial class ValidationRoot
         var dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
         FailIf(dimitri.Phase != DimitriPhase.FlutePending || dimitri.PrecisePosition != new Vector2(72, -8),
             "Flute entrance search did not prefer the two clear top-edge tiles at Link's column.");
-        _entities.Update(1.0 / 60.0, _player);
+        StepGameplayUpdates(1,Vector2.Zero);
         FailIf(dimitri.Phase != DimitriPhase.FluteEntering || dimitri.Counter != 60,
             "Dimitri flute entry did not initialize its separate sixty-update movement counter.");
-        for (int update = 0; update < 59; update++) _entities.Update(1.0 / 60.0, _player);
+        StepGameplayUpdates(59,Vector2.Zero);
         FailIf(dimitri.Phase != DimitriPhase.FluteEntering || dimitri.Counter != 1,
             $"Dimitri ended a clear flute entrance before update $3c: {dimitri.Phase}, counter {dimitri.Counter}, position {dimitri.PrecisePosition}.");
-        _entities.Update(1.0 / 60.0, _player);
+        StepGameplayUpdates(1,Vector2.Zero);
         FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.Direction != 2,
             "Dimitri did not become available after the flute entrance.");
         GD.Print("Validated Dimitri flute source duration, note RNG, ordered entrance search and $3c movement boundary.");
@@ -127,6 +132,8 @@ public sealed partial class ValidationRoot
         for (int y = 8; y < 128; y += 16)
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);
+        _runtimeState.SetWramByte(0xd104,1); // Declared initialized state1 for this Bracelet component fixture.
+        _runtimeState.SetWramByte(0xd108,2);_runtimeState.SetWramByte(0xd109,2);
         var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
             new DimitriCompanionSpawn(new Vector2(72, 56), ObjectDirection.Down, 0, 0x2a));
         _player.WarpTo(new Vector2(72, 72), recordSafe: false);
@@ -138,7 +145,7 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 40; update++)
         {
             _bracelet.Update(_player, Vector2.Zero, false, true, false);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(dimitri.ZFixed >= 0 || dimitri.LinkRiding,
             "Carried Dimitri lost his held Z or incorrectly mounted Link.");
@@ -155,11 +162,11 @@ public sealed partial class ValidationRoot
         FailIf(!dimitri.TryUseBracelet(_player, Vector2I.Right) || _player.IsCarryingObject,
             "Dimitri could not be thrown from the shared held state.");
         Vector2 start = dimitri.PrecisePosition;
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.Thrown || dimitri.PrecisePosition.X <= start.X,
             "Thrown Dimitri did not consume the Bracelet's fixed-point horizontal velocity.");
         for (int update = 0; update < 200 && dimitri.Phase is DimitriPhase.Thrown or DimitriPhase.ThrownLanding; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.Phase is not (DimitriPhase.Waiting or DimitriPhase.AwaitingDistance) ||
             dimitri.ZFixed != 0 || dimitri.PrecisePosition.X > 155,
             "Thrown Dimitri did not settle at the native small-group boundary.");
@@ -175,6 +182,8 @@ public sealed partial class ValidationRoot
         for (int y = 8; y < 128; y += 16)
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), x >= 88 ? (byte)0xfe : (byte)0, 0, 0);
+        _runtimeState.SetWramByte(0xd104,1); // Declared initialized state1 for this throw/return component fixture.
+        _runtimeState.SetWramByte(0xd108,2);_runtimeState.SetWramByte(0xd109,2);
         var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
             new DimitriCompanionSpawn(new Vector2(72, 56), ObjectDirection.Down, 0, 0x2a));
         _player.WarpTo(new Vector2(72, 72), recordSafe: false);
@@ -183,16 +192,16 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 40; update++)
         {
             _bracelet.Update(_player, Vector2.Zero, false, true, false);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(!dimitri.TryUseBracelet(_player, Vector2I.Right), "Dimitri water-return fixture could not throw him.");
         for (int update = 0; update < 100 && dimitri.Phase == DimitriPhase.Thrown; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.ReturningToLand || dimitri.Direction != 3 || !dimitri.InWater,
             "Thrown Dimitri did not enter state $0b facing the saved throw origin.");
         _sound.ClearPlayRequestAudit();
         for (int update = 0; update < 180 && dimitri.Phase == DimitriPhase.ReturningToLand; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.InWater || dimitri.ZFixed != 0 ||
             dimitri.AnimationIndex != dimitri.Direction || _sound.PlayRequestsFor(SoundId.SndLinkSwim) != 0,
             $"Dimitri did not swim back to land: phase={dimitri.Phase}, water={dimitri.InWater}, Z={dimitri.ZFixed}, animation={dimitri.AnimationIndex}, dir={dimitri.Direction}, sounds={_sound.PlayRequestsFor(SoundId.SndLinkSwim)}.");

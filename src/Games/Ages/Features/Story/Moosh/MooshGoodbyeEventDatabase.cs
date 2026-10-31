@@ -13,6 +13,8 @@ internal sealed class MooshGoodbyeEventDatabase
         AgesGameContent.AssetRoot + "cutscenes/moosh_goodbye_event.tsv";
 
     internal MooshGoodbyeEventRecord Record { get; }
+    internal System.Collections.Generic.IReadOnlyList<MooshGoodbyePlacementRecord> Placements { get; }
+    internal bool Matches(int group, int room) => group == Record.Group && room == Record.Room;
 
     internal MooshGoodbyeEventDatabase()
     {
@@ -43,6 +45,14 @@ internal sealed class MooshGoodbyeEventDatabase
             row.HexByte(20), row.HexByte(21), row.HexByte(22),
             row.HexByte(23), row.HexWord(24), row.Base64Utf8(25),
             row.RequiredString(26));
+        Placements = GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/moosh_goodbye_placements.tsv",
+            new GeneratedTableSchema("Moosh goodbye placements", GeneratedTableKeySemantics.Ordered,
+                ["order", "id", "subid", "y", "x", "source"], headerRequired: true)).Rows.Select(row =>
+                    new MooshGoodbyePlacementRecord(row.UnsignedDecimal(0), row.HexByte(1), row.HexByte(2),
+                        row.HexByte(3), row.HexByte(4), row.RequiredString(5))).ToArray();
+        if (Placements.Count != 2 || Placements[0] is not { Order: 0, Id: 0x71, SubId: 1, Y: 0x38, X: 8 } ||
+            Placements[1] is not { Order: 1, Id: 0x67, SubId: 1, Y: 0, X: 0 })
+            throw new InvalidOperationException("mainData.s:group0Map6bObjectData changed its native placement stream.");
         Validate();
     }
 
@@ -61,13 +71,6 @@ internal sealed class MooshGoodbyeEventDatabase
         int state = save.ReadWramByte(Record.MooshStateAddress);
         if ((state & Record.LeftMask) != 0)
             return false;
-        if ((state & Record.RescuedMask) == 0)
-        {
-            throw new InvalidOperationException(
-                "Room 0:6b INTERAC_COMPANION_SPAWNER $67:$01 reached " +
-                "SPECIALOBJECT_MOOSH's unsupported pre-rescue state-$0a " +
-                $"branch (wMooshState=${state:x2}).");
-        }
         return true;
     }
 
@@ -125,3 +128,5 @@ internal readonly record struct MooshGoodbyeEventRecord(
     int TextId,
     string Text,
     string Source);
+
+internal readonly record struct MooshGoodbyePlacementRecord(int Order, int Id, int SubId, int Y, int X, string Source);

@@ -8,12 +8,12 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookGibdoExchange()
     {
-        var collisions = SwitchHookCollisionDatabase.Shared;
+        var collisions = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
         // Independent readings of objectCollisionTable's $0d column.
-        FailIf(collisions.Effect(EnemyCollisionMode.Gibdo) != 0x2e || collisions.Effect(EnemyCollisionMode.Projectile) != 0 ||
-            collisions.Effect(EnemyCollisionMode.BladeTrap) != 0x1b || collisions.Effect(EnemyCollisionMode.Dormant) != 0x1c ||
-            !collisions.EnemyEnabled(0x12) || collisions.EnemyEnabled(0x16) ||
-            collisions.EnemyEnabled(0x2d), "Switch Hook lost native effect or dbrev eligibility operands.");
+        FailIf(collisions.Effect(EnemyCollisionMode.Gibdo, ItemCollisionType.SwitchHook) != 0x2e || collisions.Effect(EnemyCollisionMode.Projectile, ItemCollisionType.SwitchHook) != 0 ||
+            collisions.Effect(EnemyCollisionMode.BladeTrap, ItemCollisionType.SwitchHook) != 0x1b || collisions.Effect(EnemyCollisionMode.Dormant, ItemCollisionType.SwitchHook) != 0x1c ||
+            !collisions.EnemyEnabled(0x12, ItemCollisionType.SwitchHook) || collisions.EnemyEnabled(0x16, ItemCollisionType.SwitchHook) ||
+            collisions.EnemyEnabled(0x2d, ItemCollisionType.SwitchHook), "Switch Hook lost native effect or dbrev eligibility operands.");
         Vector2[] probes = [new(77, 77), new(82, 77), new(77, 87), new(82, 87),
             new(75, 80), new(75, 85), new(84, 80), new(84, 85)];
         foreach (bool side in new[] { false, true })

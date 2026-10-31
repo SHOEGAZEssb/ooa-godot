@@ -97,7 +97,7 @@ public sealed partial class ValidationRoot
                     incoming.Single(actor=>actor.SubId==9).State!=nativeScroll[0xd244],
                     "Jabu incoming state-zero deletion/init differs from native scroll admission.");
                 var seed=_random.CaptureState();
-                _entities.Update(8.0/60.0,_player);
+                _entities.AdvanceEntityFrames(8.0/60.0,_player);
                 var after=_random.CaptureState();
                 FailIf(incoming.Single(actor=>actor.SubId==9).State!=1||after.Rng1!=seed.Rng1||
                     after.Rng2!=seed.Rng2||after.Calls!=seed.Calls,

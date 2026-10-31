@@ -11,10 +11,10 @@ public partial class EndingScreen
     private bool[] _creditsSpriteDefined=[],_savedFontDefined=[],_maskedFontDefined=[];
     private Image? _ownedSprites;
     private int _scrollX,_scrollY;
-    private readonly Dictionary<object,(IntroOamPart[] Parts,int Y,int X,int Slot,int Priority,Func<Vector2,Vector2>? Project)> _objects=[];
-    private readonly List<IntroOamPart> _objectOam=[];
+    private readonly Dictionary<object,(ObjectSpritePart[] Parts,int Y,int X,int Slot,int Priority,Func<Vector2,Vector2>? Project)> _objects=[];
+    private readonly List<ObjectSpritePart> _objectOam=[];
     private readonly Dictionary<(int Tile,int Flags),Texture2D> _objectCells=[];
-    internal IReadOnlyList<IntroOamPart> ObjectOam=>_objectOam;
+    internal IReadOnlyList<ObjectSpritePart> ObjectOam=>_objectOam;
     internal void SetScrollX(int value){_scrollX=value&255;QueueRedraw();}
     internal void SetScrollY(int value){_scrollY=value&255;QueueRedraw();}
     private void ResetCreditsGraphics()
@@ -77,7 +77,7 @@ public partial class EndingScreen
         var image=OracleGraphicsCache.DecodeTwoBitSpriteSheet(_creditsSpriteBytes);
         _ownedSprites?.Dispose();_ownedSprites=image;_sprites=image;_objectCells.Clear();
     }
-    internal void SetObjectOam(object owner,IntroOamPart[] parts,int y,int x,int slot,int priority=2,Func<Vector2,Vector2>? project=null)
+    internal void SetObjectOam(object owner,ObjectSpritePart[] parts,int y,int x,int slot,int priority=2,Func<Vector2,Vector2>? project=null)
     {_objects[owner]=(parts,y,x,slot,priority,project);RebuildObjectOam();}
     internal void RefreshObjectOam()=>RebuildObjectOam();
     internal void RemoveObjectOam(object owner){_objects.Remove(owner);RebuildObjectOam();}

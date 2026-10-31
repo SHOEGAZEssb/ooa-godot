@@ -349,6 +349,7 @@ internal sealed class PostD3RemoteMakuEvent :
     {
         RestoreFade();
         _stage = PostD3RemoteMakuStage.Inactive;
+        _context.Player.EndCutsceneControl(this);
         _remoteMaku.StartPrepared();
         // The global cutscene handler reaches updateAllObjects after state 7,
         // so the new interaction runs its first script update in this same

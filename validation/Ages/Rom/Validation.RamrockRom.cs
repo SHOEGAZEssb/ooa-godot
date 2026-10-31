@@ -128,7 +128,7 @@ public sealed partial class ValidationRoot
             Step(1);
             boss.HitCount=2; rom[0xd080+bossSlot*256+0x35]=2;
             var grabber=_entities.Entities<RamrockCharacter>().Single(a=>a.Record.Id==5);
-            var bomb=_entities.Spawn<BombEffect>(new BombSpawn(_player,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,5,_=>{}));
+            var bomb=_entities.Spawn<BombEffect>(new BombSpawn(_player,new BombDatabase(AgesGameContent.AssetRoot).Data,5,_=>{}));
             bomb.Throw(_player,Vector2I.Zero,Vector2I.Zero,0,0);
             // Declare one live grounded ITEM$03 in the source grabber window.
             // The gameplay enemy pass performs the consume and phase signal.

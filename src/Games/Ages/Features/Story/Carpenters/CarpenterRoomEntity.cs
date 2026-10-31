@@ -3,16 +3,12 @@ using Godot;
 namespace Oracles;
 
 /// <summary>The event advances this original interaction slot, including native NPC work.</summary>
-internal sealed class CarpenterRoomEntity : NpcCharacterRoomEntityAdapter, IRoomBlocker, ITalkTarget,
-    IRoomEntityUpdateFreeze
+internal sealed class CarpenterRoomEntity : NpcCharacterRoomEntityAdapter, IRoomBlocker, ITalkTarget
 {
     private CarpenterEvent? _event;
     public int ScriptSubid { get; }
     public bool Returned { get; }
     public NpcCharacter Npc => Entity;
-    // disableinput writes $81 (Link and all non-interaction objects). The
-    // event remains the authoritative owner even after the boss departs.
-    public bool FreezesRoomEntities => _event?.BlocksGameplay == true;
     internal void BindEvent(CarpenterEvent owner) => _event = owner;
 
     public CarpenterRoomEntity(NpcCharacter npc, CarpenterDatabase database,

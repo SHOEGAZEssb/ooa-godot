@@ -29,6 +29,9 @@ public sealed partial class ValidationRoot
             checked((byte)(record.CompleteMask | 0x80)));
         LoadValidationRoom(record.Group, record.Room);
 
+        // Replace the room's waiting owner with this declared riding fixture.
+        foreach (var waiting in _entities.Entities<RickyCompanionRoomEntity>().ToArray())
+            _entities.RetireEntity(waiting);
         Vector2 mountPosition = new(80, 64);
         _player.WarpTo(mountPosition);
         var companion = _entities.Spawn<RickyCompanionRoomEntity>(
@@ -41,7 +44,6 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.BeginAnimalRide(
             _runtimeState, _saveData,
             CompanionRuntimeState.RickyId,
-            record.Room,
             mountPosition,
             direction: ObjectDirection.Right);
         StepRickyApplicationInput(pressed: [], justPressed: []);
@@ -406,8 +408,8 @@ public sealed partial class ValidationRoot
             (long)_animationTicks);
 
         int downJumpSounds = _sound.PlayRequestsFor(behavior.JumpSound);
-        StepRickyApplicationInput(pressed: ["move_down"], justPressed: []);
-        StepRickyApplicationInput(pressed: ["move_down"], justPressed: []);
+        for(int approach=0;approach<2 && companion.Phase==RickyCompanionPhase.Riding;approach++)
+            StepRickyApplicationInput(pressed: ["move_down"], justPressed: []);
         FailIf(
             companion.Phase != RickyCompanionPhase.JumpingDownCliff ||
             companion.AnimationIndex != behavior.LongJumpAnimation + 2 ||
@@ -611,7 +613,7 @@ public sealed partial class ValidationRoot
         StepRickyApplicationInput(
             pressed: ["move_right"], justPressed: []);
         bool hasRightDestination =
-            _transitions.TryGetScreenTransitionDestinationForValidation(
+            _transitions.TryGetScreenTransitionDestination(
                 Vector2I.Right,
                 out int rightDestination);
         FailIf(
@@ -659,17 +661,21 @@ public sealed partial class ValidationRoot
                 companion.Phase != RickyCompanionPhase.HazardFalling,
                 "Ricky did not enter state $04 on the hazardous mounted " +
                 "screen-entry point.");
+            Vector2 beforeRespawn = companion.PrecisePosition;
             for (int update = 0; update < 240 &&
                 companion.Phase == RickyCompanionPhase.HazardFalling; update++)
             {
+                beforeRespawn = companion.PrecisePosition;
                 StepRickyApplicationInput(pressed: [], justPressed: []);
             }
+            // companionRespawn copies only Y/X highs; the falling object's lows survive.
+            Vector2 expectedRespawn = screenRespawn + beforeRespawn - beforeRespawn.Floor();
             FailIf(
                 companion.Phase != RickyCompanionPhase.Riding ||
-                companion.PrecisePosition != screenRespawn ||
+                companion.PrecisePosition != expectedRespawn ||
                 _player.LocalRespawnPosition != screenRespawn,
                 "companionRespawn did not copy the shared last mount point " +
-                "without revalidating it after the local point failed.");
+                $"without revalidating it after the local point failed, retaining position lows ({companion.PrecisePosition}/{expectedRespawn}).");
         }
         finally
         {
@@ -763,7 +769,7 @@ public sealed partial class ValidationRoot
         try
         {
             _player.AdvanceApplicationUpdate();
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
             _interactions.Update(1.0 / 60.0, _player);
             UpdatePostObjectPlayerState();

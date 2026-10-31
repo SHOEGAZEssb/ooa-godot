@@ -95,7 +95,7 @@ internal sealed class EnterPastEvent :
         }
         _villager = null;
         ResetState();
-        _context.Player.EndCutsceneControl(this);
+        ReleaseInputControl();
     }
 
     public override RoomEventContext Context => _context;
@@ -109,7 +109,7 @@ internal sealed class EnterPastEvent :
             throw new InvalidOperationException(
                 $"villagerSubid0dScript requested unsupported wDisabledObjects ${value:x2}.");
         }
-        _context.Player.BeginCutsceneControl(owner: this);
+        base.SetDisabledObjects(value);
         RequireVillager(VillagerActor).SetAnimationRate(0.0f);
     }
 

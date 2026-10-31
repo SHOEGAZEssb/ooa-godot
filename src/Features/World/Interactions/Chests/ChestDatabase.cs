@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace Oracles;
@@ -9,8 +8,8 @@ public sealed class ChestDatabase
 
     // constants/common/tileIndices.s: TILEINDEX_CHEST
     internal const byte ClosedTile = 0xf1;
+    internal const byte OpenedTile = 0xf0;
 
-    private readonly Dictionary<int, ChestRecord> _records = new();
     private readonly Lookup<int, ChestRecord> _roomRecords = new();
 
     public ChestDatabase(string assetRoot)
@@ -42,24 +41,35 @@ public sealed class ChestDatabase
                 row.HexByte(8),
                 row.UnsignedDecimal(9),
                 row.Base64Utf8(10));
-            _records.Add(MakeKey(record.Group, record.Room, record.Position), record);
-
             _roomRecords.Add(
                 MakeRoomKey(record.Group, record.Room), record);
         }
-
-        if (_records.Count != 133)
-            throw new InvalidOperationException($"Expected 133 chest records, loaded {_records.Count}.");
     }
 
-    public bool TryGet(int group, int room, int position, out ChestRecord record) =>
-        _records.TryGetValue(MakeKey(group, room, position), out record);
+    // bank0.getChestData compares only the room byte; the first match wins.
+    public bool TryGetRoomChest(int group, int room, out ChestRecord record)
+    {
+        IReadOnlyList<ChestRecord> records = GetRoomRecords(group, room);
+        record = records.Count == 0 ? default : records[0];
+        return records.Count != 0;
+    }
 
     public IReadOnlyList<ChestRecord> GetRoomRecords(int group, int room) =>
         _roomRecords.ValuesOrEmpty(MakeRoomKey(group, room));
 
-    private static int MakeKey(int group, int room, int position) =>
-        (group << 16) | (room << 8) | position;
+    internal void ApplyOpenedChest(int group, OracleRoomData room, OracleSaveData save,
+        OracleRuntimeState memory, long animationTick)
+    {
+        if (!save.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlagItem)) return;
+        if (!TryGetRoomChest(group, room.Id, out ChestRecord record))
+        {
+            // Missing rows leave E=$ff; wRoomLayout+$ff aliases live script scratch.
+            memory.SetWramByte(0xcfff, OpenedTile);
+            return;
+        }
+        room.SetPositionTileAndCollision(new((record.Position & 15) * 16 + 8,
+            (record.Position >> 4) * 16 + 8), OpenedTile, null, animationTick);
+    }
 
     private static int MakeRoomKey(int group, int room) => (group << 8) | room;
 }

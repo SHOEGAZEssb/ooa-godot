@@ -15,7 +15,7 @@ internal sealed partial class BlackTowerEndingEvent
     {
         int scroll=Read(0xc486);var batches=new List<(string,int,int)>();
         // The cutscene dispatch precedes the object pass's frame increment.
-        if(scroll<0x60&&((context.Entities.FrameCounter+1)&1)==0)batches.Add(("oamData_4ed8",-scroll,0));
+        if(scroll<0x60&&(context.Entities.FrameCounter&1)==0)batches.Add(("oamData_4ed8",-scroll,0));
         batches.Add(("oamData_4f21",0xc7-scroll,0x38));
         if(scroll>=0x60)batches.Add(("oamData_4f56",0xc7-scroll,0x38));
         Screen.SetOamBatches(batches.ToArray());
@@ -28,7 +28,7 @@ internal sealed partial class BlackTowerEndingEvent
             case 2:
                 Screen.SetOam(null);if(!DecrementWord(0xcbb3))return;
                 Write(0xcbb3,4);StaffRollCamera(Read(0xc486));Screen.ApplyLinkedRamHeader(1);
-                Screens.ApplyPalette(0x0b,context.Rooms.World.BackgroundPalettes,context.Entities);
+                Screens.ApplyPalette(0x0b,context.Rooms.BackgroundPalettes,context.Entities);
                 for(int variant=2;variant>=0&&context.Entities.InteractionSlotAvailable;variant--)
                     context.Entities.AddEntity(new CreditsSceneActorRoomEntity(context,Data,Screen,0x4a,9,variant));
                 State=3;return;
@@ -41,7 +41,7 @@ internal sealed partial class BlackTowerEndingEvent
                 Write(0xcbba,255);State=5;return;
             case 5:
                 Screen.SetOam(null);if(!flash(1))return;
-                Screens.ApplyPalette(0x9f,context.Rooms.World.BackgroundPalettes,context.Entities);
+                Screens.ApplyPalette(0x9f,context.Rooms.BackgroundPalettes,context.Entities);
                 Screen.Load("credits-waving",retainGraphics:true);context.Entities.ClearDynamicInteractions();
                 for(int subid=2;subid>=0&&context.Entities.InteractionSlotAvailable;subid--)
                     context.Entities.AddEntity(new CreditsSceneActorRoomEntity(context,Data,Screen,0xcf,subid));

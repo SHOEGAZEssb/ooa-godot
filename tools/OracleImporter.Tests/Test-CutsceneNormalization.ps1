@@ -47,12 +47,36 @@ $showText = $textRows[2].Split([char]9)
 Assert-Normalization ($setText[4] -eq 'settextid' -and $setText[5] -eq 'Blocker' -and $setText[6] -eq '1441' -and
     [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($setText[8])) -eq $text) 'settextid lost its actor, full text ID or formatting.'
 Assert-Normalization ($showText[4] -eq 'showloadedtext' -and $showText[5] -eq '') 'showloadedtext changed its source operand shape.'
+$memoryRows = @(ConvertTo-CutsceneCommandRows @(
+    (Command 0 'root' 'writememory' 'w1Companion.var03, $01'),
+    (Command 1 'root' 'checkmemoryeq' 'wLinkObjectIndex, >w1Companion'),
+    (Command 2 'root' 'jumpifmemoryeq' 'Signal, $03, @done'),
+    (Command 3 '@done' 'checktext' ''),
+    (Command 4 '@done' 'orroomflag' '$40'),
+    (Command 5 '@done' 'setglobalflag' 'GLOBALFLAG_GOT_FLUTE')) '' -symbols @{
+        'w1Companion.var03'='w1Companion.var03'; 'wLinkObjectIndex'='wLinkObjectIndex'
+        '>w1Companion'=0xd1; Signal='Signal'; GLOBALFLAG_GOT_FLUTE=0x23
+    })
+$write = $memoryRows[1].Split([char]9); $gate = $memoryRows[2].Split([char]9)
+$branch = $memoryRows[3].Split([char]9)
+Assert-Normalization ($write[4] -eq 'writememory' -and $write[6] -eq '01' -and
+    [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($write[8])) -eq 'w1Companion.var03') `
+    'A native memory write was replaced with a story callback.'
+Assert-Normalization ($gate[4] -eq 'checkmemoryeq' -and $gate[6] -eq 'd1' -and
+    [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($gate[8])) -eq 'wLinkObjectIndex') `
+    'A native object pointer operand was normalized to a boolean.'
+Assert-Normalization ($branch[4] -eq 'jumpifmemoryeq' -and $branch[6] -eq '03' -and $branch[7] -eq '3' -and
+    $memoryRows[4].Split([char]9)[4] -eq 'checktext' -and
+    $memoryRows[5].Split([char]9)[6] -eq '40' -and $memoryRows[6].Split([char]9)[6] -eq '23') `
+    'Conditional memory targets, text checks or source flag operands changed.'
 foreach ($case in @(
     @{ Op='moveright'; Args='$1d, $02'; Error='expects 1 operands' },
     @{ Op='moveright'; Args='UNKNOWN'; Error='unresolved scalar' },
     @{ Op='moveup'; Args='$01'; Error='unbound movement animation' },
     @{ Op='scriptjump'; Args='missingStub'; Error='unresolved branch' },
     @{ Op='settextid'; Args='TX_1441'; Error='unbound text' },
+    @{ Op='jumpifmemoryeq'; Args='UNKNOWN, $01, root'; Error='unbound memory' },
+    @{ Op='jumpifmemoryeq'; Args='UNKNOWN, $01'; Error='expects 3 operands' },
     @{ Op='unknown'; Args=''; Error='unsupported command' }
 )) {
     $caught=$false

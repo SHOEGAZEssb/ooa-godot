@@ -9,6 +9,7 @@ try
 {
     RunSourceModelTests(temporaryRoot);
     Oracles.Importer.Tests.AssemblySourceRangeTests.Run(temporaryRoot);
+    Oracles.Importer.Tests.ConfiguredLabelScopeTests.Run(temporaryRoot);
     Oracles.Importer.Tests.ImportCacheTests.Run(temporaryRoot);
     RunManifestTests(temporaryRoot);
     GeneratedGrayscalePngTests.Run(temporaryRoot);

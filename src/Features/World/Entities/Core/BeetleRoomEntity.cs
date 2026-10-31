@@ -12,7 +12,7 @@ internal sealed class BeetleRoomEntity : CombatEnemyRoomEntityAdapter<BeetleChar
             EnemyCombatDescriptor.WithContactDamage(source, beetle, beetle.Record.DamageQuarters,
                 beetle.TakeSwordHit, beetle.TakeBurnHit,
                 (position, strength) => { beetle.OnWeaponHit(); beetle.ApplySwordKnockback(position, strength); },
-                soundRequested, EnemySwordResponse.Knockback),
+                soundRequested),
             collisionZ: () => beetle.ZFixed >> 8) { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>

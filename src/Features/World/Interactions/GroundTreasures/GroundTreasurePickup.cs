@@ -32,9 +32,11 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     private Vector2 _precisePosition;
     private int _buriedAngle;
     private bool _buriedTileDug;
+    private Func<bool>? _completionAllowed;
     private OracleRuntimeState? _movementMemory;
 
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
+    internal void SetNativeBirthZHigh(byte value) => _zFixed=unchecked((sbyte)value)<<8;
     private Func<Vector2, Vector2> _worldToScreen = static position => position;
 
     internal GroundTreasureDatabaseRecord Record { get; private set; }
@@ -118,6 +120,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         _bouncesRemaining = 0;
         _buriedAngle = 0;
         _buriedTileDug = false;
+        _completionAllowed = null;
         // parseObjectData initializes a static treasure's graphics before the
         // destination room begins scrolling. Keep state 0 pending, but expose
         // spawn-mode $00 at the incoming room's transition draw offset.
@@ -136,6 +139,9 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         }
         switch (_state)
         {
+            case PickupState.Collected when Held && _completionAllowed?.Invoke() == true:
+                Finish(player);
+                return;
             // treasure.s:@state3 dispatches grab mode $00 directly to
             // interactionDelete on the update after the inventory grant.
             case PickupState.Collected when Record.GrabMode == TreasureGrabMode.NoChange:
@@ -162,11 +168,15 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
                 // treasure.s queues state04 with bit7 set: text closure
                 // releases Link regardless of the surrounding object mask.
                 player.RequestGetItemState(
-                    Record.GrabMode == TreasureGrabMode.OneHand ? (byte)0x80 : (byte)0x81,
-                    static () => false);
+                    Record.GrabMode == TreasureGrabMode.OneHand ? (byte)0x80 : (byte)0x81);
+                var memory = player.Inventory.RuntimeState;
+                memory.SetField("wDisabledObjects", (byte)(memory.ReadField("wDisabledObjects") | 1));
                 _soundRequested(SoundId.SndGetItem);
                 Visible = true;
                 QueueRedraw();
+                // grabMode1/2 falls through to its text check even on the
+                // initialization visit, including text closed by an earlier slot.
+                if (_completionAllowed?.Invoke() == true) Finish(player);
                 return;
         }
     }
@@ -224,6 +234,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         if (!ScriptGrantPending || _state != PickupState.Waiting) return false;
         ScriptGrantPending = false;
         _state = PickupState.Collected;
+        _zFixed = 0;
         return true;
     }
 
@@ -231,22 +242,33 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     {
         bool collectible = _state == PickupState.Waiting ||
             (Record.SpawnMode == TreasureSpawnMode.FromScreenTop &&
-             _state == PickupState.Spawning && _spawnSubstate == 2 &&
-             Math.Abs(_zFixed >> 8) < 7);
+             _state == PickupState.Spawning && _spawnSubstate == 2);
         if (!collectible || Finished || player.CutsceneControlled ||
-            player.IsHoldingItemOneHand || player.IsHoldingItemTwoHands ||
-            player.IsCarryingObject)
+            !checkDefaultDistance && (player.IsHoldingItemOneHand || player.IsHoldingItemTwoHands || player.IsCarryingObject))
         {
             return false;
         }
         if (checkDefaultDistance &&
+            (!RoomEntityManager.ObjectCollisionZOverlaps(player.ItemCreationZFixed >> 8, _zFixed >> 8, 7) ||
             !Player.EnemyCollisionOverlaps(player.Position,
                 new Rect2(Position - Vector2.One * CollisionRadius,
-                    Vector2.One * (CollisionRadius * 2))))
+                    Vector2.One * (CollisionRadius * 2)))))
         {
             return false;
         }
+        if (checkDefaultDistance)
+        {
+            // treasure.s:@checkLinkTouched runs inside this interaction's slot,
+            // including ordinary Feather air; it does not use the global contact pass.
+            var memory = player.Inventory.RuntimeState;
+            if (memory.ReadField("wLinkForceState") != 0 || memory.ReadField("wLinkPlayingInstrument") != 0 ||
+                (memory.ReadField("wLinkObjectIndex") & 1) != 0 || (memory.ReadField("wLinkGrabState") & 0xbe) != 0 ||
+                memory.ReadField("wLinkDeathTrigger") != 0 ||
+                !(player.NativeState08Active || player.NativeNormalStateForInteraction))
+                return false;
+        }
         _state = PickupState.Collected;
+        _zFixed = 0;
         return true;
     }
 
@@ -273,6 +295,8 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         }
     }
 
+    internal void BindCompletion(Func<bool> allowed) => _completionAllowed = allowed;
+
     internal void Finish(Player player)
     {
         if (Finished)
@@ -281,6 +305,12 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         // The sword-spin path instead changes a pose while state08 owns Link.
         if (Record.GrabMode == TreasureGrabMode.SpinSlash)
             player.EndGetItemOneHandPose();
+        if (Record.GrabMode is TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands)
+        {
+            var memory = player.Inventory.RuntimeState;
+            memory.SetField("wDisabledObjects", (byte)(memory.ReadField("wDisabledObjects") & ~1));
+            memory.SetField("wInstrumentsDisabledCounter", 0x0f);
+        }
         Held = false;
         Finished = true;
         // A room/event owner may finish its retained grant after the entity
@@ -295,21 +325,26 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     // calling interaction clears wDisabledObjects.
     private void UpdateSwordGrab(Player player)
     {
+        var memory = _movementMemory ?? throw new InvalidOperationException(
+            $"treasure.s:@grabMode3 from {Record.Source} requires the shared runtime state.");
         switch (_swordGrabState)
         {
             case 0:
-                _swordGrabState = 1; _swordGrabCounter = 4; Visible = false; return;
+                _swordGrabState = 1; _swordGrabCounter = 4; Visible = false;
+                memory.SetField("wDisabledObjects", 0x81);
+                player.RequestNativeState08Control(this, 0xff);
+                return;
             case 1:
                 if (--_swordGrabCounter != 0) return;
-                _swordGrabState = 2; player.BeginTreasureSwordSpin(); return;
+                _swordGrabState = 2; memory.SetField("wcc63", 0xff); return;
             case 2:
-                if (player.TreasureSwordSpinActive) return;
+                if (memory.ReadField("wcc63") != 0) return;
                 _swordGrabState = 3; Held = true;
                 Position = player.Position + new Vector2(-4, -14); Visible = true;
-                player.BeginGetItemOneHandPose();
+                memory.SetField("wcc50", 0x0e);
                 _soundRequested(SoundId.SndSwordObtained); return;
             case 3:
-                if (!player.CutsceneControlled) Finish(player);
+                if (memory.ReadField("wDisabledObjects") == 0) Finish(player);
                 return;
         }
     }

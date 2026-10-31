@@ -10,6 +10,10 @@ internal sealed class CompanionTerrainDatabase
 
     private readonly Dictionary<string, List<Vector2>> _probes = new();
     internal int[] CollisionMasks { get; } = new int[16];
+    internal int VineTop { get; }
+    internal int VineMiddle { get; }
+    internal int VineBottom { get; }
+    private int VineTopCollision { get; }
     internal IReadOnlyList<Vector2> Probes(string kind) => _probes[kind];
 
     internal bool IsSolid(OracleRoomData room, Vector2 sample, bool swimming = false)
@@ -17,8 +21,8 @@ internal sealed class CompanionTerrainDatabase
         if (sample.X < 0 || sample.Y < 0 || sample.X >= room.Width || sample.Y >= room.Height) return false;
         int tile = room.GetMetatile(sample);
         if (swimming && tile >= 0xfe) return false;
-        if (tile is 0xd5 or 0xd6) return true;
-        int collision = tile == 0xd4 ? 3 : room.GetTerrainInfo(sample).Collision;
+        if (tile == VineMiddle || tile == VineBottom) return true;
+        int collision = tile == VineTop ? VineTopCollision : room.GetTerrainInfo(sample).Collision;
         int x = Mathf.FloorToInt(sample.X) & 15, y = Mathf.FloorToInt(sample.Y) & 15;
         if (collision < 0x10) return (collision & (1 << ((y < 8 ? 2 : 0) + (x < 8 ? 1 : 0)))) != 0;
         int kind = collision & 15;
@@ -28,9 +32,14 @@ internal sealed class CompanionTerrainDatabase
     internal CompanionTerrainDatabase(string assetRoot)
     {
         AssetRoot = assetRoot;
+        var tiles = GeneratedTable.Load(AssetRoot + "metadata/companion_tiles.tsv",
+            new("Companion native vine tiles", GeneratedTableKeySemantics.Ordered,
+                ["vine-top", "vine-middle", "vine-bottom", "vine-top-collision", "source"], headerRequired: true)).SingleRow();
+        VineTop = tiles.HexByte(0); VineMiddle = tiles.HexByte(1); VineBottom = tiles.HexByte(2);
+        VineTopCollision = tiles.HexByte(3); _ = tiles.RequiredString(4);
 
-        foreach (var row in GeneratedTable.Load(AssetRoot + "cutscenes/dimitri_native_probes.tsv",
-            new GeneratedTableSchema("Dimitri native probes", GeneratedTableKeySemantics.Ordered,
+        foreach (var row in GeneratedTable.Load(AssetRoot + "metadata/companion_terrain_probes.tsv",
+            new GeneratedTableSchema("Companion native probes", GeneratedTableKeySemantics.Ordered,
                 ["kind", "index", "x", "y", "source"], headerRequired: true)).Rows)
         {
             string kind = row.RequiredString(0);
@@ -40,7 +49,7 @@ internal sealed class CompanionTerrainDatabase
         }
         if (_probes.Count != 3 || Probes("carry").Count != 4 || Probes("cliff").Count != 4 || Probes("collision").Count != 8)
             throw new InvalidOperationException("Dimitri/commonCode.s native probe shape changed.");
-        var masks = GeneratedTable.Load(AssetRoot + "cutscenes/companion_collision_masks.tsv",
+        var masks = GeneratedTable.Load(AssetRoot + "metadata/companion_collision_masks.tsv",
             new GeneratedTableSchema("Companion collision masks", GeneratedTableKeySemantics.Ordered,
                 ["index", "mask", "source"], headerRequired: true));
         if (masks.Rows.Count != 16) throw new InvalidOperationException("bank0.s companion collision masks require 16 rows.");

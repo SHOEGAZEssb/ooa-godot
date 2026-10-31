@@ -34,6 +34,11 @@ public sealed partial class ValidationRoot
                 _saveData.SetRoomFlag(record.FlagGroup, record.FlagRoom, (byte)record.FlagMask);
                 _saveData.WriteWramByte(record.MooshStateAddress, 0); _inventory.LoseTreasure(record.ChevalRopeTreasure);
                 LoadValidationRoom(0, 0x6c);
+                // Finish each placed actor's state0 before staging only its
+                // terminal producer, with the reserved D1 body still pending.
+                StepGameplayUpdates(1, Vector2.Zero, batched: batched);
+                foreach (var body in _entities.EntityAdapters<ScriptedCompanionRoomEntity>().ToArray()) _entities.RetireEntity(body);
+                foreach (var controller in _entities.EntityAdapters<MooshRescueControllerRoomEntity>().ToArray()) _entities.RetireEntity(controller);
                 var bindings = SomariaPrivate<System.Collections.Generic.Dictionary<string, NpcCharacter>>(rescue, "_actors");
                 actors = Enumerable.Range(0, 3).Select(index => bindings[$"Ghini{index}"]).ToArray();
                 var lanes = SomariaPrivate<CutsceneCommandLaneScheduler>(rescue, "_lanes"); lanes.Clear();
@@ -63,7 +68,7 @@ public sealed partial class ValidationRoot
             }
             StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             int enemyId = maku ? 0x20 : 0x17;
-            var children = _entities.EntityAdapters<IRoomEntity>().Where(actor => maku ? actor.Node is MaskedMoblinCharacter : actor.Node is GhiniCharacter).ToArray();
+            var children = _entities.EntityAdapters<IRoomEntity>().Where(actor => maku ? actor.Node is ArrowMoblinCharacter { Record.Id: EnemyId.MaskedMoblin } : actor.Node is GhiniCharacter).ToArray();
             int[] sourceSlots = Enumerable.Range(0, 16).Where(slot => native[0xd080 + slot * 256] != 0 && native[0xd081 + slot * 256] == enemyId).ToArray();
             FailIf(children.Length != free || sourceSlots.Length != free || actors.Any(actor => actor.Active) ||
                 children.Any(child => !F8Enemies.ContainsKey(child)) || _entities.RoomEnemyCount != native[0xcdd1],
@@ -73,7 +78,7 @@ public sealed partial class ValidationRoot
                     "Script enemy admission must retain the source physical allocation order and copied high coordinates.");
             if (free == 0) _entities.RetireEntity(F8Enemies.First(pair => pair.Key is EnemyAiSlotReservation).Key);
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
-            FailIf(_entities.EntityAdapters<IRoomEntity>().Count(actor => maku ? actor.Node is MaskedMoblinCharacter : actor.Node is GhiniCharacter) != free,
+            FailIf(_entities.EntityAdapters<IRoomEntity>().Count(actor => maku ? actor.Node is ArrowMoblinCharacter { Record.Id: EnemyId.MaskedMoblin } : actor.Node is GhiniCharacter) != free,
                 "Completing the source wait/scriptend must not retry a rejected scripted enemy spawn.");
             _roomEvents.Get<MakuSproutRescueEvent>().Cancel(); _roomEvents.Get<MooshRescueEvent>().Cancel();
             _entities.Clear(); FailIf(F8Enemies.Count != 0, "Rescue cancellation must release every admitted enemy and reservation.");

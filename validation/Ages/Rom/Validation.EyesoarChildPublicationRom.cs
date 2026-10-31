@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
             var world=new EyesoarEnvironment(_currentRoom,resources.Eyesoar,resources.DungeonBosses,
                 resources.DungeonVisuals.Visual("eyesoar-spawn"),_random,()=>false,()=>_entities.PartSlotAvailable,
                 _entities.CanAllocateEnemies,()=>_entities.InteractionSlotAvailable,_sound.PlaySound,
-                _entities.DisableLinkCollisionsAndMenu,_entities.EnableLinkCollisionsAndMenu,new BossEntryMovement(Vector2I.Zero));
+                _entities.DisableLinkCollisionsAndMenu,_entities.EnableLinkCollisionsAndMenu,_entities.InitializeBossRoom);
             var body=new EyesoarActor();body.Initialize(resources.DungeonBosses.Enemy(0x7b,1),world,center);
             var actor=new EyesoarActor();actor.Initialize(resources.DungeonBosses.Enemy(0x11,sub),world,
                 fractional?new(.25f,.5f):Vector2.Zero);F1Set(actor,"<Parent>k__BackingField",body);

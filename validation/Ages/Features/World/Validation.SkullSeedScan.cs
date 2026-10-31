@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
-            _seedSatchel.InterruptShooter();
+            _seedShooter.InterruptShooter();
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
             _inventory.GiveTreasure(TreasureId.Shooter, 1);
             _inventory.GiveTreasure(TreasureId.PegasusSeeds, 0x20);

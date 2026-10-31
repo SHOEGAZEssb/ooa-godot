@@ -32,6 +32,12 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter, ITerrainShadowSou
     private bool _flippedCollision;
     private bool _flippedRebound;
     private bool _pendingFlipHit;
+    internal override bool NativeHitPending => _pendingFlipHit || base.NativeHitPending;
+    private protected override void ClearNativeHitStatus()
+    {
+        _pendingFlipHit = false;
+        base.ClearNativeHitStatus();
+    }
     private bool _lastSwordHitWasFlipped;
 
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -249,19 +255,15 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter, ITerrainShadowSou
     internal bool TryApplyFlipHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
-        int shieldLevel)
+        EnemyKnockbackStrength strength)
     {
         if (!CollisionEnabled || InvincibilityCounter != 0 ||
-            _pendingFlipHit || !hitbox.Intersects(CollisionBounds))
+            _pendingFlipHit || !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds, hitbox))
         {
             return false;
         }
 
-        bool highKnockback = shieldLevel == 1;
-        ApplyCollisionBump(
-            sourcePosition,
-            highKnockback ? 21 : 16,
-            highKnockback ? 11 : 8);
+        ApplyCollisionBump(sourcePosition,strength);
         _pendingFlipHit = true;
         return true;
     }

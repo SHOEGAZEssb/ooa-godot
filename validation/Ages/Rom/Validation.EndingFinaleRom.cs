@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
                 rom[0xc482]=(byte)pressed;rom[0xc481]=(byte)pressed;
                 rom.AdvanceWarpPalette();rom.AdvanceBlackTowerEnding();rom.UpdateCredits(++update);
                 FailIf(owner.Stage!=rom[0xcbc1]||owner.State!=rom[0xcbc2]||_transitions.NativePaletteFadeActive!=(rom[0xc4ab]!=0)||
-                    _player.Visible||_hud.Visible||!_scene.EndingScreen.Visible,$"Finale update{update}: port{owner.Stage}:{owner.State}/ROM{rom[0xcbc1]}:{rom[0xcbc2]}.");
+                    _player.Visible||_hud.Visible||!_endingScreen.Visible,$"Finale update{update}: port{owner.Stage}:{owner.State}/ROM{rom[0xcbc1]}:{rom[0xcbc2]}.");
                 FailIf(_statusBar.DisplayedHealth!=rom[0xcbe4],"The native credits caller omits status-bar updates while restoring live health.");
                 foreach(int address in new[]{0xcbb3,0xcbb4,AgesWramAddress.wLinkHealth,AgesWramAddress.wInventoryB,AgesWramAddress.wInventoryA,AgesWramAddress.wActiveRing})
                 {
@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
                 {
                     pictureChecked=true;FailIf(_inventory.HealthQuarters!=_inventory.MaxHealthQuarters||_inventory.ActiveRing!=0x20||_inventory.EquippedB!=1||_inventory.EquippedA!=5,
                         "func_60f1 must restore full health, saved equips and active ring before THE END.");
-                    using var image=_scene.EndingScreen.BackgroundTexture!.GetImage();
+                    using var image=_endingScreen.BackgroundTexture!.GetImage();
                     for(int y=0;y<144;y++)for(int x=0;x<160;x++)
                     {
                         int map=0x9800+y/8*32+x/8,tile=rom.VramByte(0,map),flags=rom.VramByte(1,map),address=0x9000+unchecked((sbyte)tile)*16;
@@ -88,7 +88,7 @@ public sealed partial class ValidationRoot
             }
             owner.Cancel();StepGameplayUpdates(2,Vector2.Zero);
             FailIf(_inventory.HealthQuarters!=(fixture==3?8:_inventory.MaxHealthQuarters)||_inventory.EquippedB!=1||_inventory.EquippedA!=5||
-                _inventory.ActiveRing!=0x20||!_hud.Visible||_scene.EndingScreen.Visible,"Ending cancellation must release presentation without undoing completed full-health restoration.");
+                _inventory.ActiveRing!=0x20||!_hud.Visible||_endingScreen.Visible,"Ending cancellation must release presentation without undoing completed full-health restoration.");
         }
     }
     private void ValidateGameTransferSecretRom()

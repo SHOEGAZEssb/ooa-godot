@@ -6,15 +6,12 @@ namespace Oracles;
 
 internal sealed class HeadThwompBossRoomEntity
     : CombatEnemyRoomEntityAdapter<HeadThwompBoss>, IFixedRoomEntity,
-        IBombCatchRoomEntity, IPlayerForcedMovement
+        IBombCatchRoomEntity, IScreenTransitionPreloadRoomEntity
 {
-    private readonly BossEntryMovement _entryMovement;
-    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
-    private bool _initialized;
+    protected override int GaleCollisionMode => ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
 
     internal HeadThwompBossRoomEntity(
-        HeadThwompBoss boss,
-        Vector2I entryDirection)
+        HeadThwompBoss boss)
         : base(
             boss,
             boss.SetTransitionDrawOffset,
@@ -34,7 +31,6 @@ internal sealed class HeadThwompBossRoomEntity
                     RoomEnemyOutcome.BossTeardown(
                         killableEnemyIndex: 0)))
     {
-        _entryMovement = new BossEntryMovement(entryDirection);
     }
 
     public void UpdateFrame(
@@ -42,14 +38,14 @@ internal sealed class HeadThwompBossRoomEntity
         ICollection<RoomEntitySpawn> spawns)
     {
         Entity.UpdateFrame(frame.Player, frame.Counter, spawns);
-        if (_initialized)
-            return;
-        _initialized = true;
-        _entryMovement.Arm();
     }
 
-    public void UpdatePlayerForcedMovement(Player player) =>
-        _entryMovement.Update(player);
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.PrepareForScreenTransition();
+        return ScreenTransitionPresentation.Visible;
+    }
+
 
     public override bool ApplySwordHit(
         Rect2 hitbox,

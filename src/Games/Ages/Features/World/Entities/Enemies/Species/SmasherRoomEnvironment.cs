@@ -14,6 +14,5 @@ internal sealed record SmasherRoomEnvironment(
     Action<int> Sound,
     int KillableEnemyIndex,
     bool Counted,
-    BossEntryMovement? Entry = null,
     Func<int>? FrameCounter = null,
     Func<Vector2, bool>? CreateInitializationPuff = null);

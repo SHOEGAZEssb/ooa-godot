@@ -49,9 +49,9 @@ internal sealed class MamamuRoamingDogRoomEntity : NpcCharacterRoomEntityAdapter
     public void BindGrabbablePublisher(Action<INativeBraceletRoomEntity> publish) => _publish=publish;
     public void WriteReservedBraceletAngle(int angle) =>
         throw new InvalidOperationException("INTERAC_MAMAMU_DOG $54:$01 has no reserved Bracelet item.");
-    public void UpdateBraceletChild(Player player)
+    public void UpdateBraceletChild(Player player, bool frozen = false)
     {
-        if (_holder is not null && !_holder.IsCarryingObject)
+        if (!frozen && _holder is not null && !_holder.IsCarryingObject)
             _holder=null;
     }
     public void UpdateHeldPosition(Player player)

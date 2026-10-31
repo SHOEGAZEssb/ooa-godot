@@ -11,9 +11,26 @@ internal partial class FrontendValidationRoot : GameRoot
     private ApplicationValidationFixture Application => _application ??= new(this);
     private readonly byte[]?[] _slots = new byte[OracleSaveStore.SlotCount][];
     private readonly byte[]?[] _seasonsSlots = new byte[OracleSaveStore.SlotCount][];
+    private readonly System.Collections.Generic.Dictionary<(OracleGame Game,int Slot),byte[]> _debugSlots = new();
+    internal int DebugStateWrites { get; private set; }
     private byte[]?[] Slots(OracleGame game) => game == OracleGame.Seasons ? _seasonsSlots : _slots;
+    internal string? NextSaveFailure { get; set; }
     public override void _Ready() { }
     public override void _Process(double delta) { }
+
+    internal override SaveResult StoreDebugStateSlot(int slot, DebugSavestateData state)
+    {
+        _debugSlots[(state.Game,slot)] = state.Serialize();
+        DebugStateWrites++;
+        return SaveResult.Succeeded;
+    }
+
+    internal override DebugSavestateLoadResult LoadDebugStateSlot(int slot)
+    {
+        if (!_debugSlots.TryGetValue((_selectedGame,slot),out var bytes)) return DebugSavestateLoadResult.NotFound;
+        return DebugSavestateData.TryDeserialize(bytes,_selectedGame,out var state)
+            ? DebugSavestateLoadResult.Loaded(state!) : DebugSavestateLoadResult.Failed("Invalid isolated debug state.");
+    }
 
     protected override OracleSaveData? LoadFileSlot(int slot)
     {
@@ -25,6 +42,11 @@ internal partial class FrontendValidationRoot : GameRoot
 
     protected override SaveResult StoreFileSlot(int slot, OracleSaveData save)
     {
+        if (NextSaveFailure is string error)
+        {
+            NextSaveFailure = null;
+            return SaveResult.Failed(error);
+        }
         Slots(save.Game)[slot] = save.Serialize();
         return SaveResult.Succeeded;
     }
@@ -35,8 +57,9 @@ internal partial class FrontendValidationRoot : GameRoot
     internal bool FileSlotExists(int slot, OracleGame game) => Slots(game)[slot] is not null;
     internal void SeedFileSlot(int slot, OracleSaveData save) => StoreFileSlot(slot,save);
 
-    internal GameSelectScreen InitializeGameSelect()
+    internal GameSelectScreen InitializeGameSelect(bool persistSaveData = false)
     {
+        if (persistSaveData) typeof(GameRoot).GetField("_persistSaveData", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(this, true);
         _sound = new OracleSoundEngine(new OracleSoundData(AgesGameContent.AssetRoot), false) { ApplicationUpdateOwned = true };
         AddChild(_sound);
         _random = new OracleRandom();

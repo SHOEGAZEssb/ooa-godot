@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
                 byte tile = _currentRoom.Layout[30 + x];
                 FailIf(tile != (restored ? 0xee + x - 4 : 0xfe),
                     $"Symmetry $0:$03 entrance ${0x30 + x:x2} has tile ${tile:x2}.");
-                bool warp = warps.TryGetTileWarp(0, _currentRoom, 0x30 + x, tile, out _);
+                bool warp = TryGetResolvedTileWarp(warps,0, _currentRoom, 0x30 + x, tile, out _);
                 FailIf(warp != restored || (!restored &&
                     !_currentRoom.IsSolid(new Vector2(x * 16 + 8, 3 * 16 + 8))),
                     "Unrestored Symmetry dungeon entrance must be solid and reject warping.");
@@ -104,7 +104,7 @@ public sealed partial class ValidationRoot
         var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(new Vector2(32, 96), Vector2I.Up,
             new SeedSatchelDatabase(AgesGameContent.AssetRoot).Scent, 5));
         var beam = _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new Vector2(32, 96), ObjectDirection.Up));
-        var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 5, _ => { }));
+        var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot).Data, 5, _ => { }));
         StepRoomEventFrames(1);
         FailIf(nut.State != 3 || nut.Counter != 60 || _player.TopDownAirborne ||
             _entities.Entities<EmberSeedEffect>().Contains(seed) || _entities.Entities<SwordBeamEffect>().Contains(beam) ||
@@ -225,24 +225,30 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(5, 0xf6);
         _player.WarpTo(new Vector2(0x7b, 0x48), recordSafe: false);
         var nut = _entities.EntityAdapters<TuniNutRoomEntity>().Single();
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(nut.State != 1 || nut.Visible, "Room $5:$f6 did not initialize the repaired Tuni Nut $b1:$00 as an invisible trigger.");
         FailIf(_collision.Collides(_player.Position), "Tuni Nut approach must start on actual room floor.");
         for(int update=0;nut.State==1&&update<40;update++)
             StepGameplayUpdates(1,Vector2.Up,["move_up"],["move_up"]);
         FailIf(_collision.Collides(_player.Position), "Tuni Nut approach crossed solid room geometry.");
-        FailIf(nut.State != 2 || nut.Counter != 3 || !_player.CutsceneControlled,
+        FailIf(nut.State != 2 || nut.Counter != 3 || _runtimeState.ReadField("wDisabledObjects") != 0x01 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x01,
             "Tuni Nut did not latch Link's three-pixel centering distance.");
         StepRoomEventFrames(2);
-        FailIf(nut.State != 2 || _player.Position.X != 0x79,
+        // tuniNut_state1 requests state0b. Request consumption precedes the
+        // movement update; its three-count parent moves twice before zero.
+        FailIf(nut.State != 2 || _player.Position.X != 0x7a,
             $"Tuni Nut centering did not move Link one pixel per update (allowed={_entities.InitializedInteractionUpdatesAllowed}, text={_dialogue.IsOpen}, mask={_runtimeState.ReadWramByte(0xcc8a):x2}, scroll={_runtimeState.ReadWramByte(0xcd00):x2}, state={nut.State}, counter={nut.Counter}, XY={_player.Position}, transition={IsTransitioning}/{_entities.ScreenTransitionActive}/{_transitions.AwaitingLinkWarpState}, initializedFreeze={_entities.InitializedObjectsDisabledSource()}, accumulator={SomariaPrivate<double>(_entities,"_enemyFrameAccumulator")}).");
         StepRoomEventFrames(1);
-        FailIf(nut.State != 3 || nut.Counter != 60 || _player.Position.X != 0x78 || !nut.Visible,
+        FailIf(nut.State != 3 || nut.Counter != 60 || _player.Position.X != 0x79 || !nut.Visible,
             "Tuni Nut centering did not begin the 60-update rise wait on its zero update.");
         StepRoomEventFrames(59);
         FailIf(nut.Substate != 0 || nut.Counter != 1 || nut.Height != 0, "Tuni Nut rose before its 60-update wait expired.");
         StepRoomEventFrames(1);
         FailIf(nut.Substate != 1 || nut.Counter != 16, "Tuni Nut did not initialize its 16 even-frame rise updates.");
-        StepRoomEventFrames(32);
+        // tuniNut_state3 substate1 decrements only on even global frames.
+        int riseUpdates = (_entities.FrameCounter & 1) == 0 ? 32 : 31;
+        StepRoomEventFrames(riseUpdates);
         FailIf(nut.Substate != 2 || nut.Height != -0x1000 || nut.Position.Y != 0x28,
             "Tuni Nut rise did not use the global frame parity or preserve logical Y.");
         StepRoomEventFrames(1);
@@ -262,7 +268,7 @@ public sealed partial class ValidationRoot
         FailIf(nut.Substate != 4 || _saveData.HasGlobalFlag(placedFlag), "Tuni Nut restored Symmetry before the solve wait ended.");
         StepRoomEventFrames(1);
         FailIf(nut.Substate != 5 || _saveData.HasGlobalFlag(placedFlag), "Tuni Nut did not wait for brightening.");
-        StepRoomEventFrames(9);
+        StepRoomEventFrames(8);
         FailIf(_saveData.HasGlobalFlag(placedFlag), "Tuni Nut completed before the palette thread's terminal update.");
         StepRoomEventFrames(1);
         FailIf(nut.State != 4 || !_saveData.HasGlobalFlag(placedFlag) || quest.BlocksGameplay || _player.CutsceneControlled ||
@@ -273,6 +279,7 @@ public sealed partial class ValidationRoot
         FailIf(!nut.BlocksLink(new Vector2(0x78, 0x20)), "Placed Tuni Nut did not block Link.");
         LoadValidationRoom(5, 0xf6);
         nut = _entities.EntityAdapters<TuniNutRoomEntity>().Single();
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(nut.State != 4 || nut.Position != new Vector2(0x78, 0x18) || !nut.Visible,
             "Placed Tuni Nut did not reconstruct from the saved global flag on re-entry.");
     }
@@ -321,7 +328,7 @@ public sealed partial class ValidationRoot
             AwaitText(0x2d05);
             _dialogue.Close();
             for (int i = 0; i < 150 && !_inventory.HasTreasure(TreasureId.TuniNut); i++) Step(1);
-            var reward = _interactions.GroundTreasureForValidation;
+            var reward = _interactions.GroundTreasures.Active;
             InitializeGetItemStateForValidation();
             FailIf(!_inventory.HasTreasure(TreasureId.TuniNut) || _inventory.TuniNutState != 0 ||
                 !_dialogue.IsOpen || reward is null || !reward.Held || !_player.IsHoldingItemTwoHands,
@@ -332,7 +339,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             _player.AdvanceApplicationUpdate();
             Step(1);
-            FailIf(_interactions.DialogueOpen || _interactions.GroundTreasureForValidation is not null ||
+            FailIf(_interactions.DialogueOpen || _interactions.GroundTreasures.Active is not null ||
                 !reward.Finished || _player.IsHoldingItemTwoHands || _player.CutsceneControlled || quest.BlocksGameplay,
                 $"Symmetry $3:${room:x2} retained dialogue/input ownership after closing the Tuni Nut $4c:$00 message.");
             Step(8);

@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
             }
             int chestPosition = cubePads ? 0x67 : 0x57;
             FailIf(!chest.Finished || rom[0xcf00+chestPosition] != 0xf1 ||
-                _entities.Entities<PuzzlePuffEffect>().Count != 1,
+                _entities.Entities<StationaryDebrisEffect>().Count != 1,
                 "Completed Mermaid pattern must write chest$f1 at its original position and allocate exactly one checked puff before deletion.");
             Step(40);
             LoadValidationRoom(5,room);
@@ -128,7 +128,7 @@ public sealed partial class ValidationRoot
             int a = nativeSlots[0].Address; rom[a] = 1; rom[a+1] = 0x90; rom[a+2] = (byte)subid;
             rom[a+11] = (byte)chest.Position.Y; rom[a+13] = (byte)chest.Position.X;
             sounds = _sound.AttachPlayRequestAudit(); Step(2);
-            FailIf(!chest.Finished || _entities.Entities<PuzzlePuffEffect>().Count != 0,
+            FailIf(!chest.Finished || _entities.Entities<StationaryDebrisEffect>().Count != 0,
                 "Collected-item re-entry must delete the pattern controller before checking tiles or spawning another chest puff.");
         }
         GD.Print("Validated clean-US Mermaid diamond/pad pattern boundaries, shared cube inputs, same-pass solid floor/chest completion, state-zero text eligibility, checked puff and collected re-entry through split/batched gameplay updates.");

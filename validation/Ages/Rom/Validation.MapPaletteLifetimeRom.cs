@@ -24,18 +24,18 @@ public sealed partial class ValidationRoot
             // and restoring it after the full present/past map replacement.
             int[] retained = [0x001f, 0x03e0, 0x7c00, 0x294a];
             rom.SeedBackgroundPalette(1, retained);
-            Color[,] live = _rooms.World.BackgroundPalettes.Capture();
+            Color[,] live = _rooms.BackgroundPalettes.Capture();
             for (int shade = 0; shade < 4; shade++)
                 live[1, shade] = new Color((retained[shade] & 31) / 31f,
                     ((retained[shade] >> 5) & 31) / 31f, ((retained[shade] >> 10) & 31) / 31f);
-            _rooms.World.BackgroundPalettes.Restore(live);
+            _rooms.BackgroundPalettes.Restore(live);
             int update = 0;
             void Compare()
             {
                 for (int palette = 0; palette < 8; palette++)
                 for (int shade = 0; shade < 4; shade++)
                 {
-                    Color color = _rooms.World.BackgroundPalettes.Resolve(palette, shade);
+                    Color color = _rooms.BackgroundPalettes.Resolve(palette, shade);
                     int runtime = Mathf.RoundToInt(color.R * 31) | Mathf.RoundToInt(color.G * 31) << 5 |
                         Mathf.RoundToInt(color.B * 31) << 10;
                     FailIf(runtime != rom.HudColor(false, palette, shade),

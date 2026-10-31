@@ -46,6 +46,9 @@ public sealed partial class ValidationRoot
                 press ? ["attack"] : [], press ? ["attack"] : [], batch, () => {
                     rom.UpdateGameplay(press ? 1 : 0, (press ? 1 : 0) | (angle == 0 ? 0x40 : 0), angle, _entities.FrameCounter);
                     press = false; rom.AdvanceTileGraphics(); update++;
+                    FailIf(_runtimeState.ReadField("wForceLinkPushAnimation") != rom[0xcc66] ||
+                        _runtimeState.ReadWramByte(0xd034) != rom[0xd034] || _player.World.TilePushingDirection != rom[0xcc65],
+                        $"D8 Power Glove update{update}: chest force/style/push publication differs: port ${_runtimeState.ReadField("wForceLinkPushAnimation"):x2}/${_runtimeState.ReadWramByte(0xd034):x2}/${_player.World.TilePushingDirection:x2}, ROM ${rom[0xcc66]:x2}/${rom[0xd034]:x2}/${rom[0xcc65]:x2}.");
                     CompareSomariaMotionRom(rom, $"D8 Power Glove chest update{update}, chest={_interactions.ChestRewardActive}, native chest=${rom[0xd041]:x2}/${rom[0xd044]:x2}, masks=${_runtimeState.ReadWramByte(AgesWramAddress.wDisabledObjects):x2}/${rom[0xcc8a]:x2}");
                     for (int address = 0xc672; address < 0xc6cc; address++)
                         FailIf(_saveData.ReadWramByte(address) != rom[address],

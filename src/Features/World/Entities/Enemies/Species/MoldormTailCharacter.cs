@@ -12,6 +12,9 @@ internal partial class MoldormTailCharacter : EnemyCharacter
     private OracleRandom _random = null!;
     private int _lastY, _lastX, _index;
     private bool _justHit;
+    internal override bool NativeHitPending => _justHit;
+    internal override void DeferNativeHitStatus() => _justHit = true;
+    private protected override void ClearNativeHitStatus() => _justHit = false;
     internal ImportedEnemyDefinition Record { get; private set; }
     private EnemyCharacter _initialParent = null!;
     private Func<int, IRoomEntity?>? _resolveSlot;
@@ -107,9 +110,9 @@ internal partial class MoldormTailCharacter : EnemyCharacter
         return true;
     }
 
-    internal override bool TryApplyShieldBump(Rect2 hitbox, Vector2 sourcePosition, EnemyKnockbackStrength strength)
+    internal override bool TryApplyCollisionBump(Rect2 hitbox, Vector2 sourcePosition, EnemyKnockbackStrength strength)
     {
-        if (!base.TryApplyShieldBump(hitbox, sourcePosition, strength)) return false;
+        if (!base.TryApplyCollisionBump(hitbox, sourcePosition, strength)) return false;
         _justHit = true;
         return true;
     }

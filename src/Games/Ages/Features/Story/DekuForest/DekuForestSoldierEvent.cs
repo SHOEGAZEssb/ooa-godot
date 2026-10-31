@@ -9,7 +9,7 @@ namespace Oracles;
 /// </summary>
 internal sealed class DekuForestSoldierEvent :
     RoomCutsceneCommandHost,
-    IRoomEntryEvent,
+    IRoomInitializationEvent,
     IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
 {
@@ -62,6 +62,10 @@ internal sealed class DekuForestSoldierEvent :
             return;
         }
 
+        OracleRuntimeState memory = _context.Entities.RuntimeState;
+        memory.SetField("wcc05", (byte)(memory.ReadField("wcc05") & ~0x02));
+        if (!_context.Entities.InteractionSlotAvailable)
+            return;
         _soldier = _context.Entities.Spawn<NpcCharacter>(
             new CutsceneNpcSpawn(
                 _database.CreateSoldierRecord(),
@@ -70,6 +74,7 @@ internal sealed class DekuForestSoldierEvent :
         _soldier.SetScriptVisible(false);
         _precisePosition = _soldier.Position;
         _runner.Start(_database.Commands);
+        memory.SetField("wDiggingUpEnemiesForbidden", 1);
     }
 
     public void UpdateFrame()
@@ -285,6 +290,8 @@ internal sealed class DekuForestSoldierEvent :
 
     private void ApplyWarp()
     {
+        OracleRuntimeState memory = _context.Entities.RuntimeState;
+        memory.SetField("wcc05", (byte)(memory.ReadField("wcc05") | 0x02));
         _warpRequested = false;
         _triggered = false;
         _menusDisabled = false;

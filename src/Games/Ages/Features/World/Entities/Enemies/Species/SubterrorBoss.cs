@@ -36,6 +36,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
     private int _dirtCounter;
     private bool _dirtEnabled;
     private bool _initialized;
+    private Action _initializeBossRoom = null!;
     private bool _introActive = true;
     private bool _acceptedHit;
     private bool _dying;
@@ -80,7 +81,8 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         Action<int, string, Vector2> showDialogue,
         Func<bool> dialogueOpen,
         Func<long> animationTick,
-        string introMessage)
+        string introMessage,
+        Action initializeBossRoom)
     {
         AssetRoot = record.AssetRoot;
         Record = record;
@@ -96,6 +98,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         _dialogueOpen = dialogueOpen;
         _animationTick = animationTick;
         _introMessage = introMessage;
+        _initializeBossRoom = initializeBossRoom;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
@@ -106,13 +109,13 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
 
     private void InitializeState()
     {
+        _initializeBossRoom();
         AssetRoot = AgesGameContent.AssetRoot;
         _speed = 0x3c;
         _angle = ObjectAngle.Down;
         _counter2 = 30;
         _dirtCounter = 7;
         _dirtEnabled = true;
-        _playSound(SoundId.SndCtrlStopMusic);
     }
 
     internal void UpdateFrame(
@@ -176,6 +179,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
     {
         if (_initialized)
             return;
+        _random.Next(); // enemyStandardUpdate's state-zero initialization.
         _initialized = true;
         InitializeState();
         Visible = false;

@@ -1,52 +1,37 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=6 format=3]
 
-[ext_resource type="Script" path="res://src/Games/Seasons/Features/Story/Opening/SeasonsOpeningSession.cs" id="1"]
-[ext_resource type="Script" path="res://src/Features/World/Rooms/RoomView.cs" id="2"]
-[ext_resource type="Script" path="res://src/Features/Player/Player.cs" id="3"]
-[ext_resource type="Script" path="res://src/Features/Interface/Hud.cs" id="4"]
-[ext_resource type="Script" path="res://src/Features/Dialogue/DialogueBox.cs" id="5"]
-[ext_resource type="Script" path="res://src/Games/Seasons/Features/Story/Opening/SeasonsOpeningScreen.cs" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay.tscn" id="1_gameplay"]
+[ext_resource type="Script" path="res://src/Games/Seasons/Features/Story/Opening/SeasonsOpeningSession.cs" id="2_opening"]
+[ext_resource type="Script" path="res://src/Games/Seasons/Features/Story/Opening/SeasonsOpeningScreen.cs" id="3_screen"]
+[ext_resource type="Script" path="res://src/Features/Story/NewGame/NewGameIntroScreen.cs" id="4_pregame"]
 
 [sub_resource type="CanvasItemMaterial" id="white_fade"]
 blend_mode = 1
 
-[node name="SeasonsOpening" type="Node2D"]
-script = ExtResource("1")
+[node name="SeasonsOpening" instance=ExtResource("1_gameplay")]
+script = ExtResource("2_opening")
+Game = 1
 
-[node name="Room" type="Node2D" parent="."]
-position = Vector2(0, 16)
-script = ExtResource("2")
+[node name="OpeningBackground" type="CanvasLayer" parent="."]
+layer = -1
 
-[node name="Cutscene" type="Control" parent="."]
+[node name="Cutscene" type="Control" parent="OpeningBackground"]
 offset_right = 160.0
 offset_bottom = 144.0
 mouse_filter = 2
 clip_contents = true
-script = ExtResource("6")
+script = ExtResource("3_screen")
 
-[node name="Actors" type="Node2D" parent="."]
-position = Vector2(0, 16)
-z_index = 5
-
-[node name="Link" type="Node2D" parent="Actors"]
-z_index = 10
-script = ExtResource("3")
-
-[node name="Hud" type="Node2D" parent="."]
-z_index = 20
-script = ExtResource("4")
-AssetRoot = "res://assets/oracle/seasons/"
-
-[node name="Dialogue" type="Node2D" parent="."]
-visible = false
-z_index = 49
-script = ExtResource("5")
-AssetRoot = "res://assets/oracle/seasons/"
-
-[node name="Fade" type="ColorRect" parent="."]
+[node name="OpeningFade" type="ColorRect" parent="Interface"]
 z_index = 50
 offset_right = 160.0
 offset_bottom = 144.0
 mouse_filter = 2
 color = Color(1, 1, 1, 0)
 material = SubResource("white_fade")
+
+[node name="Pregame" type="Node2D" parent="Interface"]
+visible = false
+z_index = 30
+script = ExtResource("4_pregame")
+AssetRoot = "res://assets/oracle/seasons/"

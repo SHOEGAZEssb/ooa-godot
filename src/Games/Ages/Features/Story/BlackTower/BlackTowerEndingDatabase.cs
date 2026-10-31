@@ -19,7 +19,7 @@ internal sealed class BlackTowerEndingDatabase
     private readonly Dictionary<int,(int Group,int Room,string Scene,int Uncmp,int Palette)> _creditsRooms=[];
     private readonly Dictionary<(int,int),string[]> _extraSprites=[];
     private readonly Dictionary<(int,int),int> _nativeFlags=[];
-    private readonly Dictionary<(int,int),IntroOamPart[][]> _nativeFrames=[];
+    private readonly Dictionary<(int,int),ObjectSpritePart[][]> _nativeFrames=[];
     internal BlackTowerEndingDatabase()
     {
         foreach(var row in GeneratedTable.Load(Root+"tables.tsv",new("Black Tower ending tables",GeneratedTableKeySemantics.Unique,
@@ -80,15 +80,15 @@ internal sealed class BlackTowerEndingDatabase
     internal IReadOnlyList<(int Id,int SubId,Vector2 Position)> Placements(string name)=>_placements[name];
     internal string Text(int id)=>_texts[id];
     internal NpcRecord ActorRecord(int id,int subid)=>_actors[(id,subid)];
-    internal IntroOamPart[][] NativeFrames(int id,int subid)
+    internal ObjectSpritePart[][] NativeFrames(int id,int subid)
     {
         if(_nativeFrames.TryGetValue((id,subid),out var frames))return frames;
         var record=ActorRecord(id,subid);int flags=_nativeFlags[(id,subid)];
         frames=OracleGraphicsCache.GetAnimationDefinition(record.UpAnimation).Frames.Select(frame=>
-            frame.EncodedOam.Length==0?Array.Empty<IntroOamPart>():frame.EncodedOam.Split(';').Select(part=>
+            frame.EncodedOam.Length==0?Array.Empty<ObjectSpritePart>():frame.EncodedOam.Split(';').Select(part=>
             {
                 var bytes=Array.ConvertAll(part.Split(','),int.Parse);
-                return new IntroOamPart(bytes[0],bytes[1],(bytes[2]+record.TileBase)&255,bytes[3]^flags);
+                return new ObjectSpritePart(bytes[0],bytes[1],(bytes[2]+record.TileBase)&255,bytes[3]^flags);
             }).ToArray()).ToArray();
         _nativeFrames.Add((id,subid),frames);return frames;
     }

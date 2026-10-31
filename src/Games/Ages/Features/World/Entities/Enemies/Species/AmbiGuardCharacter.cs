@@ -56,7 +56,7 @@ internal sealed partial class AmbiGuardCharacter : EnemyCharacter, ITerrainShado
     internal void RecordDeflection(int collision)
     {
         _hitCollision = collision | 0x80;
-        InvincibilityCounter = BoomerangCollisionDatabase.For(AgesGameContent.AssetRoot).DeflectionInvincibility;
+        InvincibilityCounter = BoomerangStatusDatabase.Shared.DeflectionInvincibility;
         // ENEMYDMG $28 writes var2a and invincibility but preserves recoil.
         DeferNativeHitStatus();
     }

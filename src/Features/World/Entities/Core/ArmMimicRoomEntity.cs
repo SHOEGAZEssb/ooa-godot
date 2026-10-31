@@ -26,8 +26,7 @@ internal sealed class ArmMimicRoomEntity
                 mimic.TakeSwordHit,
                 mimic.TakeBurnHit,
                 mimic.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback))
+                soundRequested))
     { }
 
     public void UpdateFrame(

@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previousDirections; previousDirections = held;
                 StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1); edge = 0; update++;
+                    rom.UpdateGameplay(edge, held, angle, _saveData.ReadField("wPlaytimeCounter")); edge = 0; update++;
                     string context = $"Conveyor tile=${tile:x2} ring=${ring:x2} direction=${direction:x2}, update={update}, batch={batched}";
                     Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(_player.PrecisePosition != expected ||
@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
                         _player.TopDownSwimming || _player.TopDownAirborne ||
                         _player.IsFallingInHole || _transitions.IsTransitioning || _currentRoom.IsSolid(_player.Position),
                         $"{context}: fixed XY/angle/speed/facing/ground state differs: runtime={_player.PrecisePosition}, native={expected}, velocity={Field("_topDownMovementAngle"):x2}/{Field("_topDownMovementSpeedRaw"):x2} vs {rom[0xd009]:x2}/{rom[0xd010]:x2}.");
-                    FailIf(Field("_tilePushWalls") != rom[0xd033],
+                    FailIf(_runtimeState.ReadWramByte(0xd033) != rom[0xd033],
                         context + ": retained wall publication differs across terrain/input movement phases.");
                     // Native Link observes cba0; this fixture does not execute
                     // the text renderer that emits the port's pause-message blips.

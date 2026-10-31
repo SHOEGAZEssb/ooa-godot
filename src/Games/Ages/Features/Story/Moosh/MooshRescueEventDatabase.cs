@@ -13,11 +13,14 @@ internal sealed class MooshRescueEventDatabase
     private const string Root = AgesGameContent.AssetRoot + "cutscenes/";
 
     internal MooshRescueEventRecord Record { get; }
-    internal MooshCompanionVisualRecord Visual { get; }
+    private readonly MooshDatabase _body = new(AgesGameContent.AssetRoot);
+    internal CompanionVisualDatabase Visual => _body.Visual;
     internal IReadOnlyList<CutsceneCommand> Ghini0 { get; }
     internal IReadOnlyList<CutsceneCommand> Ghini1 { get; }
     internal IReadOnlyList<CutsceneCommand> Ghini2 { get; }
     internal IReadOnlyList<CutsceneCommand> Companion { get; }
+    internal IReadOnlyList<MooshRescuePlacementRecord> Placements { get; }
+    internal bool Matches(int group, int room) => group == Record.Group && room == Record.Room;
 
     internal MooshRescueEventDatabase()
     {
@@ -64,40 +67,15 @@ internal sealed class MooshRescueEventDatabase
             row.HexByte(46), row.HexByte(47), row.HexByte(48), row.HexByte(49),
             row.Base64Utf8(50), row.RequiredString(51));
 
-        GeneratedTableRow visual = GeneratedTable.Load(
-            Root + "moosh_companion_visual.tsv",
-            new GeneratedTableSchema(
-                "Moosh companion visual",
-                GeneratedTableKeySemantics.Ordered,
-                [
-                    "sprite", "tile-base", "palette", "animations-base64",
-                    "link-sprite", "link-palette", "link-frames-base64",
-                    "link-source-offsets", "water-hazard",
-                    "water-hover-frames", "water-exclamation-z-offset",
-                    "source"
-                ],
-                headerRequired: true)).SingleRow();
-        Visual = new MooshCompanionVisualRecord(
-            visual.RequiredString(0),
-            visual.UnsignedDecimal(1),
-            visual.UnsignedDecimal(2),
-            visual.Base64Utf8(3).Split(
-                '\n', StringSplitOptions.RemoveEmptyEntries),
-            visual.RequiredString(4),
-            visual.UnsignedDecimal(5),
-            visual.Base64Utf8(6).Split(
-                '\n', StringSplitOptions.RemoveEmptyEntries),
-            visual.RequiredString(7).Split(',').Select(value =>
-                Convert.ToInt32(value, 16)).ToArray(),
-            visual.UnsignedDecimal(8),
-            visual.UnsignedDecimal(9),
-            visual.Decimal(10, -128, 127),
-            visual.RequiredString(11));
-
         Ghini0 = CutsceneCommandCatalog.Load(Root + "moosh_rescue_ghini0.tsv");
         Ghini1 = CutsceneCommandCatalog.Load(Root + "moosh_rescue_ghini1.tsv");
         Ghini2 = CutsceneCommandCatalog.Load(Root + "moosh_rescue_ghini2.tsv");
         Companion = CutsceneCommandCatalog.Load(Root + "moosh_rescue_companion.tsv");
+        Placements = GeneratedTable.Load(Root + "moosh_rescue_placements.tsv",
+            new GeneratedTableSchema("Moosh native placements", GeneratedTableKeySemantics.Ordered,
+                ["order", "id", "subid", "y", "x", "source"], headerRequired: true)).Rows.Select(row =>
+                    new MooshRescuePlacementRecord(row.UnsignedDecimal(0), row.HexByte(1), row.HexByte(2),
+                        row.HexByte(3), row.HexByte(4), row.RequiredString(5))).ToArray();
         Validate();
     }
 
@@ -119,27 +97,6 @@ internal sealed class MooshRescueEventDatabase
         Record.MooshAnimation,
         Record.MooshAnimation,
         Record.MooshAnimation,
-        string.Empty,
-        NpcImplementationClassification.EventOwned);
-
-    internal NpcRecord CreateExclamationRecord(int y, int x) => new(
-        Record.Group,
-        Record.Room,
-        Record.ExclamationId,
-        Record.ExclamationSubId,
-        y,
-        x,
-        0,
-        0,
-        Record.ExclamationSprite,
-        Record.ExclamationTileBase,
-        Record.ExclamationPalette,
-        0,
-        false,
-        Record.ExclamationAnimation,
-        Record.ExclamationAnimation,
-        Record.ExclamationAnimation,
-        Record.ExclamationAnimation,
         string.Empty,
         NpcImplementationClassification.EventOwned);
 
@@ -172,40 +129,53 @@ internal sealed class MooshRescueEventDatabase
             } ||
             string.IsNullOrWhiteSpace(Record.MooshAnimation) ||
             string.IsNullOrWhiteSpace(Record.ExclamationAnimation) ||
-            Ghini0.Count != 11 || Ghini1.Count != 18 || Ghini2.Count != 10 ||
+            Ghini0.Count != 12 || Ghini1.Count != 20 || Ghini2.Count != 12 ||
+            !Placements.Select(p => (p.Order, p.Id, p.SubId, p.Y, p.X)).SequenceEqual(new[]
+            { (0, 0x73, 0, 0x18, 0x68), (1, 0x73, 1, 0x18, 0x48), (2, 0x73, 2, 0x38, 0x58),
+              (3, 0x71, 0, 0x28, 0x58), (4, 0x71, 2, 0x6d, 0x38), (5, 0x67, 0, 0, 0) }) ||
             Visual is not
             {
                 Sprite: "spr_moosh", TileBase: 0, Palette: 1,
                 Animations.Length: 27, LinkSprite: "spr_link",
                 LinkPalette: 0, LinkFrames.Length: 51,
-                LinkSourceOffsets.Length: 51,
-                WaterHazard: 1, WaterHoverFrames: 60,
-                WaterExclamationZOffset: -32
+                LinkSourceOffsets.Length: 51
             } ||
+            _body is not { WaterHazard: 1, WaterHoverFrames: 60, WaterExclamationZOffset: -32 } ||
             Visual.LinkSourceOffsets[0x1b] != 0x20c0 ||
             Visual.LinkSourceOffsets[0x1d] != 0x2100 ||
             Visual.LinkSourceOffsets[0x20] != 0x2180 ||
-            Companion.Count != 32 ||
+            Companion.Count != 42 ||
             Ghini0[1] is not CutsceneNativeCommand
                 { Handler: "BeginGhini0Circle" } ||
             Ghini0[3] is not CutsceneWaitCommand { Frames: 1 } ||
-            Ghini1[14] is not CutsceneSetMusicCommand
+            Ghini1[16] is not CutsceneSetMusicCommand
                 { Music: SoundId.MusMiniboss } ||
-            Ghini2[8] is not CutsceneNativeCommand
+            Ghini2[10] is not CutsceneNativeCommand
                 { Handler: "SpawnEnemyGhini2" } ||
-            Companion[5] is not CutsceneMemoryGateCommand
+            Companion[8] is not CutsceneMemoryGateCommand
                 { Binding: "RoomEnemyCount", Value: 0 } ||
-            Companion[13] is not CutsceneMemoryGateCommand
-                { Binding: "MooshTalked", Value: 1 } ||
-            Companion[25] is not CutsceneWriteMemoryCommand
+            Companion[16] is not CutsceneMemoryGateCommand
+                { Binding: "MooshButton", Value: 1 } ||
+            Companion[31] is not CutsceneWriteMemoryCommand
                 { Binding: "MooshStateOr", Value: 0x20 } ||
-            Companion[27] is not CutsceneNativeCommand
-                { Handler: "BeginMooshMount" } ||
-            Companion[28] is not CutsceneMemoryGateCommand
+            Companion[15] is not CutsceneWriteMemoryCommand
+                { Binding: "MooshVar03", Value: 2 } ||
+            Companion[20] is not CutsceneWriteMemoryCommand
+                { Binding: "MooshVar03", Value: 3 } ||
+            Companion[33] is not CutsceneMemoryGateCommand
                 { Binding: "MooshMounted", Value: 1 } ||
-            Companion[29] is not CutsceneShowTextCommand { TextId: 0x2205 } ||
-            Companion[30] is not CutsceneNativeCommand
+            Companion[34] is not CutsceneShowTextCommand { TextId: 0x2205 } ||
+            Companion[35] is not CutsceneNativeCommand
                 { Handler: "CompleteMooshRescue" } ||
+            Companion[36] is not CutsceneEnableMenuCommand ||
+            Companion[2] is not CutsceneWriteObjectByteCommand { Address: 0x7a, Value: 60 } ||
+            Companion[17] is not CutsceneWriteObjectByteCommand { Address: 0x7a, Value: 60 } ||
+            Companion[3] is not CutsceneCallCommand { TargetCommand: 38 } ||
+            Companion[18] is not CutsceneCallCommand { TargetCommand: 38 } ||
+            Companion[38] is not CutsceneMemoryBranchCommand { Binding: "ShakeCounter", Value: 0, TargetCommand: 41 } ||
+            Companion[39] is not CutsceneWaitCommand { Frames: 1 } ||
+            Companion[40] is not CutsceneBranchCommand { TargetCommand: 38 } ||
+            Companion[41] is not CutsceneReturnCommand ||
             new[] { Ghini0, Ghini1, Ghini2, Companion }
                 .SelectMany(commands => commands)
                 .Any(command => command.Source.SourceLine <= 0))
@@ -215,6 +185,8 @@ internal sealed class MooshRescueEventDatabase
         }
     }
 }
+
+internal readonly record struct MooshRescuePlacementRecord(int Order, int Id, int SubId, int Y, int X, string Source);
 
 internal readonly record struct MooshRescueEventRecord(
     int Group,
@@ -268,18 +240,4 @@ internal readonly record struct MooshRescueEventRecord(
     int StompSound,
     int MinibossMusic,
     string RestrictText,
-    string Source);
-
-internal readonly record struct MooshCompanionVisualRecord(
-    string Sprite,
-    int TileBase,
-    int Palette,
-    string[] Animations,
-    string LinkSprite,
-    int LinkPalette,
-    string[] LinkFrames,
-    int[] LinkSourceOffsets,
-    int WaterHazard,
-    int WaterHoverFrames,
-    int WaterExclamationZOffset,
     string Source);

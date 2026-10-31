@@ -18,39 +18,55 @@ public sealed class TreasureDatabase
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
     private readonly Dictionary<int, GashaMaturityRecord> _gashaMaturity = new();
     private readonly Dictionary<int, ExtraTreasureRecord> _extraItems = new();
+    private readonly Dictionary<int, TreasureRemovalRecord> _removedItems = new();
     private readonly int[] _rupeeValues = new int[0x15];
     private readonly Lookup<string, DisplayRecord> _displayRows =
         new(StringComparer.Ordinal);
+    private readonly List<InventoryDisplaySelector> _displaySelectors = new();
+    private readonly Dictionary<string, DisplayRecord> _displayPrefixes = new(StringComparer.Ordinal);
     private readonly Dictionary<int, InventoryTextRecord> _inventoryTexts = new();
     private readonly Dictionary<int, InventoryTextRecord> _ringTexts = new();
 
-    private readonly Lazy<bool> _sources;
-    internal void PrepareSources() => _ = _sources.Value;
+    private readonly Lazy<bool> _objectSources;
+    private readonly Lazy<bool> _visualSources;
+    private readonly Lazy<bool> _collectionSources;
+    private readonly Lazy<bool> _displaySources;
+    private readonly Lazy<bool> _textSources;
+    internal void PrepareSources()
+    {
+        _ = _objectSources.Value;
+        _ = _visualSources.Value;
+        _ = _collectionSources.Value;
+        _ = _displaySources.Value;
+        _ = _textSources.Value;
+    }
 
-    public int BehaviourCount { get { PrepareSources(); return _behaviours.Count; } }
-    public IReadOnlyList<TreasureObjectRecord> Objects { get { PrepareSources(); return _objectRows; } }
+    public int BehaviourCount { get { _ = _collectionSources.Value; return _behaviours.Count; } }
+    public IReadOnlyList<TreasureObjectRecord> Objects { get { _ = _objectSources.Value; return _objectRows; } }
 
     public TreasureDatabase(string assetRoot)
     {
+        _ = OracleAssetPack.GameFor(assetRoot);
         AssetRoot = assetRoot;
 
-        _sources = new Lazy<bool>(() =>
+        _objectSources = new(() => { LoadObjects(); return true; });
+        _visualSources = new(() => { LoadObjectVisuals(); return true; });
+        _displaySources = new(() => { LoadDisplayRows(); LoadDisplayPrefixes(); LoadDisplaySelectors(); return true; });
+        _textSources = new(() => { LoadInventoryTexts(); return true; });
+        _collectionSources = new(() =>
         {
-            LoadObjects();
-            LoadObjectVisuals();
             LoadBehaviours();
             LoadExtraItems();
+            LoadRemovedItems();
             LoadRupeeValues();
             LoadGashaMaturity();
-            LoadDisplayRows();
-            LoadInventoryTexts();
             return true;
         });
     }
 
     public TreasureObjectRecord GetObject(string name)
     {
-        PrepareSources();
+        _ = _objectSources.Value;
         return _objects.TryGetValue(name, out TreasureObjectRecord record)
         ? record
         : throw new KeyNotFoundException($"Treasure object {name} was not imported.");
@@ -58,7 +74,7 @@ public sealed class TreasureDatabase
 
     internal TreasureObjectRecord GetObject(int treasureId, int subid)
     {
-        PrepareSources();
+        _ = _objectSources.Value;
         foreach (var record in _objectRows)
             if (record.TreasureId == treasureId && record.SubId == subid) return record;
         throw new KeyNotFoundException($"Treasure object ${treasureId:x2}:${subid:x2} was not imported (nextToChestTile override).");
@@ -66,7 +82,7 @@ public sealed class TreasureDatabase
 
     public TreasureObjectVisualRecord GetObjectVisual(int graphic)
     {
-        PrepareSources();
+        _ = _visualSources.Value;
         return _objectVisuals.TryGetValue(graphic, out TreasureObjectVisualRecord record)
             ? record
             : throw new KeyNotFoundException(
@@ -75,7 +91,7 @@ public sealed class TreasureDatabase
 
     public BehaviourRecord GetBehaviour(int treasureId)
     {
-        PrepareSources();
+        _ = _collectionSources.Value;
         return _behaviours.TryGetValue(treasureId, out BehaviourRecord record)
         ? record
         : throw new KeyNotFoundException($"Treasure ${treasureId:x2} has no collection behaviour.");
@@ -83,7 +99,7 @@ public sealed class TreasureDatabase
 
     internal int GetGashaMaturityGain(int treasureId, int parameter)
     {
-        PrepareSources();
+        _ = _collectionSources.Value;
         return GashaMaturityGain(treasureId, parameter);
     }
 
@@ -96,13 +112,19 @@ public sealed class TreasureDatabase
 
     internal bool TryGetExtraItem(int treasureId, out ExtraTreasureRecord extra)
     {
-        PrepareSources();
+        _ = _collectionSources.Value;
         return _extraItems.TryGetValue(treasureId, out extra);
+    }
+
+    internal bool TryGetRemovedItems(int treasureId, out TreasureRemovalRecord removed)
+    {
+        _ = _collectionSources.Value;
+        return _removedItems.TryGetValue(treasureId, out removed);
     }
 
     internal int RupeeValue(int parameter)
     {
-        PrepareSources();
+        _ = _collectionSources.Value;
         return _rupeeValues[Math.Clamp(parameter, 0, 0x14)];
     }
 
@@ -138,54 +160,65 @@ public sealed class TreasureDatabase
                 throw row.Invalid(0, "treasures with imported collection behaviours");
             _extraItems.Add(treasure, new ExtraTreasureRecord(additional, row.HexByte(2)));
         }
-        if (_extraItems.Count != 4)
+        int expected = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages ? 4 : 3;
+        if (_extraItems.Count != expected)
             throw new InvalidOperationException(
-                "giveTreasure_body:@extraItemsToAddTable must contain four clean-US rows.");
+                $"{AssetRoot} giveTreasure_body:@extraItemsToAddTable requires {expected} native rows.");
+    }
+
+    private void LoadRemovedItems()
+    {
+        var table = GeneratedTable.Load(AssetRoot + "metadata/treasure_removed_items.tsv",
+            new("giveTreasure_body:@itemsToRemoveTable", GeneratedTableKeySemantics.Unique,
+                ["treasure-id", "first-treasure-id", "second-treasure-id"], ["treasure-id"], headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            int treasure = row.HexByte(0), first = row.HexByte(1), second = row.HexByte(2);
+            if (!_behaviours.ContainsKey(treasure) || !_behaviours.ContainsKey(first) || !_behaviours.ContainsKey(second))
+                throw row.Invalid(0, "treasures with imported collection behaviours");
+            _removedItems.Add(treasure, new(first, second));
+        }
+        int expected = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages ? 0 : 3;
+        if (_removedItems.Count != expected)
+            throw new InvalidOperationException($"{table.Path}: expected {expected} native removal rows.");
     }
 
     public DisplayRecord GetButtonDisplay(int itemId, InventoryState inventory)
-    {
-        if (itemId == TreasureId.None)
-            return DisplayRecord.Empty;
-
-        return itemId switch
-        {
-            TreasureId.Shield => GetDisplay(
-                "treasureDisplayData_shield", Math.Max(0, inventory.ShieldLevel - 1)),
-            TreasureId.Sword => GetDisplay("treasureDisplayData_sword", Math.Max(0, inventory.SwordLevel - 1)),
-            TreasureId.Bracelet => GetDisplay("treasureDisplayData_bracelet", Math.Max(0, inventory.BraceletLevel - 1)),
-            TreasureId.SwitchHook => GetDisplay("treasureDisplayData_switchHook", Math.Max(0, inventory.SwitchHookLevel - 1)),
-            TreasureId.SeedSatchel => GetDisplay("treasureDisplayData_satchel", inventory.SatchelSelectedSeeds),
-            TreasureId.Shooter => GetDisplay("treasureDisplayData_shooter", inventory.ShooterSelectedSeeds),
-            TreasureId.Harp => GetDisplay("treasureDisplayData_harp", inventory.SelectedHarpSong),
-            TreasureId.Flute => GetDisplay("treasureDisplayData_flute", inventory.FluteIcon),
-            TreasureId.TradeItem => GetDisplay("treasureDisplayData_trade", inventory.TradeItem),
-            TreasureId.TuniNut => GetDisplay("treasureDisplayData_tuniNut", inventory.TuniNutState),
-            _ => GetDisplay("treasureDisplayData_standard", itemId)
-        };
-    }
+        => SelectDisplay(itemId, inventory, levelOverride: 0);
 
     public DisplayRecord GetTreasureDisplay(int treasureId, int parameter, InventoryState inventory)
+        => SelectDisplay(treasureId, inventory, levelOverride: parameter);
+
+    private DisplayRecord SelectDisplay(int treasureId, InventoryState inventory, int levelOverride)
     {
-        PrepareSources();
+        if (inventory.AssetRoot != AssetRoot)
+            throw new ArgumentException("Inventory display and inventory state must belong to the same game.", nameof(inventory));
         if (treasureId == TreasureId.None)
             return DisplayRecord.Empty;
-
-        int level = Math.Max(0, parameter - 1);
-        return treasureId switch
+        _ = _displaySources.Value;
+        for (int index = 0; index < _displaySelectors.Count; index++)
         {
-            TreasureId.Shield when parameter > 0 =>
-                GetDisplay("treasureDisplayData_shield", level),
-            TreasureId.Sword when parameter > 0 => GetDisplay("treasureDisplayData_sword", level),
-            TreasureId.Bracelet when parameter > 0 => GetDisplay("treasureDisplayData_bracelet", level),
-            TreasureId.SwitchHook when parameter > 0 => GetDisplay("treasureDisplayData_switchHook", level),
-            _ => GetButtonDisplay(treasureId, inventory)
-        };
+            InventoryDisplaySelector selector = _displaySelectors[index];
+            if (selector.TreasureId != treasureId) continue;
+            // loadTreasureDisplayData@getTableIndices skips to the next
+            // Slingshot row only for Seasons' level-$02 upgrade.
+            if (treasureId == TreasureId.Slingshot && inventory.SlingshotLevel == 2 &&
+                OracleAssetPack.GameFor(AssetRoot) == OracleGame.Seasons)
+            {
+                if (++index >= _displaySelectors.Count || _displaySelectors[index].TreasureId != treasureId)
+                    throw new InvalidOperationException($"{selector.Source}: missing Hyper Slingshot selector.");
+                selector = _displaySelectors[index];
+            }
+            int value = levelOverride > 0 && selector.IndexBias == -1 ? levelOverride : selector.Index(inventory);
+            int row = value + selector.IndexBias;
+            return GetDisplay(selector.Table, row);
+        }
+        return GetDisplay("treasureDisplayData_standard", treasureId);
     }
 
     public InventoryTextRecord GetInventoryText(int textLow)
     {
-        PrepareSources();
+        _ = _textSources.Value;
         return _inventoryTexts.TryGetValue(textLow & 0xff, out InventoryTextRecord record)
             ? record
             : throw new KeyNotFoundException(
@@ -194,7 +227,7 @@ public sealed class TreasureDatabase
 
     public InventoryTextRecord GetRingText(int ring)
     {
-        PrepareSources();
+        _ = _textSources.Value;
         return _ringTexts.TryGetValue(ring & 0x3f, out InventoryTextRecord record)
             ? record
             : throw new KeyNotFoundException(
@@ -203,6 +236,8 @@ public sealed class TreasureDatabase
 
     private DisplayRecord GetDisplay(string table, int index)
     {
+        _ = _displaySources.Value;
+        if (index == -1 && _displayPrefixes.TryGetValue(table, out DisplayRecord prefix)) return prefix;
         if (!_displayRows.TryGetValues(
                 table, out IReadOnlyList<DisplayRecord> records) ||
             index < 0 || index >= records.Count)
@@ -268,14 +303,16 @@ public sealed class TreasureDatabase
             _objectVisuals.Add(graphic, record);
         }
 
-        if (_objectVisuals.Count != 84 ||
+        bool seasons = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Seasons;
+        int expectedCount = seasons ? 73 : 84;
+        if (_objectVisuals.Count != expectedCount ||
             !_objectVisuals.TryGetValue(0x42, out TreasureObjectVisualRecord smallKey) ||
-            smallKey.Sprite != "spr_map_compass_keys_bookofseals" ||
+            smallKey.Sprite != (seasons ? "spr_map_compass_keys" : "spr_map_compass_keys_bookofseals") ||
             smallKey.TileBase != 0x0c || smallKey.Palette != 5 ||
             smallKey.DefaultAnimation != 0 || string.IsNullOrEmpty(smallKey.Animation))
         {
             throw new InvalidOperationException(
-                "Treasure visuals must include all 84 vanilla source graphics and exact small-key graphic $42 data.");
+                $"{AssetRoot}: INTERAC_TREASURE $60 must include all {expectedCount} native graphics and exact small-key graphic $42 data.");
         }
     }
 
@@ -333,7 +370,7 @@ public sealed class TreasureDatabase
         }
         if (_gashaMaturity.Count != 4 ||
             GashaMaturityGain(TreasureId.Essence, 0) != 150 ||
-            GashaMaturityGain(TreasureId.HeartPiece, 0) != 36 ||
+            GashaMaturityGain(TreasureId.HeartPiece, 0) != (OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages ? 36 : 100) ||
             GashaMaturityGain(TreasureId.TradeItem, 0) != 100 ||
             GashaMaturityGain(TreasureId.HeartRefill, 0x18) != 0x18)
         {
@@ -401,6 +438,8 @@ public sealed class TreasureDatabase
             "wMagnetGlovePolarity" => TreasureVariable.MagnetGlovePolarity,
             "wSlingshotLevel" => TreasureVariable.SlingshotLevel,
             "wFeatherLevel" => TreasureVariable.FeatherLevel,
+            "wNumOreChunks" => TreasureVariable.OreChunks,
+            "wPirateBellState" => TreasureVariable.PirateBellState,
             _ => throw UnsupportedBehaviour(treasure, variable, rawMode, "unknown WRAM variable")
         };
 
@@ -421,7 +460,7 @@ public sealed class TreasureDatabase
             CollectionMode.IncrementDungeonKey => variable == TreasureVariable.DungeonSmallKeys,
             CollectionMode.AddUnappraisedRing => variable == TreasureVariable.UnappraisedRings,
             CollectionMode.SetUpgradeBit => variable == TreasureVariable.ShortSecretIndex,
-            CollectionMode.AddRupees => variable == TreasureVariable.Rupees,
+            CollectionMode.AddRupees => variable is TreasureVariable.Rupees or TreasureVariable.OreChunks,
             _ => IsScalarVariable(variable)
         };
         if (!valid)
@@ -468,10 +507,44 @@ public sealed class TreasureDatabase
             List<DisplayRecord> rows = _displayRows.GetOrAdd(tableName);
 
             int index = row.UnsignedDecimal(1);
-            while (rows.Count < index)
-                rows.Add(DisplayRecord.Empty);
+            if (index != rows.Count) throw row.Invalid(1, "contiguous native display-row order");
             rows.Add(record);
         }
+    }
+
+    private void LoadDisplaySelectors()
+    {
+        var table = GeneratedTable.Load(AssetRoot + "metadata/treasure_display_selectors.tsv",
+            new("loadTreasureDisplayData selectors", GeneratedTableKeySemantics.Ordered,
+                ["index", "treasure-id", "variable", "table", "index-bias", "source"], headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            if (row.UnsignedDecimal(0) != _displaySelectors.Count) throw row.Invalid(0, "native selector order");
+            string target = row.RequiredString(3);
+            if (!_displayRows.TryGetValues(target, out _)) throw row.Invalid(3, "an imported native display table");
+            _displaySelectors.Add(new(row.HexByte(1), InventoryState.BindDisplayIndex(row.RequiredString(2)),
+                target, row.Decimal(4, -1, 0), row.RequiredString(5)));
+        }
+        int expected = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages ? 10 : 11;
+        if (_displaySelectors.Count != expected)
+            throw new InvalidOperationException($"{table.Path}: expected {expected} source selectors before the $00 terminator.");
+    }
+
+    private void LoadDisplayPrefixes()
+    {
+        var table = GeneratedTable.Load(AssetRoot + "metadata/treasure_display_prefixes.tsv",
+            new("treasure display pointer prefixes", GeneratedTableKeySemantics.Unique,
+                ["table", "treasure-id", "left-sprite", "left-palette", "right-sprite", "right-palette", "extra-mode", "text-low", "source"],
+                ["table"], headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            string label = row.RequiredString(0);
+            if (!_displayRows.TryGetValues(label, out _)) throw row.Invalid(0, "an imported native level table");
+            _displayPrefixes.Add(label, new(row.HexByte(1), row.HexByte(2), row.HexByte(3), row.HexByte(4),
+                row.HexByte(5), row.HexByte(6), row.HexByte(7)));
+            _ = row.RequiredString(8);
+        }
+        if (_displayPrefixes.Count != 4) throw new InvalidOperationException($"{table.Path}: expected four native -7 pointer prefixes.");
     }
 
     private void LoadInventoryTexts()
@@ -505,11 +578,12 @@ public sealed class TreasureDatabase
                     $"Duplicate {kind} inventory text index ${index:x2}.");
         }
 
-        if (!_inventoryTexts.ContainsKey(0x00) || !_inventoryTexts.ContainsKey(0x65) ||
+        int blurb = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages ? 0x65 : 0x56;
+        if (!_inventoryTexts.ContainsKey(0x00) || !_inventoryTexts.ContainsKey(blurb) ||
             _ringTexts.Count != 0x40)
         {
             throw new InvalidOperationException(
-                "Inventory text data must include TX_0900, TX_0965, and all 64 rings.");
+                $"{AssetRoot}: inventory text must include TX_0900, TX_09{blurb:x2}, and all 64 rings.");
         }
     }
 }
@@ -517,6 +591,11 @@ public sealed class TreasureDatabase
 internal readonly record struct GashaMaturityRecord(int TreasureId, bool ParameterAmount, int Amount);
 
 internal readonly record struct ExtraTreasureRecord(int TreasureId, int Parameter);
+
+internal readonly record struct TreasureRemovalRecord(int First, int Second);
+
+internal readonly record struct InventoryDisplaySelector(int TreasureId, Func<InventoryState, int> Index,
+    string Table, int IndexBias, string Source);
 
 public readonly record struct DisplayRecord(int TreasureId, int LeftSprite, int LeftPalette, int RightSprite, int RightPalette, int ExtraMode, int TextLow)
 {

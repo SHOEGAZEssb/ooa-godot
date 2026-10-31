@@ -62,6 +62,7 @@ public sealed partial class ValidationRoot
             _entities.TextActiveSource = () => held && gate == "text";
             _entities.PaletteFadeActiveSource = () => held && gate == "palette";
             var rom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, 120, 40);
+            StageDeferredNativeObjectPassCaller();
             rom[0xd080] = 1; rom[0xd081] = (byte)id; rom[0xd082] = id == 0x50 ? (byte)0x80 : (byte)0;
             rom[0xd08b] = 72; rom[0xd08d] = 80;
             void Gates()

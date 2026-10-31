@@ -174,7 +174,8 @@ public sealed partial class ValidationRoot
 
         BeginPreamble();
         FailIf(
-            !maskEvent.BlocksGameplay || !_player.CutsceneControlled,
+            !maskEvent.BlocksGameplay || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x80,
             "maskSalesmanScript did not disable input before TX_0b0d.");
         FinishHungerPreamble(expectTradePrompt: false);
 
@@ -256,7 +257,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _player.IsHoldingItemTwoHands ||
             _entities.Entities<GroundTreasurePickup>().Count != 0,
@@ -301,18 +302,17 @@ public sealed partial class ValidationRoot
             .Where(position =>
             {
                 byte tile = exterior.GetMetatile(PackedPosition(position));
-                return warps.TryGetTileWarp(
+                return TryGetResolvedTileWarp(warps,
                         exteriorGroup, exterior, position, tile,
                         out Warp candidate) &&
                     candidate.DestinationGroup == group &&
                     candidate.DestinationRoom == room;
             }).ToArray();
-        bool hasEntry = warps.TryGetTileWarp(
+        bool hasEntry = TryGetResolvedTileWarp(warps,
             exteriorGroup, exterior, 0x52, 0xef, out Warp entry);
-        bool hasExit = warps.TryGetEdgeWarp(
+        bool hasExit = TryGetResolvedEdgeWarp(warps,
             group, room, Vector2I.Down,
-            new Vector2(0x70, interior.Height + 2),
-            new Vector2(interior.Width, interior.Height), out Warp exit);
+            new Vector2(0x70, interior.Height + 2), out Warp exit);
         FailIf(
             !entryPositions.SequenceEqual(new[] { 0x51, 0x52 }) ||
             exterior.GetMetatile(PackedPosition(0x51)) != 0xee ||
@@ -348,12 +348,12 @@ public sealed partial class ValidationRoot
             !IsTransitioning ||
             _player.Position != new Vector2(0x70, interior.Height),
             "Room 0:53/$52 did not begin the source transition-4 entry into 2:e6.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         FailIf(
             !IsTransitioning ||
-            _player.Position != new Vector2(0x70, interior.Height - AgesRoomTransitionController.WarpEnterFrames),
+            _player.Position != new Vector2(0x70, interior.Height - RoomTransitionController.WarpEnterFrames),
             "Room 2:e6 entry did not complete its 28-update upward walk.");
-        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpFadeInFrames - AgesRoomTransitionController.WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeInFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, "Room 2:e6 entry fade did not finish on update 33.");
 
         _player.WarpTo(new Vector2(0x70, interior.Height + 2));
@@ -362,12 +362,12 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || _activeGroup != group || _currentRoom.Id != room,
             "Room 2:e6's right-half bottom edge did not begin source transition 3.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != exteriorGroup ||
             _currentRoom.Id != exteriorRoom || !IsTransitioning,
             "Room 2:e6 did not load exterior 0:53 after its 16-update exit walk.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeInFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
         FailIf(
             IsTransitioning ||
             _player.Position != new Vector2(0x20, 0x58) ||

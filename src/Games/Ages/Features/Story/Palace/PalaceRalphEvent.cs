@@ -8,7 +8,7 @@ namespace Oracles;
 // ralph.s:$37:$09 and scripts.s:ralphSubid09Script. The palace entry owner
 // starts this lane after resolving the placed actors' independent story gates.
 internal sealed class PalaceRalphEvent(RoomEventContext context) :
-    InteractiveCutsceneCommandHost, IRoomEvent
+    RoomCutsceneCommandHost, IRoomEvent
 {
     private readonly IReadOnlyList<CutsceneCommand> _commands = CutsceneCommandCatalog.Load(
         AgesGameContent.AssetRoot + "cutscenes/palace_ralph_commands.tsv");

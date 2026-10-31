@@ -31,7 +31,6 @@ internal sealed class SpikedBeetleRoomEntity
                 beetle.TakeBurnHit,
                 beetle.ApplyAcceptedSwordResponse,
                 soundRequested,
-                EnemySwordResponse.Armored,
                 acceptedHitSound: 0),
             collisionZ: () => beetle.ZHigh)
     {
@@ -50,7 +49,7 @@ internal sealed class SpikedBeetleRoomEntity
 
         if (player.IsUsingShield &&
             CombatDescriptor.Source is { } source &&
-            source.ShieldBumpResponse(player.Inventory.ShieldLevel) is
+            source.ShieldBumpResponse(player.Inventory.ShieldLevel,DimitriCollisionMode,DimitriCollisionType) is
                 { } response &&
             CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
         {
@@ -58,7 +57,7 @@ internal sealed class SpikedBeetleRoomEntity
                 Entity.TryApplyFlipHit(
                 player.ShieldCollisionBounds,
                 player.ShieldCollisionBounds.GetCenter(),
-                player.Inventory.ShieldLevel))
+                response.EnemyStrength))
             {
                 player.ApplyShieldCollisionRecoil(
                     Entity.Position,
@@ -74,16 +73,24 @@ internal sealed class SpikedBeetleRoomEntity
 
     public bool ApplyShovelHit(Rect2 hitbox, Vector2 sourcePosition)
     {
-        if (Entity.ZHigh < -7 ||
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        int effect = data.Effect(DimitriCollisionMode, data.ItemType(ItemId.Shovel));
+        EnemyKnockbackStrength strength = effect switch
+        {
+            CollisionEffect.ShieldBump => EnemyKnockbackStrength.Low,
+            CollisionEffect.Bump => EnemyKnockbackStrength.Normal,
+            _ => throw new NotSupportedException($"{AssetRoot}: Spiked Beetle Shovel mode ${DimitriCollisionMode:x2}, effect ${effect:x2} requires its native response.")
+        };
+        if (!RoomEntityManager.ObjectCollisionZOverlaps(Entity.ZHigh, 0, 7) ||
             !Entity.TryApplyFlipHit(
                 hitbox,
                 sourcePosition,
-                shieldLevel: 2))
+                strength))
         {
             return false;
         }
 
-        _soundRequested(SoundId.SndBombLand);
+        if (effect == CollisionEffect.ShieldBump) _soundRequested(SoundId.SndBombLand);
         return true;
     }
 

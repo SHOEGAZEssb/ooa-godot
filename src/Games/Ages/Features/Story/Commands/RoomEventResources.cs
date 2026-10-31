@@ -9,6 +9,7 @@ namespace Oracles;
 /// </summary>
 internal sealed class RoomEventResources(RoomEventContext context, object owner)
 {
+    internal NativeScriptInputControl ScriptInput { get; } = new(context.Entities.RuntimeState);
     public bool InputLocked => context.Player.IsCutsceneControlOwner(owner);
     private bool _ownsFullScreenFade;
     private Vector2 _fadePosition;
@@ -25,6 +26,7 @@ internal sealed class RoomEventResources(RoomEventContext context, object owner)
 
     public void UnlockInput()
     {
+        ScriptInput.Cancel();
         context.Player.EndCutsceneControl(owner);
     }
 

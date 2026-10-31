@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
             if (mode == 2)
                 for (int slot = 2; slot < 15; slot++)
                 {
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone,AlwaysUpdates:false));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone,AlwaysUpdates:false));
                     int address = (0xd0+slot)*256+0x40;
                     rom[address] = 2; rom[address+1] = 5; rom[address+4] = 1; rom[address+6] = 60;
                     rom[address+0xb] = 144; rom[address+0xd] = 224;
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
                 rom.AdvanceTileGraphics();
                 int puffs = Enumerable.Range(0xd2,14).Count(page => rom[page*256+0x40] != 0 && rom[page*256+0x41] == 5);
                 FailIf(chest.Finished != (rom[addressChest] == 0 || rom[addressChest+1] != 0x21) ||
-                    _entities.Entities<PuzzlePuffEffect>().Count != puffs ||
+                    _entities.Entities<StationaryDebrisEffect>().Count != puffs ||
                     _rooms.PendingTileGraphics != ((rom[0xcce0]-rom[0xccdf])&31) ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"Blue-flame chest$21:$12, mode={mode}, batch={batched}: lifetime/puff/queue/cues differ.");
@@ -123,7 +123,7 @@ public sealed partial class ValidationRoot
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Up,out int target) || target != 0x8b,
                 "Blue-flame scroll must preserve imported adjacency$4:$90 -> $4:$8b.");
             var sounds = _sound.AttachPlayRequestAudit();
-            _transitions.BeginScroll(_player,Vector2I.Up,target);
+            _transitions.BeginValidationScroll(_player,Vector2I.Up,target);
             rom.SetOutgoingInteractions(); rom.ClearRoomVariables(true);
             rom.CopyRoom(_currentRoom); rom[0xcc30] = 0x8b; rom[0xcd00] = 8;
             foreach (var pair in SomariaPrivate<System.Collections.Generic.Dictionary<IRoomEntity,int>>(_entities,"_interactionSlots"))
@@ -148,9 +148,12 @@ public sealed partial class ValidationRoot
             void Step(int count = 1) => StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:() =>
             {
                 rom.AdvanceInteractions(_entities.FrameCounter);
-                if (!_transitions.ScrollActive) rom.ClearOutgoingInteractions();
+                if (!_transitions.ScrollActive) { rom.ClearOutgoingInteractions(); rom[0xcd00] = 1; }
+                // The isolated interaction fixture supplies the completed
+                // scroll boundary; native tile-queue work still follows it.
+                rom.AdvanceTileGraphics();
                 bool alive = rom[slot] != 0 && rom[slot+1] == 0x21;
-                var puffs = _entities.Entities<PuzzlePuffEffect>().OrderBy(puff => _entities.InteractionSlot(puff)).ToArray();
+                var puffs = _entities.Entities<StationaryDebrisEffect>().OrderBy(puff => _entities.InteractionSlot(puff)).ToArray();
                 int[] nativePuffs = Enumerable.Range(0xd2,14).Select(page => page*256+0x40)
                     .Where(address => rom[address] != 0 && rom[address+1] == 5).ToArray();
                 FailIf(_transitions.ScrollActive && chest.Finished == alive || _entities.OutgoingEntities<DungeonPuzzleChestRoomEntity>().Count != (alive ? 1 : 0) ||

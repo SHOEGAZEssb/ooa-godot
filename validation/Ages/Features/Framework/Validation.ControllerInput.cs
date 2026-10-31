@@ -61,9 +61,10 @@ public sealed partial class ValidationRoot
                     {
                         FailIf(!Input.GetVector(actions[1], actions[0], actions[2], actions[3]).IsEqualApprox(direction),
                             $"Buffered direction bits ${mask:x1} changed the source direction.");
-                        Input.OverrideGameKeys(mask << 4);
+                        var memory = new OracleRuntimeState(OracleGame.Ages);
+                        Input.PublishGameKeys(memory, null, dying: false);
                         FailIf(!Input.GetVector(actions[1], actions[0], actions[2], actions[3]).IsEqualApprox(direction),
-                            $"Simulated direction bits ${mask:x1} disagreed with physical input.");
+                            $"Native game direction bits ${mask:x1} disagreed with physical input.");
                         for (int bit = 0; bit < actions.Length; bit++)
                             FailIf(Input.IsActionPressed(actions[bit]) != ((mask & (1 << bit)) != 0) ||
                                 Input.IsPhysicalActionPressed(actions[bit]) != ((mask & (1 << bit)) != 0),
@@ -90,7 +91,7 @@ public sealed partial class ValidationRoot
                 finally { ResetValidationInput(); }
             }
         }
-        GD.Print("Validated all $10 direction combinations through physical, buffered and simulated input, gameplay movement, release/repeat and split/batched updates.");
+        GD.Print("Validated all $10 direction combinations through physical, buffered and native game input, gameplay movement, release/repeat and split/batched updates.");
     }
 
     private void ValidateControllerMovement()

@@ -80,7 +80,8 @@ internal class RalphAfterChevalEvent :
         _substate = 0;
         _menusDisabled = _record.MenuDisabled != 0;
         StartInfiniteScript(ralph, _commands);
-        SetInputEnabled(enabled: false);
+        SetDisabledObjects(0x81);
+        SetNativeMenuDisabled(0x81);
 
         // @setScriptAndDisableObjects jumps directly into ralphRunSubid from
         // source state 0, so the initial wait and both substate-0 animation
@@ -293,7 +294,7 @@ internal class RalphAfterChevalEvent :
         if (!Context.Entities.InteractionSlotAvailable)
             return;
 
-        PuzzlePuffEffect puff = Context.Entities.Spawn<PuzzlePuffEffect>(
+        StationaryDebrisEffect puff = Context.Entities.Spawn<StationaryDebrisEffect>(
             new PuzzlePuffSpawn(
                 position,
                 Sound: SoundId.MusNone,

@@ -36,6 +36,9 @@ public partial class Hud : Node2D
 
     [Export] public string AssetRoot { get; set; } = string.Empty;
     private bool _resourcesPrepared;
+    private StatusBarCurrencyDatabase? _currency;
+    internal StatusBarCurrencyDatabase Currency => _currency ??= new(AssetRoot);
+    private byte _loadedCurrencyGraphicsFlags;
     public override void _Ready() => PrepareResources();
 
     internal void PrepareResources()
@@ -133,6 +136,12 @@ public partial class Hud : Node2D
         QueueRedraw();
     }
 
+    internal void LoadCommonGraphics(byte tilesetFlags)
+    {
+        _loadedCurrencyGraphicsFlags = tilesetFlags;
+        Refresh();
+    }
+
     /// <summary>
     /// Mirrors hideStatusBar_body after wDontUpdateStatusBar has been set to
     /// $77: the 20-by-2 status tilemap and attributes are cleared, leaving
@@ -141,6 +150,7 @@ public partial class Hud : Node2D
     /// </summary>
     public void HideStatusBar()
     {
+        _inventory?.RuntimeState.SetField("wDontUpdateStatusBar",0xff);
         _statusBarHidden = true;
         _hiddenStatusBarFade = new Color(0, 0, 0, 0);
         Visible = true;
@@ -162,6 +172,12 @@ public partial class Hud : Node2D
     }
 
     public void ShowStatusBar()
+    {
+        _inventory?.RuntimeState.SetField("wDontUpdateStatusBar",0);
+        RestoreStatusBarPresentation();
+    }
+
+    internal void RestoreStatusBarPresentation()
     {
         _statusBarHidden = false;
         _hiddenStatusBarFade = new Color(0, 0, 0, 0);
@@ -205,8 +221,7 @@ public partial class Hud : Node2D
         WriteRupeeDigits(map);
         if (DungeonKeyDisplayActive)
         {
-            // Clean Ages keeps both graphics resident: rupee $09, key $0a.
-            map[0x0a + offset] = 0x0a;
+            map[0x0a + offset] = (byte)Currency.KeyTile;
             map[0x0b + offset] = 0x1b;
             map[0x0c + offset] = (byte)(0x10 + Mathf.Clamp(
                 _inventory?.GetDungeonSmallKeys(DungeonIndex) ?? 0, 0, 9));
@@ -249,6 +264,8 @@ public partial class Hud : Node2D
             int readY = tileY + (flipY ? 7 - y : y);
             Color sourceColor = source.GetPixel(readX, readY);
             int shade = Mathf.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
+            if (Currency.TryGetReplacementShade(_loadedCurrencyGraphicsFlags, tile, flags,
+                flipX ? 7 - x : x, flipY ? 7 - y : y, out int replacement)) shade = replacement;
             output.SetPixel(destinationX + x, destinationY + y, HudPalette[shade]);
         }
     }
@@ -259,7 +276,7 @@ public partial class Hud : Node2D
             return;
 
         DrawItemSprite(display.LeftSprite,
-            ItemIconAtlas.EquippedLeftPalette(display.LeftSprite, display.LeftPalette),
+            ItemIconAtlas.EquippedLeftPalette(OracleAssetPack.GameFor(AssetRoot), display.LeftSprite, display.LeftPalette),
             position, output);
         if (display.RightSprite != 0)
             DrawItemSprite(display.RightSprite, display.RightPalette, position + new Vector2(8, 0), output);
@@ -267,39 +284,12 @@ public partial class Hud : Node2D
 
     private void DrawItemExtra(DisplayRecord display, Vector2 position, Image? output)
     {
-        if (_inventory == null)
-            return;
-
-        if (display.ExtraMode == 2)
-        {
-            DrawHudOverlayTile(
-                0x1c, position + new Vector2(-8, -8), output, priorityOnly: true);
-            DrawHudOverlayTile(
-                0x1e, position + new Vector2(0, -8), output, priorityOnly: true);
-            DrawHudOverlayTile(
-                0x1d, position + new Vector2(-8, 0), output, priorityOnly: true);
-            DrawHudOverlayTile(0x1f, position, output, priorityOnly: true);
-            return;
-        }
-
-        if (display.ExtraMode == 1)
-        {
-            int amount = _inventory.TreasureQuantityDisplayValue(display.TreasureId);
-            DrawHudOverlayTile(0x10 + ((amount >> 4) & 0x0f), position, output);
-            DrawHudOverlayTile(0x10 + (amount & 0x0f), position + new Vector2(8, 0), output);
-            return;
-        }
-
-        int level = display.ExtraMode == 0
-            ? _inventory.LevelForInventoryDisplay(display.TreasureId)
-            : 0;
-        if (level <= 0)
-            return;
-
-        // updateStatusBar uses drawTreasureExtraTiles with c=$80. Palette 0
-        // matches the tan HUD and bit 7 places nonzero BG pixels above item OAM.
-        DrawHudOverlayTile(0x1a, position, output);
-        DrawHudOverlayTile(0x10 + (level & 0x0f), position + new Vector2(8, 0), output);
+        if (_inventory is null) return;
+        Span<TreasureExtraTile> tiles = stackalloc TreasureExtraTile[4];
+        int count = TreasureExtraTiles.Write(OracleAssetPack.GameFor(AssetRoot), display, _inventory, true, tiles);
+        foreach (TreasureExtraTile tile in tiles[..count])
+            DrawHudOverlayTile(tile.Tile, position + new Vector2(tile.X, tile.Y), output,
+                priorityOnly: (tile.Attributes & 0x80) != 0);
     }
 
     private void DrawHudOverlayTile(
@@ -351,7 +341,7 @@ public partial class Hud : Node2D
     }
 
     internal bool DungeonKeyDisplayActive =>
-        DungeonIndex is >= 0 and < 16 && (TilesetFlags & 0x18) == 0x08;
+        DungeonIndex is >= 0 and < 16 && Currency.ShowsKeys(TilesetFlags);
     internal bool StatusBarHidden => _statusBarHidden;
     internal float HiddenStatusBarFadeAlphaForValidation =>
         _hiddenStatusBarFade.A;
@@ -374,7 +364,7 @@ public partial class Hud : Node2D
     internal ulong ItemIconShadeHashForValidation(int sprite)
     {
         if (!ItemIconAtlas.Select(
-                ItemIconAtlas.EquippedSprite(sprite), _itemIcons1, _itemIcons2, _itemIcons3,
+                ItemIconAtlas.EquippedSprite(OracleAssetPack.GameFor(AssetRoot), sprite), _itemIcons1, _itemIcons2, _itemIcons3,
                 out Image source, out int cell))
         {
             return 0;
@@ -385,7 +375,7 @@ public partial class Hud : Node2D
     private void DrawItemSprite(int sprite, int palette, Vector2 position, Image? output)
     {
         if (!ItemIconAtlas.Select(
-            ItemIconAtlas.EquippedSprite(sprite), _itemIcons1, _itemIcons2, _itemIcons3,
+            ItemIconAtlas.EquippedSprite(OracleAssetPack.GameFor(AssetRoot), sprite), _itemIcons1, _itemIcons2, _itemIcons3,
             out Image source, out int cell))
         {
             return;

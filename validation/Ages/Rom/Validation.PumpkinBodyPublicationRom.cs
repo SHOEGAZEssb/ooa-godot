@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();LoadValidationRoom(4,0x13);
             var parent=_entities.EntityAdapters<PumpkinHeadBossRoomEntity>().Single();var boss=(PumpkinHeadBoss)parent.Node;
-            F1Retain(parent);F1Set(parent,"_initialized",true);F1Set(boss,"_initialized",true);
+            F1Retain(parent);F1Set(boss,"_initialized",true);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,144));
             FailIf(_collision.Collides(_player.Position),"Pumpkin movement fixture must hold Link on room$4:$13's actual floor.");
             _runtimeState.SetWramByte(0xcc8a,1);_runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
@@ -59,9 +59,9 @@ public sealed partial class ValidationRoot
                 if(lateTarget&&boss.State==BossState.Active&&SomariaPrivate<int>(boss,"_walkCounter")==1)
                     _player.SetScriptedCoordinateHigh(horizontal:true,200);
             });
-            _entities.RegisterEnemySlot(stage,15);_entities.AddEntity(stage);
-            // The production composite follows physical ENEMY slots and still
-            // precedes PART. There are no projectiles in this bounded trace.
+            F1StageBeforeEnemyProbe(parent,stage);
+            // The controller now owns a physical ENEMY slot. Stage before its
+            // visit and observe after the enemy/part passes without overwriting it.
             _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>

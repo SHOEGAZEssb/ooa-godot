@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
             eventsField.SetValue(_roomEvents, events.Append(maskEvent).ToArray());
             Func<bool> palette = _entities.PaletteFadeActiveSource;
             Func<bool> disabled = _entities.InitializedObjectsDisabledSource;
-            bool gated = false, forced = false;
+            bool gated = false;
             // Existing owner inputs stand for the declared mask publication.
             // Link state01 reads $81; updateItems reads $90 and palette mode.
             // ITEM $df keeps state zero and bypasses all initialized-item gates.
@@ -68,7 +68,7 @@ public sealed partial class ValidationRoot
                     string context = $"Pegasus mask=${gate.Mask:x2} palette=${gate.Palette:x2} gated={gated} update={++update}";
                     FailIf(_seedSatchel.Pegasus.RawCounter != rom.Word(0xcc6c) || _inventory.PegasusSeeds != rom[0xc6bb],
                         context + ": timer/pulse/ammo differs.");
-                    FailIf(!forced && _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
+                    FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
                         context + ": retained Link position differs.");
                     ComparePegasusDustRom(rom, false, context);
                     FailIf(_player.IsUsingHarp != (rom[0xd500] != 0) || _harp.PlayingInstrument != rom[0xcc8d],
@@ -101,9 +101,9 @@ public sealed partial class ValidationRoot
                 Step(4); Step(1, true); Step(4);
                 // A published state $0b request returns from normal Link.
                 // Initialization clears Pegasus on the following update;
-                // the source caller owns subsequent forced movement itself.
-                forced = true; _player.BeginForcedRoomEntryMovement(Vector2I.Up, deferInitialization: true);
-                rom[0xcc4f] = 0x0b; rom[0xcc51] = 4;
+                // Link's state owns subsequent forced movement itself.
+                _player.RequestNativeForcedMovement(4,0,0);
+                rom[0xcc4f] = 0x0b; rom[0xcc51] = 4; rom[0xd008] = rom[0xd009] = 0;
                 int retained = _seedSatchel.Pegasus.RawCounter;
                 Step(); FailIf(_seedSatchel.Pegasus.RawCounter != retained, "Forced-walk request cleared Pegasus before state $0b initialization.");
                 Step(); FailIf(_seedSatchel.Pegasus.Active, "State $0b initialization must clear Pegasus.");

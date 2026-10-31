@@ -42,7 +42,7 @@ internal sealed class BlackTowerPossessionEvent(RoomEventContext context) : IRoo
         NativeScriptInputControl.SetEnabled(context.Entities.RuntimeState, context.Player, enabled);
     }
     internal void Aftermath() {HasState=true;_owned.Clear();context.Transitions.ResetCamera();}
-    internal void RequestLinkState()=>context.Player.RequestAmbiUnpossessedCutscene(()=>context.Entities.CreatePalaceExclamation(context.Player.Position+new Vector2(-8,-12),30));
+    internal void RequestLinkState()=>context.Player.RequestAmbiUnpossessedCutscene(()=>context.Entities.TryCreateExclamation(context.Player.Position+new Vector2(-8,-12),30));
     internal void ShowFairyText(int id)=>context.ShowDialogue(FairyData.Text(id),sourceTextId:id);
     internal VeranFairyRoomEntity? SpawnFairy(Vector2 position)=>
         (VeranFairyRoomEntity?)context.Entities.TryAllocateEnemy(_=>

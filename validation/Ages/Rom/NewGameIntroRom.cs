@@ -22,14 +22,14 @@ internal sealed class NewGameIntroRom
     internal string TextLine => new(Enumerable.Range(0, 16).Select(offset => TextByte(0xd400 + offset))
         .TakeWhile(value => value != 0).Select(value => (char)value).ToArray());
 
-    internal IntroOamPart[] OamParts(int address)
+    internal ObjectSpritePart[] OamParts(int address)
     {
         // bank0.s:objectDraw derives the OAM bank from the two high pointer
         // bits. The remaining 14 bits address the source record in that bank.
         int pointer = Word(address + 0x1e);
         int offset = (0x13 + (pointer >> 14)) * 0x4000 + (pointer & 0x3fff);
         int count = _data.Span[offset++];
-        var parts = new IntroOamPart[count];
+        var parts = new ObjectSpritePart[count];
         for (int index = 0; index < count; index++, offset += 4)
             parts[index] = new(_data.Span[offset], _data.Span[offset + 1], _data.Span[offset + 2], _data.Span[offset + 3]);
         return parts;

@@ -69,7 +69,7 @@ internal sealed class RestoredFamilyRoomEntity : RoomCutsceneCommandHost,IRoomEn
             case 0:
                 _actor.AdvanceAnimationUpdates(2);if(Read(0xcfd1)!=1)return;
                 Substate=1;Counter=120;Animation(3);
-                if(Context.Entities.InteractionSlotAvailable)Context.Entities.CreatePalaceExclamation(_actor.Position+new Vector2(8,-12),60);
+                if(Context.Entities.InteractionSlotAvailable)Context.Entities.TryCreateExclamation(_actor.Position+new Vector2(8,-12),60);
                 return;
             case 1:if(Decrement()){Substate=2;_speedZ=-0x1c0;}return;
             case 2:

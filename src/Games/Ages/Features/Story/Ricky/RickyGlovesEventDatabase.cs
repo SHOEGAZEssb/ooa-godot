@@ -13,9 +13,12 @@ internal sealed class RickyGlovesEventDatabase
     private const string Root = AgesGameContent.AssetRoot + "cutscenes/";
 
     internal RickyGlovesEventRecord Record { get; }
-    internal RickyCompanionVisualRecord Visual { get; }
-    internal RickyCompanionBehaviorRecord Behavior { get; }
+    private readonly RickyDatabase _body = new(AgesGameContent.AssetRoot);
+    internal CompanionVisualDatabase Visual => _body.Visual;
+    internal RickyCompanionBehaviorRecord Behavior => _body.Behavior;
     internal IReadOnlyList<CutsceneCommand> Commands { get; }
+    internal IReadOnlyList<RickyGlovesPlacementRecord> Placements { get; }
+    internal bool Matches(int group, int room) => group == Record.Group && room == Record.Room;
 
     internal RickyGlovesEventDatabase()
     {
@@ -44,97 +47,18 @@ internal sealed class RickyGlovesEventDatabase
             row.HexByte(18), row.HexByte(19), row.UnsignedDecimal(20),
             row.UnsignedDecimal(21), row.RequiredString(22));
 
-        GeneratedTableRow visual = GeneratedTable.Load(
-            Root + "ricky_companion_visual.tsv",
-            new GeneratedTableSchema(
-                "Ricky companion visual",
-                GeneratedTableKeySemantics.Ordered,
-                [
-                    "sprite", "tile-base", "palette", "animations-base64",
-                    "animation-source-offsets-base64", "link-sprite",
-                    "link-palette", "link-frames-base64",
-                    "link-source-offsets", "source"
-                ],
-                headerRequired: true)).SingleRow();
-        Visual = new RickyCompanionVisualRecord(
-            visual.RequiredString(0),
-            visual.UnsignedDecimal(1),
-            visual.UnsignedDecimal(2),
-            visual.Base64Utf8(3).Split(
-                '\n', StringSplitOptions.RemoveEmptyEntries),
-            visual.Base64Utf8(4).Split(
-                '\n', StringSplitOptions.RemoveEmptyEntries).Select(
-                    ParseHexOffsets).ToArray(),
-            visual.RequiredString(5),
-            visual.UnsignedDecimal(6),
-            visual.Base64Utf8(7).Split(
-                '\n', StringSplitOptions.RemoveEmptyEntries),
-            visual.RequiredString(8).Split(',').Select(value =>
-                Convert.ToInt32(value, 16)).ToArray(),
-            visual.RequiredString(9));
-
-        GeneratedTableRow behavior = GeneratedTable.Load(
-            Root + "ricky_companion_behavior.tsv",
-            new GeneratedTableSchema(
-                "Ricky companion behavior",
-                GeneratedTableKeySemantics.Ordered,
-                [
-                    "idle-animation", "cancel-animation", "punch-animation",
-                    "charge-animation", "hop-animation", "ground-speed",
-                    "hop-delay", "hop-speed-z", "hop-gravity", "hop-speed",
-                    "landing-delay", "punch-lifetime", "punch-damage",
-                    "punch-boxes", "charge-updates", "tornado-speed", "tornado-radius-y",
-                    "tornado-radius-x", "tornado-damage", "tornado-offsets",
-                    "tornado-sprite", "tornado-tile-base", "tornado-palette",
-                    "tornado-animation-base64", "jump-sound", "charge-sound",
-                    "sword-spin-sound", "sword-slash-sound",
-                    "punch-cue-sound", "long-jump-animation",
-                    "long-jump-speed-z", "long-jump-delay",
-                    "long-jump-speed", "cliff-down-delay",
-                    "cliff-down-speed-z", "vine-top-tile",
-                    "companion-collision-masks", "hole-tiles",
-                    "hole-offsets", "cliff-up-probes", "landing-probes",
-                    "water-animation", "hole-animation",
-                    "departure-air-animation",
-                    "departure-ground-animation-base",
-                    "departure-punch-animation", "departure-diagonal-angle",
-                    "departure-wall-probe-angle", "departure-exit-angle",
-                    "departure-hop-delay", "source"
-                ],
-                headerRequired: true)).SingleRow();
-        Behavior = new RickyCompanionBehaviorRecord(
-            behavior.HexByte(0), behavior.HexByte(1), behavior.HexByte(2),
-            behavior.HexByte(3), behavior.HexByte(4), behavior.HexByte(5),
-            behavior.UnsignedDecimal(6), behavior.Decimal(7, -0x8000, 0x7fff),
-            behavior.HexByte(8), behavior.HexByte(9),
-            behavior.UnsignedDecimal(10), behavior.UnsignedDecimal(11),
-            behavior.UnsignedDecimal(12),
-            ParsePunchBoxes(behavior.RequiredString(13)),
-            behavior.UnsignedDecimal(14), behavior.HexByte(15),
-            behavior.UnsignedDecimal(16), behavior.UnsignedDecimal(17),
-            behavior.UnsignedDecimal(18),
-            ParseOffsets(behavior.RequiredString(19)),
-            behavior.RequiredString(20), behavior.HexByte(21),
-            behavior.UnsignedDecimal(22), behavior.Base64Utf8(23),
-            behavior.HexByte(24), behavior.HexByte(25), behavior.HexByte(26),
-            behavior.HexByte(27), behavior.HexByte(28),
-            behavior.HexByte(29), behavior.Decimal(30, -0x8000, 0x7fff),
-            behavior.UnsignedDecimal(31), behavior.HexByte(32),
-            behavior.UnsignedDecimal(33),
-            behavior.Decimal(34, -0x8000, 0x7fff), behavior.HexByte(35),
-            ParseHexOffsets(behavior.RequiredString(36)),
-            ParseHexOffsets(behavior.RequiredString(37)),
-            ParseOffsets(behavior.RequiredString(38)),
-            ParseOffsets(behavior.RequiredString(39)),
-            ParseOffsets(behavior.RequiredString(40)),
-            behavior.HexByte(41), behavior.HexByte(42),
-            behavior.HexByte(43), behavior.HexByte(44),
-            behavior.HexByte(45), behavior.HexByte(46),
-            behavior.HexByte(47), behavior.HexByte(48),
-            behavior.UnsignedDecimal(49), behavior.RequiredString(50));
-
         Commands = CutsceneCommandCatalog.Load(
             Root + "ricky_gloves_commands.tsv");
+        Placements = GeneratedTable.Load(Root + "ricky_gloves_placements.tsv",
+            new GeneratedTableSchema("Ricky native placements", GeneratedTableKeySemantics.Ordered,
+                ["order", "id", "subid", "y", "x", "source"], headerRequired: true)).Rows.Select(row =>
+                    new RickyGlovesPlacementRecord(row.UnsignedDecimal(0), row.HexByte(1), row.HexByte(2),
+                        row.HexByte(3), row.HexByte(4), row.RequiredString(5))).ToArray();
+        var expected = new[] { (0x31, 0, 0x38, 0x48), (0xdc, 8, 0x48, 2), (0x71, 4, 8, 0x58),
+            (0x71, 5, 0x40, 0x98), (0x67, 2, 0, 0), (0x71, 3, 0, 0) };
+        if (Placements.Count != expected.Length || Placements.Where((placement, index) =>
+            placement.Order != index || (placement.Id, placement.SubId, placement.Y, placement.X) != expected[index]).Any())
+            throw new InvalidOperationException("mainData.s:group0Map6aObjectData changed its six native placements.");
         Validate();
     }
 
@@ -201,24 +125,24 @@ internal sealed class RickyGlovesEventDatabase
             {
                 Sprite: "spr_ricky", TileBase: 0, Palette: 3,
                 Animations.Length: 37,
-                AnimationSourceOffsets.Length: 37,
+                SourceOffsets.Length: 37,
                 LinkSprite: "spr_link", LinkPalette: 0,
                 LinkFrames.Length: 51, LinkSourceOffsets.Length: 51
             } ||
-            !Visual.AnimationSourceOffsets[0].AsSpan().SequenceEqual(
+            !Visual.SourceOffsets[0].AsSpan().SequenceEqual(
                 [0, 0x0040, 0, 0x0040, 0, 0, 0x00c0, 0, 0, 0x00c0]) ||
-            !Visual.AnimationSourceOffsets[0x17].AsSpan().SequenceEqual(
+            !Visual.SourceOffsets[0x17].AsSpan().SequenceEqual(
                 [0x0140, 0x0dc0, 0x0140, 0x0dc0, 0x0140,
                     0x0140, 0x01e0, 0x0140, 0x0140, 0x01e0]) ||
-            !Visual.AnimationSourceOffsets[0x20].AsSpan().SequenceEqual(
+            !Visual.SourceOffsets[0x20].AsSpan().SequenceEqual(
                 [0x0260, 0x0fa0, 0x0fa0]) ||
-            !Visual.AnimationSourceOffsets[0x21].AsSpan().SequenceEqual(
+            !Visual.SourceOffsets[0x21].AsSpan().SequenceEqual(
                 [0x0940, 0x1060, 0x0940]) ||
-            !Visual.AnimationSourceOffsets[0x22].AsSpan().SequenceEqual(
+            !Visual.SourceOffsets[0x22].AsSpan().SequenceEqual(
                 [0x0140, 0x0ee0, 0x0ee0]) ||
-            !Visual.AnimationSourceOffsets[0x23].AsSpan().SequenceEqual(
+            !Visual.SourceOffsets[0x23].AsSpan().SequenceEqual(
                 [0x0940, 0x1060, 0x0940]) ||
-            !Visual.AnimationSourceOffsets[0x24].AsSpan().SequenceEqual(
+            !Visual.SourceOffsets[0x24].AsSpan().SequenceEqual(
                 [0x0360, 0x1140, 0x0360]) ||
             idle.Frames.Length != 10 ||
             idle.Frames[1].EncodedOam !=
@@ -246,13 +170,7 @@ internal sealed class RickyGlovesEventDatabase
                 LongJumpDelay: 8, LongJumpSpeed: 0x32,
                 CliffDownDelay: 20, CliffDownSpeedZ: -0x02c0,
                 VineTopTile: 0xd4, WaterAnimation: 0x0e,
-                HoleAnimation: 0x0d, DepartureAirAnimation: 0x03,
-                DepartureGroundAnimationBase: 0x05,
-                DeparturePunchAnimation: 0x18,
-                DepartureDiagonalAngle: 0x14,
-                DepartureWallProbeAngle: 0x18,
-                DepartureExitAngle: 0x10,
-                DepartureHopDelay: 8
+                HoleAnimation: 0x0d
             } ||
             Behavior.TornadoOffsets.Length != 4 ||
             !Behavior.CompanionCollisionMasks.AsSpan().SequenceEqual(
@@ -282,23 +200,26 @@ internal sealed class RickyGlovesEventDatabase
             idle.Frames.Length != 10 || idle.LoopStart != 0 ||
             loopedPose.Frames.Length != 2 || loopedPose.LoopStart != 1 ||
             Commands.Count != 22 ||
-            Commands[0] is not CutsceneCheckAButtonCommand { Actor: "Ricky" } ||
-            Commands[2] is not CutsceneMemoryBranchCommand
+            Commands[0] is not CutsceneMemoryGateCommand { Binding: "RickyButton", Value: 1 } ||
+            Commands[2] is not CutsceneMemoryBranchYieldOnMissCommand
                 { Binding: "RickyTalked", Value: 1, TargetCommand: 8 } ||
             Commands[4] is not CutsceneMemoryBranchCommand
                 { Binding: "AnimalCompanion", Value: 0x0b, TargetCommand: 7 } ||
-            Commands[8] is not CutsceneMemoryBranchCommand
+            Commands[6] is not CutsceneBranchYieldCommand { TargetCommand: 8 } ||
+            Commands[8] is not CutsceneMemoryBranchYieldCommand
                 { Binding: "HasRickyGloves", Value: 1, TargetCommand: 13 } ||
             Commands[13] is not CutsceneShowTextCommand { TextId: 0x2004 } ||
             Commands[14] is not CutsceneNativeCommand
                 { Handler: "LoseRickyGloves" } ||
-            Commands[15] is not CutsceneNativeCommand
-                { Handler: "BeginRickyMount" } ||
+            Commands[10] is not CutsceneWriteMemoryCommand { Binding: "RickyButton", Value: 0 } ||
+            Commands[15] is not CutsceneWriteMemoryCommand { Binding: "RickyVar03", Value: 1 } ||
+            Commands[16] is not CutsceneSetDisabledObjectsContinueCommand { Value: 0 } ||
             Commands[17] is not CutsceneMemoryGateCommand
                 { Binding: "RickyMounted", Value: 1 } ||
             Commands[18] is not CutsceneShowTextCommand { TextId: 0x2005 } ||
             Commands[19] is not CutsceneWriteMemoryCommand
                 { Binding: "RickyStateOr", Value: 0x20 } ||
+            Commands[20] is not CutsceneEnableMenuCommand ||
             Commands[21] is not CutsceneEndCommand ||
             Commands.Any(command => command.Source.SourceLine <= 0))
         {
@@ -307,39 +228,6 @@ internal sealed class RickyGlovesEventDatabase
         }
     }
 
-    private static Godot.Vector2[] ParseOffsets(string encoded) =>
-        encoded.Split(';').Select(value =>
-        {
-            string[] pair = value.Split(',');
-            if (pair.Length != 2 ||
-                !int.TryParse(pair[0], out int y) ||
-                !int.TryParse(pair[1], out int x))
-            {
-                throw new InvalidOperationException(
-                    $"Malformed Ricky tornado offset '{value}'.");
-            }
-            return new Godot.Vector2(x, y);
-        }).ToArray();
-
-    private static int[] ParseHexOffsets(string encoded) =>
-        encoded.Split(',').Select(value =>
-            Convert.ToInt32(value, 16)).ToArray();
-
-    private static RickyPunchBox[] ParsePunchBoxes(string encoded) =>
-        encoded.Split(';').Select(value =>
-        {
-            string[] fields = value.Split(',');
-            if (fields.Length != 4 ||
-                !int.TryParse(fields[0], out int radiusY) ||
-                !int.TryParse(fields[1], out int radiusX) ||
-                !int.TryParse(fields[2], out int offsetY) ||
-                !int.TryParse(fields[3], out int offsetX))
-            {
-                throw new InvalidOperationException(
-                    $"Malformed Ricky punch box '{value}'.");
-            }
-            return new RickyPunchBox(radiusY, radiusX, offsetY, offsetX);
-        }).ToArray();
 }
 
 internal readonly record struct RickyGlovesEventRecord(
@@ -367,73 +255,4 @@ internal readonly record struct RickyGlovesEventRecord(
     int InitialScriptUpdates,
     string Source);
 
-internal readonly record struct RickyCompanionVisualRecord(
-    string Sprite,
-    int TileBase,
-    int Palette,
-    string[] Animations,
-    int[][] AnimationSourceOffsets,
-    string LinkSprite,
-    int LinkPalette,
-    string[] LinkFrames,
-    int[] LinkSourceOffsets,
-    string Source);
-
-internal readonly record struct RickyCompanionBehaviorRecord(
-    int IdleAnimation,
-    int CancelAnimation,
-    int PunchAnimation,
-    int ChargeAnimation,
-    int HopAnimation,
-    int GroundSpeed,
-    int HopDelay,
-    int HopSpeedZ,
-    int HopGravity,
-    int HopSpeed,
-    int LandingDelay,
-    int PunchLifetime,
-    int PunchDamage,
-    RickyPunchBox[] PunchBoxes,
-    int ChargeUpdates,
-    int TornadoSpeed,
-    int TornadoRadiusY,
-    int TornadoRadiusX,
-    int TornadoDamage,
-    Godot.Vector2[] TornadoOffsets,
-    string TornadoSprite,
-    int TornadoTileBase,
-    int TornadoPalette,
-    string TornadoAnimation,
-    int JumpSound,
-    int ChargeSound,
-    int SwordSpinSound,
-    int SwordSlashSound,
-    int PunchCueSound,
-    int LongJumpAnimation,
-    int LongJumpSpeedZ,
-    int LongJumpDelay,
-    int LongJumpSpeed,
-    int CliffDownDelay,
-    int CliffDownSpeedZ,
-    int VineTopTile,
-    int[] CompanionCollisionMasks,
-    int[] HoleTiles,
-    Godot.Vector2[] HoleOffsets,
-    Godot.Vector2[] CliffUpProbes,
-    Godot.Vector2[] LandingProbes,
-    int WaterAnimation,
-    int HoleAnimation,
-    int DepartureAirAnimation,
-    int DepartureGroundAnimationBase,
-    int DeparturePunchAnimation,
-    int DepartureDiagonalAngle,
-    int DepartureWallProbeAngle,
-    int DepartureExitAngle,
-    int DepartureHopDelay,
-    string Source);
-
-internal readonly record struct RickyPunchBox(
-    int RadiusY,
-    int RadiusX,
-    int OffsetY,
-    int OffsetX);
+internal readonly record struct RickyGlovesPlacementRecord(int Order, int Id, int SubId, int Y, int X, string Source);

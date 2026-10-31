@@ -54,7 +54,7 @@ internal sealed class DeathPuffRoomEntity(
             Entity.EnemyId, random, inventory, saveData);
         if (!subId.HasValue) return false;
         // objectReplaceWithID preserves only the high coordinate bytes.
-        replacement = new ItemDropSpawn(subId.Value, Entity.Position.Floor());
+        replacement = new ItemDropSpawn(subId.Value,Entity.Position.Floor(),ZHigh:Entity.ZHigh);
         return true;
     }
 }

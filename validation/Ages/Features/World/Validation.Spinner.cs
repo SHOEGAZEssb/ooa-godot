@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         const int crystalsFlag = 0x0f;
         var placements = new DungeonSpinnerDatabase(AgesGameContent.AssetRoot);
         DungeonInteractionVisual visual =
-            new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("spinner");
+            new DungeonSpinnerVisualDatabase(AgesGameContent.AssetRoot).Visual;
         AnimationDefinition blueTurn =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animations[0]);
         AnimationDefinition redTurn =

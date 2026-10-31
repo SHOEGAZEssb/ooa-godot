@@ -77,7 +77,7 @@ internal sealed class BlackTowerEscapeAttemptEvent(RoomEventContext context,Acti
                     context.Player.Face(((direction>>1)^direction)%2==0?Direction(direction^2):Direction(direction^1));return;
                 }
                 if(!context.Entities.InteractionSlotAvailable)return;
-                context.Entities.CreatePalaceExclamation(context.Player.Position-new Vector2(0,16),30);
+                context.Entities.TryCreateExclamation(context.Player.Position-new Vector2(0,16),30);
                 Write(0xcbb4,30);State=5;goto case 5;
             case 5:
                 Rumble();if(!Decrement(0xcbb4))return;

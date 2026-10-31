@@ -40,8 +40,8 @@ public sealed partial class ValidationRoot
                 // movement update enters the source collision radii.
                 var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
                     orb.Position + Vector2.Right * 12 - shooter.Offsets[6], Vector2I.Up, record, 2, SeedLaunchKind.Shooter, 6));
-                int expectedItem = item == 0x24 ? 0x20 + seed.MysteryEffect : item;
                 Step();
+                int expectedItem = item == 0x24 ? 0x20 + seed.MysteryEffect : item;
                 FailIf(seed.HasPendingNativeCollision || orb.PendingHit || seed.State != EmberState.Flying,
                     $"Seed${item:x2} setup must remain outside the orb: seed={seed.Position}/{seed.State}/{seed.HasPendingNativeCollision},orb={orb.PendingHit}/{orb.HitLockout},Link={_player.Position}.");
                 Step();

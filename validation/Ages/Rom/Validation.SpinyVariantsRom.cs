@@ -17,9 +17,9 @@ public sealed partial class ValidationRoot
             var row=data.GetRoomObjects(group,room).First(r=>r.Id==0x1b&&r.SubId==subid);
             var actor=new SpinyBeetleCharacter();
             actor.Initialize(data.ImportedEnemy(0x1b,subid),_currentRoom,new(row.X,row.Y),_random,
-                new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,_entities.ApplyThrownObjectHit,
+                new BraceletDatabase(AgesGameContent.AssetRoot).Data,new BombDatabase(AgesGameContent.AssetRoot).Data,_entities.ApplyThrownObjectHit,
                 parent=>_entities.TryAllocateEnemy(_=>new SpinyBeetleCoverRoomEntity(new(parent,_random,_currentRoom,
-                    new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,_entities.ApplyThrownObjectHit),_sound.PlaySound,()=>_entities.PartSlotAvailable)) is not null);
+                    new BraceletDatabase(AgesGameContent.AssetRoot).Data,new BombDatabase(AgesGameContent.AssetRoot).Data,_entities.ApplyThrownObjectHit),_sound.PlaySound,()=>_entities.PartSlotAvailable)) is not null);
             var adapter=new SpinyBeetleRoomEntity(actor,data.EnemyHandlers.ResolveHandler(row).CombatSource(row,0),_sound.PlaySound);
             _entities.RegisterEnemySlot(adapter,0);_entities.AddEntity(adapter);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(row.X+32,row.Y));_player.BeginCutsceneControl();
@@ -93,7 +93,7 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(14,Vector2.Zero,batched:batched);
                 FailIf(!_player.IsCarryingObject||actor.CoverProtects||actor.State!=SpinyBeetleState.ExposedWaiting,
                     $"Reachable $58:$03 pickup must reveal $1b:$03 through the real item/Link/enemy loop: Link{_player.Position}, cover{coverActor.Position}, carry{_player.IsCarryingObject}, state{actor.State}.");
-                _transitions.BeginScroll(_player,Vector2I.Right,0x1b);
+                _transitions.BeginValidationScroll(_player,Vector2I.Right,0x1b);
                 int scroll=0;
                 while(_transitions.IsTransitioning&&scroll++<200) StepGameplayUpdates(1,Vector2.Zero,batched:batched);
                 FailIf(_transitions.IsTransitioning||!_player.IsCarryingObject||!_entities.Entities<SpinyBeetleCoverCharacter>().Contains(coverActor),
@@ -110,9 +110,9 @@ public sealed partial class ValidationRoot
         var sourceRow=database.GetRoomObjects(1,0x70).Single(row=>row.Id==0x1b);
         var pending=new SpinyBeetleCharacter();
         pending.Initialize(database.ImportedEnemy(0x1b,0),_currentRoom,new(sourceRow.X,sourceRow.Y),_random,
-            new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,_entities.ApplyThrownObjectHit,
+            new BraceletDatabase(AgesGameContent.AssetRoot).Data,new BombDatabase(AgesGameContent.AssetRoot).Data,_entities.ApplyThrownObjectHit,
             parent=>_entities.TryAllocateEnemy(_=>new SpinyBeetleCoverRoomEntity(new(parent,_random,_currentRoom,
-                new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,_entities.ApplyThrownObjectHit),_sound.PlaySound,()=>_entities.PartSlotAvailable)) is not null);
+                new BraceletDatabase(AgesGameContent.AssetRoot).Data,new BombDatabase(AgesGameContent.AssetRoot).Data,_entities.ApplyThrownObjectHit),_sound.PlaySound,()=>_entities.PartSlotAvailable)) is not null);
         var pendingAdapter=new SpinyBeetleRoomEntity(pending,database.EnemyHandlers.ResolveHandler(sourceRow).CombatSource(sourceRow,0),_sound.PlaySound);
         _entities.RegisterEnemySlot(pendingAdapter,0);_entities.AddEntity(pendingAdapter);
         EnemyAiSlotReservation? release=null;

@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace Oracles;
 
 internal sealed class ArrowMoblinRoomEntity
-    : CombatEnemyRoomEntityAdapter<ArrowMoblinCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
+    : CombatEnemyRoomEntityAdapter<ArrowMoblinCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity,
+      IBoomerangCollisionRoomEntity, IScreenTransitionPreloadRoomEntity
 {
     protected override bool Stunned => Entity.StunCounter != 0;
     internal ArrowMoblinRoomEntity(
@@ -22,19 +23,24 @@ internal sealed class ArrowMoblinRoomEntity
                 moblin.TakeSwordHit,
                 moblin.TakeBurnHit,
                 moblin.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback), collisionZ: () => moblin.ZFixed >> 8)
+                soundRequested), collisionZ: () => moblin.ZFixed >> 8)
     { }
 
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
         ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (Entity.InitializationPending) Entity.UpdateFrame(Vector2.Zero);
+        return ScreenTransitionPresentation.Visible;
+    }
 
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
         int arrowAngle = Entity.UpdateFrame(
-            frame.Player.Position, frame.ScentSeedTarget, frame.Counter);
+            frame.LinkTarget ?? frame.Player.EnemyContactPosition, frame.ScentSeedTarget, frame.Counter);
         if (arrowAngle >= 0)
         {
             spawns.Add(new EnemyArrowSpawn(

@@ -21,16 +21,17 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.Essence,2);_inventory.GiveTreasure(TreasureId.EmberSeeds,Math.Max(0,seeds));
             if(seeds<0)_inventory.LoseTreasure(TreasureId.EmberSeeds);
             _inventory.SetScriptedEquippedItems(0,0);LoadValidationRoom(0,0xaa);_player.WarpTo(new(80,104));
-            foreach(var other in _entities.EntityAdapters<IRoomEntity>().Where(e=>e is not (TokayNpcRoomEntity or DimitriPresetSpawnerRoomEntity or DimitriRescueScriptRoomEntity)).ToArray())_entities.RetireEntity(other);
+            foreach(var other in _entities.EntityAdapters<IRoomEntity>().Where(e=>e is not (TokayNpcRoomEntity or CompanionPresetSpawnerRoomEntity or DimitriRescueScriptRoomEntity)).ToArray())_entities.RetireEntity(other);
             var slots=_entities.EntityAdapters<TokayNpcRoomEntity>().OrderBy(s=>s.Npc.Record.SubId).ToArray();
             var controller=_entities.EntityAdapters<DimitriRescueScriptRoomEntity>().Single();
             var native=new SomariaRom(_saveData,_random.CaptureState(),_currentRoom,0,80,104);
             foreach(var pair in InteractionAdmissionPool)
             {
                 int at=0xd040+pair.Value*256;native[at]=1;
-                (int id,int sub)=pair.Key switch{TokayNpcRoomEntity n=>(0x48,n.Npc.Record.SubId),DimitriPresetSpawnerRoomEntity=>(0x67,3),DimitriRescueScriptRoomEntity=>(0x71,7),_=>throw new InvalidOperationException()};
+                (int id,int sub)=pair.Key switch{TokayNpcRoomEntity n=>(0x48,n.Npc.Record.SubId),CompanionPresetSpawnerRoomEntity p=>(p.Id,p.SubId),DimitriRescueScriptRoomEntity=>(0x71,7),_=>throw new InvalidOperationException()};
                 native[at+1]=(byte)id;native[at+2]=(byte)sub;
-                native[at+11]=(byte)pair.Key.Node.Position.Y;native[at+13]=(byte)pair.Key.Node.Position.X;
+                Vector2 position=pair.Key.PresentationNode?.Position??Vector2.Zero;
+                native[at+11]=(byte)position.Y;native[at+13]=(byte)position.X;
             }
             FailIf(slots.Length!=2||_entities.InteractionSlot(slots[0].Node)!=2||_entities.InteractionSlot(slots[1].Node)!=3||_entities.InteractionSlot(controller.Node)!=5,"Dimitri's imported $48/$48/$67/$71 prefix must retain native slots $d2-$d5.");
             int updates=0;var texts=new HashSet<int>();string source=$"Dimitri scripts/heard{heard}/seeds{seeds}/choice{choice}/free{free}/batch{batched}";
@@ -50,7 +51,7 @@ public sealed partial class ValidationRoot
                 if(_dialogue.IsOpen)
                 {
                     int id=native.Word(0xcba2)-0x400;texts.Add(id);
-                    string expected=id==0x2100?new DimitriDatabase(AgesGameContent.AssetRoot).Text(id):new TokayInteractionDatabase().Text(id);
+                    string expected=id==0x2100?new AgesDimitriStoryDatabase().Text(id):new TokayInteractionDatabase().Text(id);
                     FailIf(_dialogue.CurrentMessage!=DialogueBox.PlainText(expected),source+$" update{updates}: text TX_${id:x4} differs.");
                     if(id==0x0a20)FailIf(!_dialogue.ChoiceActive||!_dialogue.CurrentMessage.Contains("Will you trade"),"Unterminated TX_0a20 must include TX_0a21's source choice.");
                 }
@@ -74,7 +75,7 @@ public sealed partial class ValidationRoot
             if(!heard)FailIf(!texts.IsSupersetOf(new[]{0x0a1d,0x0a1e,0x2100}),source+": missing original introduction text.");
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                var puff=new StationaryDebrisEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int at=0xd040+_entities.InteractionSlot(puff)*256;native[at]=1;native[at+1]=0x48;native[at+2]=0x1b;native[at+4]=1;
             }
             FailIf(!slots[0].Script!.TryInteract(new(slots[0].Npc,null),_player),source+": cannot queue first Tokay A.");native[0xd271]=1;

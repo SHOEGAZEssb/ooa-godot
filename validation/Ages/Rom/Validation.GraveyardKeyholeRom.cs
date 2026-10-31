@@ -46,6 +46,7 @@ public partial class ValidationRoot
                     rom[0xc48c] = rom[0xc48d] = 0; // updateGfxRegs2Scroll's unshaken room basis.
                     camera.UpdateScreenShake(); // Native post-object camera phase, Y then X RNG.
                     string context = $"Graveyard$0:$5c owned={owned}, batch={batch}, update={++update}";
+                    CompareKeyholeControlBytesRom(rom,context);
                     CompareSomariaMotionRom(rom,context);
                     FailIf(_keyholes.RemainingPushFrames != rom[0xcc6a] ||
                         _rooms.InformativeTextsShown != rom[0xccd7] || _dialogue.IsOpen != (rom[0xcba0] != 0),
@@ -74,7 +75,7 @@ public partial class ValidationRoot
                             (key.ZFixed & 0xffff) != rom.Word(slot+0xe) || (key.SpeedZ & 0xffff) != rom.Word(slot+0x14) ||
                             key.Position != new Vector2(rom[slot+0xd],rom[slot+0xb]),context + ": key sprite state/clock/XYZ/speed differs.");
                     }
-                    var puffs = _entities.Entities<PuzzlePuffEffect>();
+                    var puffs = _entities.Entities<StationaryDebrisEffect>();
                     var puffSlots = Enumerable.Range(0xd2,14).Select(page => (page << 8) | 0x40)
                         .Where(slot => rom[slot] != 0 && rom[slot+1] == 0x05).ToArray();
                     FailIf(puffs.Count != puffSlots.Length,context + ": collapse puff lifetime differs.");

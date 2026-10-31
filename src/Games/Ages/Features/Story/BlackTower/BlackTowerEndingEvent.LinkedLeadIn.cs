@@ -51,8 +51,8 @@ internal sealed partial class BlackTowerEndingEvent
     }
     private void CaptureLinkedPalettes(int header)
     {
-        Screens.ApplyPalette(header,context.Rooms.World.BackgroundPalettes,context.Entities);
-        _linkedBackground=context.Rooms.World.BackgroundPalettes.Capture();
+        Screens.ApplyPalette(header,context.Rooms.BackgroundPalettes,context.Entities);
+        _linkedBackground=context.Rooms.BackgroundPalettes.Capture();
         _linkedSprites=Enumerable.Range(0,8).ToDictionary(index=>index,index=>
             context.Entities.NativeObjectPalettes?.TryGetValue(index,out var colors)==true?colors:OracleOamCompositor.GetStandardSpritePalette(index));
     }
@@ -61,9 +61,9 @@ internal sealed partial class BlackTowerEndingEvent
     private void BlackPalettes(int bg,int sprites)=>FillLinkedPalettes(Colors.Black,bg,sprites);
     private void FillLinkedPalettes(Color color,int bg,int sprites)
     {
-        var colors=context.Rooms.World.BackgroundPalettes.Capture();
+        var colors=context.Rooms.BackgroundPalettes.Capture();
         for(int palette=0;palette<8;palette++)if((bg&(1<<palette))!=0)for(int shade=0;shade<4;shade++)colors[palette,shade]=color;
-        context.Rooms.World.BackgroundPalettes.Restore(colors);
+        context.Rooms.BackgroundPalettes.Restore(colors);
         var objects=new Dictionary<int,Color[]>(_linkedSprites!);
         for(int palette=0;palette<8;palette++)if((sprites&(1<<palette))!=0)objects[palette]=[color,color,color,color];
         context.Entities.SetNativeObjectPalette(objects);
@@ -136,7 +136,7 @@ internal sealed partial class BlackTowerEndingEvent
             case 10:if(LinkedDelay(text:true))LinkedText(0x281e,60);return;
             case 11:
                 if(!LinkedDelay(text:true))return;
-                Screens.ApplyPalette(0x0f,context.Rooms.World.BackgroundPalettes,context.Entities);
+                Screens.ApplyPalette(0x0f,context.Rooms.BackgroundPalettes,context.Entities);
                 LinkedWarp(4,0xea,0x87,WarpDestinationTransition.UnknownC,4,beforeObjects:true);return;
             default:throw new NotSupportedException($"flameOfSorrowState1: substate${Read(0xcbb3):x2}.");
         }

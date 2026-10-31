@@ -14,7 +14,7 @@ internal sealed class MoldormTailRoomEntity
     internal MoldormTailRoomEntity(MoldormTailCharacter tail, EnemyCombatSourceDescriptor source, Action<int> sound)
         : base(tail, tail.SetTransitionDrawOffset, EnemyCombatDescriptor.WithContactDamage(
             source, tail, tail.Record.DamageQuarters, tail.TakeSwordHit, _ => false,
-            tail.ApplySwordKnockback, sound, EnemySwordResponse.Knockback,
+            tail.ApplySwordKnockback, sound,
             deathPuffAllowed: () => false, completedOutcome: RoomEnemyOutcome.RoomCountDecrement)) { }
     public bool UpdatesDuringDialogue => Entity.State == 0;
     public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;

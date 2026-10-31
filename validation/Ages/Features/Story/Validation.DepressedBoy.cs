@@ -97,7 +97,8 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(1);
             ExpectDialogue(expectedText, "interaction");
             FailIf(
-                !boyEvent.BlocksGameplay || !_player.CutsceneControlled,
+                !boyEvent.BlocksGameplay || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80,
                 "boySubid07Script did not disable input before dialogue.");
         }
 
@@ -290,7 +291,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         StepRoomEventFrames(31);
         FailIf(
             boyEvent.BlocksGameplay || _player.CutsceneControlled ||

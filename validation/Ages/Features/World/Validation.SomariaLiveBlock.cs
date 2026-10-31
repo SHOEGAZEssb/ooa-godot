@@ -25,7 +25,7 @@ public partial class ValidationRoot
             Step(1);
             FailIf(block.State!=3 || _currentRoom.GetMetatile(point)!=0xda || _currentRoom.GetTerrainInfo(point).Collision!=15,
                 "Live ITEM$18 must publish tile$da/collision$f on phase update9.");
-            var bombData=new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+            var bombData=new BombDatabase(AgesGameContent.AssetRoot).Data;
             for(int i=0;i<4;i++) _entities.Spawn<BombEffect>(new BombSpawn(_player,bombData,0,_=>{}));
             _entities.MarkPreviousSomariaBlock();
             FailIf((block.Flags&0x20)==0 || _entities.TryCreateSomariaBlock(_player,0,new(104,70),0),
@@ -37,12 +37,12 @@ public partial class ValidationRoot
             Step(10);
             var next=_entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;
             FailIf(next.State!=3,"Repeated live block creation must finish phasing.");
-            int puffs=_entities.EntityAdapters<IRoomEntity>().Count(e=>e.Node is PuzzlePuffEffect);
+            int puffs=_entities.EntityAdapters<IRoomEntity>().Count(e=>e.Node is StationaryDebrisEffect);
             _entities.ClearPhysicalPlayerItems();
             FailIf(next.Visible || (next.Flags&0x30)!=0x30 || next.Finished || _currentRoom.GetMetatile(point)!=0xda,
                 "clearAllItems must hide/mark ITEM$18 without immediately deleting its tile or slot.");
             Step(1);
-            FailIf(!next.Finished || _currentRoom.GetMetatile(point)!=0x0c || _entities.EntityAdapters<IRoomEntity>().Count(e=>e.Node is PuzzlePuffEffect)>puffs,
+            FailIf(!next.Finished || _currentRoom.GetMetatile(point)!=0x0c || _entities.EntityAdapters<IRoomEntity>().Count(e=>e.Node is StationaryDebrisEffect)>puffs,
                 "Marked ITEM$18 must restore its floor without a puff on the next eligible update.");
             _entities.Clear();
         }
@@ -69,14 +69,14 @@ public partial class ValidationRoot
             "Bracelet input must pick up a reachable Somaria block and restore its floor in the same item pass.");
         if(cycle==2)
         {
-            int beforePuffs=_entities.EntityAdapters<IRoomEntity>().Count(e=>e.Node is PuzzlePuffEffect);
+            int beforePuffs=_entities.EntityAdapters<IRoomEntity>().Count(e=>e.Node is StationaryDebrisEffect);
             _entities.ClearPhysicalPlayerItems();
             FailIf(carried.IsHeld || carried.Substate!=3 || _player.IsCarryingObject ||
                 _player.BraceletLiftCollisionsDisabled || carried.Visible || carried.Flags!=0x30,
                 "Physical item clearing during lift must clear the parent/holder, drop ITEM$18 to substate3, and hide/mark it immediately.");
             InputStep(1,Vector2.Zero,[],[]);
             FailIf(!carried.Finished || _currentRoom.GetMetatile(pickupPoint)!=0x0c ||
-                _entities.EntityAdapters<IRoomEntity>().Count(e=>e.Node is PuzzlePuffEffect)>beforePuffs,
+                _entities.EntityAdapters<IRoomEntity>().Count(e=>e.Node is StationaryDebrisEffect)>beforePuffs,
                 "The dropped and marked Somaria block must retire quietly without leaking the lift pose or source tile.");
             continue;
         }

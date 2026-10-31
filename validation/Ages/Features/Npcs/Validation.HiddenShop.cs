@@ -25,6 +25,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(AgesWramAddress.wBoughtShopItems2, 0);
             SetTreasure(_saveData, TreasureId.RingBox, false);
             LoadValidationRoom(2, 0x7e);
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             LynnaShopEvent shop = _roomEvents.Get<LynnaShopEvent>();
             NpcCharacter keeper = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x46);
             FailIf(keeper.CurrentScriptAnimationSource != database.Animation(0x46, 1),
@@ -110,7 +111,14 @@ public sealed partial class ValidationRoot
             Step(1);
             FailIf(!_player.IsHoldingItemTwoHands || _player.IsCarryingObject || !stock[0].Purchasing,
                 "shopItemState3 did not drop the carried pose and enter Link state04/$01.");
-            Close();
+            FailIf(_runtimeState.ReadField("wDisabledObjects")!=0x81 || _runtimeState.ReadField("wMenuDisabled")!=0x80,
+                "Hidden shop item-get must retain shopkeeperState4's$81 object mask and ConfirmPurchase's$80 menu byte.");
+            _dialogue.Close();Step(1);
+            FailIf(_runtimeState.ReadField("wDisabledObjects")!=0 || _runtimeState.ReadField("wMenuDisabled")!=0 || !_player.IsHoldingItemTwoHands,
+                "shopItemState5 must clear both masks after Link's held state04 visit, without releasing its pose early.");
+            Step(1);
+            FailIf(!_player.NativeNormalStateForInteraction || _player.IsHoldingItemTwoHands,
+                "Hidden-shop state04 must release on the next Link visit after stock clears the native mask.");
             FailIf(!stock[0].Removed || _player.IsCarryingObject || shop.HasState,
                 "Hidden purchase completion left held stock or gameplay ownership.");
 
@@ -129,6 +137,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(AgesWramAddress.wBoughtShopItems1,2);
             _saveData.WriteWramByte(AgesWramAddress.wBoughtShopItems2,0x40);
             LoadValidationRoom(2,0x7e);
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             FailIf(!_entities.Entities<LynnaShopItem>().Select(i=>i.Record.SubId)
                 .SequenceEqual(new[]{0x14,6,5}),
                 "$2:$7e re-entry must select L3 ring box, second Gasha seed, tier3 ring.");
@@ -158,6 +167,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(AgesWramAddress.wBoughtShopItems1,0);
             _saveData.WriteWramByte(AgesWramAddress.wBoughtShopItems2,0);
             LoadValidationRoom(2,0x7e);
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             _player.WarpTo(new Vector2(64,104));
             for(int piece=0; piece<3; piece++) _inventory.GiveTreasure(TreasureId.HeartPiece,1);
             _inventory.AddRupees(999-_inventory.Rupees);
@@ -176,6 +186,7 @@ public sealed partial class ValidationRoot
 
             _saveData.WriteWramByte(AgesWramAddress.wBoughtShopItems1,0x0f);
             LoadValidationRoom(2,0x7e);
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             keeper = _entities.Entities<NpcCharacter>().Single(n=>n.Record.Id==0x46);
             FailIf(!shop.ChestGame || _entities.Entities<LynnaShopItem>().Count != 0 ||
                 _rooms.CurrentRoom.GetMetatile(new Vector2(88,40)) != 0xf1 ||

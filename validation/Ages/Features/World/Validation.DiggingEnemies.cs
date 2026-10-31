@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
         expectedRandom.RestoreState(_random.CaptureState());
         OracleRandomResult wanderRoll = expectedRandom.Next();
         OracleRandomResult dropRoll = expectedRandom.Next();
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(_random.Calls != expectedRandom.Calls || _random.LastResult != dropRoll ||
             chargedBeetle.Counter != digging.BeetleCounters[wanderRoll.High & 7] ||
             chargedBeetle.Angle != (wanderRoll.Low & 0x1c) ||
@@ -124,7 +124,7 @@ public sealed partial class ValidationRoot
             ItemDropEffect drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(
                 0x0f, point, DugUp: dug));
             FailIf(_random.Calls != calls, "Spawning PART_ITEM_DROP:$0f consumed RNG early.");
-            _entities.Update(1.0 / 60, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60, _player);
             return drop;
         }
 
@@ -144,11 +144,11 @@ public sealed partial class ValidationRoot
         FailIf(!ropeDrop.Finished || rope.Record.SubId != 3 || rope.Visible ||
             rope.Position != point || _entities.RoomEnemyCount != 1,
             "PART_ITEM_DROP:$0f did not allocate a counted, uninitialized Rope $10:$03.");
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(rope.State != RopeState.SpawnSetup || !rope.Visible || rope.CollisionEnabled,
             "Rope $10:$03 state 0 did not stop at visible state 8 with collisions disabled.");
         _player.FaceShooterDirection(Vector2I.Left);
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(rope.State != RopeState.SpawnBounce || rope.SpeedZ != -0x102 ||
             rope.Angle != 0x18 || rope.SpeedRaw != 0x1e || rope.Position != point,
             "rope_subid03@state8 failed its live Link direction, $fefe speedZ, or SPEED_c0 setup.");
@@ -159,9 +159,9 @@ public sealed partial class ValidationRoot
         BeetleCharacter beetle = _entities.Entities<BeetleCharacter>().Single();
         FailIf(beetle.State != 0 || beetle.Visible || beetle.Record.SubId != 3,
             "PART_ITEM_DROP:$0f ran Beetle $51:$03 in the already completed enemy pass.");
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(beetle.State != 8 || beetle.Visible, "Beetle state 0 must remain hidden in state 8.");
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(beetle.State != 9 || !beetle.Visible || beetle.SpeedZ != -0x102 || beetle.Angle != 0x18,
             "beetle_subid3@state8 failed its launch setup.");
         ValidateDiggingBounce(null, beetle);
@@ -170,13 +170,13 @@ public sealed partial class ValidationRoot
         {
             _entities.Clear();
             Spawn(roll, dug: false);
-            _entities.Update(1.0 / 60, _player);
-            _entities.Update(1.0 / 60, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60, _player);
             EnemyCharacter enemy = _entities.Entities<EnemyCharacter>().Single();
             FailIf(enemy.CollisionEnabled, "$02 entry enabled collisions during setup.");
             for (int update = 1; update <= 8; update++)
             {
-                _entities.Update(1.0 / 60, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60, _player);
                 FailIf(enemy.CollisionEnabled != (update == 8),
                     $"Enemy ${(roll == 0 ? 0x10 : 0x51):x2}:$02 collision boundary is not eight updates.");
             }
@@ -203,13 +203,13 @@ public sealed partial class ValidationRoot
         released.Swallow();
         SetDiggingRoll(_random, 0);
         ItemDropEffect replacementDrop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(0x0f, point, DugUp: true));
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(_entities.RoomEnemyCount != 16 || _entities.Entities<RopeCharacter>().Count != 1,
             "getFreeEnemySlot did not reuse the deleted first enemy slot.");
 
         RopeCharacter frozen = _entities.Entities<RopeCharacter>().Single();
         _entities.BeginScreenTransition(0, _world.LoadRoom(0, 0x99), Vector2.Left * 160);
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(frozen.State != RopeState.SpawnSetup || frozen.Visible,
             "Outgoing dug enemy initialized during scrolling.");
         _entities.FinishScreenTransition();
@@ -222,8 +222,8 @@ public sealed partial class ValidationRoot
             _random.RestoreState(batchRandom);
             SetDiggingRoll(_random, 3);
             _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(0x0f, point, DugUp: true));
-            if (batched) _entities.Update(48.0 / 60, _player);
-            else for (int index = 0; index < 48; index++) _entities.Update(1.0 / 60, _player);
+            if (batched) _entities.AdvanceEntityFrames(48.0 / 60, _player);
+            else for (int index = 0; index < 48; index++) _entities.AdvanceEntityFrames(1.0 / 60, _player);
             BeetleCharacter subject = _entities.Entities<BeetleCharacter>().Single();
             return (subject.State, subject.Counter, subject.ZFixed, subject.AnimationFrame,
                 subject.Position, _random.Calls, _random.LastResult);
@@ -258,7 +258,7 @@ public sealed partial class ValidationRoot
                 if (!done) { speed = next; impacts++; }
             }
             if (!done && (speed >> 8) == 0) collisions = true;
-            _entities.Update(1.0 / 60, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60, _player);
             int actualZ = rope?.ZFixed ?? beetle!.ZFixed;
             int actualSpeed = rope?.SpeedZ ?? beetle!.SpeedZ;
             bool actualCollision = rope?.CollisionEnabled ?? beetle!.CollisionEnabled;

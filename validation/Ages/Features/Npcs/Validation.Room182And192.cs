@@ -103,12 +103,12 @@ public sealed partial class ValidationRoot
         ulong hoboFirstPose = hobo.CurrentAnimationPixelHash;
         _player.WarpTo(new Vector2(0x18, 0x70), recordSafe: false);
         for (int update = 0; update < 15; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             hobo.CurrentAnimationFrame != 0 ||
             hobo.FacingVector != Vector2I.Down,
             "Room 1:82's misc man advanced animation $04 early or faced Link.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             hobo.CurrentAnimationFrame != 1 ||
             hobo.CurrentAnimationPixelHash == hoboFirstPose ||
@@ -116,7 +116,7 @@ public sealed partial class ValidationRoot
             "Room 1:82's misc man did not reach animation $04's second " +
             "fixed pose after exactly 16 updates.");
         for (int update = 0; update < 16; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             hobo.CurrentAnimationFrame != 0 ||
             hobo.CurrentAnimationPixelHash != hoboFirstPose ||
@@ -127,7 +127,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             boy.Position + Vector2.Left * 20.0f,
             recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             boy.FacingVector != Vector2I.Left,
             "Room 1:82's boy did not face Link to his left.");
@@ -135,12 +135,12 @@ public sealed partial class ValidationRoot
             boy.Position + Vector2.Right * 20.0f,
             recordSafe: false);
         for (int update = 0; update < 29; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             boy.FacingVector != Vector2I.Left,
             "Room 1:82's boy changed direction before the source " +
             "$1d-to-$00 facing cooldown elapsed.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             boy.FacingVector != Vector2I.Right,
             "Room 1:82's boy did not face Link to his right on the 30th " +
@@ -159,7 +159,7 @@ public sealed partial class ValidationRoot
                 "It's a mystery to me!",
             "Room 1:82's misc man did not run the pre-flag TX_1620 loop.");
         int frozenFrame = hobo.CurrentAnimationFrame;
-        manager.Update(16.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(16.0 / 60.0, _player);
         FailIf(
             hobo.CurrentAnimationFrame != frozenFrame,
             "Gameplay text did not freeze room 1:82's misc-man animation.");
@@ -283,7 +283,7 @@ public sealed partial class ValidationRoot
         ulong pastGuyFirstPose = pastGuy.CurrentAnimationPixelHash;
         _player.WarpTo(new Vector2(0x18, 0x70), recordSafe: false);
         for (int update = 0; update < 16; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             pastGuy.CurrentAnimationFrame != 1 ||
             pastGuy.CurrentAnimationPixelHash == pastGuyFirstPose ||

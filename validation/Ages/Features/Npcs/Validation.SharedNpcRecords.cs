@@ -73,11 +73,18 @@ public sealed partial class ValidationRoot
             for (int i = 0; i < subids.Length; i++)
             {
                 LoadValidationRoom(0, rooms[i]); StepGameplayUpdates(3, Vector2.Zero, batched: batched);
-                var npc = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x49 && n.Record.SubId == subids[i]);
+                var npc = _entities.Entities<NpcCharacter>().SingleOrDefault(n => n.Record.Id == 0x49 && n.Record.SubId == subids[i]);
                 bool expected = i < 3 ? phase == 1 : i < 6 ? phase == 2 : phase == 3;
-                FailIf(npc.Active != expected || npc.Visible != expected,
+                if (!expected)
+                {
+                    FailIf(npc is not null || _entities.EntityAdapters<ForestNpcRoomEntity>()
+                        .Any(entity => entity.Npc.Record.SubId == subids[i]),
+                        $"Forest fairy $49:${subids[i]:x2} retained its deleted allocation in phase {phase}.");
+                    continue;
+                }
+                if (npc is null) throw new InvalidOperationException($"Forest fairy $49:${subids[i]:x2} is missing in phase {phase}.");
+                FailIf(!npc.Active || !npc.Visible,
                     $"Forest fairy $49:${subids[i]:x2} selected the wrong phase {phase}.");
-                if (!expected) continue;
                 FailIf(npc.TextId != texts[i] || npc.Record.Palette != palettes[i] || npc.Record.CanFace ||
                     npc.ScriptDrawOffset != new Vector2(0, -4) || npc.ObjectCollisionBounds.Size != new Vector2(8, 8) ||
                     npc.CurrentAnimationOpaquePixels == 0 || npc.Record.DefaultAnimation != (palettes[i] == 1 ? 0 : 1),
@@ -100,7 +107,7 @@ public sealed partial class ValidationRoot
         var database = new NpcDatabase(AgesGameContent.AssetRoot);
         foreach(int flags in Enumerable.Range(0,16))
         {
-            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);var runtime=AgesGameContent.CreateRuntimeState();
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);var runtime=OracleRuntimeState.CreateInitialized(OracleGame.Ages);
             bool won=(flags&1)!=0, forest=(flags&2)!=0, jabu=(flags&4)!=0, finished=(flags&8)!=0;
             save.SetGlobalFlag(AgesGlobalFlag.WonFairyHidingGame,won);save.SetGlobalFlag(AgesGlobalFlag.ForestUnscrambled,forest);
             save.SetGlobalFlag(AgesGlobalFlag.FinishedGame,finished);save.SetRoomFlag(0,0x90,0x40,jabu);
@@ -133,7 +140,7 @@ public sealed partial class ValidationRoot
                 "Postgame Nayru did not initialize wActiveMusic2=$03/wActiveMusic=$ff.");
             for (int i = 0; i < ids.Length; i++)
             {
-                var slot = _entities.EntityAdapters<SharedScriptNpcRoomEntity>().Single(s => s.Npc.Record.Id == ids[i]);
+                var slot = _entities.EntityAdapters<AgesScriptNpcRoomEntity>().Single(s => s.Npc.Record.Id == ids[i]);
                 var npc = slot.Npc;
                 FailIf(!npc.Active || !npc.Visible || npc.CurrentAnimationOpaquePixels == 0,
                     $"Postgame ${ids[i]:x2} has no visible native actor.");
@@ -146,7 +153,7 @@ public sealed partial class ValidationRoot
                         int wait = i == 0 ? 10 : 20;
                         FailIf(_dialogue.IsOpen || slot.Script!.Counter != wait || !slot.Script.InputDisabled,
                             $"Postgame ${ids[i]:x2} failed its initial {wait}-update wait/input handoff.");
-                        FailIf(!_interactions.FreezesNonInteractionObjects,
+                        FailIf(_runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                             "disableinput did not publish the source $81 non-interaction freeze during the pre-text wait.");
                         StepGameplayUpdates(wait - 1, Vector2.Down, batched: batched);
                         FailIf(_dialogue.IsOpen || slot.Script.Counter != 1,
@@ -163,9 +170,9 @@ public sealed partial class ValidationRoot
                         $"Postgame ${ids[i]:x2} retained input after its return waits.");
                 }
             }
-            FailIf(!_entities.EntityAdapters<NayruRescueMusicNoteRoomEntity>().Any(),
+            FailIf(!_entities.EntityAdapters<FloatingMusicNoteRoomEntity>().Any(),
                 "Postgame Nayru emitted no singing music-note child.");
-            var nayru = _entities.EntityAdapters<SharedScriptNpcRoomEntity>().Single(s => s.Npc.Record.Id == 0x36);
+            var nayru = _entities.EntityAdapters<AgesScriptNpcRoomEntity>().Single(s => s.Npc.Record.Id == 0x36);
             ApproachLibraryActor(nayru.Npc, batched);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
             LoadValidationRoom(0, 0x3b);
@@ -194,7 +201,7 @@ public sealed partial class ValidationRoot
             {
                 StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
                 int text = state == 0 && repeat == 1 ? 0x3711 : ids[state];
-                var imported = new SharedNpcDatabase(AgesGameContent.AssetRoot).Script(npc.Record).OfType<CutsceneShowTextCommand>().Single(c => c.TextId == text);
+                var imported = new AgesNpcScriptDatabase(AgesGameContent.AssetRoot).Script(npc.Record).OfType<CutsceneShowTextCommand>().Single(c => c.TextId == text);
                 FailIf(!_dialogue.IsOpen || PlainWords(_dialogue.CurrentMessage) != PlainWords(imported.Message.Replace("\\Link", _saveData.LinkName, StringComparison.Ordinal)) ||
                     state < 3 && repeat == 0 && !PlainWords(_dialogue.CurrentMessage).Contains(words[state], StringComparison.Ordinal),
                     $"Adlar state {state} repeat {repeat} lost TX_{text:x4}.");
@@ -228,7 +235,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close(); StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             FailIf(_inventory.Rupees != Math.Min(999, wallet + 200) || !_inventory.HasTreasure(TreasureId.Rupees) || _saveData.HasRoomFlag(3, 0xe9, 0x40),
                 "Gift old man failed to grant RUPEEVAL_200 or committed before wait/HUD catch-up.");
-            var giftHost=_entities.EntityAdapters<SharedScriptNpcRoomEntity>().Single().Script!;
+            var giftHost=_entities.EntityAdapters<AgesScriptNpcRoomEntity>().Single().Script!;
             FailIf(giftHost.Counter!=8,"Gift old man lost the original wait-8 initialization.");
             StepGameplayUpdates(7,Vector2.Zero,batched:batched);
             FailIf(giftHost.Counter!=1||_saveData.HasRoomFlag(3,0xe9,0x40),"Gift old man completed before the eighth wait update.");
@@ -384,6 +391,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(AgesWramAddress.wBoughtShopItems2,0);
             _inventory.AddRupees(999-_inventory.Rupees);
             LoadValidationRoom(3,0xfe);
+            StepGameplayUpdates(1,Vector2.Zero,batched:batched);
             var shop=_roomEvents.Get<LynnaShopEvent>();
             var data=new LynnaShopDatabase(advance:true);
             var keeper=_entities.Entities<NpcCharacter>().Single(n=>n.Record.Id==0x46);

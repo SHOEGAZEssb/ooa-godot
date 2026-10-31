@@ -104,15 +104,15 @@ public sealed partial class ValidationRoot
         manager.LoadRoom(group, room);
         List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
         List<NpcCharacter> orderedImpas = actors.Take(9).ToList();
-        Node[] childOrder = root.GetChildren().Cast<Node>().ToArray();
+        IRoomEntity[] placementOrder = manager.EntityAdapters<IRoomEntity>().ToArray();
         FailIf(
             actors.Count != 11 ||
             !orderedImpas.Select(npc => npc.Record.Var03)
                 .SequenceEqual(impaVariants) ||
             actors[9].Record is not { Id: AgesInteractionId.Nayru, SubId: 0x0b } ||
             actors[10].Record is not { Id: AgesInteractionId.Zelda, SubId: 0x07 } ||
-            childOrder.Length != 12 ||
-            childOrder[^1].Name != "TileChangeWatcher_3",
+            placementOrder.Length != 12 ||
+            placementOrder[^1] is not RoomTileChangeWatcherRoomEntity { Record.Order: 3 },
             "Room 3:9e did not preserve source order: Impa, Nayru, " +
             "Zelda, then $dc:$08 watcher.");
 
@@ -128,11 +128,11 @@ public sealed partial class ValidationRoot
             !CanTalkTo(initialImpa),
             "Room 3:9e did not begin with only talkable Impa state $00.");
 
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         byte logicalStair = room.GetMetatile(stair);
         byte[] renderedAfter = BackgroundMetatile(room, 0x22);
         byte[] attributesAfter = BackgroundAttributes(room, 0x22);
-        bool hasBasementWarp = new WarpDatabase(AgesGameContent.AssetRoot).TryGetTileWarp(
+        bool hasBasementWarp = TryGetResolvedTileWarp(new WarpDatabase(AgesGameContent.AssetRoot),
             group, room, 0x22, 0x45, out Warp basementWarp);
         FailIf(
             logicalStair != 0x45 ||
@@ -158,14 +158,14 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             initialImpa.Position + Vector2.Right * 20.0f,
             recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             initialImpa.FacingVector != Vector2I.Right,
             "Room 3:9e Impa did not immediately face nearby Link.");
         _player.WarpTo(
             initialImpa.Position + Vector2.Left * 20.0f,
             recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             initialImpa.FacingVector != Vector2I.Left,
             "Room 3:9e Impa incorrectly applied the generic 30-update " +
@@ -184,7 +184,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             passageImpa.Position + Vector2.Right * 20.0f,
             recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             passageImpa.FacingVector != Vector2I.Up,
             "Passage-state Impa did not retain her initial up-facing " +
@@ -260,7 +260,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             nayru.Position + Vector2.Right * 20.0f,
             recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(nayru.FacingVector != Vector2I.Right, "Nayru did not run npcFaceLinkAndAnimate.");
 
         SetTreasure(save, TreasureId.MakuSeed);
@@ -272,7 +272,7 @@ public sealed partial class ValidationRoot
             "Room 3:9e watcher did not snapshot source tile $1c at $32.");
         room.SetPositionTileAndCollision(
             watchedTile, 0xa0, null, manager.FrameCounter);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !save.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag80) ||
             root.GetChildren().Cast<Node>().Any(

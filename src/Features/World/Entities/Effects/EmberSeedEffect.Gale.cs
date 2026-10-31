@@ -71,7 +71,7 @@ public partial class EmberSeedEffect
         switch (_galeSubstate)
         {
             case 0:
-                if ((_room.TilesetFlags & (int)TilesetFlags.Outdoors) == 0)
+                if ((_room.TilesetFlags & _record.GaleOutdoorsMask) != (int)TilesetFlags.Outdoors)
                 {
                     _galeSubstate = 3;
                     return;

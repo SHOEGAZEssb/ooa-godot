@@ -15,6 +15,7 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
 {
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, IReadOnlyDictionary<int, Definition>> Definitions = new(System.StringComparer.Ordinal);
+    static RockDebrisEffect() => OracleGraphicsCache.RegisterApplicationCache(Definitions.Clear);
 
     private Definition _record = null!;
     private int _animationFrame;

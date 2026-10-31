@@ -47,7 +47,7 @@ public partial class ValidationRoot
         try
         {
             _player.WarpTo(new Vector2(-0x100, -0x100), recordSafe: false);
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
             for (int i = 0; i < 4; i++)
             {
                 FailIf(moblins[i].State != ArrowMoblinState.Moving ||
@@ -58,7 +58,7 @@ public partial class ValidationRoot
             FailIf(manager.RandomCalls != 268,
                 "Crown Dungeon $4:$ab mixed Moblins changed shared initialization RNG consumption.");
 
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
             for (int i = 0; i < 4; i++)
             {
                 Vector2 direction = angles[i] switch

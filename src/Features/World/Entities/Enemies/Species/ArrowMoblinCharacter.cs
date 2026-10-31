@@ -4,7 +4,8 @@ using System;
 namespace Oracles;
 
 /// <summary>
-/// ENEMY_ARROW_MOBLIN $0c:$00/$01. The shared Moblin handler alternates cardinal
+/// ENEMY_ARROW_MOBLIN $0c, MASKED_MOBLIN $20 and ARROW_SHROUDED_STALFOS $22
+/// use one native handler for subids $00/$01. It alternates cardinal
 /// SPEED_80 routes with an eight-update stand and fires PART_ENEMY_ARROW $1a
 /// on every other route change when the selected direction faces Link.
 /// </summary>
@@ -14,11 +15,11 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy, 
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
     private ArrowMoblinBehaviorProfile? _behaviorSourceCache;
-    private ArrowMoblinBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ArrowMoblin;
+    private ArrowMoblinBehaviorProfile _behavior => _behaviorSourceCache ??= ArrowMoblinBehaviorProfile.For(AssetRoot);
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private ScentSeedAttraction? _scentAttractionCache;
-    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new();
     private ArrowMoblinState _state;
     private int _counter;
     private int _angle;
@@ -41,8 +42,8 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy, 
     internal int ScentAttractionCounter => _scentAttraction.Counter;
     protected virtual bool FollowsScentSeeds => true;
     protected virtual bool SupportsRecord(ImportedEnemyDefinition record) =>
-        record.Id == EnemyId.ArrowMoblin && record.SubId is 0 or 1 ||
-        record.Id == EnemyId.ArrowShroudedStalfos && record.SubId is 0 or 1;
+        record.Id is EnemyId.ArrowMoblin or EnemyId.MaskedMoblin or EnemyId.ArrowShroudedStalfos &&
+        record.SubId is 0 or 1;
     protected virtual int ChooseRouteAngle(OracleRandom random, Vector2 target) =>
         random.NextCardinalAngle();
 
@@ -72,6 +73,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy, 
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
+        Visible = false;
         RestartAnimation(0);
         ConfigureSwordKnockback(
             room,
@@ -168,7 +170,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy, 
                 // completed route is an eligible firing cycle.
                 _angle = ChooseRouteAngle(_random, linkPosition);
                 BeginMoving();
-                _moveCycles++;
+                _moveCycles = (_moveCycles + 1) & 0xff;
                 int towardLink =
                     (OracleObjectMovement.Shared.RelativeAngle(
                         Position, linkPosition) + 4) &

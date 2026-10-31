@@ -1,4 +1,5 @@
 using Godot;
+using System.Linq;
 
 namespace Oracles;
 
@@ -7,7 +8,7 @@ public sealed partial class ValidationRoot
     private void ValidateSymmetryHouseExitPalette()
     {
         LoadValidationRoom(1, 0x13);
-        Color[,] expected = _rooms.World.BackgroundPalettes.Capture();
+        Color[,] expected = _rooms.BackgroundPalettes.Capture();
         Vector2I sample = new(0, 0);
         Color expectedPixel = _currentRoom.GetRenderedPixelForValidation(sample);
 
@@ -20,12 +21,12 @@ public sealed partial class ValidationRoot
             CheckRoomExit(_player);
             FailIf(!IsTransitioning || _activeGroup != 5 || _currentRoom.Id != 0xf6,
                 "Room 5:F6 did not begin its bottom-exit walk.");
-            UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
+            UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
             FailIf(_activeGroup != 1 || _currentRoom.Id != 0x13 || !IsTransitioning,
                 "Room 5:F6 did not load 1:13 after its exit walk.");
 
             AssertDestinationPalette();
-            UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeInFrames / 60.0);
+            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
             FailIf(IsTransitioning, "Room 5:F6 -> 1:13 did not finish its arrival fade.");
             AssertDestinationPalette();
 
@@ -50,11 +51,13 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(TreasureId.TuniNut, 2);
         LoadValidationRoom(5, 0xf6);
         _player.WarpTo(new Vector2(0x78, 0x30));
-        StepRoomEventFrames(3);
+        StepGameplayUpdates(3, Vector2.Zero);
         FailIf(_currentRoom.TemporaryBackgroundPaletteOffset is not < 0,
             "Room 5:F6's Tuni Nut placement did not start darkening.");
         _roomEvents.Get<SymmetryEvent>().Cancel();
-        FailIf(_currentRoom.TemporaryBackgroundPaletteOffset != 0 || _roomEvents.Get<SymmetryEvent>().BlocksGameplay,
+        StepGameplayUpdates(2, Vector2.Zero);
+        FailIf(_currentRoom.TemporaryBackgroundPaletteOffset != 0 || _roomEvents.Get<SymmetryEvent>().BlocksGameplay ||
+            _transitions.NativePaletteThreadMode != 0 || _entities.EntityAdapters<TuniNutSparkleRoomEntity>().Any(),
             "Cancelling Tuni Nut placement within 5:F6 retained darkening or input control.");
 
         GD.Print("Validated 5:F6 -> 1:13 palette and rendered color through exit/fade, " +

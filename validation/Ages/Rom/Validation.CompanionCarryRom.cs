@@ -65,17 +65,18 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom(); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.Bracelet, 1);
-            var actor = (DimitriCompanionRoomEntity)SpawnFidelityCompanion(0x0c, new(72, 64));
+            Vector2 fraction = new(.75f, .25f);
+            var actor = (DimitriCompanionRoomEntity)SpawnFidelityCompanion(0x0c, new Vector2(72, 64) + fraction);
             Vector2 link = new Vector2(72, 64) - (Vector2)direction * 15;
             int facing = CarriedObjectMotion.DirectionIndex(direction);
             _player.WarpTo(link); _player.Face(direction);
             FailIf(!_bracelet.TryUse(_player, primaryButton: false), "Dimitri ROM throw fixture could not lift him.");
             StepGameplayUpdates(40, Vector2.Zero, ["item"], batched: batched);
             int heldZ = facing is 1 or 3 ? -15 : -14;
-            FailIf(actor.PrecisePosition != link || actor.ZFixed != heldZ * 256,
+            FailIf(actor.PrecisePosition != link + fraction || actor.ZFixed != heldZ * 256,
                 $"Dimitri held pose {actor.PrecisePosition}/{actor.ZFixed:x4} differs from native weight-$40 up-facing offset; Link={_player.Position}.");
             var rom = new CompanionRom(0x0c, link, facing, _currentRoom);
-            rom.ThrowDimitri(link, heldZ, link, facing, drop);
+            rom.ThrowDimitri(link + fraction, heldZ, link, facing, drop);
             rom[0xc6aa] = (byte)_player.HealthQuarters;
             if (terrain != 0)
             {
@@ -85,6 +86,21 @@ public sealed partial class ValidationRoot
             }
             var rng = _random.CaptureState(); rom[0xff94] = rng.Rng1; rom[0xff95] = rng.Rng2;
             FailIf(!actor.TryUseBracelet(_player, drop ? Vector2I.Zero : direction), "Dimitri throw was rejected.");
+            FailIf(_runtimeState.ReadWramByte(0xd100) != 3 || rom[0xd100] != 3,
+                "Releasing Dimitri must retain $03 until his next eligible special-object pass.");
+            if (!drop && direction == Vector2I.Up && terrain == 0)
+            {
+                var palette = _entities.PaletteFadeActiveSource;
+                try
+                {
+                    _entities.PaletteFadeActiveSource = () => true;
+                    rom[0xc4ab] = 1;
+                    StepCompanionRom(actor, rom, 2, Vector2.Zero, batched, compare: () =>
+                        FailIf(_runtimeState.ReadWramByte(0xd100) != 3 || rom[0xd100] != 3,
+                            "A frozen Dimitri must retain $03 without consuming release in an item or Link phase."));
+                }
+                finally { _entities.PaletteFadeActiveSource = palette; rom[0xc4ab] = 0; }
+            }
             byte[] observed = new byte[4];
             var probe = new PartMovementScratchProbe(() =>
             {
@@ -97,6 +113,9 @@ public sealed partial class ValidationRoot
             StepCompanionRom(actor, rom, 90, Vector2.Zero, batched, compare: () =>
             {
                 update++;
+                foreach (int address in new[] { 0xd100, 0xd101, 0xd108, 0xd10a, 0xd10b, 0xd10c, 0xd10d })
+                    FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                        $"Dimitri throw update={update}, drop={drop}, direction={direction}, terrain={terrain}: live byte${address:x4} differs from the retained native animal.");
                 if (rom[0xdc00] != 0 && rom[0xdc04] == 3)
                     FailIf(CompanionField<CarriedObjectMotion>(actor, "_braceletChildMotion").SpeedRaw != rom[0xdc10],
                         "Dimitri ITEM$16 must retain its native speed byte on a blocked throw.");

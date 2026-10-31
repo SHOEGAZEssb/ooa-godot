@@ -328,13 +328,6 @@ if ($failureStream.Count -ne 2 -or $failureStream[0].Name -ne 'obj_RandomEnemy' 
     ($failureStream[0].Operands -join ' ') -ne '$81 $10 $01' -or $failureStream[1].Name -ne 'obj_End') {
     throw "${failurePath}:objectData78db: requires one falling-Rope random row and a terminator."
 }
-$encoded = Convert-AssemblyInteger $failureStream[0].Operands[0]
-$failureId = (Convert-AssemblyInteger $failureStream[0].Operands[1]).ToString('x2')
-$failureSubid = (Convert-AssemblyInteger $failureStream[0].Operands[2]).ToString('x2')
-Write-GeneratedTable((Join-Path $destination 'objects/mermaid_boss_key_enemies.tsv'),@(
-    "# id`tsubid`tflags`tcount`tsource",
-    "$failureId`t$failureSubid`t$(($encoded -band 0x1f).ToString('x2'))`t$(($encoded -shr 5) -band 7)`tobjects/ages/extraData3.s:objectData78db"
-))
 $tileSymbols = @{}
 foreach ($name in @('TILEINDEX_SWITCH_DIAMOND','TILEINDEX_STANDARD_FLOOR')) {
     $constant = @(Read-AssemblyConstants (Join-Path $Disassembly 'constants/common/tileIndices.s') '' $name)

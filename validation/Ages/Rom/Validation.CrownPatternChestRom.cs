@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
                 for (int slot = 2; slot < 15; slot++)
                 {
                     // Declare frozen outgoing capacity; prefix behavior is excluded.
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144), SoundId.MusNone, AlwaysUpdates:false));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144), SoundId.MusNone, AlwaysUpdates:false));
                     int address = (0xd0 + slot) * 256 + 0x40;
                     rom[address] = 2; rom[address + 1] = 5; rom[address + 4] = 1; rom[address + 6] = 60;
                     rom[address + 0xb] = 144; rom[address + 0xd] = 224;
@@ -59,11 +59,11 @@ public sealed partial class ValidationRoot
                 CompareSomariaMotionRom(rom, $"Crown pattern$21:${test.Sub:x2}, mode={mode}, batch={batched}");
                 bool nativeFinished = rom[sourceSlot] == 0 || rom[sourceSlot + 1] != 0x21;
                 int nativePuffs = Enumerable.Range(0xd2,14).Count(page => rom[page*256+0x40] != 0 && rom[page*256+0x41] == 5);
-                FailIf(chest.Finished != nativeFinished || _entities.Entities<PuzzlePuffEffect>().Count != nativePuffs ||
+                FailIf(chest.Finished != nativeFinished || _entities.Entities<StationaryDebrisEffect>().Count != nativePuffs ||
                     _currentRoom.GetMetatile(Point(test.Chest)) != rom[0xcf00 + test.Chest] ||
                     (byte)_currentRoom.GetTerrainInfo(Point(test.Chest)).Collision != rom[0xce00 + test.Chest] ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                    $"Crown pattern$21:${test.Sub:x2}, mode={mode}: deleted={chest.Finished}/{nativeFinished}, puffs={_entities.Entities<PuzzlePuffEffect>().Count}/{nativePuffs}, cues=[{string.Join(',',sounds.Requests.Select(cue => $"${cue:x2}"))}]/[{string.Join(',',rom.Sounds.Select(cue => $"${cue:x2}"))}].");
+                    $"Crown pattern$21:${test.Sub:x2}, mode={mode}: deleted={chest.Finished}/{nativeFinished}, puffs={_entities.Entities<StationaryDebrisEffect>().Count}/{nativePuffs}, cues=[{string.Join(',',sounds.Requests.Select(cue => $"${cue:x2}"))}]/[{string.Join(',',rom.Sounds.Select(cue => $"${cue:x2}"))}].");
                 FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Crown chest predicate/allocation must preserve shared RNG.");
             });
@@ -125,7 +125,7 @@ public sealed partial class ValidationRoot
                 "Crown chest cancellation must retain original adjacency$4:$a5 -> $4:$a6.");
             // Native incoming parsing and Link scroll coordinates are covered
             // separately. Compare this outgoing handler's ordered object pass.
-            _transitions.BeginScroll(_player, Vector2I.Right, target);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, target);
             rom.SetOutgoingInteractions(); rom[0xcd00] = 8;
             var sounds = _sound.AttachPlayRequestAudit();
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero, batched:batched, afterUpdate:() =>

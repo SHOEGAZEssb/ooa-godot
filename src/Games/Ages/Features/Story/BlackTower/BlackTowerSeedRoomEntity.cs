@@ -66,7 +66,7 @@ internal sealed class BlackTowerSeedRoomEntity : IRoomEntity, IFixedRoomEntity, 
                     foreach (int packed in new[] { 0x44, 0x47, 0x4a }) BehaviorTile(packed, 0x44);
                     Write(AgesWramAddress.wDisableWarps, 0x44); Finish(); return;
                 }
-                player.ClearNativeItemParents(); player.PutOnGroundForScript(); player.ResetPortalDamageState();
+                player.ClearNativeItemParents(); player.PutOnGroundForScript(); player.ResetLinkInvincibility();
                 player.RequestNativeForcedMovement(0x70, 8, 1);
                 Counter = 0x70; State = 1; _owner.SetMasks(true);
                 Sound(_context.Sound.ActiveMusic); return;

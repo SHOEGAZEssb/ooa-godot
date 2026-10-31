@@ -12,6 +12,7 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
 {
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<KillEnemyPuffEffectFrameRecord>> Definitions = new(System.StringComparer.Ordinal);
+    static KillEnemyPuffEffect() => OracleGraphicsCache.RegisterApplicationCache(Definitions.Clear);
     private List<KillEnemyPuffEffectFrameRecord> _animation = null!;
     private int _animationFrame;
     private int _animationCounter;

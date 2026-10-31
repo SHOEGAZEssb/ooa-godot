@@ -56,7 +56,6 @@ internal sealed class WhispRoomEntity
                 whisp.TakeBurnHit,
                 (_, _) => { },
                 soundRequested,
-                EnemySwordResponse.NoKnockback,
                 completedOutcome: () => whisp.TransformationCompleted
                     ? RoomEnemyOutcome.SilentDeletion(false) : RoomEnemyOutcome.EnemyDie(combatSource.KillableEnemyIndex),
                 acceptedHitSound: 0))

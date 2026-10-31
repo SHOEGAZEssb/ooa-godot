@@ -22,13 +22,13 @@ internal sealed partial class BlackTowerEndingEvent
     private void ClearTemporaryState(){for(int address=0xcbb3;address<0xcbc3;address++)Write(address,0);}
     private void BeginScreen()
     {
-        _hudWasVisible=context.Hud.Visible;_oldBackground=context.Rooms.World.BackgroundPalettes.Capture();_oldSprites=context.Entities.NativeObjectPalettes;
-        _screenActive=true;context.Hud.Visible=false;context.Transitions.NativeRoomUsesFullScreen=true;Screen.Bind(Screens,context.Rooms.World.BackgroundPalettes,context.Entities);
+        _hudWasVisible=context.Hud.Visible;_oldBackground=context.Rooms.BackgroundPalettes.Capture();_oldSprites=context.Entities.NativeObjectPalettes;
+        _screenActive=true;context.Hud.Visible=false;context.Transitions.NativeRoomUsesFullScreen=true;Screen.Bind(Screens,context.Rooms.BackgroundPalettes,context.Entities);
         context.Entities.ClearDynamicInteractions();context.Player.EndCutsceneControl();context.Player.WarpTo(Vector2.Zero,recordSafe:false);
         context.Player.Visible=false;_linkEnabled=false;
     }
     private void Profile(string profile,int palette)
-    {Screens.ApplyPalette(palette,context.Rooms.World.BackgroundPalettes,context.Entities);Screen.Load(profile);}
+    {Screens.ApplyPalette(palette,context.Rooms.BackgroundPalettes,context.Entities);Screen.Load(profile);}
     private void OracleOam()=>Screen.SetOam("oamData_4e37",0x30,0x38);
     private void TwinrovaOam(bool second)=>Screen.SetOam(second?"oamData_4d9e":"oamData_4d05",0x30,Read(0xcbb5));
     private void Text(int id)=>context.ShowDialogue(Screens.Text(id),textboxFlags:1,sourceTextId:id);
@@ -97,7 +97,7 @@ internal sealed partial class BlackTowerEndingEvent
         if(!_screenActive)return;
         Screen.Release();context.Hud.Visible=_hudWasVisible;context.Transitions.NativeRoomUsesFullScreen=false;
         context.RoomView.SetRoom(context.Rooms.CurrentRoom.Texture);
-        context.Rooms.World.BackgroundPalettes.Restore(_oldBackground!);context.Entities.SetNativeObjectPalette(_oldSprites);
+        context.Rooms.BackgroundPalettes.Restore(_oldBackground!);context.Entities.SetNativeObjectPalette(_oldSprites);
         _restoreTerrain?.Invoke();_restoreTerrain=null;_oldBackground=null;_oldSprites=null;_screenActive=false;
     }
 }

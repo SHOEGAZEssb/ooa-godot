@@ -10,6 +10,8 @@ internal abstract class RoomCutsceneCommandHost : CutsceneCommandHost
     private RoomEventResources? _resources;
     public abstract RoomEventContext Context { get; }
     protected RoomEventResources EventResources => _resources ??= new(Context, this);
+    private NativeScriptInputControl ScriptInput => EventResources.ScriptInput;
+    protected bool InputControlHeld => ScriptInput.LinkDisabled || EventResources.InputLocked;
     public override bool DialogueOpen => Context.DialogueOpen;
     // bank0.s:interactionRunScript checks wLinkDeathTrigger before either
     // counter and accepts wTextIsActive=$80/$ff while gameplay still observes
@@ -19,13 +21,23 @@ internal abstract class RoomCutsceneCommandHost : CutsceneCommandHost
     public override int FrameCounter => Context.Entities.FrameCounter;
     public override ICutsceneCommandTraceSink? TraceSink => Context.CommandTraceSink;
 
-    public override void SetInputEnabled(bool enabled)
+    public override void SetInputEnabled(bool enabled) => ScriptInput.SetEnabled(Context.Player, enabled);
+
+    public override void SetMenuEnabled(bool enabled) => ScriptInput.SetMenuEnabled(Context.Player, enabled);
+    protected void SetNativeMenuDisabled(byte value) => ScriptInput.SetMenuDisabled(value);
+
+    public override void SetDisabledObjects(int value)
     {
-        if (enabled)
-            EventResources.UnlockInput();
-        else
-            EventResources.LockInput();
+        if ((uint)value > 0xff) throw UnsupportedCommand($"disabled-object mask ${value:x2}");
+        ScriptInput.SetDisabledObjects((byte)value);
     }
+
+    protected void ReleaseInputControl()
+    {
+        EventResources.UnlockInput();
+    }
+
+    protected void RelinquishInputControl() => ScriptInput.Relinquish();
 
     public override void PlaySound(int sound) => Context.Sound.PlaySound(sound);
     public override void SetGlobalFlag(int flag) => Context.Rooms.SaveData.SetGlobalFlag(flag);

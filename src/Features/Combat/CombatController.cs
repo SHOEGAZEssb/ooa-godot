@@ -16,6 +16,8 @@ public sealed class CombatController
     private readonly Func<long> _animationTick;
     private readonly LinkItemDatabase _linkItems;
     private ICombatEffectObserver? _effectObserver;
+    internal bool UsesOwners(RoomSession rooms, RoomEntityManager entities) =>
+        ReferenceEquals(_rooms,rooms) && ReferenceEquals(_entities,entities);
 
     public CombatController(
         RoomSession rooms,
@@ -26,6 +28,9 @@ public sealed class CombatController
         OracleSoundEngine sound,
         Func<long> animationTick)
     {
+        if (!ReferenceEquals(rooms.SaveData,saveData) || rooms.AssetRoot != entities.AssetRoot ||
+            rooms.AssetRoot != breakables.AssetRoot || !ReferenceEquals(rooms.RuntimeState,entities.RuntimeState))
+            throw new ArgumentException("Combat requires the room's selected pack, live save and runtime owners.");
         _rooms = rooms;
         _roomView = roomView;
         _entities = entities;
@@ -79,12 +84,14 @@ public sealed class CombatController
     }
 
     public bool ApplyLandedTileHit(Vector2 linkPosition)
+        => ApplyItemTileHit(linkPosition + new Vector2(0, 5), BreakableTileDatabase.SourceLanded);
+
+    internal bool ApplyItemTileHit(Vector2 point, int source)
     {
         OracleRoomData room = _rooms.CurrentRoom;
-        Vector2 point = linkPosition + new Vector2(0, 5);
         if (_breakables.TryBreak(
                 room,
-                BreakableTileDatabase.SourceLanded,
+                source,
                 point,
                 _saveData,
                 _rooms.ActiveGroup,

@@ -56,7 +56,7 @@ public partial class ValidationRoot
                             $"{context}: dungeon${index:x2} small/boss-key bytes differ.");
                     for (int index = 0; index < 256; index++)
                         FailIf(_saveData.GetRoomFlags(4,index) != rom[0xc900 + index],$"{context}: room flags$4:${index:x2} differ.");
-                    var puffs = _entities.Entities<PuzzlePuffEffect>().OrderBy(_entities.InteractionSlot).ToArray();
+                    var puffs = _entities.Entities<StationaryDebrisEffect>().OrderBy(_entities.InteractionSlot).ToArray();
                     int[] nativePuffs = Enumerable.Range(0xd2,14).Select(page => (page << 8) | 0x40)
                         .Where(slot => rom[slot] != 0 && rom[slot + 1] == 5).ToArray();
                     FailIf(puffs.Length != nativePuffs.Length,context + ": INTERAC$05 count differs.");
@@ -92,7 +92,7 @@ public partial class ValidationRoot
                     Step(3,direction); _dialogue.Close(); rom[0xcba0] = 0;
                     Step(44,direction);
                     FailIf(_dialogue.IsOpen || rom.TextGeneration != 1 || _keyDoors.Opening ||
-                        _entities.Entities<DungeonKeyUseEffect>().Count != 0 || _entities.Entities<PuzzlePuffEffect>().Count != 0,
+                        _entities.Entities<DungeonKeyUseEffect>().Count != 0 || _entities.Entities<StationaryDebrisEffect>().Count != 0,
                         "Repeated missing-key contact must not reopen the hint or allocate key/puff effects.");
                     if (!crown) continue;
                     // Declare an external treasure grant after the failed
@@ -122,13 +122,13 @@ public partial class ValidationRoot
                         "Directional lock must mark its opposite flag in the imported dungeon neighbor.");
                 }
                 FailIf(block && (_keyDoors.Opening || _currentRoom.GetMetatile(center) != 0xa0 ||
-                    _entities.Entities<PuzzlePuffEffect>().Count != 1),
+                    _entities.Entities<StationaryDebrisEffect>().Count != 1),
                     "Key block must immediately become floor and allocate exactly one native puff.");
                 _dialogue.ShowMessage("Key-lock pause.",120); rom[0xcba0] = 1;
                 Step(3); _dialogue.Close(); rom[0xcba0] = 0;
                 Step(32); Step(4,direction);
                 FailIf(_keyDoors.Opening || _currentRoom.IsSolid(center) ||
-                    _entities.Entities<DungeonKeyUseEffect>().Count != 0 || _entities.Entities<PuzzlePuffEffect>().Count != 0,
+                    _entities.Entities<DungeonKeyUseEffect>().Count != 0 || _entities.Entities<StationaryDebrisEffect>().Count != 0,
                     "Completed/repeated key-lock input must leave passable floor and retire key/puff effects.");
                 LoadValidationRoom(0,0x60); LoadValidationRoom(4,room);
                 FailIf(_currentRoom.GetMetatile(center) != 0xa0 || _currentRoom.IsSolid(center),

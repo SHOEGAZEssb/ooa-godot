@@ -21,7 +21,7 @@ internal sealed partial class SarcophagusRoomEntity : TransitionOffsetNode2D,
     private readonly EnemyAnimationPlayer _break;
     private readonly NativeBraceletThrow _throw;
     private readonly BraceletGrabGeometry _grab = new(AgesGameContent.AssetRoot);
-    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
+    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase(AgesGameContent.AssetRoot).Data;
     private Action<INativeBraceletRoomEntity>? _publish;
     private Player? _holder;
     internal int State { get; private set; }
@@ -51,7 +51,7 @@ internal sealed partial class SarcophagusRoomEntity : TransitionOffsetNode2D,
             (position, speed, angle) => {
                 var velocity = NativeObjectMovement.Velocity(runtime, speed, angle);
                 return position.Add(velocity.YFixed, velocity.XFixed);
-            }, BraceletWeightDatabase.For(AgesGameContent.AssetRoot), new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data);
+            }, BraceletWeightDatabase.For(AgesGameContent.AssetRoot), new BombDatabase(AgesGameContent.AssetRoot).Data);
         TreeExiting += Drop;
     }
     private EnemyAnimationPlayer Load(DungeonInteractionVisual visual)
@@ -99,10 +99,10 @@ internal sealed partial class SarcophagusRoomEntity : TransitionOffsetNode2D,
         if (State == 2 && Substate < 2) Substate = 3;
         _holder.EndCarriedObjectPose(); _holder = null;
     }
-    public void UpdateBraceletChild(Player player)
+    public void UpdateBraceletChild(Player player, bool frozen = false)
     {
-        if (_holder is not null && !_holder.IsCarryingObject) Drop();
-        _throw.Update(_sound);
+        if (!frozen && _holder is not null && !_holder.IsCarryingObject) Drop();
+        _throw.Update(_sound, frozen);
     }
     public void UpdateHeldPosition(Player player)
     {

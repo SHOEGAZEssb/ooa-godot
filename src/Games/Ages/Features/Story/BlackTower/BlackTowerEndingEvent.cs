@@ -87,10 +87,8 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
         context.Entities.AddEntity(new ExplosionWithDebrisRoomEntity(context.Entities,_explosions??=new(),
             Data.Table("explosion-positions"),Data.Table("debris-speeds"),0,1,Vector2.Zero));Write(0xcfd0,1);
     }
-    internal void PublishGameKeys()
-    {
-        if(HasState&&Simulated.Enabled)Input.OverrideGameKeys(Simulated.Sample(context.Transitions.NativePaletteThreadMode));
-    }
+    internal int? SampleGameKeys() => HasState && Simulated.Enabled ?
+        Simulated.Sample(context.Transitions.NativePaletteThreadMode) : null;
     internal void AdvanceBeforeObjects()
     {
         SkipsObjectUpdate=false;
@@ -196,7 +194,7 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
         {
             Write(0xcc04,0);context.CloseDialogue();context.Hud.ShowStatusBar();context.RoomView.ClearBackgroundFade();
             context.RoomView.SetNativeScrollOffset(Vector2.Zero);
-            if(_linkedBackground is not null)context.Rooms.World.BackgroundPalettes.Restore(_linkedBackground);
+            if(_linkedBackground is not null)context.Rooms.BackgroundPalettes.Restore(_linkedBackground);
             context.Entities.SetNativeObjectPalette(_linkedSprites);_linkedBackground=null;_linkedSprites=null;
             foreach(var actor in context.Entities.EntityAdapters<TwinrovaFlameRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
             foreach(var actor in context.Entities.EntityAdapters<RoomOfRitesZeldaActor>().ToArray())context.Entities.RetireEntity(actor);
@@ -255,7 +253,7 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
         foreach(var actor in context.Entities.EntityAdapters<MakuStatueConstructionRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
         foreach(var actor in context.Entities.EntityAdapters<MakuSproutRoomEntity>().Where(a=>a.Npc.Record.SubId==2).ToArray())context.Entities.RetireEntity(actor);
         SetCreditsScrollY(0);
-        foreach(var actor in context.Entities.EntityAdapters<NayruRescueMusicNoteRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<FloatingMusicNoteRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
         foreach(var statue in context.Entities.EntityAdapters<MakuLinkStatueRoomEntity>().Where(a=>a.Node is NpcCharacter {Record.SubId:0x0e}).ToArray())context.Entities.RetireEntity(statue);
         context.Transitions.CancelNativeWhiteFade();_resources.ReleaseFullScreenFade(restoreColor:false);context.Fade.Color=new(1,1,1,0);
         context.Player.Visible=true;context.Player.EndCutsceneControl();

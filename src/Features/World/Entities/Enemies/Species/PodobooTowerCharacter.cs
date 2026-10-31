@@ -8,7 +8,7 @@ internal sealed partial class PodobooTowerCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
     private IReadOnlyList<EnemyBehaviorValue>? _profileSourceCache;
-    private IReadOnlyList<EnemyBehaviorValue> _profile => _profileSourceCache ??= EnemyBehaviorTables.For(AssetRoot).PodobooTower;
+    private IReadOnlyList<EnemyBehaviorValue> _profile => _profileSourceCache ??= PodobooTowerDatabase.For(AssetRoot).State;
     private OracleRandom _random = null!;
     private int _baseY;
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -21,7 +21,7 @@ internal sealed partial class PodobooTowerCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, Vector2 position, OracleRandom random)
     {
         AssetRoot = record.AssetRoot;
-        if (record.Id != EnemyId.PodobooTower || record.SubId != 0)
+        if (record.Id != EnemyId.PodobooTower)
             throw new InvalidOperationException($"podobooTower.s: unsupported ${record.Id:x2}:${record.SubId:x2}.");
         Record = record;
         _random = random;
@@ -40,6 +40,7 @@ internal sealed partial class PodobooTowerCharacter : EnemyCharacter
     internal void PrepareForScreenTransition()
     {
         if (State != 0) return;
+        _random.Next(); // enemyStandardUpdate@uninitialized's common var3d draw, including preload.
         State = 8;
         Counter = _profile[0].Value;
     }
@@ -113,7 +114,7 @@ internal sealed partial class PodobooTowerCharacter : EnemyCharacter
     {
         if (parameter < 3 || parameter > 15 || parameter % 3 != 0)
             throw new InvalidOperationException($"podobooTower.s:@data invalid animation parameter ${parameter:x2}.");
-        var radii = EnemyBehaviorTables.For(AssetRoot).PodobooTowerRadii;
+        var radii = PodobooTowerDatabase.For(AssetRoot).Radii;
         int index = parameter - 3;
         SetCollisionRadii(radii[index + 1].Value, radii[index].Value);
         Position = new Vector2(Position.X, (_baseY + unchecked((sbyte)radii[index + 2].Value)) & 0xff);

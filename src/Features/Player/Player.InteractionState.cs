@@ -6,6 +6,7 @@ namespace Oracles;
 
 public partial class Player
 {
+    internal bool NativeState08Active => _forcedState08Phase >= 2;
     internal bool FacesTileWallForInteraction
     {
         get
@@ -14,7 +15,7 @@ public partial class Player
             // publication, requiring both probes on the selected side.
             int mask=FacingVector == Vector2I.Up ? 0xc0 : FacingVector == Vector2I.Right ? 0x03 :
                 FacingVector == Vector2I.Down ? 0x30 : 0x0c;
-            return (_tilePushWalls&mask) == mask;
+            return (NativeAdjacentWalls&mask) == mask;
         }
     }
     // INTERAC$33/$dc read w1Link.state, not whether movement/input is enabled.
@@ -25,26 +26,20 @@ public partial class Player
         {
             // checkLinkJumpingOffCliff enters state12 immediately, including
             // its pre-scroll and waiting phases; landing restores state01.
-            // BossEntryMovement arms separately and sets this flag only when
-            // consuming the request. State0b restores state01 on counter zero.
-            if (_getItemStatePhase >= 2 || _forcedRespawnPhase >= 2 || _forcedRoomEntryMovement || _ledgeJumpState != LedgeJumpState.None ||
+            // A boss entry publishes its request after Link or during preload;
+            // consuming it selects state0b, which restores state01 on counter zero.
+            if (_ringTransformationRequested != 0 || _getItemStatePhase >= 2 || _forcedRespawnPhase >= 2 || _nativeForcedMovementSelected || _ledgeJumpState != LedgeJumpState.None ||
                 _deathAnimationActive || EnemyGrabActive || WallmasterGrabActive || CollapsedActive || _squishAnimation is not null ||
                 GaleActive && _galePending < 2 || _forcedState08Phase >= 2 ||
-                _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0 ||
+                RespawnWaiting || RespawnRecovering ||
                 _fallingInHole || _drowning && _topDownDrownPhase >= 2)
-                return false;
-            // linkState01_sidescroll also owns jumping and swimming. Its
-            // drowning handler changes state only at the terminal frame;
-            // the following dispatch initializes state02's respawn phase.
-            if (_world.SideScrolling && (_sideScrollDrownRespawnPending || _drownRespawning))
                 return false;
             // These controllers currently combine native request, state and
             // presentation phases. Do not guess their state from groundedness.
             // A warp request does not change w1Link.state. Object dispatch
             // owns fade/scroll eligibility; the requesting update can still
             // run PART_SEA_EFFECTS with ordinary state01 Link.
-            if (_spinnerControlled ||
-                _cutsceneControlled && _forcedState08Phase == 0 && _getItemStatePhase == 0 ||
+            if (_cutsceneControlled && _scriptControl!=ScriptControl.ForcedState08 && _forcedState08Phase == 0 && _getItemStatePhase == 0 ||
                 _getItemOneHandPose || _getItemTwoHandPose ||
                 _newGameSlowFalling ||
                 _roomWarpFallActive || _roomWarpFallCollapsed ||
@@ -66,8 +61,8 @@ public partial class Player
         {
             if (!NativeNormalStateForInteraction) return;
             // These owners publish wLinkForceState before Link consumes it.
-            if (_enemyGrabRequested || _galePending == 2 || _forcedState08Phase == 1 || _sideScrollSquishPending ||
-                _topDownDrownPhase == 1 || _forcedRespawnPhase == 1 || _getItemStatePhase == 1)
+            if (_enemyGrabRequested || _galePending == 2 || _inventory.RuntimeState.ReadField("wLinkForceState")==8 || _sideScrollSquishPending ||
+                _topDownDrownPhase == 1 || ForcedRespawnRequested || _getItemStatePhase == 1)
                 return;
             // interactiondc_subid17 does not read wLinkDeathTrigger. A lethal
             // hit after Link's update may therefore leave this request pending.

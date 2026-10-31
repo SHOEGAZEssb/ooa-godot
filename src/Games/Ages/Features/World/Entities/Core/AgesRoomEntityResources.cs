@@ -87,6 +87,8 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
         return session;
     }
     private PlacedPartDatabase? _placedParts;
+    private VireEntranceDatabase? _vireEntrance;
+    internal VireEntranceDatabase VireEntrance => _vireEntrance ??= new();
     internal PlacedPartDatabase PlacedParts => _placedParts ??= new(AgesGameContent.AssetRoot);
     private VeranFinalDatabase? _veranFinal;
     private FinalDungeonEntryDatabase? _finalDungeonEntry;
@@ -136,6 +138,10 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     internal MermaidChangingFloorDatabase MermaidChangingFloor => _mermaidChangingFloor ??= new();
     private KeyholeControllerDatabase? _keyholeControllers;
     internal KeyholeControllerDatabase KeyholeControllers => _keyholeControllers ??= new(AgesGameContent.AssetRoot);
+    private FairiesWoodsDatabase? _fairiesWoods;
+    internal FairiesWoodsDatabase FairiesWoods => _fairiesWoods ??= new();
+    private CompanionForestDatabase? _companionForest;
+    internal CompanionForestDatabase CompanionForest => _companionForest ??= new();
     // Factory construction must not parse assets for every later dungeon and
     // story actor. Resolve each per-session database at its first dispatch;
     // room-wide gates below still resolve their inputs in the original order.
@@ -143,10 +149,6 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     internal VolcanoDatabase Volcano => _volcanoData ??= new();
     private FallingBoulderDatabase? _fallingBouldersData;
     internal FallingBoulderDatabase FallingBoulders => _fallingBouldersData ??= new(AgesGameContent.AssetRoot);
-    private ZoraFireDatabase? _zoraFireData;
-    internal ZoraFireDatabase ZoraFire => _zoraFireData ??= new();
-    private BeamosBeamDatabase? _beamosBeamData;
-    internal BeamosBeamDatabase BeamosBeam => _beamosBeamData ??= new(AgesGameContent.AssetRoot);
     private SmogProjectileDatabase? _smogProjectileData;
     internal SmogProjectileDatabase SmogProjectile => _smogProjectileData ??= new();
     private SmogCollisionDatabase? _smogCollisionsData;
@@ -192,8 +194,8 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     private StoneRabbitDatabase? _stoneRabbitData;
     internal StoneRabbitDatabase StoneRabbit => _stoneRabbitData ??= new(AgesGameContent.AssetRoot);
     private BusinessScrubDatabase? _businessScrubData;
-    private SharedNpcDatabase? _sharedNpcData;
-    internal SharedNpcDatabase SharedNpcs => _sharedNpcData ??= new(AgesGameContent.AssetRoot);
+    private AgesNpcScriptDatabase? _sharedNpcData;
+    internal AgesNpcScriptDatabase SharedNpcs => _sharedNpcData ??= new(AgesGameContent.AssetRoot);
     internal BusinessScrubDatabase BusinessScrub => _businessScrubData ??= new(AgesGameContent.AssetRoot);
     private DekuScrubDatabase? _dekuScrubData;
     internal DekuScrubDatabase DekuScrub => _dekuScrubData ??= new(AgesGameContent.AssetRoot);
@@ -291,12 +293,8 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     internal LeverLavaDatabase LeverLava => _leverLavaData ??= new();
     private MovingPlatformDatabase? _movingPlatformsData;
     internal MovingPlatformDatabase MovingPlatforms => _movingPlatformsData ??= new(AgesGameContent.AssetRoot);
-    private StaticDungeonObjectDatabase? _staticDungeonObjectsData;
-    internal StaticDungeonObjectDatabase StaticDungeonObjects => _staticDungeonObjectsData ??= new(AgesGameContent.AssetRoot);
     private MovingSideScrollPlatformDatabase? _sidePlatformsData;
     internal MovingSideScrollPlatformDatabase SidePlatforms => _sidePlatformsData ??= new(AgesGameContent.AssetRoot);
-    private EnemySpawnTileDatabase? _enemySpawnTilesData;
-    internal EnemySpawnTileDatabase EnemySpawnTiles => _enemySpawnTilesData ??= new(AgesGameContent.AssetRoot);
     private GroundTreasureDatabase? _groundTreasuresData;
     internal GroundTreasureDatabase GroundTreasures => _groundTreasuresData ??= new(AgesGameContent.AssetRoot);
     private DungeonMechanicDatabase? _dungeonMechanicsData;
@@ -312,9 +310,9 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     private SwordBeamDatabase? _swordBeamData;
     internal SwordBeamDatabase SwordBeam => _swordBeamData ??= new(AgesGameContent.AssetRoot + "metadata/sword_beam.tsv");
     private BraceletDatabase? _braceletData;
-    internal BraceletDatabase Bracelet => _braceletData ??= new(AgesGameContent.AssetRoot + "metadata/bracelet.tsv");
+    internal BraceletDatabase Bracelet => _braceletData ??= new(AgesGameContent.AssetRoot);
     private BombDatabase? _bombData;
-    internal BombDatabase Bomb => _bombData ??= new(AgesGameContent.AssetRoot + "metadata/bomb.tsv");
+    internal BombDatabase Bomb => _bombData ??= new(AgesGameContent.AssetRoot);
     private GashaSpotDatabase? _gashaSpotsData;
     internal GashaSpotDatabase GashaSpots => _gashaSpotsData ??= new(AgesGameContent.AssetRoot);
     private DarkRoomDatabase? _darkRoomsData;
@@ -327,12 +325,18 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     internal OwlStatueDatabase OwlStatues => _owlStatuesData ??= new(AgesGameContent.AssetRoot);
     private RickyGlovesEventDatabase? _rickyData;
     internal RickyGlovesEventDatabase Ricky => _rickyData ??= new();
+    private RickyDatabase? _rickyBody;
+    internal RickyDatabase RickyBody => _rickyBody ??= new(AgesGameContent.AssetRoot);
+    private AgesRickyDepartureDatabase? _rickyDeparture;
+    internal AgesRickyDepartureDatabase RickyDeparture => _rickyDeparture ??= new();
     private MooshRescueEventDatabase? _mooshData;
     internal MooshRescueEventDatabase Moosh => _mooshData ??= new();
     private MooshGoodbyeEventDatabase? _mooshGoodbyeData;
     internal MooshGoodbyeEventDatabase MooshGoodbye => _mooshGoodbyeData ??= new();
-    private DimitriDatabase? _dimitriData;
-    internal DimitriDatabase Dimitri => _dimitriData ??= new(AgesGameContent.AssetRoot);
+    private AgesDimitriStoryDatabase? _dimitriStory;
+    internal AgesDimitriStoryDatabase DimitriStory=>_dimitriStory??=new();
+    private DimitriDepartureDatabase? _dimitriDeparture;
+    internal DimitriDepartureDatabase DimitriDeparture=>_dimitriDeparture??=new();
     private CompanionTutorialDatabase? _companionTutorialsData;
     internal CompanionTutorialDatabase CompanionTutorials => _companionTutorialsData ??= new(AgesGameContent.AssetRoot);
     private CompanionBarrierDatabase? _companionBarriersData;
@@ -348,9 +352,7 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
         yield return false;
         _ = FallingBoulders;
         yield return false;
-        _ = ZoraFire;
         yield return false;
-        _ = BeamosBeam;
         yield return false;
         _ = SmogProjectile;
         yield return false;
@@ -482,11 +484,8 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
         yield return false;
         _ = MovingPlatforms;
         yield return false;
-        _ = StaticDungeonObjects;
         yield return false;
         _ = SidePlatforms;
-        yield return false;
-        _ = EnemySpawnTiles;
         yield return false;
         _ = GroundTreasures;
         yield return false;
@@ -522,7 +521,7 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
         yield return false;
         _ = MooshGoodbye;
         yield return false;
-        if (includeGraphics) _ = Dimitri;
+        _ = DimitriStory;
         yield return false;
         _ = CompanionTutorials;
         yield return false;

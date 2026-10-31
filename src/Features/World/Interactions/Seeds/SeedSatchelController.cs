@@ -1,5 +1,3 @@
-using Godot;
-
 namespace Oracles;
 
 /// <summary>
@@ -12,42 +10,32 @@ public sealed class SeedSatchelController
     private readonly RoomEntityManager _entities;
     private readonly SeedSatchelDatabase _database;
     private readonly RoomSession _rooms;
-    private readonly System.Action<int> _playSound;
-    private readonly SeedShooterRecord _shooter;
-    private bool _shooterActive;
-    private bool _shooterPrimaryButton;
-    private int _shooterAngle;
-    private int _shooterAimCounter;
-    private int _shooterPostShotCounter;
-    private bool _shooterFired;
-
-    public bool ShooterActive => _shooterActive;
     public PegasusSeedState Pegasus { get; }
-    internal int ShooterAngle => _shooterAngle;
-    internal int ShooterAimCounter => _shooterAimCounter;
-    internal int ShooterPostShotCounter => _shooterPostShotCounter;
 
     public SeedSatchelController(
         InventoryState inventory,
         RoomEntityManager entities,
         SeedSatchelDatabase database,
-        RoomSession rooms,
-        System.Action<int>? playSound = null)
+        RoomSession rooms)
     {
+        if (rooms.AssetRoot != entities.AssetRoot || rooms.AssetRoot != database.AssetRoot ||
+            rooms.AssetRoot != inventory.AssetRoot || !ReferenceEquals(rooms.RuntimeState, entities.RuntimeState) ||
+            !ReferenceEquals(rooms.RuntimeState, inventory.RuntimeState) || !ReferenceEquals(rooms.SaveData, inventory.SaveData) ||
+            !ReferenceEquals(entities.Inventory, inventory))
+            throw new System.ArgumentException("Satchel input requires the selected room, inventory and runtime owners.");
         _inventory = inventory;
         _entities = entities;
         _database = database;
         _rooms = rooms;
-        _playSound = playSound ?? (_ => { });
-        _shooter = SeedShooterRecord.Load(rooms.AssetRoot);
         Pegasus = new PegasusSeedState(inventory, entities);
     }
 
     public int TryUse(Player player)
     {
-        // Satchel state 0 rejects underwater/swimming before selecting a
-        // seed; Pegasus is subject to the same parent gate as physical seeds.
-        if ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0 ||
+        // The selected parent branch rejects these before selecting a seed;
+        // Pegasus uses the same gate as physical seeds.
+        if (_database.RejectsUnderwater && player.World.Underwater ||
+            _database.RejectsRaft && _entities.RaftSpecialObjectPresent ||
             player.TopDownSwimming || player.SideScrollSwimming)
             return 0;
         int seedItem = TreasureId.EmberSeeds +
@@ -64,10 +52,8 @@ public sealed class SeedSatchelController
         }
         if (!_database.TryGet(seedItem, out SeedRecord record))
         {
-            GD.PushError(
-                $"Unsupported active Satchel child ITEM ${seedItem:x2}; " +
-                "the imported active-seed slice does not include it.");
-            return 0;
+            throw new System.InvalidOperationException(
+                $"{_database.AssetRoot}metadata/seed_satchel.tsv: missing Satchel child ITEM ${seedItem:x2}.");
         }
 
         _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
@@ -82,303 +68,5 @@ public sealed class SeedSatchelController
                 $"Satchel child ${seedItem:x2} was allocated without its selected BCD seed count.");
         }
         return record.LinkFrames;
-    }
-
-    public bool TryBeginShooter(
-        Player player,
-        bool primaryButton,
-        Vector2 movementInput)
-    {
-        if (_shooterActive ||
-            !_inventory.HasSelectedShooterSeed())
-        {
-            return false;
-        }
-        _shooterActive = true;
-        player.NotifyParentItemAnimationStarted(TreasureId.Shooter);
-        _shooterPrimaryButton = primaryButton;
-        _shooterAngle = movementInput.LengthSquared() > 0.01f
-            ? AngleForInput(movementInput)
-            : AngleForDirection(player.FacingVector);
-        _shooterAimCounter = _shooter.AimLockout;
-        _shooterPostShotCounter = 0;
-        _shooterFired = false;
-        player.FaceShooterDirection(DirectionForAngle(_shooterAngle));
-        return true;
-    }
-
-    public bool UpdateShooter(
-        Player player,
-        Vector2 movementInput,
-        bool primaryHeld,
-        bool secondaryHeld,
-        bool directionJustPressed = false)
-    {
-        if (!_shooterActive)
-            return false;
-        if (_shooterFired)
-        {
-            _shooterPostShotCounter--;
-            if (_shooterPostShotCounter == 0)
-            {
-                player.FaceShooterDirection(DirectionForAngle(_shooterAngle));
-                ClearShooter();
-            }
-            return true;
-        }
-
-        // Shooter state 1 calls clearSelfIfNoSeeds on every parent update,
-        // before checking held input or turning the aiming animation.
-        if (!_inventory.HasSelectedShooterSeed())
-        {
-            ClearShooter();
-            return true;
-        }
-        bool held = _shooterPrimaryButton ? primaryHeld : secondaryHeld;
-        if (!held)
-        {
-            FireShooter(player);
-            return true;
-        }
-        if (UpdateShooterAngle(movementInput, directionJustPressed))
-            player.QueueRedraw();
-        return true;
-    }
-
-    public void InterruptShooter() => ClearShooter();
-
-    private void FireShooter(Player player)
-    {
-        // parentItemCode_shooter checks wIsSeedShooterInUse on release,
-        // independently of the selected child ID and Satchel subid $00.
-        if (_entities.HasActiveShooterSeed)
-        {
-            ClearShooter();
-            return;
-        }
-        int seedItem = TreasureId.EmberSeeds +
-            _inventory.ShooterSelectedSeeds;
-        if (!_database.TryGet(seedItem, out SeedRecord record))
-        {
-            GD.PushError(
-                $"Unsupported active Shooter child ITEM ${seedItem:x2}; " +
-                "the imported active-seed slice does not include it.");
-            ClearShooter();
-            return;
-        }
-        // Unlike Satchel, parentItemCode_shooter does not test the carry flag
-        // from itemCreateChildWithID: a full pool still consumes ammo and enters
-        // the twelve-update post-shot state, without creating a projectile.
-        if (_entities.DynamicItemSlotAvailable)
-            _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
-                player.PrecisePosition,
-                DirectionForAngle(_shooterAngle),
-                record,
-                _rooms.ActiveGroup,
-                SeedLaunchKind.Shooter,
-                _shooterAngle,
-                player.ItemCreationZFixed));
-        else
-            _entities.WriteReservedBraceletAngle(_shooterAngle * 4);
-        if (!_inventory.TryConsumeSelectedShooterSeed(out int consumed) ||
-            consumed != seedItem)
-        {
-            throw new System.InvalidOperationException(
-                $"Shooter child ${seedItem:x2} was allocated without its selected BCD seed count.");
-        }
-        _playSound(_shooter.Sound);
-        _shooterFired = true;
-        _shooterPostShotCounter = _shooter.PostShotWait;
-    }
-
-    private bool UpdateShooterAngle(Vector2 input, bool directionJustPressed)
-    {
-        if (!directionJustPressed)
-        {
-            _shooterAimCounter = (_shooterAimCounter - 1) & 0xff;
-            if (_shooterAimCounter != 0)
-                return false;
-        }
-        if (input.LengthSquared() <= 0.01f)
-            return false;
-        int requested = AngleForInput(input);
-        if (requested != _shooterAngle)
-        {
-            int clockwise = (requested - _shooterAngle + 8) & 7;
-            _shooterAngle = (_shooterAngle + (clockwise is > 0 and < 4 ? 1 : -1)) & 7;
-            _shooterAimCounter = _shooter.AimLockout;
-            return true;
-        }
-        return false;
-    }
-
-    private void ClearShooter()
-    {
-        _shooterActive = false;
-        _shooterFired = false;
-        _shooterAimCounter = 0;
-        _shooterPostShotCounter = 0;
-    }
-
-    private static int AngleForDirection(Vector2I direction) =>
-        direction == Vector2I.Up ? 0 :
-        direction == Vector2I.Right ? 2 :
-        direction == Vector2I.Down ? 4 :
-        direction == Vector2I.Left ? 6 :
-        throw new System.ArgumentOutOfRangeException(nameof(direction));
-
-    private static int AngleForInput(Vector2 input)
-    {
-        double radians = System.Math.Atan2(input.X, -input.Y);
-        return (int)System.Math.Round(radians / (System.Math.PI / 4.0),
-            System.MidpointRounding.AwayFromZero) & 7;
-    }
-
-    private static Vector2I DirectionForAngle(int angle) => angle switch
-    {
-        ObjectAngle.Up => Vector2I.Up,
-        1 => new Vector2I(1, -1),
-        2 => Vector2I.Right,
-        3 => Vector2I.One,
-        4 => Vector2I.Down,
-        5 => new Vector2I(-1, 1),
-        6 => Vector2I.Left,
-        7 => new Vector2I(-1, -1),
-        _ => throw new System.ArgumentOutOfRangeException(nameof(angle))
-    };
-}
-
-internal readonly record struct SeedShooterRecord(
-    int Item,
-    int SpeedRaw,
-    int Bounces,
-    int AimLockout,
-    int PostShotWait,
-    int Sound,
-    Vector2I[] Offsets,
-    byte[][] NonBounceTiles,
-    byte[][] ItemPassableTiles,
-    string WeaponSprite,
-    int WeaponVramTileBase,
-    int WeaponPalette,
-    bool WeaponSourceGrayscaleInverted,
-    string[] WeaponOam,
-    string Source)
-{
-    internal static SeedShooterRecord Load(string assetRoot)
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            assetRoot + "metadata/seed_shooter.tsv",
-            new GeneratedTableSchema(
-                "seed shooter",
-                GeneratedTableKeySemantics.Unique,
-                ["item", "speed-raw", "bounces", "aim-lockout",
-                    "post-shot-wait", "sound", "offsets",
-                    "non-bounce-tiles", "item-passable-tiles",
-                    "weapon-sprite", "weapon-vram-tile-base",
-                    "weapon-palette", "weapon-source-grayscale-inverted",
-                    "weapon-oam", "source"],
-                ["item"],
-                headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new System.InvalidOperationException("Expected one ITEM_SHOOTER record.");
-        GeneratedTableRow row = table.Rows[0];
-        Vector2I[] offsets = System.Array.ConvertAll(
-            row.RequiredString(6).Split(';'), value =>
-            {
-                string[] pair = value.Split(',');
-                if (pair.Length != 2 ||
-                    !int.TryParse(pair[0], out int y) ||
-                    !int.TryParse(pair[1], out int x))
-                {
-                    throw row.Invalid(6, "eight y,x offset pairs");
-                }
-                return new Vector2I(x, y);
-            });
-        byte[][] nonBounce = ParseItemPassableTiles(row.RequiredString(7), row, 7);
-        byte[][] passableTiles = ParseItemPassableTiles(
-            row.RequiredString(8), row, 8);
-        string[] weaponOam = row.RequiredString(13).Split('|');
-        var record = new SeedShooterRecord(
-            row.HexByte(0), row.HexByte(1),
-            row.UnsignedDecimal(2), row.UnsignedDecimal(3),
-            row.UnsignedDecimal(4), row.HexByte(5), offsets,
-            nonBounce, passableTiles, row.RequiredString(9),
-            row.HexByte(10), row.HexByte(11), row.Boolean01(12), weaponOam,
-            row.RequiredString(14));
-        if (record.Item != TreasureId.Shooter ||
-            record.SpeedRaw != ObjectSpeed.Speed300 || record.Bounces != 3 ||
-            record.AimLockout != 16 || record.PostShotWait != 12 ||
-            record.Sound != SoundId.SndSeedShooter || offsets.Length != 8 ||
-            record.NonBounceTiles.Length != 6 ||
-            record.NonBounceTiles[0].Length != 9 ||
-            record.NonBounceTiles[2].Length != 2 ||
-            record.ItemPassableTiles.Length != 6 ||
-            record.ItemPassableTiles[0].Length != 2 ||
-            record.ItemPassableTiles[1].Length != 3 ||
-            record.ItemPassableTiles[2].Length != 16 ||
-            record.ItemPassableTiles[3].Length != 0 ||
-            record.ItemPassableTiles[4].Length != 2 ||
-            record.ItemPassableTiles[5].Length != 16 ||
-            record.WeaponSprite != "spr_seed_shooter" ||
-            record.WeaponVramTileBase != 0x52 ||
-            record.WeaponPalette != 0 ||
-            record.WeaponSourceGrayscaleInverted ||
-            record.WeaponOam.Length != 8)
-        {
-            throw new System.InvalidOperationException(
-                "Imported ITEM_SHOOTER contract is incomplete.");
-        }
-        return record;
-    }
-
-    internal bool CanPassSolidTile(OracleRoomData room, Vector2 point)
-    {
-        int collisionSet = room.ActiveCollisions;
-        return collisionSet >= 0 && collisionSet < ItemPassableTiles.Length &&
-            System.Array.IndexOf(
-                ItemPassableTiles[collisionSet],
-                room.GetMetatile(point)) >= 0;
-    }
-
-    internal bool DoesNotBounce(OracleRoomData room, byte tile) =>
-        System.Array.IndexOf(NonBounceTiles[room.ActiveCollisions], tile) >= 0;
-
-    private static byte[][] ParseItemPassableTiles(
-        string encoded,
-        GeneratedTableRow row,
-        int column = 9)
-    {
-        string[] groups = encoded.Split(';');
-        if (groups.Length != 6)
-            throw row.Invalid(column, "six collision-set tile lists");
-        var result = new byte[groups.Length][];
-        for (int index = 0; index < groups.Length; index++)
-        {
-            string[] pair = groups[index].Split(':');
-            if (pair.Length != 2 ||
-                !int.TryParse(pair[0], out int collisionSet) ||
-                collisionSet != index)
-            {
-                throw row.Invalid(
-                    column, "ordered collision-set:tile-list entries");
-            }
-            if (pair[1].Length == 0)
-            {
-                result[index] = [];
-                continue;
-            }
-            string[] tiles = pair[1].Split(',');
-            result[index] = new byte[tiles.Length];
-            for (int tileIndex = 0; tileIndex < tiles.Length; tileIndex++)
-            {
-                if (!byte.TryParse(
-                        tiles[tileIndex], out result[index][tileIndex]))
-                {
-                    throw row.Invalid(column, "decimal byte tile lists");
-                }
-            }
-        }
-        return result;
     }
 }

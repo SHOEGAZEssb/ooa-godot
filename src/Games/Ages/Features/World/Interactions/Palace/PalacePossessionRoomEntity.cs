@@ -227,7 +227,7 @@ internal sealed class PalacePossessionRoomEntity : CutsceneCommandHost, IRoomEnt
         switch (parts[0])
         {
             case "Exclaim": _owner.OnSoundRequested(SoundId.SndCtrlStopMusic);
-                if (_owner.InteractionSlotAvailable) _owner.CreatePalaceExclamation(Node.Position+new Vector2(8,-12),24); break;
+                if (_owner.InteractionSlotAvailable) _owner.TryCreateExclamation(Node.Position+new Vector2(8,-12),24); break;
             case "MoveLink": _player.RequestNativeForcedMovement(8,0,0); break;
             case "Sound": _owner.OnSoundRequested(int.Parse(parts[1])); break;
             case "Swirl": _owner.CreateEnergySwirl(Node.Position,0xff); break;

@@ -13,6 +13,9 @@ internal interface IRoomEvent
     void ResumeObjectUpdate() { }
     void UpdateSpecialObjectFrame() { }
     bool UpdatesInObjectPhases => false;
+    // Resource owners dispatched by native slots or main-thread phases have
+    // no additional turn in the legacy room-event update lane.
+    bool RequiresRoomEventUpdate => true;
     void UpdatePartFrame() { }
     bool FreezesNonInteractionObjects => false;
     bool MenusDisabled => false;

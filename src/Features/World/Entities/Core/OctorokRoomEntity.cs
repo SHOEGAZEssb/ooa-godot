@@ -23,8 +23,7 @@ internal sealed class OctorokRoomEntity
                 octorok.TakeSwordHit,
                 octorok.TakeBurnHit,
                 octorok.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback))
+                soundRequested))
     { }
 
     protected override bool Stunned => Entity.StunCounter != 0;
@@ -38,8 +37,10 @@ internal sealed class OctorokRoomEntity
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.UpdateFrame(
-                frame.Player.Position, frame.ScentSeedTarget, frame.Counter))
-            spawns.Add(new OctorokRockSpawn(Entity.Position, Entity.Angle));
+                frame.LinkTarget ?? frame.Player.EnemyContactPosition, frame.ScentSeedTarget, frame.Counter))
+            // ecom_spawnProjectile copies the parent's high XY bytes only.
+            spawns.Add(new OctorokRockSpawn(new(OracleObjectPosition.HighByte(Entity.Position.X),
+                OracleObjectPosition.HighByte(Entity.Position.Y)), Entity.Angle));
     }
 
 }

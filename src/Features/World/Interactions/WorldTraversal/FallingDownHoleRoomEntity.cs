@@ -8,4 +8,8 @@ namespace Oracles;
 internal sealed class FallingDownHoleRoomEntity(FallingDownHoleEffect effect)
     : FixedEffectRoomEntityAdapter<FallingDownHoleEffect>(effect),
         IUpdatesDuringDialogueRoomEntity,
-        IUpdatesDuringRoomEntityFreeze;
+        IUpdatesDuringRoomEntityFreeze,
+        IAlwaysUpdateDuringScreenTransitionRoomEntity
+{
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame) => Entity.UpdateFrame();
+}

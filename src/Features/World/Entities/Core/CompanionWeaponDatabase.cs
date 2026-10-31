@@ -16,7 +16,7 @@ internal sealed class CompanionWeaponDatabase
     {
         AssetRoot = assetRoot;
 
-        var table = GeneratedTable.Load(AssetRoot + "cutscenes/companion_weapons.tsv",
+        var table = GeneratedTable.Load(AssetRoot + "metadata/companion_weapons.tsv",
             new GeneratedTableSchema("companion weapon attributes", GeneratedTableKeySemantics.Unique,
                 ["item", "collision-type", "damage", "source"], ["item"], headerRequired: true));
         foreach (var row in table.Rows)

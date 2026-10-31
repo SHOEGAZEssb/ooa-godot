@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
         _currentRoom.SetPositionTileAndCollision(_player.Position, 0x2e, 0x0f, (long)_animationTicks);
         FailIf(!_player.ApplyDamage(_player.MaxHealthQuarters) || !_player.IsDying,
             "Lethal damage must publish the pending death flag.");
-        _entities.Update(1.0 / 60, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(!_player.SideScrollSquished || _player.SquishAnimation is not null || _player.DeathAnimationActive,
             "The detector must queue state$11 while lethal damage is pending, without initializing either state.");
         Step();

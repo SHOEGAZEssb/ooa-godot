@@ -27,14 +27,14 @@ internal sealed class CutsceneSpriteRenderer
 
     public void DrawScreenFrame(
         CanvasItem target,
-        IntroSpriteFrame frame,
+        ObjectSpriteFrame frame,
         int objectY,
         int objectX)
     {
         // Lower OAM indices cover higher indices, so compose in reverse.
         for (int index = frame.Parts.Length - 1; index >= 0; index--)
         {
-            IntroOamPart part = frame.Parts[index];
+            ObjectSpritePart part = frame.Parts[index];
             int rawY = (objectY + part.Y) & 0xff;
             int rawX = (objectX + part.X) & 0xff;
             if (rawY >= 0xa0 || rawX >= 0xa8)
@@ -48,7 +48,7 @@ internal sealed class CutsceneSpriteRenderer
 
     public void DrawRelativeFrame(
         CanvasItem target,
-        IntroSpriteFrame frame,
+        ObjectSpriteFrame frame,
         int z)
     {
         // Player.Position is the existing port's sprite center. Subtract the
@@ -56,7 +56,7 @@ internal sealed class CutsceneSpriteRenderer
         // without moving when the slow fall reaches z=0.
         for (int index = frame.Parts.Length - 1; index >= 0; index--)
         {
-            IntroOamPart part = frame.Parts[index];
+            ObjectSpritePart part = frame.Parts[index];
             target.DrawTexture(
                 CellTexture(frame, part),
                 new Vector2(ToSignedByte(part.X) - 8, ToSignedByte(part.Y) - 16 + z));
@@ -64,8 +64,8 @@ internal sealed class CutsceneSpriteRenderer
     }
 
     internal Texture2D CellTexture(
-        IntroSpriteFrame frame,
-        IntroOamPart part)
+        ObjectSpriteFrame frame,
+        ObjectSpritePart part)
     {
         int palette = (frame.BasePalette ^ part.Flags) & 0x07;
         bool flipX = (part.Flags & 0x20) != 0;

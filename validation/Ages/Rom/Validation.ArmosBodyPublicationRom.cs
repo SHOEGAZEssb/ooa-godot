@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
-            var adapter=new ArmosWarriorRoomEntity(body,body.Entry);_entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
+            var adapter=new ArmosWarriorRoomEntity(body);_entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
             var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);

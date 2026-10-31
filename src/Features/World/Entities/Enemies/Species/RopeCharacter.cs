@@ -9,11 +9,11 @@ internal partial class RopeCharacter : EnemyCharacter, ITerrainShadowSource
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
     private RopeBehaviorProfile? _behaviorSourceCache;
-    private RopeBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Rope;
+    private RopeBehaviorProfile _behavior => _behaviorSourceCache ??= RopeDatabase.For(AssetRoot).Behavior;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private ScentSeedAttraction? _scentAttractionCache;
-    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new();
     private RopeState _state;
     private int _counter;
     private int _cooldown;
@@ -65,20 +65,17 @@ internal partial class RopeCharacter : EnemyCharacter, ITerrainShadowSource
             room,
             EnemyKnockbackMotion.Terrain,
             checksHazards: true);
-        _speed = _behavior.WanderSpeedRaw;
         ConfigureHazards(room, zPosition: () => _zFixed);
         _state = RopeState.Wandering;
         _scentEnabled = record.SubId != 1;
+        Visible = false;
         if (record.SubId == 1)
         {
-            Visible = false;
             _state = RopeState.FallSetup;
         }
         if (record.SubId is 2 or 3)
         {
-            Visible = false;
             _state = RopeState.SpawnSetup;
-            _speed = _behavior.CooldownSpeedRaw;
         }
     }
 
@@ -90,6 +87,7 @@ internal partial class RopeCharacter : EnemyCharacter, ITerrainShadowSource
             // stays invisible; its fall-delay RNG belongs to the next state.
             _initialized = true;
             _scentAttraction.Initialize(_random.Next().Value);
+            _speed = _behavior.WanderSpeedRaw;
             Visible = Record.SubId != 1;
         }
         return Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;

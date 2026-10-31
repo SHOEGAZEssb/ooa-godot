@@ -53,7 +53,8 @@ public sealed partial class ValidationRoot
                 "Room 0:78 $3d:$04 did not appear at source Y/X $18/$28 after linked+D4.");
             ApproachLibraryActor(npc, batched);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-            FailIf(!_dialogue.ChoiceActive || !_player.CutsceneControlled ||
+            FailIf(!_dialogue.ChoiceActive || _player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 !PlainWords(_dialogue.CurrentMessage).Contains("useful tip", StringComparison.Ordinal),
                 "Room 0:78 old lady was unreachable or did not present TX_4d00.");
             _dialogue.SubmitChoiceForValidation(1);
@@ -105,7 +106,8 @@ public sealed partial class ValidationRoot
                 "Room 0:78 Yes did not show TX_4d04.");
             _dialogue.Close();
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x50),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x50),
                 "Room 0:78 final text did not release Link and retain flag $50.");
             ApproachLibraryActor(npc, batched);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
@@ -115,7 +117,8 @@ public sealed partial class ValidationRoot
                 "Room 0:78 second A press did not revisit the source explanation.");
             LoadValidationRoom(0, 0x79);
             _dialogue.Close();
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x50),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x50),
                 "Room 0:78 cancellation did not release input or retain flag $50.");
         }
         GD.Print("Validated room 0:78 $3d:$04 linked+D4 admission, reachable choices, TX_4d00-TX_4d04 waits, Clock Shop secret $20, repeat and cancellation in split/batched updates.");

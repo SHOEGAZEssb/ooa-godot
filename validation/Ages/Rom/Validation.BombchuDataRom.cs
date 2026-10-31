@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateBombchuDataRom()
     {
-        var data = new BombchuDatabase();
+        var data = new BombchuDatabase(AgesGameContent.AssetRoot);
         CompareBombCollisionDataRom();
         var nativeAnimation = new ObjectAnimationRom(3, 0x0d);
         var node = new Node2D();

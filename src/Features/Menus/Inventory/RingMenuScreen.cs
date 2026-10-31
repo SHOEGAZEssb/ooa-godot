@@ -45,7 +45,7 @@ public partial class RingMenuScreen : Node2D
     private Texture2D? _background;
     private ImageTexture? _composedTexture;
     private InventoryState _inventory = null!;
-    private MenuPresentationDatabase _layouts = null!;
+    private RingPresentationDatabase _layouts = null!;
     private readonly FixedUpdateAccumulator _animationUpdates = new();
     private int _listCursorFlickerCounter;
     private int _boxCursorFlickerCounter;
@@ -157,7 +157,7 @@ public partial class RingMenuScreen : Node2D
     {
         if (_inventory is not null)
             _inventory.Changed -= OnInventoryChanged;
-        _layouts = MenuPresentationDatabase.For(AssetRoot);
+        _layouts = RingPresentationDatabase.For(AssetRoot);
         _inventory = inventory;
         _inventory.Changed += OnInventoryChanged;
     }
@@ -742,7 +742,7 @@ public partial class RingMenuScreen : Node2D
     private Vector2 ListCursorPosition(int index)
     {
         MenuOamPart cursor =
-            MenuPresentationDatabase.For(AssetRoot).RingOam("list-cursor")[0];
+            RingPresentationDatabase.For(AssetRoot).RingOam("list-cursor")[0];
         return FileMenuPresentation.OamScreenPosition(
             cursor,
             yOffset: index < 8 ? 0x3e : 0x56,

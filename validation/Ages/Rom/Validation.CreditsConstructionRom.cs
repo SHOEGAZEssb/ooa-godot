@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
                 bool justReloaded=!sawReload&&_currentRoom.Id==0x38;sawReload|=justReloaded;
                 if(update==1||justReloaded)
                 {
-                    using var image=_scene.EndingScreen.BackgroundTexture!.GetImage();
+                    using var image=_endingScreen.BackgroundTexture!.GetImage();
                     // Fixed tile samples cover both imported top-row overlays.
                     for(int y=0;y<144;y+=8)for(int x=0;x<160;x+=8)
                     {
@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
             {
                 while(owner.State==2)StepGameplayUpdates(1,Vector2.Zero,afterUpdate:()=>
                 {rom.AdvanceWarpPalette();rom.AdvanceBlackTowerEnding();rom.UpdateCredits(++update);FailIf(owner.State!=rom[0xcbc2],"Construction caption must wait for white fade completion.");});
-                FailIf(owner.State!=3||_runtimeState.ReadWramByte(0xcbb3)!=90||rom[0xcbb3]!=90||!_scene.EndingScreen.Visible||_runtimeState.ReadWramByte(0xc486)!=0,
+                FailIf(owner.State!=3||_runtimeState.ReadWramByte(0xcbb3)!=90||rom[0xcbb3]!=90||!_endingScreen.Visible||_runtimeState.ReadWramByte(0xc486)!=0,
                     "The fourth caption must begin with its 90-update hold and restored SCY.");
             }
             owner.Cancel();StepGameplayUpdates(2,Vector2.Zero);

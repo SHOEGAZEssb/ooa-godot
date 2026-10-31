@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
                         context+": shared contact/queue count differs.");
                     for (int id = 0; id < 256; id++)
                         FailIf(_saveData.GetRoomFlags(4,id) != rom[0xc900+id],$"{context}: room flags$4:${id:x2} differ.");
-                    var puffs = _entities.Entities<PuzzlePuffEffect>().OrderBy(_entities.InteractionSlot).ToArray();
+                    var puffs = _entities.Entities<StationaryDebrisEffect>().OrderBy(_entities.InteractionSlot).ToArray();
                     int[] slots = Enumerable.Range(0xd2,14).Select(page => page*256+0x40)
                         .Where(slot => rom[slot] != 0 && rom[slot+1] == 5).ToArray();
                     FailIf(puffs.Length != slots.Length,context+": physical puff count differs.");
@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
                 $"Capacity contention must follow the real lock approach: block={spec.Block}, free={spec.Free}, fullQueue={spec.QueueFull}, counter={rom[0xcc6a]}/{boundary}, Link={_player.PrecisePosition}, collision={_collision.Collides(_player.Position)}, keys={_inventory.GetDungeonSmallKeys(5)}.");
             for (int i = 0; i < 14-spec.Free; i++)
             {
-                var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+                var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
                 int slot = 0xd000+_entities.InteractionSlot(puff)*256+0x40;
                 rom[slot] = 1; rom[slot+1] = 5; rom[slot+2] = 0x80;
                 rom[slot+0xb] = rom[slot+0xd] = 24;
@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
             FailIf(_inventory.GetDungeonSmallKeys(5) != 0 || !_saveData.HasRoomFlag(4,room,flag) ||
                 keys.Count != (spec.Free > 0 ? 1 : 0) ||
                 keys.Count != 0 && _entities.InteractionSlot(keys.Single()) != 16-spec.Free ||
-                _entities.Entities<PuzzlePuffEffect>().Count != 14-spec.Free+(spec.Block && spec.Free == 2 ? 1 : 0) ||
+                _entities.Entities<StationaryDebrisEffect>().Count != 14-spec.Free+(spec.Block && spec.Free == 2 ? 1 : 0) ||
                 _currentRoom.GetMetatile(center) != (spec.Block && !spec.QueueFull ? 0xa0 : spec.Block ? 0x1e : 0x71),
                 "Native lock must debit/set flags despite capacity failure, allocate key before puff, and preserve a rejected tile write.");
             if (!spec.Block && spec.QueueFull)
@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
             }
             Step(36);
             FailIf(_keyDoors.Opening || _entities.Entities<DungeonKeyUseEffect>().Count != 0 ||
-                _entities.Entities<PuzzlePuffEffect>().Count != 0 || !_entities.InteractionSlotAvailable ||
+                _entities.Entities<StationaryDebrisEffect>().Count != 0 || !_entities.InteractionSlotAvailable ||
                 sounds.Requests.Count(cue => cue == SoundId.SndGetSeed) != (spec.Free > 0 ? 1 : 0),
                 "Retired native effects must free capacity without retrying allocations or debiting another key.");
             Step(4,direction);

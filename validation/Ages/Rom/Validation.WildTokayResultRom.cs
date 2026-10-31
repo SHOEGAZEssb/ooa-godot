@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             int at=0xd040+_entities.InteractionSlot(slot.Npc)*256;native[at]=1;native[at+1]=0x48;native[at+2]=(byte)slot.Npc.Record.SubId;native[at+11]=(byte)slot.Npc.Position.Y;native[at+13]=(byte)slot.Npc.Position.X;
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                var puff=new StationaryDebrisEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int p=0xd040+_entities.InteractionSlot(puff)*256;native[p]=1;native[p+1]=0x48;native[p+2]=0x1b;native[p+4]=1;
             }
             string source=$"Wild result/present{present}/lost{lost}/prize{prize}/free{free}/batch{batch}";int updates=0,held=0;

@@ -10,7 +10,7 @@ internal sealed class OctogonRoomEntity(OctogonCharacter actor,OctogonRoomEnviro
         ISwordHittableRoomEntity, IPostObjectMeleeCollisionRoomEntity, ILinkSwordStateAwareRoomEntity,
         IPostObjectItemCollisionRoomEntity, IObjectCollisionHeightRoomEntity, IPostObjectLinkContactRoomEntity,
         ISeedCollisionTarget, IBoomerangCollisionRoomEntity, ISwitchHookHittableRoomEntity,
-        ISomariaBlockCollisionRoomEntity, IExpertPunchHittableRoomEntity, IBombCollisionRoomEntity, IPlayerForcedMovement,
+        ISomariaBlockCollisionRoomEntity, IExpertPunchHittableRoomEntity, IBombCollisionRoomEntity,
         IScreenTransitionPreloadRoomEntity, ISwordAttackerKnockbackRoomEntity, IBossShutterState
 {
     private readonly OctogonBehaviorProfile _data = OctogonBehaviorProfile.Shared;
@@ -26,7 +26,6 @@ internal sealed class OctogonRoomEntity(OctogonCharacter actor,OctogonRoomEnviro
     private IReadOnlyList<int> Effects => Entity.ShellForm ? _data.ShellEffects : _data.BodyEffects;
     public void BindEnemySlot(int slot,Func<int,IRoomEntity?> resolve) => Entity.Slot = slot;
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(frame);
-    public void UpdatePlayerForcedMovement(Player player) { if (!Entity.ShellForm && !Finished) world.Entry.Update(player); }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns) => PrepareForScreenTransition(null,spawns);
     public ScreenTransitionPresentation PrepareForScreenTransition(Player? player,ICollection<RoomEntitySpawn> spawns)
     {

@@ -12,6 +12,7 @@ public sealed partial class ValidationRoot
         ValidateMapleImportedContract();
         ValidateMapleInventoryDrops();
         ValidateMapleSpawnThresholds();
+        ValidateMapleSpecialObjectAdmission();
         ValidateMapleTargetOrdering();
         ValidateMapleRewards();
         ValidateMaplePastEncounter();
@@ -20,7 +21,7 @@ public sealed partial class ValidationRoot
         ValidateMapleLinkedVehicle();
 
         GD.Print(
-            "Validated Maple's 119 eligible locations, 30/15-kill thresholds, " +
+            "Validated Maple's 110 native bitmap locations, 30/15-kill thresholds, " +
             "76 full positioned OAM frames with per-tile partial graphics retention, " +
             "one-cell alternating terrain shadow, shared RNG entrance, unsigned 8.8 " +
             "path wrapping, opaque on-screen broom/vacuum/UFO entry, exact Link-drop bugs, " +
@@ -32,6 +33,7 @@ public sealed partial class ValidationRoot
     private void ValidateMapleScreenTransitionLock()
     {
         LoadValidationRoom(1, 0x02);
+        _runtimeState.SetField("wScrollMode", 1); // Native boundary polling is admitted only in mode $01.
         Func<bool> previousDisabledSource =
             _transitions.ScreenTransitionsDisabledSource;
         _transitions.ScreenTransitionsDisabledSource = static () => true;
@@ -47,7 +49,7 @@ public sealed partial class ValidationRoot
             foreach ((Vector2 attempt, Vector2 expected) in boundaries)
             {
                 _player.WarpTo(attempt, recordSafe: false);
-                _playerWorld.CheckRoomExit(_player);
+                _transitions.CheckRoomExit(_player);
                 FailIf(
                     _transitions.IsTransitioning ||
                     _rooms.ActiveGroup != 1 ||
@@ -69,19 +71,20 @@ public sealed partial class ValidationRoot
     private void ValidateMapleImportedContract()
     {
         var database = new MapleEventDatabase(AgesGameContent.AssetRoot);
+        var admission = MapleAdmissionData.For(AgesGameContent.AssetRoot);
         MaplePathRecord shadow = database.Path(MaplePathKind.Shadow, 0);
         MaplePathRecord movement = database.Path(MaplePathKind.Movement, 7);
         FailIf(
-            database.LocationCount != 119 ||
+            admission.LocationCount != 110 ||
             database.PathStepCount != 61 ||
             database.ItemCount != 14 ||
             database.Visual.Animations.Length != 32 ||
-            !database.IsEligibleLocation(0, 0x01, 0) ||
-            !database.IsEligibleLocation(0, 0x01, 1) ||
-            !database.IsEligibleLocation(0, 0x01, 2) ||
-            !database.IsEligibleLocation(1, 0x02, 0) ||
-            database.IsEligibleLocation(0, 0x03, 0) ||
-            database.IsEligibleLocation(2, 0x02, 0) ||
+            !admission.IsEligibleLocation(0, 0x01, 0) ||
+            !admission.IsEligibleLocation(0, 0x01, 0x0c) ||
+            !admission.IsEligibleLocation(0, 0x01, 0x0d) ||
+            !admission.IsEligibleLocation(1, 0x02, 0) ||
+            admission.IsEligibleLocation(0, 0x03, 0) ||
+            admission.IsEligibleLocation(2, 0x02, 0) ||
             shadow is not
                 { StartY: 0x10, StartX: 0xb8, TurnDelay: 2 } ||
             shadow.Steps.Count != 5 ||
@@ -100,7 +103,9 @@ public sealed partial class ValidationRoot
                 "\\col(0x84)\\item(0x09)",
                 StringComparison.Ordinal) ||
             database.Constant("normal-kill-threshold") != 30 ||
-            database.Constant("ring-kill-threshold") != 15,
+            database.Constant("ring-kill-threshold") != 15 ||
+            database.Constant("birth-y") != 0x18 || database.Constant("birth-x") != 0xb8 ||
+            database.Constant("initial-y") != 0x10 || database.Constant("initial-x") != 0xb8,
             "The imported Maple location/path/visual/item/text contract changed.");
         _dialogue.ShowMessage(database.Text(0x070e), 0x48);
         FailIf(
@@ -319,9 +324,20 @@ public sealed partial class ValidationRoot
 
         harness.Save.SetMapleKillCounter(30);
         harness.Load();
+        bool rejectedCapture = false;
+        try { harness.Manager.CaptureDebugState(); }
+        catch (NotSupportedException error) when (error.Message.Contains("$0e")) { rejectedCapture = true; }
+        FailIf(harness.Manager.CanCaptureDebugState || !rejectedCapture,
+            "Maple's active source state and path cannot be silently lost in a debug room reconstruction.");
         FailIf(
             harness.Manager.Entities<MapleEncounter>().Count != 1 ||
-            harness.Save.MapleKillCounter != 0,
+            harness.Save.MapleKillCounter != 0 ||
+            harness.Manager.RuntimeState.ReadWramByte(0xd100) != 1 ||
+            harness.Manager.RuntimeState.ReadWramByte(0xd101) != 0x0e ||
+            harness.Manager.RuntimeState.ReadWramByte(0xd10b) != 0x18 ||
+            harness.Manager.RuntimeState.ReadWramByte(0xd10d) != 0xb8 ||
+            harness.Manager.RuntimeState.ReadField("wIsMaplePresent") != 1 ||
+            harness.Manager.RuntimeState.ReadField("wcc85") != 1,
             "An eligible present room did not spawn Maple and reset her kill counter.");
 
         harness.Inventory.GiveTreasure(
@@ -344,6 +360,80 @@ public sealed partial class ValidationRoot
             harness.Manager.Entities<MapleEncounter>().Count != 1 ||
             harness.Save.MapleKillCounter != 0,
             "Maple's Ring did not lower the encounter boundary to 15 kills.");
+    }
+
+    private void ValidateMapleSpecialObjectAdmission()
+    {
+        // roomInitialization.s tests enabled before resetting kills or writing
+        // the header. Every occupied native ID blocks, including non-animals.
+        foreach (int id in Enumerable.Range(0x0a, 0x0a))
+        {
+            using var harness = new MapleValidationHarness(this, 0, 0x01);
+            var memory = harness.Manager.RuntimeState;
+            harness.Save.WriteField("wCompanionStates", 0x80);
+            harness.Save.WriteField("wDimitriState", 0x80);
+            harness.Save.WriteField("wMooshState", 0x80);
+            CompanionRuntimeState.Begin(memory, id, new(72.75f, 64.25f), 2);
+            memory.SetWramByte(0xd104, id == 0x13 ? (byte)1 : (byte)5);
+            memory.SetWramByte(0xd13d, 0x96);
+            memory.SetWramByte(0xd13e, 0x69);
+            byte[] before = Enumerable.Range(0xd100, 0x40).Select(memory.ReadWramByte).ToArray();
+            harness.Save.SetMapleKillCounter(30);
+            memory.SetField("wIsMaplePresent", 1);
+            harness.Load();
+            FailIf(harness.Manager.Entities<MapleEncounter>().Count != 0 ||
+                harness.Save.MapleKillCounter != 30 || memory.ReadField("wIsMaplePresent") != 0 ||
+                memory.ReadField("wcc85") != 0 ||
+                !Enumerable.Range(0xd100, 0x40).Select(memory.ReadWramByte).SequenceEqual(before),
+                $"checkAndSpawnMaple must preserve occupied SPECIALOBJECT ${id:x2} and kills while clearing only its presence signal.");
+        }
+        ReinitializeGameplayForValidation();
+        _saveData.SetMapleKillCounter(30);
+        CompanionRuntimeState.Remember(_runtimeState, 0x0b, 0, 0x01, new(72, 64));
+        LoadValidationRoom(0, 0x01);
+        FailIf(_entities.EntityAdapters<RickyScriptedCompanionRoomEntity>().Count() != 1 ||
+            _entities.Entities<MapleEncounter>().Count != 0 || _saveData.MapleKillCounter != 30 ||
+            _runtimeState.ReadWramByte(0xd100) != 1 || _runtimeState.ReadWramByte(0xd101) != 0x0b ||
+            _runtimeState.ReadField("wIsMaplePresent") != 0,
+            "loadRememberedCompanion must occupy $d100 before checkAndSpawnMaple, preserving the 30-kill threshold.");
+        using (var harness = new MapleValidationHarness(this, 0, 0x01))
+        {
+            var memory = harness.Manager.RuntimeState;
+            harness.Save.SetMapleKillCounter(30);
+            memory.SetWramByte(0xd10a, 0x40);
+            memory.SetWramByte(0xd10c, 0xc0);
+            memory.SetWramByte(0xd10e, 0x20);
+            harness.Load();
+            var maple = harness.Manager.Entities<MapleEncounter>().Single();
+            FailIf(maple.BookTargetPosition != new Vector2(184.75f, 24.25f),
+                "checkAndSpawnMaple must retain the native XY fractions at birth Y=$18.");
+            harness.Step();
+            FailIf(maple.BookTargetPosition != new Vector2(184.75f, 16.25f) ||
+                memory.ReadWramByte(0xd104) != 1 || memory.ReadWramByte(0xd10a) != 0x40 ||
+                memory.ReadWramByte(0xd10b) != 0x10 || memory.ReadWramByte(0xd10c) != 0xc0 ||
+                memory.ReadWramByte(0xd10d) != 0xb8 || memory.ReadWramByte(0xd10e) != 0x20 ||
+                memory.ReadWramByte(0xd10f) != 0x88 || memory.ReadField("wcc85") != 0,
+                "mapleState0 writes high XYZ only, publishes state1 and clears wcc85 on its first native visit.");
+        }
+        using (var harness = new MapleValidationHarness(this, 0, 0x01))
+        {
+            var memory = harness.Manager.RuntimeState;
+            harness.Save.SetMapleKillCounter(30);
+            memory.SetField("wcc85", 0x80);
+            memory.SetField("wIsMaplePresent", 1);
+            // Entry after reload's range clear, as for a retained scroll flag.
+            var native = new SomariaRom(harness.Save, harness.Manager.Random.CaptureState(),
+                harness.Rooms.CurrentRoom, 2, 80, 80);
+            native[0xcc05] = memory.ReadField("wcc05");
+            native[0xcc85] = 0x80; native[0xcdda] = 1;
+            native[0xcd02] = memory.ReadField("wScreenTransitionDirection");
+            native.InitializeRoomInteractions();
+            harness.Manager.LoadRoom(0, harness.Rooms.CurrentRoom);
+            FailIf(harness.Manager.Entities<MapleEncounter>().Count != 0 ||
+                harness.Save.MapleKillCounter != 30 || memory.ReadField("wcc85") != native[0xcc85] || native[0xcc85] != 0 ||
+                memory.ReadField("wIsMaplePresent") != 0 || CompanionRuntimeState.AnyActive(memory),
+                "initializeRoom must retain kills on Maple's early return, then consume the one-shot $80 pointer gate during ordinary parsing without allocating Maple.");
+        }
     }
 
     private void ValidateMapleTargetOrdering()
@@ -412,6 +502,10 @@ public sealed partial class ValidationRoot
             maple.Stage != MapleEncounterStage.EntryDelay ||
             maple.Vehicle != 0 || maple.Variation != 0 ||
             maple.AnimationIndex != 0x19 ||
+            harness.Manager.RuntimeState.ReadWramByte(0xd104) != 1 ||
+            harness.Manager.RuntimeState.ReadWramByte(0xd10b) != 0x10 ||
+            harness.Manager.RuntimeState.ReadWramByte(0xd10d) != 0xb8 ||
+            harness.Manager.RuntimeState.ReadWramByte(0xd10f) != 0x88 ||
             maple.ShadowTexture.GetWidth() != 8 ||
             maple.ShadowTexture.GetHeight() != 16 ||
             maple.ShadowOffset != new Vector2(-4, 3) ||
@@ -762,12 +856,12 @@ public sealed partial class ValidationRoot
             Inventory = new InventoryState(Treasures, Save, () => -1);
             long tick = 0;
             Rooms = AgesRoomContent.CreateSession(
-                group, room, () => tick, () => tick = 0, Save);
+                group, room, () => tick, () => tick = 0, Save, runtimeState: Inventory.RuntimeState);
             _entities = RoomEntityValidationFixture.Attach(
                 _owner, $"MapleValidation_{group}_{room:x2}", new()
                 {
                     SaveData = Save,
-                    RuntimeState = AgesGameContent.CreateRuntimeState(),
+                    RuntimeState = Inventory.RuntimeState,
                     Inventory = Inventory,
                     AnimationTick = () => tick,
                     Treasures = Treasures,
@@ -797,7 +891,7 @@ public sealed partial class ValidationRoot
             Manager.RoomMusicRequested +=
                 (musicGroup, musicRoom) =>
                     RoomMusic.Add((musicGroup, musicRoom));
-            Interactions = new InteractionController(
+            Interactions = AgesInteractionValidation.Create(
                 Rooms, Manager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
                 Treasures, Dialogue, Scene, roomView,
                 static position => position, () => tick, Inventory,
@@ -805,14 +899,14 @@ public sealed partial class ValidationRoot
         }
 
         internal void Load() =>
-            Manager.LoadRoom(Rooms.ActiveGroup, Rooms.CurrentRoom);
+            Manager.LoadRoom(Rooms.ActiveGroup, Rooms.Load(Rooms.ActiveGroup, Rooms.CurrentRoom.Id));
 
         internal void Step(bool closeDialogue = true)
         {
-            AgesPlayerWorld.FrameCounter =
-                (AgesPlayerWorld.FrameCounter + 1) & 0xff;
+            MainThreadClock.Advance(Save, Manager.RuntimeState);
+            AgesPlayerWorld.FrameCounter = Manager.FrameCounter;
             Manager.UpdateSpecialObjectsBeforePlayer(Player);
-            Manager.Update(1.0 / 60.0, Player);
+            Manager.UpdateObjects(1.0 / 60.0, Player);
             Manager.ResolvePostObjectCollisions(Player);
             if (closeDialogue && Dialogue.IsOpen)
                 Dialogue.Close();

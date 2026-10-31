@@ -9,7 +9,7 @@ public partial class ValidationRoot
 {
     private void ValidateCrownDungeonBeamosSourceData()
     {
-        var data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Beamos;
+        var data = BeamosDatabase.For(AgesGameContent.AssetRoot).Behavior;
         // Independent transcription of enemyCode16 and partCode29 operands.
         FailIf(data.RotationFrames != 5 || data.CooldownFrames != 40 ||
             data.SoundCounter != 11 || data.ChargeFrames != 20 || data.GlowFrames != 20 ||
@@ -114,11 +114,11 @@ public partial class ValidationRoot
             FailIf(incoming.Count != 2 || incoming.Any(x => x.State != 8 || x.Counter != 5 || !x.Visible),
                 "$4:$a4 Beamos state0 must finish before incoming-room presentation.");
             int calls = fixture.Manager.RandomCalls;
-            fixture.Manager.Update(30.0 / 60.0, _player);
+            fixture.Manager.AdvanceEntityFrames(30.0 / 60.0, _player);
             FailIf(incoming.Any(x => x.Counter != 5 || x.Angle != 0) || fixture.Manager.RandomCalls != calls,
                 "$16 must not rotate or consume RNG during room scrolling.");
             fixture.Manager.FinishScreenTransition();
-            fixture.Manager.Update(1.0 / 60.0, _player);
+            fixture.Manager.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(incoming.Any(x => x.State == 0) || fixture.Manager.RandomCalls != calls,
                 "$16 must not repeat state0 when scrolling completes.");
         }

@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.Shooter, 1); _inventory.GiveTreasure(TreasureId.EmberSeeds, 0x20);
             _inventory.SelectShooterSeeds(0); _inventory.SetScriptedEquippedItems(equippedB: 0, equippedA: TreasureId.Shooter);
             for (int index = 0; index < used; index++)
-                _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 4, _ => { }));
+                _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot).Data, 4, _ => { }));
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, (int)_player.Position.X, (int)_player.Position.Y);
             native.InitializeLinkGameplay(); native.InitializeLinkWalkingAnimation();
             // Transfer already-executed original Link/ITEM C bytes, rather
@@ -46,13 +46,13 @@ public sealed partial class ValidationRoot
             native.UpdateGameplay(1, held, angle, _entities.FrameCounter);
             var pot = _bracelet.LiftedObject!;
             Vector2 before = pot.GroundPosition;
-            FailIf(!_seedSatchel.ShooterActive || native[0xd200] == 0 || native[0xd201] != 0x0f ||
+            FailIf(!_seedShooter.ShooterActive || native[0xd200] == 0 || native[0xd201] != 0x0f ||
                 before != new Vector2(native.Word(0xdc0c) / 256f, native.Word(0xdc0a) / 256f) || pot.Angle != 8,
                 "Shooter must start normally while the already-thrown pot still travels right.");
             StepGameplayUpdates(1, Vector2.Zero, batched: batched); native.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
             int expectedAngle = used == 5 ? angle : 8;
             FailIf(_entities.Entities<EmberSeedEffect>().Count != (used == 5 ? 0 : 1) || pot.Angle != expectedAngle || native[0xdc09] != expectedAngle ||
-                _seedSatchel.ShooterPostShotCounter != 12 || _saveData.ReadWramByte(AgesWramAddress.wNumEmberSeeds) != 0x19 || native[AgesWramAddress.wNumEmberSeeds] != 0x19,
+                _seedShooter.ShooterPostShotCounter != 12 || _saveData.ReadWramByte(AgesWramAddress.wNumEmberSeeds) != 0x19 || native[AgesWramAddress.wNumEmberSeeds] != 0x19,
                 $"Full Shooter allocation must still write ITEM$dc angle=${angle:x2}, consume BCD ammo and wait 12; used={used}.");
             void ComparePosition()
             {
@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(3, Vector2.Zero, batched: batched, afterUpdate: () =>
             {
                 elapsed++; native.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter); ComparePosition();
-                FailIf(_seedSatchel.ShooterPostShotCounter != 12 - elapsed, "Shooter alias must preserve each post-shot counter boundary.");
+                FailIf(_seedShooter.ShooterPostShotCounter != 12 - elapsed, "Shooter alias must preserve each post-shot counter boundary.");
             });
             _bracelet.Interrupt(_player, discard: true); LoadValidationRoom(4, 0xa1);
             FailIf(_bracelet.LiftedObject is not null, "Room cancellation must retire the redirected reserved pot.");

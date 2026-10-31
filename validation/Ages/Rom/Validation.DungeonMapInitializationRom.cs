@@ -97,7 +97,7 @@ public sealed partial class ValidationRoot
                 void Step(int count = 1, int pressed = 0)
                 {
                     int edge = pressed;
-                    StepGameplayUpdates(count, Vector2.Right, MenuRomActions(pressed), MenuRomActions(pressed), batched, () =>
+                    StepGameplayUpdates(count, Vector2.Zero, MenuRomActions(pressed), MenuRomActions(pressed), batched, () =>
                     {
                         rom.Update(edge, pressed, _saveData.ReadWramByte(0xc622)); edge = 0; update++;
                         Compare();

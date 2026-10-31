@@ -107,7 +107,7 @@ public partial class ValidationRoot
         foreach (var (roomFlags, enemies) in new[] { (0x40,2),(0,1) })
         {
             var shot = new SmogProjectilePart(data,room,new(40,40),1);
-            var memory = AgesGameContent.CreateRuntimeState();
+            var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
             shot.BindMovementMemory(memory);
             for (int offset = 0; offset < 4; offset++) memory.SetWramByte(0xcec0 + offset, 0xa5);
             try

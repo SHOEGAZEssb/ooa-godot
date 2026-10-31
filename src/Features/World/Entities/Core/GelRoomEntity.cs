@@ -36,8 +36,7 @@ internal sealed class GelRoomEntity
             gel.SetTransitionDrawOffset,
             EnemyCombatDescriptor.FromSource(
                 combatSource,
-                CreateCombat(gel, soundRequested),
-                EnemySwordResponse.NoKnockback, soundRequested: soundRequested),
+                CreateCombat(gel, soundRequested), soundRequested: soundRequested),
             collisionZ: () => gel.ZFixed >> 8)
     { }
 

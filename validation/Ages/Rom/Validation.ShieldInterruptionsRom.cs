@@ -1,6 +1,5 @@
 using Godot;
 using System.Linq;
-using System.Reflection;
 
 namespace Oracles;
 
@@ -33,8 +32,6 @@ public sealed partial class ValidationRoot
             var sounds = _sound.AttachPlayRequestAudit();
             int shield = primary ? 1 : 2, opposite = primary ? 2 : 1;
             int previous = 0, update = 0;
-            T Field<T>(string name) => (T)typeof(Player).GetField(name,
-                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
             void Step(int count = 1, int held = 0)
             {
                 int edge = held & ~previous; previous = held;
@@ -42,10 +39,12 @@ public sealed partial class ValidationRoot
                 {
                     rom.UpdateGameplay(edge, held, 0xff, _entities.FrameCounter); edge = 0;
                     string context = $"Shield interruption ITEM${item:x2} A={primary} batch={batched} update={++update}";
+                    FailIf(_player.GrabStateActive != (rom[0xcc5a] != 0),
+                        $"{context}: the live grab state must include every lift stage before A/B parent allocation.");
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
-                        Field<int>("_shieldParentButton") != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
-                        Field<bool>("_shieldParentInitialized") != (rom[0xd504] != 0),
-                        $"{context}: raised/parent/state runtime={_player.IsUsingShield}/{Field<int>("_shieldParentButton")}/{Field<bool>("_shieldParentInitialized")}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}; lower slots=${rom[0xd200]:x2}/${rom[0xd300]:x2}/${rom[0xd400]:x2}.");
+                        _player.ShieldParentButton != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
+                        _player.ShieldParentInitialized != (rom[0xd504] != 0),
+                        $"{context}: raised/parent/state runtime={_player.IsUsingShield}/{_player.ShieldParentButton}/{_player.ShieldParentInitialized}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}; lower slots=${rom[0xd200]:x2}/${rom[0xd300]:x2}/${rom[0xd400]:x2}.");
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
                         context + ": Link position differs.");
                     FailIf(!sounds.Requests.Where(id => id == SoundId.SndShield).SequenceEqual(rom.Sounds.Where(id => id == SoundId.SndShield)),

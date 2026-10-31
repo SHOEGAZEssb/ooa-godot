@@ -10,7 +10,7 @@ internal partial class SandCrabCharacter : EnemyCharacter, ISwitchHookEnemy, ITe
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private ScentSeedAttraction? _scentAttractionCache;
-    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new();
     private SandCrabState _state;
     private int _counter;
     private int _angle;

@@ -5,7 +5,7 @@ using System.Linq;
 namespace Oracles;
 
 // fakeOctorok.s:greatFairyOctorokCode. Its script runs at the actual object slot.
-internal sealed class SeaFairyEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent
+internal sealed class SeaFairyEvent : RoomCutsceneCommandHost, IRoomEntryEvent
 {
     private readonly CutsceneCommandRunner _runner;
     private readonly ScriptActorBinding<NpcCharacter> _binding = new("Octorok");
@@ -59,7 +59,6 @@ internal sealed class SeaFairyEvent : InteractiveCutsceneCommandHost, IRoomEntry
         Context.Inventory.LoseTreasure(TreasureId.FairyPowder);
         _transformed = true;
         actor.SetActive(false);
-        ReleaseInputControl(); // $11 remains live until CUTSCENE_CLEAN_SEAS takes over.
     }
     internal bool TryInteractNpc(NpcCharacter actor) => !_clean && !_ended && !InputControlHeld && _binding.QueueButton(actor);
     public override bool HasActorBinding(CutsceneActorId actor) => _binding.Matches(actor);
@@ -75,10 +74,8 @@ internal sealed class SeaFairyEvent : InteractiveCutsceneCommandHost, IRoomEntry
     public override void SetDisabledObjects(int value)
     {
         if (value != 0x11) throw UnsupportedCommand($"wDisabledObjects=${value:x2}");
-        Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0x11);
-        EventResources.LockInput(interruptBracelet: false);
+        base.SetDisabledObjects(value);
     }
-    public override void SetMenuEnabled(bool enabled) => Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, (byte)(enabled ? 0 : 1));
     public override void ShowText(int id, string message, int? position) => Context.ShowDialogue(message, position, sourceTextId: id);
     public override void RunNativeHandler(string handler)
     {
@@ -90,11 +87,6 @@ internal sealed class SeaFairyEvent : InteractiveCutsceneCommandHost, IRoomEntry
     public override void ScriptEnded() => _ended = true;
     public void Cancel()
     {
-        if (InputControlHeld || _transformed)
-        {
-            Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
-            Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 0);
-        }
         ReleaseInputControl(); _binding.Clear(); _runner.Clear(); _actor = null; _ended = false; _transformed = false;
     }
 }

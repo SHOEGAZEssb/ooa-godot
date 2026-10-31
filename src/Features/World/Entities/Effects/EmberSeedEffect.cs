@@ -43,6 +43,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private int _loopStart;
     private int _effectLoopStart;
     private int _mysteryEffect;
+    private Func<int>? _mysteryEffectSource;
     private bool _collisionEnabled;
     private bool _scentPublished;
     private ISeedBurnTarget? _burnTarget;
@@ -115,8 +116,11 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         Action<ObjectFellInHoleKind>? objectFellInHole = null,
         SeedLaunchKind launchKind = SeedLaunchKind.Satchel,
         int angle = ObjectAngle.Up,
-        int linkZFixed = 0)
+        int linkZFixed = 0,
+        Func<int>? mysteryEffectSource = null)
     {
+        if (record.AssetRoot != breakables.AssetRoot || room.AssetRoot != record.AssetRoot)
+            throw new ArgumentException("Seed child requires its selected room, terrain and native seed record.");
         AssetRoot = breakables.AssetRoot;
         _record = record;
         _room = room;
@@ -136,18 +140,19 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         // objectApplySpeed treats as stationary independently of speed.
         if (launchKind == SeedLaunchKind.Satchel && record.SeedItem == ItemId.GaleSeed)
             _angle = -1;
-        _shooter = SeedShooterRecord.Load(AssetRoot);
+        _shooter = launchKind == SeedLaunchKind.Shooter ? SeedShooterRecord.Load(AssetRoot) : default;
         _itemCliffs = launchKind == SeedLaunchKind.Shooter ? new ItemCliffDatabase(AssetRoot) : null;
         _shooterElevation = 0;
         _lastShooterTilePosition = 0;
         _lastShooterTile = 0;
         if (launchKind == SeedLaunchKind.Shooter && angle is < 0 or > 7)
             throw new ArgumentOutOfRangeException(nameof(angle));
-        // Vanilla Ages initializes Item.var34 to three for all seed launches.
-        _bouncesRemaining = _shooter.Bounces;
+        // Ages initializes Item.var34 even for Satchel; Seasons leaves it zero.
+        _bouncesRemaining = record.InitialBounces;
         if (record.SeedItem == ItemId.MysterySeed && mysteryEffect is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(mysteryEffect));
-        _mysteryEffect = record.SeedItem == ItemId.MysterySeed ? mysteryEffect : -1;
+        _mysteryEffectSource = record.SeedItem == ItemId.MysterySeed ? mysteryEffectSource : null;
+        _mysteryEffect = record.SeedItem == ItemId.MysterySeed && mysteryEffectSource is null ? mysteryEffect : -1;
         _precisePosition = linkPosition +
             (launchKind == SeedLaunchKind.Shooter
                 ? _shooter.Offsets[angle]
@@ -225,6 +230,12 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         }
         if (_state == EmberState.Initializing)
         {
+            // seeds.s draws RNG in state 0, after earlier physical item slots.
+            if (_mysteryEffectSource is { } nextRandom)
+            {
+                _mysteryEffect = nextRandom() & 3;
+                _mysteryEffectSource = null;
+            }
             _state = EmberState.Flying;
             Visible = true;
             QueueRedraw();

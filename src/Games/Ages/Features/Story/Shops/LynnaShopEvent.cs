@@ -11,6 +11,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
 {
 
     private readonly RoomEventContext _context;
+    private readonly NativeScriptInputControl _purchaseInput;
     private RoomEventResources? _resources;
     private RoomEventResources EventResources => _resources ??= new(_context, this);
     private readonly LynnaShopDatabase _normalDatabase = new();
@@ -32,6 +33,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
     public LynnaShopEvent(RoomEventContext context)
     {
         _context = context;
+        _purchaseInput=new(context.Rooms.RuntimeState);
         context.RegisterHeartPiecePresentation(
             () => { if (_completesHeartContainer) context.Inventory.ResetCompletedHeartPieceSet(); },
             () =>
@@ -46,10 +48,11 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
     }
 
     public bool HasState => _stage != LynnaShopEventStage.Inactive;
-    public bool BlocksGameplay => HasState && _stage is not
-        (LynnaShopEventStage.Holding or LynnaShopEventStage.ChestSelection);
-    public bool FreezesNonInteractionObjects => BlocksGameplay;
-    public bool MenusDisabled => BlocksGameplay;
+    public bool BlocksGameplay => _stage==LynnaShopEventStage.ItemText
+        ? _purchaseInput.LinkDisabled : HasState && _stage is not
+            (LynnaShopEventStage.Holding or LynnaShopEventStage.ChestSelection);
+    public bool FreezesNonInteractionObjects => _stage!=LynnaShopEventStage.ItemText && BlocksGameplay;
+    public bool MenusDisabled => _stage!=LynnaShopEventStage.ItemText && BlocksGameplay;
     internal LynnaShopEventStage Stage => _stage;
 
     public bool TryInteractPlayer(Player player)
@@ -201,6 +204,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
 
     public void Cancel()
     {
+        _purchaseInput.Cancel();
         _advanceTheft?.Cancel();_advanceTheft=null;
         if (_item?.Purchasing == true)
         {
@@ -249,6 +253,11 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
             return;
         }
 
+        // ConfirmPurchase disables menus; shopkeeperState4 publishes$81
+        // before shopItemState3 grants the treasure and requests state04.
+        _purchaseInput.SetMenuEnabled(_context.Player,false);
+        _purchaseInput.SetDisabledObjects(0x81);
+        _item.BeginPurchase(_context.Player);
         ItemRecord item = _item.Record;
         _completesHeartContainer = item.TreasureId == TreasureId.HeartPiece && _context.Inventory.HeartPieces == 3;
         _context.Inventory.AddRupees(-item.Price);
@@ -274,11 +283,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
             _context.Sound.PlaySound(sound);
         _context.ShowDialogue(treasure.Message, _database.TextboxPosition);
         _stage = LynnaShopEventStage.ItemText;
-        if (_database.Hidden)
-        {
-            _item.BeginPurchase(_context.Player);
-            _context.Player.RequestGetItemState(0x01, () => _stage == LynnaShopEventStage.ItemText);
-        }
+        _context.Player.RequestGetItemState(0x01);
     }
 
     private bool CannotBuy(ItemRecord item) => item.SubId switch
@@ -308,6 +313,8 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
 
     private void FinishPurchase()
     {
+        // shopItemState5 clears both masks before deleting the bought item.
+        _purchaseInput.SetDisabledObjects(0);_purchaseInput.SetMenuDisabled(0);
         _item?.FinishPurchase(_context.Player);
         _item = null;
         FinishShopkeeperTalk();
@@ -343,7 +350,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
     private bool HasAvailableStock()
     {
         foreach (LynnaShopItem item in _context.Entities.Entities<LynnaShopItem>())
-            if (!item.Removed)
+            if (item.Initialized && !item.Removed)
                 return true;
         return false;
     }

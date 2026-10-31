@@ -9,12 +9,11 @@ public sealed partial class ValidationRoot
     private void ValidatePlacementScratch()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var memory = AgesGameContent.CreateRuntimeState();
+        var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         var random = new OracleRandom();
         using var fixture = RoomEntityValidationFixture.Attach(this, "PlacementScratch", new()
         { Random = random, RuntimeState = memory });
-        var factory = typeof(RoomEntityManager).GetField("_factory", flags)!.GetValue(fixture.Manager)!;
-        var choose = typeof(AgesRoomEntityFactory).GetMethod("TryChooseRandomEnemyPosition", flags)!;
+        var choose = typeof(RoomEntityManager).GetMethod("TryChooseRandomEnemyPosition", flags)!;
         var room = _world.LoadRoom(4, 0xa1);
         byte[] identity = Enumerable.Range(0, 256).Select(value => (byte)value).ToArray();
         random.BeginRoomParse();
@@ -35,7 +34,7 @@ public sealed partial class ValidationRoot
             var reservations = new EnemyPlacementReservations(memory);
             reservations.Add(0x11);
             object[] args = [room, 4, reservations, EnemyPlacementContext.Unrestricted, Vector2.Zero];
-            bool found = (bool)choose.Invoke(factory, args)!;
+            bool found = (bool)choose.Invoke(fixture.Manager, args)!;
             // Dungeon source rejects row0/column0; reserved$11 retries inside
             // getCandidatePositionForEnemy. First returned candidate is$12.
             FailIf(!found || (Vector2)args[4] != new Vector2(40, 24) ||
@@ -49,7 +48,7 @@ public sealed partial class ValidationRoot
             for (int x = 1; x <= 13; x++)
                 room.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8), 0x2c, 0x0f, 0);
             args = [room, 0, reservations, EnemyPlacementContext.Unrestricted, Vector2.Zero];
-            found = (bool)choose.Invoke(factory, args)!;
+            found = (bool)choose.Invoke(fixture.Manager, args)!;
             // 63 returned candidates: four rows of13, then row5 column11.
             // Attempt64 decrements to zero without reading another candidate.
             FailIf(found || memory.ReadWramByte(0xcecf) != 0 ||
@@ -120,11 +119,11 @@ public sealed partial class ValidationRoot
         FailIf(memory.ReadWramByte(0xcec9) != 6 || memory.ReadWramByte(0xceca) != 4 ||
             fixture.Manager.Entities<ZolCharacter>().Count != 0,
             "Re-entry must refresh the bitset and restart the killable index from zero.");
-        var next = typeof(AgesRoomEntityFactory).GetMethod("NextKillableEnemyIndex", flags)!;
+        var next = typeof(RoomEntityManager).GetMethod("NextKillableEnemyIndex", flags)!;
         memory.SetWramByte(0xceca, 6);
-        FailIf((int)next.Invoke(factory, [1])! != 0 || memory.ReadWramByte(0xceca) != 6 ||
-            (int)next.Invoke(factory, [0])! != 7 || memory.ReadWramByte(0xceca) != 7 ||
-            (int)next.Invoke(factory, [0])! != 0 || memory.ReadWramByte(0xceca) != 7,
+        FailIf((int)next.Invoke(fixture.Manager, [1])! != 0 || memory.ReadWramByte(0xceca) != 6 ||
+            (int)next.Invoke(fixture.Manager, [0])! != 7 || memory.ReadWramByte(0xceca) != 7 ||
+            (int)next.Invoke(fixture.Manager, [0])! != 0 || memory.ReadWramByte(0xceca) != 7,
             "Flag01 must bypass the counter, while the seventh indexed enemy saturates it.");
     }
 }

@@ -5,7 +5,6 @@ namespace Oracles;
 /// <summary>Per-item cache and byte elevation for itemCheckCanPassSolidTile.</summary>
 internal sealed class ItemTilePassage(string assetRoot)
 {
-    private readonly BombRecord _passableTiles = new BombDatabase(assetRoot + "metadata/bomb.tsv").Data;
     private readonly ItemCliffDatabase _cliffs = new(assetRoot);
     private int _lastPosition = -1;
     private int _lastTile = -1;
@@ -17,7 +16,7 @@ internal sealed class ItemTilePassage(string assetRoot)
         if (position == _lastPosition && tile == _lastTile) return true;
         _lastPosition = position;
         _lastTile = tile;
-        if (_passableTiles.CanPassSolidTile(room, point)) return true;
+        if (_cliffs.CanPassWithoutElevation(room.ActiveCollisions, tile)) return true;
         if (_cliffs.TryGetDelta(room.ActiveCollisions, (byte)tile, angle / 4, out byte delta))
         {
             _elevation = (_elevation + delta) & 0xff;

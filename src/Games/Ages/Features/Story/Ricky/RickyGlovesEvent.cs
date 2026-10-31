@@ -1,19 +1,16 @@
 using Godot;
 using System;
-using System.Linq;
 
 namespace Oracles;
 
 /// <summary>
 /// Owns INTERAC_COMPANION_SPAWNER $67:$02 and
-/// INTERAC_COMPANION_SCRIPTS $71:$03 in room $0:$6a. The interaction actor
-/// transfers to the live w1Companion slot when the glove script force-mounts
-/// Link.
+/// INTERAC_COMPANION_SCRIPTS $71:$03 in room $0:$6a. Its script and the native
+/// D1 actor retain separate interaction and special-object dispatch phases.
 /// </summary>
 internal sealed class RickyGlovesEvent :
-    InteractiveInfiniteScriptHost<NpcCharacter>,
-    IRoomEntryEvent,
-    IUpdatesDuringDialogueRoomEvent,
+    RoomCutsceneCommandHost,
+    IRoomEvent,
     ICutsceneCommandHost
 {
     private const string Ricky = "Ricky";
@@ -21,164 +18,120 @@ internal sealed class RickyGlovesEvent :
     private readonly RickyGlovesEventDatabase _database = new();
     private readonly RickyGlovesEventRecord _record;
     private NpcCharacter? _placedActor;
-    private RickyCompanionRoomEntity? _companion;
-    private int _initialSpecialObjectUpdates;
-    private int _zFixed;
-    private int _speedZ;
-    private bool _menusDisabled;
+    private ScriptedCompanionRoomEntity? _scriptedCompanion;
+    private RickyGlovesControllerRoomEntity? _controller;
+    private readonly RoomEventContext _context;
+    private readonly CutsceneCommandRunner _runner;
 
     internal RickyGlovesEvent(RoomEventContext context)
-        : base(context, Ricky)
     {
+        _context = context;
+        _runner = new(this);
         _record = _database.Record;
     }
 
     internal RickyGlovesEventDatabase Database => _database;
     internal NpcCharacter? RickyActor => _placedActor;
-    public bool MenusDisabled => _menusDisabled;
+    public override RoomEventContext Context => _context;
+    public bool HasState => _runner.Active || _scriptedCompanion is not null;
+    public bool BlocksGameplay => InputControlHeld;
+    public bool RequiresRoomEventUpdate => false;
+    internal bool ButtonSensitive => _placedActor?.ScriptButtonSensitive == true;
+    internal int CurrentCommandIndex => _runner.CurrentCommand?.Source.CommandIndex ?? -1;
+    public bool MenusDisabled => HasState && Context.Entities.RuntimeState.ReadField("wMenuDisabled") != 0;
 
-    public bool Matches(int group, OracleRoomData room) =>
-        !CompanionRuntimeState.AnyActive(Context.Entities.RuntimeState) &&
-        !Context.Entities.EntityAdapters<IRoomEntity>().Any(actor => actor is IRoomInitializedCompanion) &&
-        _database.ShouldSpawn(group, room.Id, Context.Rooms.SaveData);
-
-    public void Start(OracleRoomData room)
+    internal bool InitializeController(RickyGlovesControllerRoomEntity controller)
     {
-        Cancel();
-        int group = Context.Rooms.ActiveGroup;
-        if (!Matches(group, room))
-        {
-            throw new InvalidOperationException(
-                $"The Ricky glove interaction cannot start in " +
-                $"{group:x}:{room.Id:x2} for the current source state.");
-        }
+        _controller = controller;
+        if (Context.Player.IsDying) { SetDisabledObjects(0); return false; }
+        if ((Context.Rooms.SaveData.ReadWramByte(_record.RickyStateAddress) & 0x20) != 0) return false;
+        _runner.Start(_database.Commands);
+        return true;
+    }
 
-        if (CompanionRuntimeState.AnyActive(Context.Entities.RuntimeState))
-        {
-            ActiveCompanion active = CompanionRuntimeState.Read(
-                Context.Entities.RuntimeState);
-            throw new InvalidOperationException(
-                $"Room 0:6a cannot install SPECIALOBJECT_RICKY $0b while " +
-                $"w1Companion is owned by ${active.Id:x2}.");
-        }
+    internal bool AdvanceController(RickyGlovesControllerRoomEntity controller)
+    {
+        if (!ReferenceEquals(controller, _controller)) return false;
+        if (Context.Player.IsDying) { SetDisabledObjects(0); _runner.Clear(); return false; }
+        _runner.AdvanceFrame();
+        if (_runner.Active) return true;
+        OracleRuntimeState memory = Context.Entities.RuntimeState;
+        memory.SetField("wStatusBarNeedsRefresh", (byte)(memory.ReadField("wStatusBarNeedsRefresh") | 2));
+        return false;
+    }
+
+    internal void SpawnPreset()
+    {
+        if (!Context.Entities.SpecialObjectSlotAvailable ||
+            !_database.ShouldSpawnPreset(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, Context.Rooms.SaveData)) return;
 
         // The source spawner clears only wRememberedCompanionId after
         // installing Ricky's fixed preset.
         CompanionRuntimeState.InstallPreset(Context.Entities.RuntimeState, Context.Rooms.SaveData, new(_record.RickyX, _record.RickyY));
-        _placedActor = Context.Entities.Spawn<NpcCharacter>(
-            new CutsceneNpcSpawn(
-                _database.CreateActorRecord(),
-                Ricky,
-                Talkable: true,
-                Solid: true));
+        if ((Context.Rooms.SaveData.ReadWramByte(_record.RickyStateAddress) & 0xe0) != 0)
+        {
+            Context.Entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(
+                new(_record.RickyX, _record.RickyY), ObjectDirection.Down, _record.Group, _record.Room));
+            return;
+        }
+        _placedActor = new NpcCharacter { Name = Ricky, ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+        _placedActor.Initialize(_database.CreateActorRecord(), Context.Entities.AssetRoot);
         // Ricky is a special object, not a fixed 16x16 interaction. Preserve
         // the signed OAM cell positions above and beside his object origin.
         _placedActor.SetScriptAnimation(
             _database.Visual.Animations[_record.InitialAnimation],
-            _database.Visual.AnimationSourceOffsets[
+            _database.Visual.SourceOffsets[
                 _record.InitialAnimation]);
-        _zFixed = 0;
-        _speedZ = 0;
-        _initialSpecialObjectUpdates = 0;
-        _menusDisabled = false;
         _placedActor.SetActive(false);
-        StartInfiniteScript(
-            _placedActor,
-            _database.Commands,
-            _record.InitialScriptUpdates);
-        if (Context.Entities.ScreenTransitionActive)
-        {
-            // State-0 interactions continue dispatching while wScrollMode is
-            // active. Resolve both companionCheckCanSpawn initialization
-            // returns during destination preload so Ricky's final visible
-            // presentation scrolls in while all state-$0a/script work remains
-            // frozen.
-            CompleteInitialSpecialObjectPresentation();
-        }
+        _scriptedCompanion = new RickyScriptedCompanionRoomEntity(_placedActor,
+            Context.Entities.RuntimeState, Context.Rooms.SaveData, () => Context.Rooms.CurrentRoom, _database.Visual,
+            _record.JumpSpeedZ, _record.JumpGravity, ContinueWithOrdinaryCompanion, SetNativeMenuDisabled);
+        Context.Entities.AddEntity(_scriptedCompanion);
     }
 
-    public override void UpdateFrame()
+    public void UpdateFrame() => throw new InvalidOperationException("Ricky's glove script advances only from its native interaction slot.");
+
+    private void ContinueWithOrdinaryCompanion(ScriptedCompanionRoomEntity body, Player player, bool mounting)
     {
-        if (!HasState)
-            return;
-        if (_initialSpecialObjectUpdates <
-            _record.InitialSpecialObjectUpdates)
-        {
-            _initialSpecialObjectUpdates++;
-            if (_initialSpecialObjectUpdates ==
-                _record.InitialSpecialObjectUpdates)
-            {
-                CompleteInitialSpecialObjectPresentation();
-            }
-            AdvanceInfiniteScript();
-            return;
-        }
-        // EventOwnedNpcRoomEntity has already performed this update's
-        // interaction animation before room-event dispatch.
-        UpdatePlacedRicky(advanceAnimation: false);
-        AdvanceInfiniteScript();
-    }
-
-    private void CompleteInitialSpecialObjectPresentation()
-    {
-        NpcCharacter actor = _placedActor ??
-            throw UnsupportedCommand("initialize missing Ricky");
-        _initialSpecialObjectUpdates =
-            _record.InitialSpecialObjectUpdates;
-        actor.SetActive(true);
-        actor.UpdateDrawPriority(Context.Player.Position);
-        SetInitialActorButtonSensitive();
-    }
-
-    public void UpdateDuringDialogueFrame() =>
-        // wTextIsActive freezes the room-entity adapter, while Ricky's
-        // special object remains enabled. Reproduce that one animation update
-        // here before applying his animParameter-driven vertical motion.
-        UpdatePlacedRicky(advanceAnimation: true);
-
-    private void UpdatePlacedRicky(bool advanceAnimation)
-    {
-        if (_placedActor is null ||
-            !GodotObject.IsInstanceValid(_placedActor) ||
-            !_placedActor.Active)
-        {
-            return;
-        }
-
-        // rickyStateASubstate0 reads animParameter after specialObjectAnimate.
-        // A marked frame starts the $ff00 jump; every other frame applies
-        // gravity $40 in the original signed 8.8 Z domain.
-        if (advanceAnimation)
-        {
-            _placedActor.AnimateAndUpdateDrawPriorityOneUpdate(Context.Player);
-        }
-        if ((_placedActor.CurrentAnimationParameter & 0x80) != 0)
-            _speedZ = _record.JumpSpeedZ;
-        else
-            OracleObjectMath.UpdateSpeedZ(
-                ref _zFixed, ref _speedZ, _record.JumpGravity);
-        _placedActor.SetScriptDrawOffset(new Vector2(0, _zFixed >> 8));
+        body.CompleteNativeUpdate();
+        int frame = body.Npc.CurrentAnimationFrame, counter = body.Npc.CurrentAnimationCounter;
+        body.Npc.SetScriptButtonSensitive(false); body.Npc.SetActive(false);
+        var next = (RickyCompanionRoomEntity)Context.Entities.ReplaceSpecialObjectPresentation(body,
+            new RickyCompanionSpawn(body.NativeSpecialObjectPosition, ObjectDirection.Down,
+                _record.Group, _record.Room, ForceMount: mounting));
+        next.ContinueNativePresentation(player, frame, counter, mounting);
+        _placedActor = null; _scriptedCompanion = null;
     }
 
     public override bool MemoryEquals(string binding, int value) =>
         binding switch
         {
+            "RickyButton" => CompanionRuntimeState.ReadScriptButton(Context.Entities.RuntimeState) == value,
             "RickyTalked" =>
                 ((Context.Rooms.SaveData.ReadWramByte(
                     _record.RickyStateAddress) & _record.TalkedMask) != 0
                         ? 1
                         : 0) == value,
             "AnimalCompanion" => Context.Inventory.AnimalCompanion == value,
-            "HasRickyGloves" =>
-                (Context.Inventory.HasTreasure(_record.GlovesTreasure)
-                    ? 1
-                    : 0) == value,
-            "RickyMounted" => (_companion?.LinkRiding == true ? 1 : 0) == value,
+            "HasRickyGloves" => CheckGloves() == value,
+            "RickyMounted" => (Context.Entities.RuntimeState.ReadField("wLinkObjectIndex") == 0xd1 ? 1 : 0) == value,
             _ => throw UnsupportedCommand($"read '{binding}'=${value:x2}")
         };
 
+    private int CheckGloves()
+    {
+        // scripting.s:scriptCmd_df retains checkTreasureObtained's related byte.
+        Context.Entities.RuntimeState.SetWramByte(0xcfc1,
+            (byte)Context.Inventory.TreasureQuantityDisplayValue(_record.GlovesTreasure));
+        return Context.Inventory.HasTreasure(_record.GlovesTreasure) ? 1 : 0;
+    }
+
     public override void WriteMemory(string binding, int value)
     {
+        if (binding == "RickyButton")
+        { CompanionRuntimeState.WriteScriptButton(Context.Entities.RuntimeState, value); return; }
+        if (binding == "RickyVar03")
+        { Context.Entities.RuntimeState.SetWramByte(0xd103, checked((byte)value)); return; }
         if (binding != "RickyStateOr")
             throw UnsupportedCommand($"write '{binding}'=${value:x2}");
 
@@ -192,16 +145,13 @@ internal sealed class RickyGlovesEvent :
     {
         if (textId is not (0x2000 or 0x2001 or 0x2003 or 0x2004 or 0x2005))
             throw UnsupportedCommand($"show TX_{textId:x4}");
-        Context.ShowDialogue(message);
+        Context.ShowDialogue(message, sourceTextId: textId);
     }
 
     public override void RunNativeHandler(string handler)
     {
         switch (handler)
         {
-            case "ResetRickyButton":
-                ClearPendingActorButton();
-                break;
             case "LoseRickyGloves":
                 if (!Context.Inventory.LoseTreasure(_record.GlovesTreasure))
                 {
@@ -209,63 +159,24 @@ internal sealed class RickyGlovesEvent :
                         $"lose missing Ricky gloves ${_record.GlovesTreasure:x2}");
                 }
                 break;
-            case "BeginRickyMount":
-                BeginRickyMount();
-                break;
-            case "EnableObjectsForRickyMount":
-                // The script clears wDisabledObjects while retaining
-                // wMenuDisabled until TX_2005 has closed.
-                SetInputEnabled(enabled: true);
-                _menusDisabled = true;
-                break;
-            case "EnableRickyMenu":
-                _menusDisabled = false;
-                break;
             default:
                 throw UnsupportedCommand($"run native handler '{handler}'");
         }
     }
 
-    private void BeginRickyMount()
-    {
-        NpcCharacter actor = _placedActor ??
-            throw UnsupportedCommand("force-mount missing Ricky");
-        if (!GodotObject.IsInstanceValid(actor) || !actor.Active)
-            throw UnsupportedCommand("force-mount inactive Ricky");
-
-        actor.SetScriptButtonSensitive(false);
-        Vector2 position = actor.Position;
-        actor.SetActive(false);
-        _companion = Context.Entities.Spawn<RickyCompanionRoomEntity>(
-            new RickyCompanionSpawn(
-                position,
-                ObjectDirection.Down,
-                _record.Group,
-                _record.Room,
-                ForceMount: true));
-    }
-
     public override void ScriptEnded()
     {
-        _menusDisabled = false;
         _placedActor = null;
-        _companion = null;
+        _scriptedCompanion = null;
     }
 
-    protected override void ResetEventState()
+    public void Cancel()
     {
-        if (_placedActor is not null &&
-            GodotObject.IsInstanceValid(_placedActor) &&
-            _placedActor.Active)
-        {
-            _placedActor.SetScriptDrawOffset(Vector2.Zero);
-            _placedActor.SetActive(false);
-        }
+        ReleaseInputControl();
+        _runner.Clear();
+        if (_scriptedCompanion is not null) Context.Entities.RetireEntity(_scriptedCompanion);
         _placedActor = null;
-        _companion = null;
-        _zFixed = 0;
-        _speedZ = 0;
-        _initialSpecialObjectUpdates = 0;
-        _menusDisabled = false;
+        _scriptedCompanion = null;
+        _controller = null;
     }
 }

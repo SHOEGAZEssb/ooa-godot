@@ -28,13 +28,13 @@ public sealed partial class ValidationRoot
             int targetY=link.Y-camera.Y<72?104:40;if(scenario==1)targetY=40;
             var record=new DungeonBossDatabase(AgesGameContent.AssetRoot).Enemy(0x70);var actor=new GiantGhiniBoss();
             actor.Initialize(record,_currentRoom,initial,_random,_sound.PlaySound,()=>false,
-                _entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen);
+                _entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen,_entities.InitializeBossRoom);
             F1Set(actor,"_initialized",true);F1Set(actor,"_state",charging?GiantGhiniBossBossState.Charging:GiantGhiniBossBossState.Moving);
             F1Set(actor,"_nudgeCounter",1);F1Set(actor,"_childRespawnCounter",counter2);F1Set(actor,"_counter",counter2);
             F1Set(actor,"_speed",speed);F1Set(actor,"_angle",angle);F1Set(actor,"_targetScreenY",targetY);
             F1Set(actor,"_targetPacked",((int)link.Y&0xf0)|((int)link.X>>4));F1Set(actor,"_childrenAlive",1);
             F1Set(actor,"_childRequestsCharge",scenario is 8 or 9);
-            var adapter=new GiantGhiniBossRoomEntity(actor,Vector2I.Zero);
+            var adapter=new GiantGhiniBossRoomEntity(actor);
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);

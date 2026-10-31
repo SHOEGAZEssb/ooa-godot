@@ -25,7 +25,7 @@ public partial class ValidationRoot
             FailIf(_entities.RoomEnemyCount != 0 || shooters.Any(s => !s.Finished || s.Counter1 != 0xff),
                 "$50 state9 must dirty freed slots $05-$08 with $ff after the four Ropes leave.");
 
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x23);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x23);
             FinishScroll();
             // group5Map23 reserves slots $00-$04: three Water Tektites,
             // then two Whisps. Their live slots force $5:$24 into $05-$07.
@@ -33,7 +33,7 @@ public partial class ValidationRoot
                 _entities.Entities<WhispCharacter>().Count != 2,
                 "$5:$23 must preserve source enemy order before the $5:$24 handoff.");
             var beforeEntryRandom = _random.CaptureState();
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x24);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x24);
             var whisp = _entities.Entities<WhispCharacter>().Single();
             var swimmers = _entities.Entities<WaterTektiteCharacter>().ToArray();
             var producer = _entities.ResolveEnemySlot(8)?.Node as ItemDropProducer;
@@ -64,9 +64,9 @@ public partial class ValidationRoot
                 swimmers.Any(s => s.Counter >= 0x40),
                 "$5:$24 movement must resume after scrolling without consuming Whisp's unused $ff counter.");
 
-            _transitions.BeginScroll(_player, Vector2I.Left, 0x23);
+            _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x23);
             FinishScroll();
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x24);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x24);
             var repeated = _entities.Entities<WhispCharacter>().Single();
             FailIf(repeated.Counter1 != 0 || !repeated.Initialized,
                 "$5:$24 repeat entry must see cleared slots after outgoing object cleanup.");

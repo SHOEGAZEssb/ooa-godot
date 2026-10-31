@@ -23,7 +23,8 @@ public sealed partial class ValidationRoot
                 0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(start,2,0,0x89,Riding:true)),
                 _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(start,2,0,0x89,Riding:true))
             };
-            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,id,0x89,start,2);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,id,start,2);
+            if(id==0x0b)_runtimeState.SetWramByte(0xd139,0x10);
             var mounted = new CompanionRom(id,start,2,_currentRoom);
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData,seed,_currentRoom,2,(int)start.X,(int)start.Y) { CompanionDispatchEnabled = true };
@@ -50,7 +51,7 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(count,angle == 0xff ? Vector2.Zero : OracleObjectMath.StrictCardinalVector(angle),
                     MenuRomActions(pressed),MenuRomActions(pressed),batch,() =>
                     {
-                        rom.UpdateGameplay(edge,pressed | keys,angle,_entities.FrameCounter - 1); edge = 0;
+                        rom.UpdateGameplay(edge,pressed | keys,angle,_saveData.ReadField("wPlaytimeCounter")); edge = 0;
                         Vector2 actual = ((ICompanionBarrierTarget)actor).BarrierPosition;
                         string context = $"Barrier$0:$89/$71:$02 companion${id:x2}, batch={batch}, update={++update}";
                         FailIf(actual != new Vector2(rom.Word(0xd10c)/256f,rom.Word(0xd10a)/256f) ||
@@ -103,7 +104,7 @@ public sealed partial class ValidationRoot
                 active.Remove(actor);
                 typeof(RoomEntityManager).GetMethod("FreeEntity",flags)!.Invoke(_entities,[actor]);
                 actor = _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(start,2,0,0x89,Riding:true));
-                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,0x0c,0x89,start,2);
+                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,0x0c,start,2);
                 mounted = new CompanionRom(0x0c,start,2,_currentRoom);
                 for (int address = 0xd000; address < 0xd040; address++) rom[address] = mounted[address];
                 for (int address = 0xd100; address < 0xd140; address++) rom[address] = mounted[address];

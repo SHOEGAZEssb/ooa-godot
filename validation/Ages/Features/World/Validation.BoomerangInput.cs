@@ -30,6 +30,7 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(count, movement ?? Vector2.Zero, [button], press ? [button] : [], batched);
             for (int repeat = 0; repeat < 2; repeat++)
             {
+                StepGameplayUpdates(1, Vector2.Zero);
                 Vector2 start = _player.PrecisePosition;
                 Step(press: true);
                 var item = _entities.Entities<BoomerangItem>().Single();
@@ -119,9 +120,10 @@ public sealed partial class ValidationRoot
             {
                 _saveData.SetGlobalFlag(new RaftDatabase().Behavior.ChangedRoomsFlag);
                 LoadValidationRoom(1, 0xa7);
-                var raftEntity = _entities.Entities<RaftRoomEntity>().Single();
+                _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
+                var raftEntity = _entities.Entities<RaftInteractionRoomEntity>().Single();
                 _player.WarpTo(raftEntity.PrecisePosition + new Vector2(4, -4), recordSafe: false);
-                _entities.Update(1.0 / 60.0, _player); // Publish the raft's support before Link's water handler.
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player); // Publish the raft's support before Link's water handler.
                 StepGameplayUpdates(3, Vector2.Zero);
                 FailIf(!_player.RaftRideActive, "The raft fixture must provide a live mounted object owner.");
             }

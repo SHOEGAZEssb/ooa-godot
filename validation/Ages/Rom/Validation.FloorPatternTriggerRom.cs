@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
             _entities.AddEntity(trigger);
             int address = (0xd0+_entities.InteractionSlot(trigger))*256+0x40;
             rom[address] = 1; rom[address+1] = 0x21; rom[address+2] = 0x0f;
-            _transitions.BeginScroll(_player,selected.Direction,selected.Target);
+            _transitions.BeginValidationScroll(_player,selected.Direction,selected.Target);
             rom.SetOutgoingInteractions(); rom[0xcd00] = 8;
             // Incoming parser/Link scroll coordinates are excluded. A shared
             // signal published after activation must survive outgoing deletion.

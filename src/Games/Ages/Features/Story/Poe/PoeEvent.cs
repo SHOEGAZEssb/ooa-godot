@@ -8,7 +8,7 @@ namespace Oracles;
 /// INTERAC_POE $59:$00 and poeScript in present rooms $0:$7c and $2:$2e.
 /// </summary>
 internal sealed class PoeEvent :
-    InteractiveCutsceneCommandHost, IRoomEntryEvent, IUpdatesDuringDialogueRoomEvent, ICutsceneCommandHost
+    RoomCutsceneCommandHost, IRoomEntryEvent, IUpdatesDuringDialogueRoomEvent, ICutsceneCommandHost
 {
     private const string ActorName = "Poe";
     private const string VariantBinding = "PoeVariant";

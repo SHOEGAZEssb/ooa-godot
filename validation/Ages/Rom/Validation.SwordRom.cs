@@ -36,6 +36,8 @@ public sealed partial class ValidationRoot
         };
         FailIf(player.SwordState != expected,
             $"{context}: parent $d2 state=${rom[0xd204]:x2}, child $d6 state=${rom[0xd604]:x2}; runtime={player.SwordState}, expected={expected}, frame={player.SwordStateFrame}.");
+        FailIf(player.Inventory.RuntimeState.ReadField("wcc63") != rom[0xcc63],
+            $"{context}: shared sword-use byte differs: ${player.Inventory.RuntimeState.ReadField("wcc63"):x2}/${rom[0xcc63]:x2}.");
         bool collision = (rom[0xd624] & 0x80) != 0;
         Rect2 actual = player.GetSwordHitbox();
         FailIf((actual.Size != Vector2.Zero) != collision,
@@ -154,7 +156,7 @@ public sealed partial class ValidationRoot
                     // and matching directional input; contact alone is insufficient.
                     rom[0xd033] = 0xc0;
                     rom.MovementKeys = 0x40;
-                    fixture.World.PushingAgainstWall = true;
+                    fixture.Player.Inventory.RuntimeState.SetWramByte(0xd033, 0xc0);
                 }
                 else
                 {
@@ -169,7 +171,7 @@ public sealed partial class ValidationRoot
                     CompareSwordRom(fixture.Player, rom, $"Sword poke wall={wall}, held={held}, triggerHeld={triggerHeld}, update={i}");
                     // Stop pressing against the wall after triggering one poke.
                     rom.MovementKeys = 0;
-                    fixture.World.PushingAgainstWall = false;
+                    fixture.Player.Inventory.RuntimeState.SetWramByte(0xd033, 0);
                 }
             }
             finally { fixture.Player.Free(); }

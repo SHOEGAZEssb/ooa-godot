@@ -39,6 +39,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
     private int _verticalSpeedFixed;
     private bool _pendingBomb;
     private bool _initialized;
+    private Action _initializeBossRoom = null!;
     private bool _deathPending;
     private bool _dying;
     private int _deathCounter;
@@ -59,7 +60,8 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         Action<int> screenShake,
         Action disableLink,
         Action restoreRoomMusic,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        Action initializeBossRoom)
     {
         AssetRoot = record.AssetRoot;
         Record = record;
@@ -70,6 +72,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         _disableLink = disableLink;
         _restoreRoomMusic = restoreRoomMusic;
         _animationTick = animationTick;
+        _initializeBossRoom = initializeBossRoom;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record),
@@ -78,6 +81,18 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         Name = "HeadThwomp";
         ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
         Visible = false;
+    }
+
+    internal void PrepareForScreenTransition()
+    {
+        if (_initialized) return;
+        _random.Next(); // enemyStandardUpdate's state-zero initialization.
+        _initialized = true;
+        _initializeBossRoom();
+        _counter = 18;
+        SetSurroundingSolidity(true);
+        Visible = true;
+        QueueRedraw();
     }
 
     internal void UpdateFrame(
@@ -90,15 +105,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         BeginFrame();
         if (!_initialized)
         {
-            // enemyBoss_initializeRoom runs as state 0's only update: PALH
-            // $81 is already represented by the imported palette override,
-            // while this update stops music, installs the collision cells,
-            // and makes the enemy visible.
-            _initialized = true;
-            SetSurroundingSolidity(true);
-            Visible = true;
-            _playSound(SoundId.SndCtrlStopMusic);
-            QueueRedraw();
+            PrepareForScreenTransition();
             return;
         }
         if (_deathPending)

@@ -34,7 +34,7 @@ public partial class ValidationRoot
             int state = SomariaPrivate<int>(trigger,"_state");
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Right,out int target) || target != 0xa6,
                 "Trigger cancellation must retain imported adjacency$4:$a5 -> $4:$a6.");
-            _transitions.BeginScroll(_player,Vector2I.Right,target);
+            _transitions.BeginValidationScroll(_player,Vector2I.Right,target);
             rom.SetOutgoingInteractions(); rom[0xcd00] = 8; rom[0xcdd1] = 0;
             var sounds = _sound.AttachPlayRequestAudit();
             int frame = 0;

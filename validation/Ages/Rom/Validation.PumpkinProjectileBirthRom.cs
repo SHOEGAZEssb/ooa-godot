@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();LoadValidationRoom(4,0x13);
             var parent=_entities.EntityAdapters<PumpkinHeadBossRoomEntity>().Single();var boss=(PumpkinHeadBoss)parent.Node;
-            F1Retain(parent);F1Set(parent,"_initialized",true);F1Set(boss,"_initialized",true);
+            F1Retain(parent);F1Set(boss,"_initialized",true);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,144));_player.Face(Vector2I.Up);
             _runtimeState.SetWramByte(0xcc8a,9);_runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);_entities.AddEntity(new ProjectileMotionContactSuppression());

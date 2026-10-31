@@ -131,7 +131,7 @@ internal sealed partial class CandleCharacter : EnemyCharacter
                 _room.IsSolidForEnemyMovement(point, holesAreWalls: true));
         AdvanceAnimation();
     }
-    internal override bool TryApplyShieldBump(Rect2 bounds, Vector2 origin, EnemyKnockbackStrength strength) => Bump(origin);
+    internal override bool TryApplyCollisionBump(Rect2 bounds, Vector2 origin, EnemyKnockbackStrength strength) => Bump(origin);
     internal override bool TakeSwordHit(Vector2 origin, int damage) => false;
     internal override bool TakeBurnHit(int damage) => false;
 }

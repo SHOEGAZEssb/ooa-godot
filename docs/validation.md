@@ -9,8 +9,9 @@ Headless regressions live in the separate
 narrow `InternalsVisibleTo` surface.
 
 `ValidationRoot` is a partial class organized by use case under
-`validation/Ages/Features/`. ROM-backed scenarios and their dedicated execution
-fixtures and helpers live together in `validation/Ages/Rom/`. Keep the runner and
+`validation/Ages/Features/`, `validation/Seasons/Features/` and `validation/Shared/Features/`.
+Native ROM fixtures live in their game's `Rom/` directory; cross-game scenarios
+live with their shared feature. Keep the runner and
 ordered registration in `Features/Framework/Validation.cs`; put other scenarios
 in the matching feature file. Fixtures, test doubles, observers, audit history,
 and expected traces stay in the validation assembly.
@@ -42,6 +43,15 @@ optional observer runs after each complete update, outside the input snapshot
 scope, in both split and batched calls. Fresh standard saves, default test
 names, and room/transition convenience aliases belong in validation; the
 production host owns session teardown and initialization from a supplied save.
+
+Isolated object and transition fixtures supply main-thread time explicitly
+before dispatching the component, using `MainThreadClock.Advance` when they stand
+in for a foreground update. Advancing saved playtime alone does not publish the
+frame byte consumed by status and objects. Entity updates consume the frame byte and do
+not advance it. A fixture that seeds or resets a native frame phase must also
+arrange the playtime byte that the next main-thread update will publish. ROM
+probes must receive the frame of the source phase being executed, without
+compensating for a later entity-owned increment.
 Call available owner operations directly. Reserve reflection for source-state
 probes that have no meaningful runtime operation or observable result.
 
@@ -134,6 +144,12 @@ gameplay loop. Declare any staged geometry, masks or native entry boundary;
 distinguish an executed mismatch from a source-only suspicion and a coverage
 limit. Passing the registered suite does not close untested callers or states.
 
+Physical-input fixtures must supply held buttons and movement that describe the
+same D-pad sample. Gameplay fresh keys come from consecutive object passes;
+injecting a physical pressed edge cannot override that history. Include actual
+release updates for repeated gameplay presses. Tests isolating a later producer
+boundary must declare it and stage the authoritative runtime bytes explicitly.
+
 ## Run validations
 
 Build with optimization, then run the complete suite with the standard 8
@@ -162,9 +178,10 @@ An unknown name fails. A focused run is a development aid; run the complete
 suite before handoff.
 
 ROM-backed comparisons are registered in the normal suite. The launcher
-automatically resolves the same verified ROM cache used by the importer,
-building it on first use. Use `-Rom PATH` to select an existing image;
-the launcher passes the resolved path as `--validation-rom=PATH`.
+automatically resolves both clean US ROMs through the importer's verified cache,
+building them on first use. Use `-Rom PATH` for Ages and `-SeasonsRom PATH` for
+Seasons overrides. The launcher passes `--validation-rom=PATH` and
+`--validation-seasons-rom=PATH`; each worker verifies the selected native hash.
 Missing or unsupported ROMs fail explicitly when a ROM-backed scenario runs.
 Use `-SkipRomValidation` for focused scenarios that do not need a ROM when
 the build tools and cache are unavailable.

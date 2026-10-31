@@ -12,6 +12,7 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
 {
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, BossShadowEffectDefinition> Definitions = new(System.StringComparer.Ordinal);
+    static BossShadowEffect() => OracleGraphicsCache.RegisterApplicationCache(Definitions.Clear);
     private Func<Vector2> _parentPosition = null!;
     private Func<int> _parentZ = null!;
     private Func<bool> _parentExists = null!;

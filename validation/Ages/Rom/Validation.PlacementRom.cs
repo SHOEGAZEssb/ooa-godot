@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
     {
         var rom = new PlacementRom();
         var random = new OracleRandom();
-        var memory = AgesGameContent.CreateRuntimeState();
+        var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         random.BindPlacementMemory(memory);
         OracleRandomState initial = random.CaptureState();
         // Sweep each seed byte independently and together, including zero,
@@ -57,7 +57,7 @@ public sealed partial class ValidationRoot
     private void ValidateRoomPlacementRom()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var memory = AgesGameContent.CreateRuntimeState();
+        var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         var random = new OracleRandom();
         using var fixture = RoomEntityValidationFixture.Attach(this, "RoomPlacementRom", new()
         { Random = random, RuntimeState = memory });

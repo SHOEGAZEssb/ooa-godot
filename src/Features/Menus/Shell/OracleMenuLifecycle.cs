@@ -8,13 +8,14 @@ namespace Oracles;
 /// clients retain their menu-specific code while this class exclusively owns
 /// the fast palette fade and gameplay pause boundary.
 /// </summary>
-internal sealed class OracleMenuLifecycle
+internal sealed class OracleMenuLifecycle : IDisposable
 {
 
     internal const int FastFadeUpdates = 11;
 
     private readonly FixedUpdateFadeController _fade;
     private readonly GameplayPauseController _pause;
+    private readonly Action _roomGraphicsRestored;
     private readonly FixedUpdateAccumulator _updates = new();
     private IOracleMenuLifecycleClient? _owner;
     private PauseLease? _pauseLease;
@@ -51,10 +52,11 @@ internal sealed class OracleMenuLifecycle
     internal bool IsActive => _owner is not null;
     internal bool IsIdle => _owner is null;
 
-    internal OracleMenuLifecycle(ColorRect fade, GameplayPauseController pause)
+    internal OracleMenuLifecycle(ColorRect fade, GameplayPauseController pause, Action roomGraphicsRestored)
     {
         _fade = new FixedUpdateFadeController(fade);
         _pause = pause;
+        _roomGraphicsRestored = roomGraphicsRestored;
     }
 
     internal bool IsOwnedBy(IOracleMenuLifecycleClient client) =>
@@ -141,6 +143,7 @@ internal sealed class OracleMenuLifecycle
     {
         RequireOwner(client);
         client.CloseAtWhite();
+        _roomGraphicsRestored();
         FinishClosing(client);
     }
 
@@ -174,6 +177,7 @@ internal sealed class OracleMenuLifecycle
                     if (!_fade.AdvanceOneUpdate())
                         break;
                     client.CloseAtWhite();
+                    _roomGraphicsRestored();
                     if (client.CompletesClosingAtWhite)
                     {
                         FinishClosing(client);
@@ -214,6 +218,16 @@ internal sealed class OracleMenuLifecycle
         _pauseLease = null;
         lease.Dispose();
         client.LifecycleClosed();
+    }
+
+    public void Dispose()
+    {
+        // Teardown releases ownership without invoking travel, script or save callbacks.
+        _owner = null;
+        CurrentPhase = Phase.Closed;
+        _updates.Reset();
+        _pauseLease?.Dispose();
+        _pauseLease = null;
     }
 
     private void RequireOwner(IOracleMenuLifecycleClient client)

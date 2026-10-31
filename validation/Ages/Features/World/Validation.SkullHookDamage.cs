@@ -9,9 +9,9 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullHookDamage()
     {
-        var collisions = SwitchHookCollisionDatabase.Shared;
-        FailIf(collisions.Effect(EnemyCollisionMode.Zol) != 0x0b || collisions.Effect(EnemyCollisionMode.FireKeese) != 8 ||
-            collisions.Effect(EnemyCollisionMode.PeahatVulnerable) != 0x0b || collisions.Effect(EnemyCollisionMode.Peahat) != 0x1c || collisions.Effect(EnemyCollisionMode.Moldorm) != 8,
+        var collisions = ObjectCollisionDatabase.For(AgesGameContent.AssetRoot);
+        FailIf(collisions.Effect(EnemyCollisionMode.Zol, ItemCollisionType.SwitchHook) != 0x0b || collisions.Effect(EnemyCollisionMode.FireKeese, ItemCollisionType.SwitchHook) != 8 ||
+            collisions.Effect(EnemyCollisionMode.PeahatVulnerable, ItemCollisionType.SwitchHook) != 0x0b || collisions.Effect(EnemyCollisionMode.Peahat, ItemCollisionType.SwitchHook) != 0x1c || collisions.Effect(EnemyCollisionMode.Moldorm, ItemCollisionType.SwitchHook) != 8,
             "Skull ordinary enemies lost source hook effects $0b/$08/$1c.");
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Step(int count = 1, bool fire = false, Vector2 movement = default) =>

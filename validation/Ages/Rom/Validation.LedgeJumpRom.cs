@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
                     int edge = held & ~previousDirections; previousDirections = held;
                     StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                     {
-                        rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1); edge = 0; update++;
+                        rom.UpdateGameplay(edge, held, angle, _saveData.ReadField("wPlaytimeCounter")); edge = 0; update++;
                         string context = $"Crown ledge 4:9a update={update}, repeat={repeat}, batch={batched}";
                         Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                         int z = unchecked((short)rom.Word(0xd00e));

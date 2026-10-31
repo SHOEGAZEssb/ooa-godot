@@ -94,10 +94,10 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
             default:throw new InvalidOperationException($"INTERAC$8c unsupported state${State:x2}.");
         }
     }
-    internal void UpdateBraceletChild(Player player)
+    internal void UpdateBraceletChild(Player player, bool frozen = false)
     {
-        if(_holder is not null&&!_holder.IsCarryingObject){_holder=null;Substate=2;}
-        _throw?.Update(_sound);
+        if(!frozen&&_holder is not null&&!_holder.IsCarryingObject){_holder=null;Substate=2;}
+        _throw?.Update(_sound, frozen);
     }
     internal void UpdateHeldPosition(Player player)
     {

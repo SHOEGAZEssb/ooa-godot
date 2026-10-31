@@ -17,17 +17,36 @@ public sealed partial class ValidationRoot
             // Isolate the native north-scroll boundary, then drive the full
             // application loop rather than advancing the event directly.
             _player.WarpTo(new Vector2(0x58, 6));
-            _transitions.BeginScroll(_player, Vector2I.Up, 0x6c);
+            _transitions.BeginValidationScroll(_player, Vector2I.Up, 0x6c);
             NpcCharacter[] rescue = _entities.Entities<NpcCharacter>()
-                .Where(actor => actor.Active && actor.Record.Id is 0x73 or 0x0d).ToArray();
-            FailIf(rescue.Length != 4 || rescue.Any(actor => !actor.Visible),
-                "Moosh's room $00:$6c rescue actors are hidden after their source initialization.");
+                .Where(actor => actor.Active && actor.Record.Id == 0x73).ToArray();
+            var moosh = _entities.EntityAdapters<ScriptedCompanionRoomEntity>().Single();
+            FailIf(rescue.Length != 3 || rescue.Any(actor => !actor.Visible) ||
+                moosh.Npc.Active || moosh.Npc.Visible || moosh.RoomInitialization?.Pending != true,
+                "Incoming Ghinis initialize their presentation while Moosh must retain pending native state0.");
+            bool sawFirstVisit = false, initialized = false;
             StepGameplayUpdates(64, Vector2.Zero, batched: batched, afterUpdate: () =>
+            {
                 FailIf(rescue.Any(actor => actor.Active && !actor.Visible),
-                    "A Moosh rescue actor disappeared during the incoming scroll."));
+                    "A Ghini rescue actor disappeared during the incoming scroll.");
+                if (moosh.RoomInitialization?.Pending == true)
+                {
+                    sawFirstVisit |= _runtimeState.ReadWramByte(0xd105) == 1;
+                    FailIf(moosh.Npc.Active || moosh.Npc.Visible || _runtimeState.ReadWramByte(0xd104) != 0,
+                        "Moosh must remain hidden while the native solid-object reservation visit is pending.");
+                }
+                else
+                {
+                    initialized = true;
+                    FailIf(!moosh.Npc.Active || !moosh.Npc.Visible || _runtimeState.ReadWramByte(0xd104) != 0x0a,
+                        "Moosh must reveal its source rescue pose after the second eligible state0 visit.");
+                }
+            });
+            FailIf(!sawFirstVisit || !initialized, "Incoming scroll must execute both native Moosh initialization visits.");
             LoadValidationRoom(0, 0x47);
             _saveData.SetRoomFlag(1, 0x79, 0x40, false);
             LoadValidationRoom(0, 0x6c);
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             FailIf(_entities.Entities<NpcCharacter>().Any(actor => actor.Active && actor.Record.Id is 0x73 or 0x0d),
                 "Moosh visibility initialization bypassed the rescue prerequisite.");
 
@@ -37,7 +56,7 @@ public sealed partial class ValidationRoot
             _saveData.SetGlobalFlag(AgesGlobalFlag.GotFlute, false);
             LoadValidationRoom(0, 0x62);
             _player.WarpTo(new Vector2(154, 0x48));
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x63);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x63);
             var forest = _roomEvents.Get<CompanionForestEvent>();
             FailIf(forest.Flights.Count != 3, "Room $00:$63 did not create its three reward fairies.");
             var poses = forest.Flights.Select(flight => (flight.XFixed, flight.YFixed, flight.Counter1, flight.Counter2)).ToArray();
@@ -57,7 +76,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(0, 0x47);
             FailIf(forest.Flights.Count != 0, "Cancelling the forest scroll retained its fairy actors.");
             LoadValidationRoom(0, 0x62);
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x63);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x63);
             StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             FailIf(forest.Flights.Count != 3 || forest.Flights.Any(flight => !flight.Actor.Visible),
                 "Repeating the companion-forest scroll lost its source visibility initialization.");

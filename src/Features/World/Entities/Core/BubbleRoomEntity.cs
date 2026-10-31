@@ -16,7 +16,7 @@ internal sealed class BubbleRoomEntity : CombatEnemyRoomEntityAdapter<BubbleChar
     internal BubbleRoomEntity(BubbleCharacter enemy, EnemyCombatSourceDescriptor source, Action<int> sound)
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, 0, enemy.TakeSwordHit,
-                enemy.TakeBurnHit, (_, _) => { }, sound, EnemySwordResponse.None, acceptedHitSound: 0))
+                enemy.TakeBurnHit, (_, _) => { }, sound, acceptedHitSound: 0))
     {
         // The generic imported quarter count encodes raw $00 as 128; the
         // actual collision byte adds zero to Link's health. Keep that byte

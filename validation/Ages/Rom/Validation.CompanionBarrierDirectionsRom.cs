@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             // Native Impa state0 suppresses her completed encounter in $6a;
             // keep that independent story script from owning these inputs.
             _saveData.SetRoomFlag(0,0x6a,0x40);
-            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,spec.Id,spec.Room,spec.Start,spec.Direction);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,spec.Id,spec.Start,spec.Direction);
             LoadValidationRoom(0,spec.Room);
             FailIf(_currentRoom.IsSolid(spec.Start),"Generic barrier approach must start on original room floor.");
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
                 int keys = angle switch {0 => 0x40,8 => 0x10,24 => 0x20,_ => 0};
                 StepGameplayUpdates(count,angle == 0xff ? Vector2.Zero : OracleObjectMath.StrictCardinalVector(angle),
                     batched:batch,afterUpdate:() => {
-                        rom.UpdateGameplay(0,keys,angle,_entities.FrameCounter-1);
+                        rom.UpdateGameplay(0,keys,angle,_saveData.ReadField("wPlaytimeCounter"));
                         string context = $"Barrier$0:${spec.Room:x2}/$71:${spec.Sub:x2}, update={++update}, batch={batch}";
                         FailIf(actor.BarrierPosition != new Vector2(rom.Word(0xd10c)/256f,rom.Word(0xd10a)/256f) ||
                             _player.Position != new Vector2(rom[0xd00d],rom[0xd00b]) ||

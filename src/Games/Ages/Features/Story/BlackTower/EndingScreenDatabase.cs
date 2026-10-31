@@ -10,7 +10,7 @@ internal sealed class EndingScreenDatabase
     internal const string Root=AgesGameContent.AssetRoot + "cutscenes/";
     private readonly Dictionary<string,List<EndingScreenUpload>> _uploads=[];
     private readonly Dictionary<int,List<EndingPaletteUpload>> _palettes=[];
-    private readonly Dictionary<string,IntroOamPart[]> _oam=[];
+    private readonly Dictionary<string,ObjectSpritePart[]> _oam=[];
     private readonly Dictionary<int,string> _texts=[];
     private readonly List<EndingScreenRamUpload> _secretRam=[];
     private readonly Dictionary<int,List<EndingScreenRamUpload>> _linkedRam=[];
@@ -58,7 +58,7 @@ internal sealed class EndingScreenDatabase
             var parts=row.SplitRequired(1,';').Select(value=>
             {
                 var bytes=Array.ConvertAll(value.Split(','),v=>Convert.ToInt32(v,16));if(bytes.Length!=4)throw row.Invalid(1,"four-byte OAM records");
-                return new IntroOamPart(bytes[0],bytes[1],bytes[2],bytes[3]);
+                return new ObjectSpritePart(bytes[0],bytes[1],bytes[2],bytes[3]);
             }).ToArray();_oam.Add(row.RequiredString(0),parts);
         }
         if(_oam["oamData_4e37"].Length!=40||_oam["oamData_4d05"].Length!=38||_oam["oamData_4d9e"].Length!=38)
@@ -69,7 +69,7 @@ internal sealed class EndingScreenDatabase
     internal IReadOnlyList<EndingScreenUpload> Uploads(string profile)=>_uploads[profile];
     internal IReadOnlyList<EndingScreenRamUpload> SecretRamUploads=>_secretRam;
     internal IReadOnlyList<EndingScreenRamUpload> LinkedRamUploads(int header)=>_linkedRam[header];
-    internal IntroOamPart[] Oam(string name)=>_oam[name];
+    internal ObjectSpritePart[] Oam(string name)=>_oam[name];
     internal string Text(int id)=>_texts[id];
     internal void ApplyPalette(int header,BackgroundPaletteState background,RoomEntityManager entities)
     {

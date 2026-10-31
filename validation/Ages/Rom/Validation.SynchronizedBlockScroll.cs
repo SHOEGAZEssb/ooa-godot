@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             int sourceUnique = graphics.ForTileset(source.TilesetId).Unique |
                 (source.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             rom.SetOutgoingInteractions(); rom.ClearRoomVariables(scrolling:true); rom[0xcd00] = 8;
-            _transitions.BeginScroll(_player,Vector2I.Down,target);
+            _transitions.BeginValidationScroll(_player,Vector2I.Down,target);
             FailIf(_player.PrecisePosition != new Vector2(120.25f,169.5f) ||
                 rom[0xd140] != 2 || rom[0xd340] != 2,
                 "Native departure clamps only Link.yh and marks both initialized allocations as enabled02.");

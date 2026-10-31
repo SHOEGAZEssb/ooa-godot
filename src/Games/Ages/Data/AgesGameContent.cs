@@ -13,7 +13,7 @@ internal static class AgesGameContent
     internal static string SaveSlotPath(int slot) =>
         slot == 0 ? SavePath : $"user://oracle_of_ages_{slot + 1}.sav";
 
-    internal static OracleRuntimeState CreateRuntimeState()
+    internal static OracleRuntimeState CreateContentRuntimeState()
     {
         // initializeSeedTreeRefillData: locations $04-$0f begin refilled.
         var state = new OracleRuntimeState(OracleGame.Ages);

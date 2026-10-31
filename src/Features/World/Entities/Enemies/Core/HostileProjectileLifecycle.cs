@@ -11,11 +11,11 @@ namespace Oracles;
 internal sealed class HostileProjectileLifecycle
 {
     private ProjectileBounceBehaviorProfile _bounce =>
-        EnemyBehaviorTables.For(_room.AssetRoot).ProjectileBounce;
-    private readonly Node2D _entity;
+        CommonEnemyBehavior.Shared.ProjectileBounce;
+    private readonly TransitionOffsetNode2D _entity;
     private readonly OracleRoomData _room;
     private readonly HostileProjectileProfile _profile;
-    private Vector2 _collisionRadii;
+    private readonly Vector2 _collisionRadii;
     private int _speedZ;
     private bool _shieldContactPending;
     private bool _bodyContactPending;
@@ -25,7 +25,7 @@ internal sealed class HostileProjectileLifecycle
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     public HostileProjectileLifecycle(
-        Node2D entity,
+        TransitionOffsetNode2D entity,
         OracleRoomData room,
         HostileProjectileProfile profile,
         int angle)
@@ -96,7 +96,7 @@ internal sealed class HostileProjectileLifecycle
                     // exits the wall. Ordinary wall collisions remain live
                     // for Link/items, but cannot bounce this launch yet.
                     if (LaunchOutsideBoundary()) { Finish(); return; }
-                    _entity.Position += MovementDelta(_profile.SpeedRaw);
+                    Move(_profile.SpeedRaw);
                     _entity.QueueRedraw();
                     return;
                 }
@@ -104,7 +104,7 @@ internal sealed class HostileProjectileLifecycle
                 break; // Counter zero falls through to the terrain check.
         }
 
-        if (!_profile.NativePartBoundary && !WithinVisibleBoundary(player.Position))
+        if (!_profile.NativePartBoundary && !WithinVisibleBoundary())
         {
             Finish();
             return;
@@ -123,18 +123,18 @@ internal sealed class HostileProjectileLifecycle
                     BeginBounce();
                     return;
                 }
-                _entity.Position += MovementDelta(_profile.SpeedRaw);
+                Move(_profile.SpeedRaw);
                 break;
-            case HostileProjectileTileProbe.DestinationWithPendingBounce:
-                Vector2 destination = _entity.Position + MovementDelta(_profile.SpeedRaw);
-                if (!WithinRoom(destination))
+            case HostileProjectileTileProbe.CurrentWithPendingBounce:
+                if (!WithinRoom(_entity.Position))
                 {
                     Finish();
                     return;
                 }
-                _entity.Position = destination;
-                if (_room.IsSolid(destination))
+                if (_room.IsSolidForEnemyMovement(_entity.Position, holesAreWalls: false))
                     State = HostileProjectileState.CollisionPending;
+                // partCode18 still moves after scheduling state $02.
+                Move(_profile.SpeedRaw);
                 break;
             default:
                 throw new InvalidOperationException(
@@ -180,7 +180,7 @@ internal sealed class HostileProjectileLifecycle
 
     public bool DeflectWithSword()
     {
-        if (Finished)
+        if (Finished || !_collisionEnabled)
             return false;
         if (_profile.SwordWindow == HostileProjectileSwordWindow.BeforeBounce &&
             State is not (
@@ -198,8 +198,6 @@ internal sealed class HostileProjectileLifecycle
     {
         State = HostileProjectileState.Bouncing;
         _collisionEnabled = false; // partCommon_bounceWhenCollisionsEnabled.
-        if (_profile.ClearCollisionOnBounce)
-            _collisionRadii = Vector2.Zero;
         if (_profile.ResetZOnBounce)
             ZFixed = 0;
         Counter = _bounce.Frames;
@@ -221,35 +219,15 @@ internal sealed class HostileProjectileLifecycle
         OracleObjectMath.UpdateSpeedZ(
             ref zFixed, ref _speedZ, _bounce.Gravity);
         ZFixed = zFixed;
-        _entity.Position +=
-            MovementDelta(_bounce.SpeedRaw);
+        Move(_bounce.SpeedRaw);
         _entity.QueueRedraw();
     }
 
-    private Vector2 MovementDelta(int speed)
-    {
-        var velocity = NativeObjectMovement.Velocity(_movementMemory, speed, Angle);
-        return new(velocity.XFixed / 256.0f, velocity.YFixed / 256.0f);
-    }
+    private void Move(int speed) => _entity.Position = NativeObjectMovement.ApplySpeed(
+        _movementMemory, OracleObjectPosition.FromPixels(_entity.Position), speed, Angle).PrecisePosition;
 
-    private bool WithinVisibleBoundary(Vector2 linkPosition)
-    {
-        float maxCameraX = Mathf.Max(
-            0.0f, _room.Width - OracleRoomData.ViewportWidth);
-        float maxCameraY = Mathf.Max(
-            0.0f, _room.Height - OracleRoomData.ViewportHeight);
-        Vector2 cameraOrigin = new(
-            Mathf.Clamp(
-                linkPosition.X - OracleRoomData.ViewportWidth / 2.0f,
-                0.0f,
-                maxCameraX),
-            Mathf.Clamp(
-                linkPosition.Y - OracleRoomData.ViewportHeight / 2.0f,
-                0.0f,
-                maxCameraY));
-        return OracleObjectMath.IsInsideOriginalScreenBoundary(
-            _entity.Position - cameraOrigin);
-    }
+    private bool WithinVisibleBoundary() =>
+        OracleObjectMath.IsInsideOriginalScreenBoundary(_entity.SourceScreenPosition);
 
     private bool WithinRoom(Vector2 position) =>
         position.X >= 0 &&
@@ -272,7 +250,6 @@ internal readonly record struct HostileProjectileProfile(
     Vector2 CollisionRadii,
     HostileProjectileTileProbe TileProbe,
     HostileProjectileSwordWindow SwordWindow,
-    bool ClearCollisionOnBounce,
     bool ResetZOnBounce,
     int LaunchDelay = 0,
     bool NativePartBoundary = false,
@@ -290,7 +267,7 @@ internal enum HostileProjectileState
 internal enum HostileProjectileTileProbe
 {
     CurrentPosition,
-    DestinationWithPendingBounce
+    CurrentWithPendingBounce
 }
 
 internal enum HostileProjectileSwordWindow

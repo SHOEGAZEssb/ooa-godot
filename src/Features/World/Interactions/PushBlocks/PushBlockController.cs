@@ -11,6 +11,7 @@ public partial class PushBlockController : Node2D
     private const float CombinedLinkRadius = 12.0f;
     private const byte GraveHidingDoorTile = 0xd9;
     private const byte TilesetFlagOutdoors = 0x01;
+    private const int SlidingSpeedRaw = 0x46; // constants/common/objectSpeeds.s:SPEED_1c0
 
     private readonly RoomSession _rooms;
     private readonly OracleRuntimeState? _movementMemory;
@@ -22,10 +23,12 @@ public partial class PushBlockController : Node2D
     private readonly Func<byte, bool> _pushBlockPermitted;
     private readonly Action<int>? _pushSomaria;
     private readonly Func<int>? _braceletLevelSource;
+    private bool _released;
     private int _pendingPosition = -1, _pendingAngle, _pendingBraceletLevel;
     private int _pushCounter { get => _rooms.TilePushCounter; set => _rooms.TilePushCounter = unchecked((byte)value); }
     private bool _active;
     private bool _outgoing;
+    private bool _sliding;
     private float _moveFrame;
     private Vector2 _sourceTopLeft;
     private Vector2 _destinationTopLeft;
@@ -33,9 +36,8 @@ public partial class PushBlockController : Node2D
     private Vector2I _moveDirection;
     private PushableTileRecord _record;
     private Texture2D? _blockTexture;
-    private bool _linkMovementDisabled;
     private BraceletDatabaseRecord? _braceletCache;
-    private BraceletDatabaseRecord _bracelet => _braceletCache ??= new BraceletDatabase(_rooms.AssetRoot + "metadata/bracelet.tsv").Data;
+    private BraceletDatabaseRecord _bracelet => _braceletCache ??= new BraceletDatabase(_rooms.AssetRoot).Data;
     private int _activeMoveFrames = MoveFrames;
     private float _activeMoveSpeedPerFrame = MoveSpeedPerFrame;
 
@@ -47,11 +49,9 @@ public partial class PushBlockController : Node2D
     internal byte ActiveTile { get; private set; }
     internal int PushAngle => _rooms.BlockPushAngle & ObjectAngle.Mask;
     internal bool NativeInitialized => _active && _pendingPosition < 0;
-    internal bool LinkMovementDisabled => _active && _linkMovementDisabled;
     internal int RemainingPushFrames => _pushCounter;
     internal int ActiveMoveFrames => _activeMoveFrames;
-    internal Vector2 BlockTopLeft => _sourceTopLeft + (Vector2)_moveDirection *
-        (_moveFrame * _activeMoveSpeedPerFrame);
+    internal Vector2 BlockTopLeft => NativeInitialized ? _collisionCenter - new Vector2(8,6) : _sourceTopLeft;
     internal Texture2D? BlockTexture => _blockTexture;
     internal int BlockZHigh { get; private set; }
 
@@ -77,7 +77,16 @@ public partial class PushBlockController : Node2D
         _pushSomaria = pushSomaria;
         _braceletLevelSource = braceletLevelSource;
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
-        if (observeRoomChanges) _rooms.RoomChanged += (_, _) => { if (!_outgoing) Cancel(); };
+        if (observeRoomChanges) _rooms.RoomChanged += RoomChanged;
+        TreeExiting += ReleaseRuntime;
+    }
+    private void RoomChanged(int group,OracleRoomData room) { if (!_outgoing) Cancel(); }
+    internal void ReleaseRuntime()
+    {
+        if (_released) return;
+        _released=true;
+        _rooms.RoomChanged-=RoomChanged;
+        TreeExiting-=ReleaseRuntime;
     }
 
     internal PushBlockController CreateSynchronizedController()
@@ -97,7 +106,7 @@ public partial class PushBlockController : Node2D
         // @loadPushableTileProperties returns at its zero terminator on a
         // miss, leaving the freshly allocated var32..var34 bytes zero. A
         // pending state0 can observe a tile changed since its allocation.
-        var record = _tiles.GetNativeProperties(_rooms.CurrentRoom.ActiveCollisions,tile);
+        var record = _tiles.GetNativeProperties(_rooms.CurrentRoom.ActiveCollisions,tile,_rooms.ActiveGroup);
         Vector2I direction = (angle & ObjectAngle.Mask) switch {
             0 => Vector2I.Up, 8 => Vector2I.Right, 16 => Vector2I.Down, 24 => Vector2I.Left,
             _ => throw new NotSupportedException($"INTERAC $14: unsupported push angle ${angle:x2}.") };
@@ -110,9 +119,11 @@ public partial class PushBlockController : Node2D
         Vector2 movementInput,
         int braceletLevel = 0)
     {
+        if (_released) return;
         // nextToPushableBlock returns before touching the shared counter
         // underwater. ITEM$18 dispatch precedes reserved INTERAC_PUSHBLOCK.
-        if ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0)
+        if (_rooms.SaveData.Game == OracleGame.Ages &&
+            (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0)
             return;
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
                 movementInput, out Vector2I direction) ||
@@ -174,14 +185,16 @@ public partial class PushBlockController : Node2D
         _blockTexture = null;
         Visible = false;
         _active = true;
-        _linkMovementDisabled = tile == GraveHidingDoorTile &&
-            (_rooms.CurrentRoom.TilesetFlags & TilesetFlagOutdoors) != 0;
+        if (_rooms.SaveData.Game == OracleGame.Ages && tile == GraveHidingDoorTile &&
+            (_rooms.CurrentRoom.TilesetFlags & TilesetFlagOutdoors) != 0)
+            _rooms.RuntimeState.SetField("wDisabledObjects",1);
     }
 
     public override void _PhysicsProcess(double delta) => Advance(delta);
 
     internal void Advance(double delta, Player? player = null)
     {
+        if (_released) return;
         if (!_active) return;
         bool initializing = _pendingPosition >= 0;
         if (initializing)
@@ -224,7 +237,7 @@ public partial class PushBlockController : Node2D
         Position = Vector2.Zero;
         _active = false;
         _pendingPosition = -1;
-        _linkMovementDisabled = false;
+        _sliding = false;
         _moveFrame = 0.0f;
         _blockTexture = null;
         BlockZHigh = 0;
@@ -268,7 +281,7 @@ public partial class PushBlockController : Node2D
         // ITEM$18 has an interaction parameter but no ordinary replacement,
         // destination, or property bytes. StartMovement dispatches it first.
         if(somaria) record=new(parameter,0,0,0);
-        if (tile == 0xff || !somaria && !_tiles.TryGet(room.ActiveCollisions, tile, out record))
+        if (tile == 0xff || !somaria && !_tiles.TryGet(room.ActiveCollisions, tile, out record,_rooms.ActiveGroup))
         {
             return false;
         }
@@ -305,8 +318,9 @@ public partial class PushBlockController : Node2D
         _collisionCenter = topLeft + new Vector2(8, 6);
         _moveDirection = direction;
         _record = record;
+        _sliding = _rooms.SaveData.Game == OracleGame.Seasons && (record.PropertyFlags & 2) != 0;
         ActiveTile = tile; // INTERAC $14 var31, observed by INTERAC $bd.
-        bool usePowerGloveSpeed = braceletLevel == 2 &&
+        bool usePowerGloveSpeed = _rooms.SaveData.Game == OracleGame.Ages && braceletLevel == 2 &&
             (record.PropertyFlags & _bracelet.HeavyPropertyMask) == 0;
         _activeMoveFrames = usePowerGloveSpeed
             ? _bracelet.PowerGlovePushFrames
@@ -341,12 +355,22 @@ public partial class PushBlockController : Node2D
         // Button height is presentation; collision and destination stay XY.
         if ((_rooms.CurrentRoom.TilesetFlags & 0x18) != 0)
             BlockZHigh = _rooms.CurrentRoom.GetMetatile(_collisionCenter) == 0x0c ? -2 : 0;
-        NativeObjectMovement.Velocity(_movementMemory, _activeSpeedRaw,
-            InteractableTilePushGeometry.DirectionIndex(_moveDirection) * 8);
-        _moveFrame = Mathf.Min(
-            _activeMoveFrames, _moveFrame + (float)(delta * 60.0));
-        _collisionCenter = _sourceTopLeft + new Vector2(8, 6) +
-            (Vector2)_moveDirection * (_moveFrame * _activeMoveSpeedPerFrame);
+        // Seasons state0 still falls through state1 once at SPEED_80. Only
+        // later state2 visits use SPEED_1c0, without decrementing counter1.
+        bool slidingVisit = _sliding && _moveFrame != 0;
+        int angle = InteractableTilePushGeometry.DirectionIndex(_moveDirection) * 8;
+        if (slidingVisit)
+        {
+            _activeSpeedRaw = SlidingSpeedRaw;
+            NativeObjectMovement.ApplySpeed(_movementMemory,ref _collisionCenter,_activeSpeedRaw,angle);
+        }
+        else
+        {
+            NativeObjectMovement.Velocity(_movementMemory, _activeSpeedRaw,angle);
+            _moveFrame = Mathf.Min(_activeMoveFrames, _moveFrame + (float)(delta * 60.0));
+            _collisionCenter = _sourceTopLeft + new Vector2(8, 6) +
+                (Vector2)_moveDirection * (_moveFrame * _activeMoveSpeedPerFrame);
+        }
         if (player is not null && !player.PassesNpcs)
         {
             // objectPreventLinkFromPassing: byte XY, 6+6 radii, horizontal
@@ -363,8 +387,18 @@ public partial class PushBlockController : Node2D
             }
         }
         QueueRedraw();
-        if (_moveFrame < _activeMoveFrames)
-            return;
+        if (slidingVisit)
+        {
+            Vector2 probe = _collisionCenter + (Vector2)_moveDirection * 8;
+            byte y = unchecked((byte)Mathf.FloorToInt(probe.Y)), x = unchecked((byte)Mathf.FloorToInt(probe.X));
+            // getTileCollisionsAtPosition reads live position overrides, not
+            // the metatile's original collision-table entry.
+            if (_rooms.CurrentRoom.GetTerrainInfo(new((x & 0xf0) + 8,(y & 0xf0) + 8)).Collision == 0) return;
+            _playSound(SoundId.SndClink);
+            int position = _rooms.CurrentRoom.GetPackedPosition(_collisionCenter);
+            _destinationTopLeft = new((position & 15) * 16,(position >> 4) * 16);
+        }
+        else if (_moveFrame < _activeMoveFrames) return;
 
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 destinationCenter = _destinationTopLeft + Vector2.One * 8.0f;
@@ -379,7 +413,10 @@ public partial class PushBlockController : Node2D
             _roomView.QueueRedraw();
         }
         if (hazard == HazardType.None && _record.PlaysSecretSound)
+        {
+            _rooms.RuntimeState.SetField("wDisabledObjects",0);
             _playSound(SoundId.SndSolvePuzzle);
+        }
         Cancel();
     }
 

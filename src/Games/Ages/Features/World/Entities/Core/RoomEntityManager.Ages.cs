@@ -7,6 +7,7 @@ namespace Oracles;
 
 public sealed partial class RoomEntityManager
 {
+    internal void BindNativeCompanions(AgesCompanionScriptController controller) => _agesFactory.NativeCompanions = controller;
     private AgesRoomEntityFactory _agesFactory => _factory as AgesRoomEntityFactory ??
         throw new NotSupportedException($"{AssetRoot}: this operation requires Ages entity content.");
 
@@ -15,15 +16,6 @@ public sealed partial class RoomEntityManager
     {
         _familyState = new BipinBlossomFamilyStateResolver(npcs);
         return new AgesRoomEntityFactory(this, enemies, timePortals, rooms);
-    }
-
-    internal void SpawnDiggingEnemy(int roll, int subId, Vector2 position)
-    {
-        if (_runtimeState.ReadField("wDiggingUpEnemiesForbidden") != 0)
-            return;
-        TryAllocateEnemy(_ => _agesFactory.CreateDiggingEnemy(
-            _diggingEnemies.Enemy(roll, subId), position, _roomForActiveEntities,
-            _diggingEnemies.BeetleCounters));
     }
 
     internal TwinrovaRoomEntity? TryCreateTwinrova(Vector2 position, int var03) =>
@@ -55,30 +47,15 @@ public sealed partial class RoomEntityManager
     internal BipinBlossomFamilyStateResolver FamilyStateResolver =>
         _familyState;
     internal KeyholeControllerDatabase KeyholeControllers => _agesFactory.Resources.KeyholeControllers;
+    internal FairiesWoodsDatabase FairiesWoodsData => _agesFactory.Resources.FairiesWoods;
+    internal void BindFairiesWoods(FairiesWoodsEvent owner) => _agesFactory.FairiesWoods = owner;
+    internal CompanionForestDatabase CompanionForestData => _agesFactory.Resources.CompanionForest;
+    internal void BindCompanionForest(CompanionForestEvent owner) => _agesFactory.CompanionForest = owner;
+    internal void BindMooshRescue(MooshRescueEvent owner) => _agesFactory.MooshRescue = owner;
+    internal void BindRickyGloves(RickyGlovesEvent owner) => _agesFactory.RickyGloves = owner;
+    internal void BindMooshGoodbye(MooshGoodbyeEvent owner) => _agesFactory.MooshGoodbye = owner;
+    internal Func<VireEntranceDatabase, IRoomEntity>? VireEntranceFactory { get; set; }
     internal JabuExteriorDatabase JabuExterior => _agesFactory.Resources.JabuExterior;
-
-    internal bool TrySpawnEnemy(int id, int subId, Vector2 position, string source, out string error)
-    {
-        // Native interaction state zero can create enemies during scrolling
-        // (goron_targetCarts_loadCrystals). The preload pass initializes these
-        // later children; the debug UI's transition restriction does not apply.
-        if (!CanSpawnRoomObject(position, out error))
-            return false;
-        int slot = Enumerable.Range(0, 16).FirstOrDefault(
-            candidate => !_reservedEnemySlots.Contains(candidate), -1);
-        if (slot < 0)
-        {
-            error = $"Enemy ${id:x2}:${subId:x2}: all $10 enemy slots are occupied.";
-            return false;
-        }
-        IRoomEntity? entity = _agesFactory.EnemyFactory.CreateStandaloneEnemy(
-            id, subId, _roomForActiveEntities, position, source, out error);
-        if (entity is null)
-            return false;
-        RegisterEnemySlot(entity, slot);
-        AddEntity(entity);
-        return true;
-    }
 
     internal TimePortal SpawnTemporaryTimePortal(Vector2 position)
     {

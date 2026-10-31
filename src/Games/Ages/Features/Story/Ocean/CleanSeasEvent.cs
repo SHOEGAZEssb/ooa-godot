@@ -41,7 +41,7 @@ internal sealed class CleanSeasEvent(RoomEventContext context) : IRoomEvent
             context.Sound.PlaySound(SoundId.MusFairyFountain);
             LoadNextRoom(); return;
         }
-        if (RoomIndex == 4 && Phase is > 0 and < 4 && ((context.Entities.FrameCounter + 1) & 31) == 0)
+        if (RoomIndex == 4 && Phase is > 0 and < 4 && (context.Entities.FrameCounter & 31) == 0)
             context.Player.Face(context.Player.FacingVector == Vector2I.Down || context.Player.FacingVector == Vector2I.Left
                 ? Vector2I.Right : Vector2I.Left);
         switch (Phase)
@@ -50,7 +50,7 @@ internal sealed class CleanSeasEvent(RoomEventContext context) : IRoomEvent
                 if (context.Transitions.NativePaletteFadeActive) return;
                 Counter = _data.Timing[4]; Phase = 1; return;
             case 1:
-                int frame = (context.Entities.FrameCounter + 1) & 255;
+                int frame = context.Entities.FrameCounter & 255;
                 if ((frame & 7) == 0 && context.Entities.PartSlotAvailable)
                 {
                     int packed = context.Entities.NextRandomValue() & 0x7f;

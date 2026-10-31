@@ -98,7 +98,7 @@ internal sealed partial class SpinyBeetleCoverCharacter : EnemyCharacter, ISwitc
     }
     internal void BeginBurn(int damage)
     {
-        var status = EnemyBehaviorTables.For(AssetRoot).TargetGhini.EmberStatus;
+        var status = GhiniDatabase.For(AssetRoot).Target.EmberStatus;
         Health = System.Math.Max(0,Health-damage); _burnCollisionDisabled = Health == 0;
         InvincibilityCounter = unchecked((sbyte)status[1].Value); _stunCounter = status[3].Value;
         DeferNativeHitStatus();

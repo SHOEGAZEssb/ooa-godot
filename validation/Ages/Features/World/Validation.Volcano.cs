@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
         ulong pixels = OracleGraphicsCache.PixelHash(before);
         var offsets = new List<Vector2>();
         _entities.ScreenShakeChanged += offsets.Add;
-        void Tick() => _entities.Update(1.0 / 60, _player);
+        void Tick() => _entities.AdvanceEntityFrames(1.0 / 60, _player);
         Tick();
         using Image after = _currentRoom.Texture.GetImage();
         FailIf(OracleGraphicsCache.PixelHash(after) != pixels ||
@@ -136,7 +136,7 @@ public sealed partial class ValidationRoot
             "Restoring the Tuni Nut did not suppress $dc:$06 on room re-entry.");
         _saveData.SetGlobalFlag(AgesGlobalFlag.TuniNutPlaced, false);
         LoadValidationRoom(1, 0x13);
-        _transitions.BeginScroll(_player, Vector2I.Up, 3);
+        _transitions.BeginValidationScroll(_player, Vector2I.Up, 3);
         UpdateScrollingTransition(8.0 / 60);
         FailIf(_entities.Entities<VolcanoRock>().Count != 0 || _entities.HorizontalScreenShakeCounter != 0,
             "Incoming $b2 advanced its eruption during scrolling.");
@@ -333,11 +333,11 @@ public sealed partial class ValidationRoot
             {
                 int before = _entities.RandomCalls;
                 _entities.SetScreenShake(axes.Y, axes.X, 1);
-                _entities.Update(1.0 / 60, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60, _player);
                 FailIf(_entities.RandomCalls != before + axes.Y + axes.X ||
                     Math.Abs(offset.Y) != axes.Y || Math.Abs(offset.X) != axes.X,
                     "bank1.updateScreenShake lost per-axis RNG or erased the final visible shake update.");
-                _entities.Update(1.0 / 60, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60, _player);
                 FailIf(offset != Vector2.Zero || _entities.RandomCalls != before + axes.Y + axes.X,
                     "Expired screen shake failed to restore the camera without consuming RNG.");
             }

@@ -11,7 +11,6 @@ public sealed partial class ValidationRoot
     {
         const int group = 0;
         const int room = 0x6c;
-        const ulong linkLeft1ePixelHash = 0x86096bcb7a70c48fUL;
         const ulong linkRight1cPixelHash = 0x7b0717062915917fUL;
         const ulong linkRight20PixelHash = linkRight1cPixelHash;
         Vector2[] mooshCollisionSamples =
@@ -23,8 +22,30 @@ public sealed partial class ValidationRoot
         MooshRescueEventDatabase database = rescue.Database;
         MooshRescueEventRecord record = database.Record;
 
+        void StepRoomEventFrames(int frames, bool advanceLink = true)
+        {
+            // The rescue and native D1 handoff require the actual phase order;
+            // isolated mount/air checks retain their explicit Link stepping in native order.
+            if (rescue.HasState)
+            {
+                string[] held = new[] { "move_left", "move_right", "move_up", "move_down" }
+                    .Where(action => Input.IsActionPressed(action)).ToArray();
+                StepGameplayUpdates(frames, Input.ReadMovement(), held);
+                return;
+            }
+            for (int frame = 0; frame < frames; frame++)
+            {
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player,
+                    updateLink: advanceLink ? () => _player.AdvanceApplicationUpdate() : null);
+                _roomEvents.Update(1.0 / 60.0);
+                _player.PublishNativeWalkAnimation();
+                _sound.Tick();
+            }
+        }
+
         void Configure(bool essence, bool sourceFlag, int mooshState = 0)
         {
+            _inventory.LoseTreasure(record.ChevalRopeTreasure);
             byte essences = _saveData.ReadWramByte(record.EssenceAddress);
             _saveData.WriteWramByte(
                 record.EssenceAddress,
@@ -37,7 +58,7 @@ public sealed partial class ValidationRoot
                 (byte)record.FlagMask,
                 sourceFlag);
             _saveData.WriteWramByte(record.MooshStateAddress, (byte)mooshState);
-            _inventory.LoseTreasure(record.ChevalRopeTreasure);
+            _saveData.CommitInventoryChange();
         }
 
         List<NpcCharacter> PlacedGhinis() =>
@@ -218,8 +239,9 @@ public sealed partial class ValidationRoot
 
         Configure(essence: false, sourceFlag: true);
         LoadValidationRoom(group, room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
-            PlacedGhinis().Count != 3 || PlacedGhinis().Any(npc => npc.Active) ||
+            PlacedGhinis().Any(npc => npc.Active) ||
             _entities.Entities<NpcCharacter>().Any(npc => npc.Record.Id == record.MooshId) ||
             rescue.HasState,
             "Room 0:6c did not suppress all three `$73 Ghinis and `$67 Moosh " +
@@ -227,21 +249,32 @@ public sealed partial class ValidationRoot
 
         Configure(essence: true, sourceFlag: false);
         LoadValidationRoom(group, room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             PlacedGhinis().Any(npc => npc.Active) || rescue.HasState,
             "Room 0:6c ignored wPastRoomFlags+$79 bit `$40 suppression.");
 
         Configure(essence: true, sourceFlag: true, mooshState: record.RescuedMask);
         LoadValidationRoom(group, room);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             PlacedGhinis().Any(npc => npc.Active) || rescue.HasState ||
             rescue.ScreenTransitionsDisabled ||
-            _entities.Entities<MooshCompanionRoomEntity>().Count != 1,
+            _entities.EntityAdapters<IRoomEntity>().Count(actor => actor is IRoomInitializedCompanion) != 1 ||
+            _runtimeState.ReadWramByte(0xd104) != 0 || _runtimeState.ReadWramByte(0xd105) != 0,
             "wMooshState bit `$20 did not suppress the rescue controllers while " +
-            "retaining `$67:$00's ordinary Moosh spawn.");
+            "retaining `$67:$00's pending native Moosh spawn after the D1 pass.");
+        StepGameplayUpdates(1, Vector2.Zero);
+        FailIf(_runtimeState.ReadWramByte(0xd104) != 0 || _runtimeState.ReadWramByte(0xd105) != 1,
+            "companionCheckCanSpawn must yield on the first Ages state$00 visit.");
+        StepGameplayUpdates(1, Vector2.Zero);
+        FailIf(_runtimeState.ReadWramByte(0xd104) != 1 || _runtimeState.ReadWramByte(0xd105) != 0 ||
+            _entities.Entities<MooshCompanionRoomEntity>().Count != 1,
+            "Moosh's second state$00 visit did not transfer the same native slot to its ordinary body.");
 
         Configure(essence: true, sourceFlag: true);
         LoadValidationRoom(group, room);
+        StepGameplayUpdates(1, Vector2.Zero);
         List<NpcCharacter> ghinis = PlacedGhinis();
         NpcCharacter? moosh = rescue.MooshActor;
         FailIf(
@@ -269,7 +302,8 @@ public sealed partial class ValidationRoot
 
         StepRoomEventFrames(1);
         FailIf(
-            !rescue.BlocksGameplay || !_player.CutsceneControlled,
+            !rescue.BlocksGameplay || _runtimeState.ReadField("wDisabledObjects") != 0x11 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0,
             "The first Ghini lane did not apply setdisabledobjectsto11 on update 1.");
 
         OracleObjectPosition expected =
@@ -328,8 +362,11 @@ public sealed partial class ValidationRoot
 
         moosh = rescue.MooshActor;
         FailIf(moosh is null, "Moosh disappeared before his post-fight A-button gate.");
-        _player.WarpTo(moosh!.Position + Vector2.Down * 10.0f);
+        _player.WarpTo(moosh!.Position + Vector2.Down * 18.0f);
+        FailIf(_collision.Collides(_player.Position), "Moosh conversation must approach through room $0:$6c floor.");
         _player.Face(Vector2I.Up);
+        FailIf(_entities.FindTalkTarget(_player) == moosh, "Moosh's approach must begin outside native A-button reach.");
+        StepGameplayUpdates(6, Vector2.Up, ["move_up"]);
         for (int frame = 0; frame < 80 &&
              _entities.FindTalkTarget(_player) != moosh; frame++)
         {
@@ -339,16 +376,17 @@ public sealed partial class ValidationRoot
             _entities.FindTalkTarget(_player) != moosh ||
             !_interactions.TryInteract(_player),
             "Moosh did not become A-sensitive after the three SND_DING cues.");
+        FailIf(_entities.FindTalkTarget(_player) == moosh, "The native var3d pending bit must remove Moosh from the next A-target search.");
         Vector2 fearLockPosition = _player.PrecisePosition;
         Input.ActionPress("move_down");
         for (int frame = 0; frame < 12; frame++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
         Input.ActionRelease("move_down");
         FailIf(
-            !rescue.BlocksGameplay || !_player.CutsceneControlled ||
+            !rescue.BlocksGameplay || _runtimeState.ReadField("wDisabledObjects") != 1 ||
+            _runtimeState.ReadField("wMenuDisabled") != 1 ||
             _player.PrecisePosition != fearLockPosition,
             "SPECIALOBJECT_MOOSH state `$0a did not retain the input/menu " +
             "lock from the post-fight A-button response through its fear shake.");
@@ -365,13 +403,17 @@ public sealed partial class ValidationRoot
                 exclamationClinks + 1 ||
             _sound.LastPlayRequestForValidation() !=
                 SoundId.SndClink ||
-            !rescue.BlocksGameplay || !_player.CutsceneControlled,
+            !rescue.BlocksGameplay || _runtimeState.ReadField("wDisabledObjects") != 0x11 ||
+            _runtimeState.ReadField("wMenuDisabled") != 1,
             "Moosh did not create the 30-update exclamation with SND_CLINK " +
             "and reapply setdisabledobjectsto11 before turning toward Link.");
 
         StepRoomEventFrames(1);
+        FailIf(_runtimeState.ReadWramByte(0xd13f) != 3 || _runtimeState.ReadWramByte(0xd130) != 0,
+            "The interaction's var3f write must wait for the following native D1 visit to change Moosh's animation.");
+        StepRoomEventFrames(1);
         FailIf(
-            moosh.FacingVector != Vector2I.Down ||
+            _runtimeState.ReadWramByte(0xd130) != 3 ||
             moosh.CurrentAnimationPixelHash == frightenedMooshPixelHash ||
             moosh.CurrentAnimationTextureSize.X < 24,
             "companionScript_writeAngleTowardLinkToCompanionVar3f did not " +
@@ -383,7 +425,6 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         for (int frame = 0; frame < 120 && !_dialogue.IsOpen; frame++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
         ExpectDialogue(0x2205, "mounted-companion tutorial");
@@ -396,23 +437,23 @@ public sealed partial class ValidationRoot
             !_player.CompanionRideActive || !rescue.CompanionMounted ||
             !CompanionRuntimeState.IsActive(
                 _runtimeState, CompanionRuntimeState.MooshId) ||
-            companion.AnimationIndex != 0x16 ||
-            companion.Direction != 3 ||
-            companion.LinkAnimationParameter != 0x1e ||
-            companion.LinkTexturePixelHash != linkLeft1ePixelHash ||
+            companion.AnimationIndex != 0x15 ||
+            companion.Direction != 2 ||
+            companion.LinkAnimationParameter != 0x1d ||
             _player.CompanionRideTexturePixelHash !=
                 companion.LinkTexturePixelHash ||
             _player.CompanionRideTextureOffset !=
                 companion.LinkTextureOffset ||
             _player.CompanionRideTextureSize != new Vector2I(16, 16) ||
-            _player.Position != companion.Position + new Vector2(0, -16) ||
+            _player.Position != companion.Position + new Vector2(0, -14) ||
             rescue.BlocksGameplay || _player.CutsceneControlled,
             "The room-local rescue did not set wMooshState bit `$20 and " +
             "complete companionForceMount into SPECIALOBJECT_MOOSH `$0d " +
-            "in the first-meeting left direction with " +
+            "in its native first-meeting downward direction with " +
             "SPECIALOBJECT_LINK_RIDING_ANIMAL's source frame/offset " +
             $"(parameter=${companion.LinkAnimationParameter:x2}, " +
-            $"hash={companion.LinkTexturePixelHash:x16}, " +
+            $"hash={companion.LinkTexturePixelHash:x16}, state={companion.Phase}, dir={companion.Direction}, anim=${companion.AnimationIndex:x2}, " +
+            $"ride={_player.CompanionRideActive}/{rescue.CompanionMounted}, position={_player.Position}/{companion.Position}, blocked={rescue.BlocksGameplay}, control={_player.CutsceneControlled}, " +
             $"offset={companion.LinkTextureOffset}).");
 
         int equippedA = _inventory.EquippedA;
@@ -541,12 +582,13 @@ public sealed partial class ValidationRoot
         Input.ActionRelease("move_right");
 
         int jumpSounds = _sound.PlayRequestsFor(record.JumpSound);
+        int retainedJumpSpeedZ = companion.SpeedZ;
         StepMooshApplicationInput(
             pressed: ["attack"],
             justPressed: ["attack"]);
         FailIf(
             companion.Phase != MooshCompanionPhase.Airborne ||
-            companion.SpeedZ != 0 || companion.AnimationIndex != 0x14 ||
+            companion.SpeedZ != retainedJumpSpeedZ || companion.AnimationIndex != 0x14 ||
             _sound.PlayRequestsFor(record.JumpSound) != jumpSounds + 1,
             "Moosh's A press did not enter state `$08/substate `$00 with " +
             "SND_JUMP while retaining the riding frame for that update.");
@@ -612,7 +654,7 @@ public sealed partial class ValidationRoot
             "The mounted B-button update did not exclusively enter Moosh " +
             "state $06/substate $00.");
 
-        StepRoomEventFrames(1);
+        StepRoomEventFrames(1, advanceLink: false);
         Vector2I expectedRespawnFacing = companion.Direction switch
         {
             0 => Vector2I.Up,
@@ -627,8 +669,10 @@ public sealed partial class ValidationRoot
             _player.PrecisePosition != dismountStart ||
             _player.TopDownAirZ != -8 ||
             _player.TopDownAirSpeedZ != -0x01c0 ||
-            CompanionRuntimeState.IsActive(
+            !CompanionRuntimeState.IsActive(
                 _runtimeState, CompanionRuntimeState.MooshId) ||
+            _runtimeState.ReadWramByte(0xd100) != 1 ||
+            _runtimeState.ReadField("wLinkObjectIndex") != 0xd0 ||
             !CompanionRuntimeState.TryGetRemembered(
                 _runtimeState,
                 CompanionRuntimeState.MooshId,
@@ -640,15 +684,15 @@ public sealed partial class ValidationRoot
             _player.LocalRespawnFacingVector != expectedRespawnFacing ||
             _sound.PlayRequestsFor(record.JumpSound) != dismountJumpSounds,
             "Moosh state $06/substate $00 did not copy position, set zh=$f8/" +
-            "speedZ=-$01c0, save both local anchors, or defer SND_JUMP.");
+            "speedZ=-$01c0, retain enabled $01 with Link page $d0, save both local anchors, or defer SND_JUMP.");
 
         // This fixture stepped only the companion above. Complete Link's
         // same-pass state-0 initialization before its first airborne update.
-        _player._PhysicsProcess(1.0 / 60.0);
+        _player.AdvanceApplicationUpdate();
         FailIf(_player.TopDownAirZ != -8 || _player.TopDownAirSpeedZ != -0x01c0 ||
             _sound.PlayRequestsFor(record.JumpSound) != dismountJumpSounds,
             "Dismount state-0 initialization must not integrate gravity or play SND_JUMP.");
-        _player._PhysicsProcess(1.0 / 60.0);
+        _player.AdvanceApplicationUpdate();
         FailIf(
             _player.PrecisePosition != dismountStart ||
             _player.TopDownAirZ != -10 ||
@@ -657,10 +701,9 @@ public sealed partial class ValidationRoot
                 dismountJumpSounds + 1,
             "Link's first post-dismount air update did not remain at Moosh's " +
             "copied Y/X while applying gravity and SND_JUMP.");
-        StepRoomEventFrames(1);
+        StepRoomEventFrames(1, advanceLink: false);
         for (int frame = 0; frame < 90 && _player.CompanionJumpActive; frame++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
         FailIf(
@@ -673,13 +716,11 @@ public sealed partial class ValidationRoot
             "companionDismount did not land vertically in place while Moosh " +
             "state $06/substate $01 retained its source-order landing delay.");
 
-        _player._PhysicsProcess(1.0 / 60.0);
         StepRoomEventFrames(1);
         FailIf(
             companion.Phase != MooshCompanionPhase.AwaitingDistance,
             "Moosh state $06/substate $01 did not advance exactly one update " +
             "after Link cleared wLinkInAir.");
-        _player._PhysicsProcess(1.0 / 60.0);
         StepRoomEventFrames(1);
         FailIf(
             companion.Phase != MooshCompanionPhase.AwaitingDistance,
@@ -688,7 +729,6 @@ public sealed partial class ValidationRoot
         Input.ActionPress("move_left");
         for (int update = 0; update < 9; update++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
         FailIf(
@@ -696,7 +736,6 @@ public sealed partial class ValidationRoot
             LinkMooshManhattanDistance(companion) != 9,
             "Moosh observed Link crossing c=$09 after Link's object pass " +
             "instead of on the following companion-first update.");
-        _player._PhysicsProcess(1.0 / 60.0);
         StepRoomEventFrames(1);
         Input.ActionRelease("move_left");
         FailIf(
@@ -706,24 +745,24 @@ public sealed partial class ValidationRoot
             "first source-order update outside the strict c=$09 radius.");
 
         _deathRespawnPoints.RecordCurrentPoint();
-        var restoredCompanionRuntime = AgesGameContent.CreateRuntimeState();
+        var restoredCompanionRuntime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         CompanionRuntimeState.RestoreRememberedFromDeathRespawn(
             restoredCompanionRuntime, _saveData);
         FailIf(
             _saveData.ReadWramByte(
-                OracleSaveData.RespawnRememberedCompanionIdAddress) !=
+                0xc631) !=
                     CompanionRuntimeState.MooshId ||
             _saveData.ReadWramByte(
-                OracleSaveData.RespawnRememberedCompanionGroupAddress) != group ||
+                0xc632) != group ||
             _saveData.ReadWramByte(
-                OracleSaveData.RespawnRememberedCompanionRoomAddress) != room ||
+                0xc633) != room ||
             _saveData.ReadWramByte(
-                OracleSaveData.RespawnLinkObjectIndexAddress) != 0xd0 ||
+                0xc634) != 0xd0 ||
             _saveData.ReadWramByte(
-                OracleSaveData.RespawnRememberedCompanionYAddress) !=
+                0xc636) !=
                     Mathf.FloorToInt(companion.Position.Y) ||
             _saveData.ReadWramByte(
-                OracleSaveData.RespawnRememberedCompanionXAddress) !=
+                0xc637) !=
                     Mathf.FloorToInt(companion.Position.X) ||
             !CompanionRuntimeState.TryGetRemembered(
                 restoredCompanionRuntime,
@@ -740,7 +779,6 @@ public sealed partial class ValidationRoot
         for (int frame = 0; frame < 60 &&
              companion.Phase == MooshCompanionPhase.Waiting; frame++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
         Input.ActionRelease("move_right");
@@ -749,10 +787,9 @@ public sealed partial class ValidationRoot
             _player.PrecisePosition == remountApproachStart ||
             LinkMooshManhattanDistance(companion) >= 9,
             "Link could not physically walk back through Moosh's former " +
-            "blocking body and trigger objectCheckLinkWithinDistance c=$09.");
+            $"blocking body and trigger objectCheckLinkWithinDistance c=$09 (XY={_player.PrecisePosition}/{remountApproachStart}, phase={companion.Phase}, mask=${_runtimeState.ReadField("wDisabledObjects"):x2}, control={_player.CutsceneControlled}, state08={SomariaPrivate<int>(_player,"_forcedState08Phase")}, facing={_player.FacingVector}).");
         for (int frame = 0; frame < 120 && !companion.Mounted; frame++)
         {
-            _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
         FailIf(
@@ -876,7 +913,7 @@ public sealed partial class ValidationRoot
                 "Room 0:6c has no source-derived right neighbor for the " +
                 "mounted-companion scrolling regression.");
         }
-        _transitions.BeginScroll(_player, scrollDirection, scrollTarget);
+        _transitions.BeginValidationScroll(_player, scrollDirection, scrollTarget);
         FailIf(
             _entities.OutgoingEntities<MooshCompanionRoomEntity>()
                 .SingleOrDefault() != companion ||
@@ -886,7 +923,7 @@ public sealed partial class ValidationRoot
         for (int frame = 0; frame < 60 && _transitions.ScrollActive; frame++)
         {
             _transitions.UpdateScroll(1.0 / 60.0);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         ActiveCompanion scrolledCompanion =
             CompanionRuntimeState.Read(_runtimeState);
@@ -895,7 +932,7 @@ public sealed partial class ValidationRoot
             _rooms.CurrentRoom.Id != scrollTarget ||
             _entities.Entities<MooshCompanionRoomEntity>()
                 .SingleOrDefault() != companion ||
-            scrolledCompanion.Room != scrollTarget ||
+            _rooms.CurrentRoom.Id != scrollTarget ||
             !_player.CompanionRideActive,
             "Mounted Moosh did not retain the single w1Companion owner and " +
             "mounted Link presentation across an ordinary screen scroll.");
@@ -906,7 +943,7 @@ public sealed partial class ValidationRoot
                 $"Room 0:{scrollTarget:x2} did not resolve room 0:6c as its " +
                 "source-derived left neighbor.");
         }
-        _transitions.BeginScroll(_player, Vector2I.Left, returnTarget);
+        _transitions.BeginValidationScroll(_player, Vector2I.Left, returnTarget);
         FailIf(
             _entities.OutgoingEntities<MooshCompanionRoomEntity>()
                 .SingleOrDefault() != companion ||
@@ -916,11 +953,11 @@ public sealed partial class ValidationRoot
         for (int frame = 0; frame < 60 && _transitions.ScrollActive; frame++)
         {
             _transitions.UpdateScroll(1.0 / 60.0);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             _transitions.ScrollActive || _rooms.CurrentRoom.Id != room ||
-            CompanionRuntimeState.Read(_runtimeState).Room != room,
+            _rooms.CurrentRoom.Id != room,
             "Mounted Moosh did not return through the source-derived ordinary " +
             "screen-scroll neighbor link.");
 
@@ -929,6 +966,7 @@ public sealed partial class ValidationRoot
             sourceFlag: true,
             mooshState: _saveData.ReadWramByte(record.MooshStateAddress));
         LoadValidationRoom(group, room);
+        StepGameplayUpdates(1, Vector2.Zero);
         int reentryMooshCount =
             _entities.Entities<MooshCompanionRoomEntity>().Count;
         int reentryActiveGhiniCount = PlacedGhinis().Count(npc => npc.Active);
@@ -968,7 +1006,6 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.BeginAnimalRide(
             _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
-            holeRoom,
             holeCenter,
             ObjectDirection.Down);
         int splashSounds =
@@ -1001,7 +1038,8 @@ public sealed partial class ValidationRoot
             holeCompanion.Position != safePosition ||
             !_player.CompanionRideActive ||
             _player.HealthQuarters >= healthBeforeHole ||
-            _player.InvincibilityFrames != 0x40,
+            // specialObjects.s decrements Link's $40 after the companion respawn and Link visit.
+            _player.InvincibilityFrames != 0x3f,
             "Moosh's hole animation did not respawn the mounted pair at the " +
             "local safe point with companionRespawn's damage/invincibility state.");
 
@@ -1030,7 +1068,6 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.BeginAnimalRide(
             _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
-            waterRoom,
             waterStart,
             waterDirection);
         StepGameplayUpdates(1, Vector2.Zero);
@@ -1103,7 +1140,7 @@ public sealed partial class ValidationRoot
             "lanes, exact 32-update circular motion, TX_1204/1205/2200/1206/1207 " +
             "taunt order, `$17:$00 combat replacement, room-enemy gate, three " +
             "SND_DING cues, SND_CLINK exclamation, Moosh A-button/shake sequence, " +
-            "direction+1 rescue sprite, first-meeting left forced mount, " +
+            "direction+1 rescue sprite, native downward forced mount, " +
             "exact Link riding-frame " +
             "hashes, live XYZ jump attachment, sticky diagonal facing, " +
             "TX_2205 close-edge consumption, mounted item-pose suppression, " +
@@ -1137,7 +1174,7 @@ public sealed partial class ValidationRoot
         try
         {
             _player.AdvanceApplicationUpdate();
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
             _interactions.Update(1.0 / 60.0, _player);
             if (closeDialogue)

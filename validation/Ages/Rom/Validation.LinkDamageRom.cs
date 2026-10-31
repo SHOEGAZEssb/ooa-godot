@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
                 switch (boundary)
                 {
                     case 0:
-                        player.ResetPortalDamageState();
+                        player.ResetLinkInvincibility();
                         rom.Call(0x2ba9, bank: 0); // resetLinkInvincibility.
                         break;
                     case 1:

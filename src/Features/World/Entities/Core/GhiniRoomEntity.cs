@@ -20,10 +20,13 @@ internal sealed class GhiniRoomEntity
                 ghini.TakeSwordHit,
                 ghini.TakeBurnHit,
                 ghini.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback))
+                soundRequested))
     { }
 
-    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
         Entity.UpdateFrame();
+        if (Entity.IsDead && !Entity.HasCompletedKnockbackDeath && CombatDescriptor.Combat.CreateDeathPuff() is { } puff)
+            spawns.Add(puff with { DecrementsRoomCount = CombatDescriptor.CountsAsEnemy });
+    }
 }

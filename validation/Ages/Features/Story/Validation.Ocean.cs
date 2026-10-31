@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             FailIf(npc.Implementation != NpcImplementationClassification.OrdinaryGeneric || !npc.CanFace ||
                 !dialogue.TryResolve(npc, save, out var initial) || initial.TextId != palace[npc.SubId],
                 $"Zora ${npc.SubId:x2} lost its uncured palace text.");
-            FailIf(visibility.ShouldShow(npc, save, AgesGameContent.CreateRuntimeState()) != (npc.SubId < 6),
+            FailIf(visibility.ShouldShow(npc, save, OracleRuntimeState.CreateInitialized(OracleGame.Ages)) != (npc.SubId < 6),
                 $"zora.s:@state0 deletion gate differs for ${npc.SubId:x2}.");
         }
         save.SetGlobalFlag(0x27); save.SetGlobalFlag(0x30); save.WriteWramByte(AgesWramAddress.wEssencesObtained,0x7f);
@@ -138,7 +138,8 @@ public sealed partial class ValidationRoot
                         "Yes must publish its result before King Zora acquires the input lock.");
                 FailIf(_player.Position != position, "Yes confirmation leaked movement through active text.");
             });
-            FailIf(!_dialogue.CurrentMessage.StartsWith("Very well!") || !_player.CutsceneControlled ||
+            FailIf(!_dialogue.CurrentMessage.StartsWith("Very well!") || _player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 _inventory.HasTreasure(TreasureId.LibraryKey), "Yes did not enter TX_340b before granting Library Key $46.");
             PumpUntil(() => !_dialogue.IsOpen && !story.BlocksGameplay);
             Step(3);
@@ -196,7 +197,9 @@ public sealed partial class ValidationRoot
         _dialogue.SubmitChoiceForValidation(1); Step(3);
         FailIf(_saveData.HasGlobalFlag(0x27) || !_inventory.HasTreasure(TreasureId.Potion), "Refusing King Zora consumed potion.");
         Talk(); _dialogue.SubmitChoiceForValidation(0); Step(10);
-        FailIf(_inventory.HasTreasure(TreasureId.Potion) || !_player.CutsceneControlled, "Potion handoff did not consume $2f and hold Link.");
+        FailIf(_inventory.HasTreasure(TreasureId.Potion) || _player.CutsceneControlled ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
+            "Potion handoff did not consume $2f and hold Link with the native $81/$80 control bytes.");
         for (int i=0;i<240 && !_saveData.HasGlobalFlag(0x27);i++) { if (_dialogue.IsOpen) _dialogue.Close(); Step(1); }
         FailIf(!_saveData.HasGlobalFlag(0x27) || _player.CutsceneControlled, "King Zora cure failed to persist $27 or release Link.");
         Step(3); Talk(); FailIf(!_dialogue.IsOpen || !_dialogue.CurrentMessage.Contains("Filthy water"), "King Zora repeat talk did not select TX_3405.");

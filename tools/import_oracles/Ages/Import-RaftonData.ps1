@@ -586,11 +586,51 @@ $raftRows = @(
 )
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\raft.tsv'), @(
-        $raftRows[0] + "`tinner-radius`tinstrument-lock`tdismount-wait"
-        $raftRows[1] + "`t05`t05`t0c"
-        $raftRows[2] + "`t05`t05`t0c"
+        $raftRows[0] + "`tinner-radius`tinstrument-lock`tdismount-wait`tmounted-tile-base`tmounted-oam-flags"
+        $raftRows[1] + "`t05`t05`t0c`t$($raftOamVariables.Groups['tilebase'].Value)`t$($raftOamVariables.Groups['flags'].Value)"
+        $raftRows[2] + "`t05`t05`t0c`t$($raftOamVariables.Groups['tilebase'].Value)`t$($raftOamVariables.Groups['flags'].Value)"
     ))
 Copy-GeneratedFile 'gfx\common\spr_raft.png' 'gfx\spr_raft.png'
+
+# Native animation cursors retain frame identity across live-slot reconstruction.
+$raftNativeFrameRows = [Collections.Generic.List[string]]::new()
+$raftNativeFrameRows.Add("# kind`tanimation`tframe`tnext-pointer`toam-pointer`tsource")
+foreach ($spec in @(
+    @{ Kind='waiting'; Animation=0; Label='interactionAnimation5a468'; Duration=16; Frames=@(0,2); Parameters=@(0,0); Table='interactione6OamDataPointers'; Source='data/ages/interactionAnimations.s' },
+    @{ Kind='waiting'; Animation=1; Label='interactionAnimation5a5a6'; Duration=16; Frames=@(4,6); Parameters=@(0,0); Table='interactione6OamDataPointers'; Source='data/ages/interactionAnimations.s' },
+    @{ Kind='mounted'; Animation=0; Label='animationData1a1ef'; Duration=12; Frames=@(0,1); Parameters=@(0,4); Table='specialObject13OamDataPointers'; Source='data/ages/specialObjectAnimationData.s' },
+    @{ Kind='mounted'; Animation=1; Label='animationData1a1f7'; Duration=12; Frames=@(2,3); Parameters=@(0,4); Table='specialObject13OamDataPointers'; Source='data/ages/specialObjectAnimationData.s' }
+)) {
+    if (-not $agesSymbols.ContainsKey($spec.Label) -or -not $agesSymbols.ContainsKey($spec.Table)) {
+        throw "Raft animation $($spec.Label): missing compiled source symbol."
+    }
+    $start = [int]$agesSymbols[$spec.Label]
+    if ($start -lt 0 -or $start + 8 -gt $romBytes.Length -or
+        ($start -shr 14) -ne (($start + 7) -shr 14)) {
+        throw "Raft animation $($spec.Label): compiled stream is outside its ROM bank."
+    }
+    $expected = @($spec.Duration,$spec.Frames[0],$spec.Parameters[0],$spec.Duration,$spec.Frames[1],$spec.Parameters[1],255,249)
+    if (($romBytes[$start..($start + 7)] -join ',') -ne ($expected -join ',')) {
+        throw "Raft animation $($spec.Label): compiled two-frame stream or backward loop changed."
+    }
+    for ($frame = 0; $frame -lt 2; $frame++) {
+        $next = (($start + 3 * ($frame + 1)) -band 0x3fff) -bor 0x4000
+        $oamOffset = [int]$agesSymbols[$spec.Table]
+        if ($spec.Kind -eq 'waiting') { $oamOffset += $spec.Frames[$frame] }
+        if ($oamOffset -lt 0 -or $oamOffset + 2 -gt $romBytes.Length -or
+            ($oamOffset -shr 14) -ne (($oamOffset + 1) -shr 14)) {
+            throw "Raft animation $($spec.Label): OAM pointer row is outside its ROM bank."
+        }
+        $oam = [int]$romBytes[$oamOffset] -bor ([int]$romBytes[$oamOffset + 1] -shl 8)
+        if ($oam -lt 0x4000 -or $oam -ge 0x8000) {
+            throw "Raft animation $($spec.Label): OAM pointer is outside the banked address range."
+        }
+        $raftNativeFrameRows.Add("$($spec.Kind)`t$($spec.Animation)`t$frame`t$($next.ToString('x4'))`t$($oam.ToString('x4'))`t$($spec.Source):$($spec.Label)+$((3 * $frame).ToString('x2'))")
+    }
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes/raft_animation_state.tsv'),
+    $raftNativeFrameRows)
 
 # Past ocean room $1:$a8 contains INTERAC_RAFTWRECK_CUTSCENE $9b:$00.
 # The script moves wLinkObjectIndex (the mounted SPECIALOBJECT_RAFT), while

@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         {
             for (int index = 0; index < count; index++)
             {
-                _entities.Update(update, _player);
+                _entities.AdvanceEntityFrames(update, _player);
                 _roomEvents.Update(update);
             }
         }
@@ -194,7 +194,7 @@ public sealed partial class ValidationRoot
                 // This fixture repeatedly parks Link in the boss's attacks
                 // to inspect its phases; player death is tested separately.
                 _inventory.RefillHealth();
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
             }
         }
         void FaceBoss(ShadowHagBoss target)
@@ -268,7 +268,7 @@ public sealed partial class ValidationRoot
                 SoundId.SndCtrlStopMusic) != 1,
             "Incoming room 4:4a did not resolve Shadow Hag's hidden state 0 " +
             "before exposing the scrolling destination.");
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             preloadedBoss.State != ShadowHagState.IntroWaitingForDoors,
             "Incoming room 4:4a advanced Shadow Hag while destination " +
@@ -621,7 +621,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
         }
 
         var data = new MoonlitGrottoDatabase();
@@ -693,7 +693,7 @@ public sealed partial class ValidationRoot
                 SoundId.SndCtrlStopMusic) != 1,
             "Incoming room 4:4d did not resolve Subterror's hidden source " +
             "state 0 before exposing the scrolling destination.");
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             preloadedBoss.Counter2 != 30 || preloadedBoss.DirtCounter != 7 ||
             preloadedBoss.State != SubterrorState.WaitingForDoors,
@@ -886,7 +886,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
         }
 
         var data = new DungeonMechanicDatabase();
@@ -1088,7 +1088,7 @@ public sealed partial class ValidationRoot
         {
             for (int index = 0; index < count; index++)
             {
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
                 _entities.ResolvePostObjectCollisions(_player);
             }
         }
@@ -1511,7 +1511,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
         }
 
         var data = new DungeonMechanicDatabase();
@@ -1548,7 +1548,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<ArmosCharacter>().Count != 0,
             "Room 4:56 did not preload its visible PART_ORB at the incoming " +
             "screen-transition offset while keeping the Armos watcher frozen.");
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             !preloadedOrb.Visible || preloadedOrb.IsOn ||
             _entities.Entities<ArmosCharacter>().Count != 0,
@@ -1718,7 +1718,7 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(
             chest.Counter != 30 ||
-            _entities.Entities<PuzzlePuffEffect>().Count != 1,
+            _entities.Entities<StationaryDebrisEffect>().Count != 1,
             "Defeating the red Armos did not start createChestWhenNoEnemies " +
             "with SND_SOLVEPUZZLE, puff, and wait 30.");
         Step(29);
@@ -1768,7 +1768,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
         }
 
         var data = new DungeonMechanicDatabase();
@@ -1955,7 +1955,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
         }
 
         var enemyData = new EnemyDatabase(AgesGameContent.AssetRoot);
@@ -1984,7 +1984,7 @@ public sealed partial class ValidationRoot
             "enemy-clear Seed Shooter chest at $59.");
         var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
-            !chests.TryGet(4, 0x58, 0x59, out ChestRecord shooterChest) ||
+            !chests.TryGetRecord(4, 0x58, 0x59, out ChestRecord shooterChest) ||
             shooterChest is not
                 {
                     TreasureObject: "TREASURE_OBJECT_SHOOTER_00",
@@ -2010,9 +2010,7 @@ public sealed partial class ValidationRoot
                         EnemyHandlerClassification.OrderedImplemented,
                     Handler: EnemyHandlerKind.ArmMimic,
                     EnemyName: "ENEMY_ARM_MIMIC",
-                    ShieldLevel1Effect: 0x10,
-                    ShieldLevel2Effect: 0x0f,
-                    ShieldLevel3Effect: 0x0f
+                    AssetRoot: AgesGameContent.AssetRoot
                 },
             "ENEMY_ARM_MIMIC $4e:$00 lost its imported definition, " +
             "collision mode, handler, or shield row.");
@@ -2182,7 +2180,7 @@ public sealed partial class ValidationRoot
             (value.Position, value.Tail1Position, value.Tail2Position,
              value.Angle, value.AngularSpeed, value.TurnCounter,
              value.AnimationFrame)).ToArray();
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             !incomingMimics.Select(value => value.Position)
                 .SequenceEqual(frozenMimicPositions) ||
@@ -2237,7 +2235,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<ArmMimicCharacter>().Count != 0 ||
             _entities.Entities<MoldormCharacter>().Count != 0 ||
             chest.Counter != 30 ||
-            _entities.Entities<PuzzlePuffEffect>().Count != 1 ||
+            _entities.Entities<StationaryDebrisEffect>().Count != 1 ||
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
             "Room 4:58 did not clear all four enemies and immediately " +
             "start the chest's exact 30-update solve wait, puff, and sound.");
@@ -2268,7 +2266,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
         }
 
         var enemyData = new EnemyDatabase(AgesGameContent.AssetRoot);
@@ -2602,7 +2600,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
         }
 
         var data = new DungeonMechanicDatabase();
@@ -2696,7 +2694,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
-                _entities.Update(Update, _player);
+                _entities.AdvanceEntityFrames(Update, _player);
         }
 
         var data = new DungeonMechanicDatabase();
@@ -2803,7 +2801,7 @@ public sealed partial class ValidationRoot
         static void Step(RoomEntityManager entities, Player player, int count = 1)
         {
             for (int index = 0; index < count; index++)
-                entities.Update(Update, player);
+                entities.AdvanceEntityFrames(Update, player);
         }
 
         var data = new DungeonMechanicDatabase();
@@ -2935,7 +2933,7 @@ public sealed partial class ValidationRoot
         // Exercise both scripts independently of the live dialogue box so
         // every exact counter boundary and flag side effect is observable.
         var eventSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-        var eventRuntime = AgesGameContent.CreateRuntimeState();
+        var eventRuntime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         eventRuntime.SetWramByte(AgesGameContent.SwitchStateAddress, 0xb0);
         eventRuntime.SetWramByte(AgesGameContent.SpinnerStateAddress, 0xa5);
         var sounds = new List<int>();

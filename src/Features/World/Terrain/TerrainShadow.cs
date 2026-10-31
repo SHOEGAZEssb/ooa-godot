@@ -12,6 +12,7 @@ internal static class TerrainShadow
         ((frameCounter ^ objectPage) & 1) != 0;
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, TerrainShadowDefinition> Definitions = new(System.StringComparer.Ordinal);
+    static TerrainShadow() => OracleGraphicsCache.RegisterApplicationCache(Definitions.Clear);
 
     internal static TerrainShadowDefinition Load(string assetRoot) => Definitions.GetOrAdd(assetRoot, LoadDefinition);
 

@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
             _seedSatchel.Pegasus.Clear();
-            _seedSatchel.InterruptShooter();
+            _seedShooter.InterruptShooter();
             while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
             _inventory.RefillHealth();
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
@@ -114,7 +114,7 @@ public sealed partial class ValidationRoot
                 var justHit = type.GetField("_justHit", flags)!;
                 var spawns = new List<RoomEntitySpawn>();
                 ISeedCollisionTarget receiver = actor is EyesoarActor eye ? new EyesoarRoomEntity(eye) :
-                    new ArmosWarriorRoomEntity((ArmosWarriorActor)actor, ((ArmosWarriorActor)actor).Entry);
+                    new ArmosWarriorRoomEntity((ArmosWarriorActor)actor);
                 int[] modes = actor is EyesoarActor eyesoar ? eyesoar.IsChild ? [0x15] : [0x6d, 0x4c] :
                     ((ArmosWarriorActor)actor).SubId switch { 1 => [0x60, 0x44], 2 => [0x61], _ => [0x62] };
                 foreach (int collisionMode in modes)

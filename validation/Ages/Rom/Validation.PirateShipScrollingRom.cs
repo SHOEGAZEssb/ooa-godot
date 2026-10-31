@@ -22,7 +22,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(group, 0xd6);
             _player.WarpTo(new(0x88, 0x18));
             for (int update = 0; !_transitions.ScrollActive && update < 80; update++)
-                StepGameplayUpdates(1, Vector2.Right, ["move_right"], ["move_right"], batched);
+                StepGameplayUpdates(1, (update & 1) == 0 ? Vector2.Right : Vector2.Zero,
+                    pressed: (update & 1) == 0 ? ["move_right"] : [], batched: batched);
             FailIf(!_transitions.ScrollActive, "Pirate ROM fixture failed to enter $d7 through source sea geometry.");
             var rom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom,
                 1, (int)_player.Position.X, (int)_player.Position.Y);

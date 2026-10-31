@@ -54,7 +54,7 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previousDirections; previousDirections = held;
                 StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1); edge = 0; update++;
+                    rom.UpdateGameplay(edge, held, angle, _saveData.ReadField("wPlaytimeCounter")); edge = 0; update++;
                     bool request = rom[0xcc4f] == 2;
                     bool respawning = rom[0xd004] == 2;
                     if (request && !previousRequest) requests++;

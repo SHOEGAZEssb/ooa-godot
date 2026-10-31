@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Oracles;
 
 /// <summary>
-/// SPECIALOBJECT_RICKY $0b owner used by the room $0:$6a handoff. It preserves
+/// Shared SPECIALOBJECT_RICKY $0b body. It preserves
 /// source mount, ridden movement/hopping, punch and tornado charging,
 /// dismount/remount, and scrolling ownership.
 /// </summary>
@@ -17,75 +17,78 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     IPlayerRideableRoomEntity,
     IPlayerScreenTransitionRoomEntity,
     IRoomEntityLifetime,
-    ICompanionBarrierTarget, IForestCompanion, IRoomBlocker, IRoomInitializedCompanion
+    ICompanionBarrierTarget, IRoomInitializedCompanion, INativeSpecialObjectRoomEntity
 {
+    int INativeSpecialObjectRoomEntity.NativeSpecialObjectId => SpecialObjectId.Ricky;
+    bool INativeSpecialObjectRoomEntity.SupportsDebugReconstruction => !ScriptedState && _zFixed == 0 &&
+        _phase is RickyCompanionPhase.Waiting or RickyCompanionPhase.Riding;
+    int INativeSpecialObjectRoomEntity.NativeSpecialObjectDirection => _direction;
+    Vector2 INativeSpecialObjectRoomEntity.NativeSpecialObjectPosition
+    {
+        get => _precisePosition;
+        set
+        {
+            bool entering=_runtime.ReadWramByte(0xd104)==0x0c;
+            if(value.X>=248 && (_precisePosition.X<0 || entering&&_direction==1))value.X-=256;
+            if(value.Y>=248 && (_precisePosition.Y<0 || entering&&_direction==2))value.Y-=256;
+            _precisePosition = value; Position = OracleObjectMath.ToPixelPosition(value);
+        }
+    }
     public CompanionRoomInitialization? RoomInitialization { get; set; }
-
-    private bool _forestWaiting;
-    public bool ForestButtonPressed { get; private set; }
-
-    public void UseForestInteraction(bool outside)
+    void INativeSpecialObjectRoomEntity.OnNativeSpecialObjectBound()=>RestoreNativePresentation();
+    void INativeSpecialObjectRoomEntity.RestoreNativePresentation()=>RestoreNativePresentation();
+    private void RestoreNativePresentation()
     {
-        _forestWaiting = true;
-        _phase = RickyCompanionPhase.Waiting;
-        // rickyState0: returned Ricky uses $17, while an unmet Ricky uses $00.
-        SetAnimation(((_saveData?.ReadField("wCompanionStates") ?? 0) & 0x60) != 0 ? 0x17 : 0);
+        if(_runtime.ReadWramByte(0xd104) is not (1 or 5) ||
+            !CompanionNativeAnimationDatabase.For(AssetRoot).TryRestoreAnimation(_runtime,_animation))return;
+        _zFixed=unchecked((short)(_runtime.ReadWramByte(0xd10e)|_runtime.ReadWramByte(0xd10f)<<8));
+        _speedZ=unchecked((short)(_runtime.ReadWramByte(0xd114)|_runtime.ReadWramByte(0xd115)<<8));
+        Visible=(_runtime.ReadWramByte(0xd11a)&0x80)!=0;
+        ZIndex=LinkRiding?ObjectDrawPriority.BehindLinkZIndex:ObjectDrawPriority.FromVisible(_runtime.ReadWramByte(0xd11a));
     }
 
-    public void NoticeForestLink(int animation)
+    internal void ContinueNativePresentation(Player player, int frame, int counter, bool mounting)
     {
-        if (animation != 0) SetAnimation(animation);
+        _zFixed = unchecked((short)(_runtime.ReadWramByte(0xd10e) | _runtime.ReadWramByte(0xd10f) << 8));
+        _speedZ = unchecked((short)(_runtime.ReadWramByte(0xd114) | _runtime.ReadWramByte(0xd115) << 8));
+        _animation.SetAnimation(_runtime.ReadWramByte(0xd130));
+        _animation.RestoreFrame(frame, counter);
+        if (!mounting) return;
+        _mountStarted = true;
+        player.BeginCompanionMount(player.PrecisePosition);
     }
 
-    public void ForceForestMount()
-    {
-        _forestWaiting = false;
-        _phase = RickyCompanionPhase.Mounting;
-        _mountStarted = false;
-    }
-
-    public bool TryInteract(Player player)
-    {
-        Vector2 delta = _precisePosition - player.Position;
-        if (!_forestWaiting || _dialogueOpen() || Math.Abs(delta.X) + Math.Abs(delta.Y) > 24 ||
-            delta.Dot(player.FacingVector) <= 0) return false;
-        ForestButtonPressed = true;
-        return true;
-    }
-
-    public bool BlocksLink(Vector2 center) => _forestWaiting &&
-        Math.Abs(center.X - Position.X) < 12 && Math.Abs(center.Y - Position.Y) < 8;
-
-    private bool _fluteEntrance;
+    private bool _fluteEntrance => _runtime.ReadWramByte(0xd104)==0x0c;
     private bool _hazardMounted;
-    private bool _flutePending;
-    private int _fluteHops;
+    private bool _flutePending => _fluteEntrance && _runtime.ReadWramByte(0xd103)==0;
+    private int _fluteHops {get=>_runtime.ReadWramByte(0xd107);set=>_runtime.SetWramByte(0xd107,(byte)value);}
 
     // rickyStateC uses two cutscene hops, retaining state-5 landing/hazard rules.
-    private void UpdateFluteEntrance(ICollection<RoomEntitySpawn> spawns)
+    private bool UpdateFluteEntrance(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
+        if(_runtime.ReadWramByte(0xd103)>1)
+            throw new NotSupportedException($"ricky.s: state$0c var03${_runtime.ReadWramByte(0xd103):x2} has no native dispatch.");
         if (_flutePending)
         {
-            _flutePending = false;
+            SpecialObjectOamDatabase.For(AssetRoot).InitializeCompanion(_runtime);
+            _runtime.SetWramByte(0xd103,1);_runtime.SetWramByte(0xd124,0x80);_runtime.SetWramByte(0xd11a,0xc1);
+            Visible=true;
             _fluteHops = 2;
             StartFluteHop();
-            _playSound(_record.RickySound);
-            return;
+            _playSound(SoundId.SndRicky);
+            return false;
         }
-        if (!OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40))
+        switch(_runtime.ReadWramByte(0xd105))
         {
-            if (!IsHoleAt(_precisePosition + _behavior.HoleOffsets[_direction]))
-            {
-                var before = _precisePosition;
-                ApplyCompanionMovement(_speed);
-                if (before.X < 0 && _precisePosition.X > 128) _precisePosition.X -= 256;
-                if (before.Y < 0 && _precisePosition.Y > 128) _precisePosition.Y -= 256;
-            }
-            return;
+            case 0: UpdateRiding(frame.Player,spawns); break;
+            case 1: UpdateHopping(spawns); break;
+            case 2: UpdateJumpingOverHole(spawns); break;
+            case 3: UpdateLanding(frame.Player,spawns); break;
+            default: throw new NotSupportedException($"ricky.s: state$0c state5 substate${_runtime.ReadWramByte(0xd105):x2} has no native dispatch.");
         }
-        _animation.Advance();
-        if (_landingCounter > 0 && --_landingCounter != 0) return;
-        if (TryBeginHazard()) { _fluteEntrance = false; return; }
+        if(_runtime.ReadWramByte(0xd104)==4)return false;
+        _runtime.SetWramByte(0xd104,0x0c);
+        if(_runtime.ReadWramByte(0xd105)!=3)return false;
         foreach (var offset in _behavior.LandingProbes)
             spawns.Add(new RickyTileBreakSpawn(_precisePosition + offset,
                 BreakableTileDatabase.SourceRickyLanded, _group, _roomId));
@@ -93,13 +96,11 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             --_fluteHops != 0)
         {
             StartFluteHop();
-            return;
+            return false;
         }
-        _fluteEntrance = false;
-        _phase = RickyCompanionPhase.Waiting;
-        _direction = 2;
-        _angle = 0xff;
-        SetAnimation(0x17);
+        _runtime.SetWramByte(0xd103,0);
+        _initialize(this,frame,spawns);
+        return true;
     }
 
     private void StartFluteHop()
@@ -107,6 +108,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _speed = _behavior.HopSpeed;
         _speedZ = -0x180;
         _landingCounter = 8;
+        _runtime.SetWramByte(0xd105,1);
         SetAnimation(1 + _direction);
     }
 
@@ -116,16 +118,18 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         new(-5, -3), new(-5, 6), new(6, -3), new(6, 6)
     ];
 
-    private readonly RickyGlovesEventRecord _record;
-    private readonly RickyCompanionVisualRecord _visual;
+    private readonly RickyDatabase _data;
+    private readonly Action<INativeSpecialObjectRoomEntity,RoomEntityFrame,ICollection<RoomEntitySpawn>> _initialize;
+    private readonly Action<RickyCompanionRoomEntity,RoomEntityFrame>? _scriptedState;
+    private bool ScriptedState => _runtime.ReadWramByte(0xd104)==0x0a;
+    internal EnemyAnimationPlayer NativeAnimation => _animation;
+    private readonly CompanionVisualDatabase _visual;
     private readonly RickyCompanionBehaviorRecord _behavior;
     private readonly OracleSaveData _saveData;
     private readonly OracleRuntimeState _runtime;
     private readonly OracleRandom _random;
     private readonly LedgeJumpDatabase _ledgeJumps;
     private readonly Action<int> _playSound;
-    private readonly Action<int, string, Vector2> _dialogueRequested;
-    private readonly Func<bool> _dialogueOpen;
     private readonly EnemyAnimationPlayer _animation;
     private readonly Texture2D[] _linkTextures;
     private readonly Texture2D[] _chargeLinkTextures;
@@ -134,45 +138,91 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private OracleRoomData _room;
     private OracleRoomData? _transitionDestination;
     private Vector2 _precisePosition;
-    private Vector2 _dismountPreviousLinkPosition;
     private int _group;
     private int _roomId;
-    private int _direction;
-    private int _angle = 0xff;
+    private int _direction {get=>_runtime.ReadWramByte(0xd108);set=>_runtime.SetWramByte(0xd108,checked((byte)value));}
+    private int _angle {get=>_runtime.ReadWramByte(0xd109);set=>_runtime.SetWramByte(0xd109,checked((byte)value));}
     private int _zFixed;
     private int _speedZ;
-    private int _hopCounter;
-    private int _landingCounter;
-    private int _airborneDelay;
-    private int _speed;
-    private int _wallCrossingMask;
-    private int _chargeCounter;
+    private int _hopCounter {get=>_runtime.ReadWramByte(0xd139);set=>_runtime.SetWramByte(0xd139,unchecked((byte)value));}
+    private int _landingCounter {get=>_runtime.ReadWramByte(0xd106);set=>_runtime.SetWramByte(0xd106,checked((byte)value));}
+    private int _airborneDelay {get=>_runtime.ReadWramByte(0xd106);set=>_runtime.SetWramByte(0xd106,checked((byte)value));}
+    private int _speed {get=>_runtime.ReadWramByte(0xd110);set=>_runtime.SetWramByte(0xd110,checked((byte)value));}
+    private int _wallCrossingMask {get=>_runtime.ReadWramByte(0xd107);set=>_runtime.SetWramByte(0xd107,checked((byte)value));}
+    private int _chargeCounter {get=>_runtime.ReadWramByte(0xd135);set=>_runtime.SetWramByte(0xd135,unchecked((byte)value));}
     private bool _mountStarted;
-    private int _adjacentWalls;
+    private int _adjacentWalls {get=>_runtime.ReadWramByte(0xd133);set=>_runtime.SetWramByte(0xd133,checked((byte)value));}
     private bool _attackPressed;
     private bool _attackJustPressed;
     private bool _itemJustPressed;
     private ComponentInputEdge _attackEdge;
     private ComponentInputEdge _itemEdge;
     private bool _chargePaletteActive;
-    private bool _dismountInitialized;
-    private bool _dismountLandingObserved;
     private bool _screenTransitionsDisabled;
     private bool _finished;
-    private int _tingleDepartureStage;
-    private int _tingleDepartureCounter;
-    private int _tingleDepartureWalls;
-    private string _tingleDepartureMessage = string.Empty;
     private CompanionHazard _hazard;
-    private RickyCompanionPhase _phase;
+    // Scripts and items dispatch through this same native state/substate union.
+    private RickyCompanionPhase _phase
+    {
+        get => _runtime.ReadWramByte(0xd104) switch
+        {
+            0 or 0x0b => RickyCompanionPhase.Initializing,
+            1 => RickyCompanionPhase.Waiting,
+            2 => RickyCompanionPhase.JumpingUpCliff,
+            3 => RickyCompanionPhase.Mounting,
+            4 => RickyCompanionPhase.HazardFalling,
+            5 => _runtime.ReadWramByte(0xd105) switch
+            {
+                0 => RickyCompanionPhase.Riding, 1 => RickyCompanionPhase.Hopping,
+                2 => RickyCompanionPhase.JumpingOverHole, 3 => RickyCompanionPhase.Landing,
+                var sub => throw new NotSupportedException($"ricky.s: state$05 substate${sub:x2} has no native dispatch.")
+            },
+            6 => _runtime.ReadWramByte(0xd105) switch
+            {
+                0 or 1 => RickyCompanionPhase.Dismounting,
+                2 => RickyCompanionPhase.AwaitingDistance,
+                var sub => throw new NotSupportedException($"ricky.s: state$06 substate${sub:x2} has no native dispatch.")
+            },
+            7 => RickyCompanionPhase.JumpingDownCliff,
+            8 => _runtime.ReadWramByte(0xd105) switch
+            {
+                0 => RickyCompanionPhase.Punching, 1 => RickyCompanionPhase.Charging,
+                var sub => throw new NotSupportedException($"ricky.s: state$08 substate${sub:x2} has no native dispatch.")
+            },
+            9 => RickyCompanionPhase.Inactive,
+            0x0a => RickyCompanionPhase.Scripted,
+            0x0c => RickyCompanionPhase.FluteEntering,
+            var state => throw new NotSupportedException($"ricky.s: {_runtime.Game} state${state:x2} has no native dispatch.")
+        };
+        set
+        {
+            byte state = value switch
+            {
+                RickyCompanionPhase.Waiting => 1, RickyCompanionPhase.JumpingUpCliff => 2,
+                RickyCompanionPhase.Mounting => 3, RickyCompanionPhase.HazardFalling => 4,
+                RickyCompanionPhase.Riding or RickyCompanionPhase.Hopping or
+                    RickyCompanionPhase.JumpingOverHole or RickyCompanionPhase.Landing => 5,
+                RickyCompanionPhase.Dismounting or RickyCompanionPhase.AwaitingDistance => 6,
+                RickyCompanionPhase.JumpingDownCliff => 7,
+                RickyCompanionPhase.Punching or RickyCompanionPhase.Charging => 8,
+                _ => throw new ArgumentOutOfRangeException(nameof(value))
+            };
+            _runtime.SetWramByte(0xd104,state);
+            if(state is 2 or 4 or 5 or 6 or 7 or 8)
+                _runtime.SetWramByte(0xd105,value switch
+                {
+                    RickyCompanionPhase.Hopping or RickyCompanionPhase.Charging => 1,
+                    RickyCompanionPhase.JumpingOverHole or RickyCompanionPhase.AwaitingDistance => 2,
+                    RickyCompanionPhase.Landing => 3, _ => 0
+                });
+        }
+    }
 
     public Node2D Node => this;
-    public bool DisablesSword => LinkRiding ||
-        _phase is RickyCompanionPhase.Mounting or
-            RickyCompanionPhase.TingleDeparture;
+    public bool DisablesSword => LinkRiding || ScriptedState || _phase==RickyCompanionPhase.Mounting;
     public bool DisablesItems => DisablesSword;
     public bool DisablesMovement => DisablesSword;
-    public bool DisablesMenus => _phase == RickyCompanionPhase.TingleDeparture;
+    public bool DisablesMenus => ScriptedState;
     public bool DisablesScreenTransitions => _screenTransitionsDisabled ||
         _phase is RickyCompanionPhase.Mounting or
             RickyCompanionPhase.Dismounting;
@@ -188,7 +238,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         RickyCompanionPhase.Charging ||
         (_phase == RickyCompanionPhase.HazardFalling && _hazardMounted) ||
         (_phase == RickyCompanionPhase.Dismounting &&
-            !_dismountInitialized);
+            _runtime.ReadWramByte(0xd105)==0);
     public bool ControlsPlayerScreenTransition => LinkRiding;
     public bool BypassesScreenTransitionInputGate => false;
     public Vector2 ScreenTransitionPosition => _precisePosition;
@@ -196,7 +246,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     bool ICompanionBarrierTarget.BarrierMounted => LinkRiding;
     Vector2 ICompanionBarrierTarget.BarrierPosition => _precisePosition;
 
-    internal RickyCompanionPhase Phase => _phase;
+    internal RickyCompanionPhase Phase => ScriptedState?RickyCompanionPhase.Scripted:_phase;
     internal int Direction => _direction;
     internal int AnimationIndex => _animation.AnimationIndex;
     internal int AnimationFrameIndex => _animation.FrameIndex;
@@ -209,9 +259,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     internal int HopCounter => _hopCounter;
     internal int AirborneDelay => _airborneDelay;
     internal int ChargeCounter => _chargeCounter;
-    internal int TingleDepartureStage => _tingleDepartureStage;
-    internal int TingleDepartureCounter => _tingleDepartureCounter;
-    internal int TingleDepartureAngle => _angle;
     internal bool ChargePaletteActive => _chargePaletteActive;
     internal int LinkAnimationParameter => _animation.CurrentParameter & 0x3f;
     internal ulong RickyTexturePixelHash => OracleGraphicsCache.PixelHash(
@@ -228,17 +275,18 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     internal RickyCompanionRoomEntity(
         RickyCompanionSpawn spawn,
         OracleRoomData room,
-        RickyGlovesEventDatabase database,
+        RickyDatabase database,
         OracleSaveData? saveData,
         OracleRuntimeState runtime,
         OracleRandom random,
         LedgeJumpDatabase ledgeJumps,
         Action<int> playSound,
-        Action<int, string, Vector2> dialogueRequested,
-        Func<bool> dialogueOpen)
+        Action<INativeSpecialObjectRoomEntity,RoomEntityFrame,ICollection<RoomEntitySpawn>> initialize,
+        Action<RickyCompanionRoomEntity,RoomEntityFrame>? scriptedState = null)
     {
         AssetRoot = ledgeJumps.AssetRoot;
-        _record = database.Record;
+        _data = database; _scriptedState = scriptedState;
+        _initialize=initialize;
         _visual = database.Visual;
         _behavior = database.Behavior;
         _saveData = saveData ?? throw new ArgumentNullException(nameof(saveData));
@@ -246,25 +294,14 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _random = random;
         _ledgeJumps = ledgeJumps;
         _playSound = playSound;
-        _dialogueRequested = dialogueRequested;
-        _dialogueOpen = dialogueOpen;
         _room = room;
         _group = spawn.Group;
         _roomId = spawn.Room;
         _precisePosition = spawn.Position;
-        _direction = spawn.Direction;
         if (spawn.FluteDestination is Vector2 destination)
         {
-            _fluteEntrance = true;
-            _flutePending = true;
-            _angle = _direction * 8;
             CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, destination);
         }
-        _phase = spawn.ForceMount
-            ? RickyCompanionPhase.Mounting
-            : spawn.Riding
-                ? RickyCompanionPhase.Riding
-                : RickyCompanionPhase.Waiting;
 
         _animation = new EnemyAnimationPlayer(this, _visual.Animations.Length);
         _animation.Load(
@@ -275,7 +312,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             _visual.Palette,
             positionedOam: true,
             paletteVariants: [2],
-            animationSourceOffsets: _visual.AnimationSourceOffsets);
+            animationSourceOffsets: _visual.SourceOffsets);
         (_linkTextures, _chargeLinkTextures, _damageLinkTextures,
             _linkTextureOffsets) =
             CompanionLinkFrames.Load(AssetRoot,
@@ -283,18 +320,17 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
                 _visual.LinkFrames, _visual.LinkSourceOffsets);
 
         int initialAnimation = spawn.ForceMount
-            ? _record.InitialAnimation
+            ? 0
             : spawn.Riding
                 ? _behavior.IdleAnimation + _direction
                 : 0x17;
-        _hopCounter = _behavior.HopDelay;
         SetAnimation(initialAnimation);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         Name = $"Ricky_{_group:x1}_{_roomId:x2}";
         ZIndex = LinkRiding
             ? ObjectDrawPriority.BehindLinkZIndex
             : Player.NormalZIndex;
-        Visible = true;
+        Visible = !_flutePending;
     }
 
     public void UpdatePlayerForcedMovement(Player player)
@@ -314,9 +350,23 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             if (initialization.Advance(ref _precisePosition))
             {
                 _finished = initialization.Rejected;
-                _angle = 2;
+                if (!_finished)
+                {
+                    _angle = 2;
+                    _direction = 2;
+                    CompanionRuntimeState.Update(_runtime, SpecialObjectId.Ricky, _precisePosition, _direction);
+                }
                 Position = OracleObjectMath.ToPixelPosition(_precisePosition);
                 _animation.SetAnimation(_animation.AnimationIndex);
+                if (!_finished)
+                {
+                    // rickyState0 installs animation/var39 before objectSetVisiblec1.
+                    _runtime.SetWramByte(0xd139, 0x10);
+                    _runtime.SetWramByte(0xd120, (byte)_animation.RemainingUpdates);
+                    _runtime.SetWramByte(0xd121, (byte)_animation.CurrentParameter);
+                    _runtime.SetWramByte(0xd130, (byte)_animation.AnimationIndex);
+                    _runtime.SetWramByte(0xd11a, 0xc1);
+                }
                 Visible = !_finished;
             }
             return;
@@ -327,9 +377,25 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _itemJustPressed = _itemEdge.Read(Input.IsActionJustPressed("item"));
         _chargePaletteActive = false;
 
-        if (_fluteEntrance) UpdateFluteEntrance(spawns);
+        if(ScriptedState)
+        {
+            if(_scriptedState is null)throw new NotSupportedException($"ricky.s: {_runtime.Game} state$0a var03${_runtime.ReadWramByte(0xd103):x2} requires its native content binding.");
+            _scriptedState(this,frame);
+            if(CompanionRuntimeState.IsActive(_runtime,SpecialObjectId.Ricky))
+            {
+                _zFixed=unchecked((short)(_runtime.ReadWramByte(0xd10e)|_runtime.ReadWramByte(0xd10f)<<8));
+                _speedZ=unchecked((short)(_runtime.ReadWramByte(0xd114)|_runtime.ReadWramByte(0xd115)<<8));
+            }
+            else{_finished=true;Visible=false;}
+        }
+        else if (_fluteEntrance) {if(UpdateFluteEntrance(frame,spawns))return;}
         else switch (_phase)
         {
+            case RickyCompanionPhase.Initializing:
+                _initialize(this,frame,spawns);
+                return;
+            case RickyCompanionPhase.Inactive:
+                break;
             case RickyCompanionPhase.Waiting:
                 UpdateWaiting(frame.Player);
                 break;
@@ -369,23 +435,28 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             case RickyCompanionPhase.AwaitingDistance:
                 UpdateAwaitingDistance(frame.Player);
                 break;
-            case RickyCompanionPhase.TingleDeparture:
-                UpdateTingleDeparture(frame.Player);
-                break;
             default:
                 throw new InvalidOperationException(
                     $"Unsupported Ricky phase {_phase}.");
         }
 
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        if (LinkRiding)
+        if (LinkRiding || CompanionRuntimeState.IsActive(_runtime, CompanionRuntimeState.RickyId))
         {
             CompanionRuntimeState.Update(
                 _runtime,
                 CompanionRuntimeState.RickyId,
-                _roomId,
                 _precisePosition,
                 _direction);
+            _runtime.SetWramByte(0xd10e, unchecked((byte)_zFixed));
+            _runtime.SetWramByte(0xd10f, unchecked((byte)(_zFixed >> 8)));
+            _runtime.SetWramByte(0xd114, unchecked((byte)_speedZ));
+            _runtime.SetWramByte(0xd115, unchecked((byte)(_speedZ >> 8)));
+            CompanionNativeAnimationDatabase.For(AssetRoot).PublishAnimation(_runtime,SpecialObjectId.Ricky,
+                _animation.AnimationIndex,_animation.FrameIndex,_animation.RemainingUpdates,_animation.CurrentParameter);
+        }
+        if (LinkRiding)
+        {
             SynchronizePlayer(frame.Player, Vector2.Zero);
         }
         UpdateDrawPriority(frame.Player);
@@ -407,13 +478,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private void UpdateWaiting(Player player)
     {
         _animation.Advance();
-        if (_forestWaiting)
-        {
-            // rickyStateASubstate0 integrates gravity on every non-$80 frame.
-            if ((_animation.CurrentParameter & 0x80) != 0) _speedZ = -0x100;
-            else OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40);
-            return;
-        }
+        int priority=ObjectDrawPriority.CompanionRelativeToLink(_precisePosition.Y,player.Position.Y,_zFixed>>8);
+        _runtime.SetWramByte(0xd11a,(byte)(0xc0|ObjectDrawPriority.ToVisibleBucket(priority)));
         if (!CompanionRuntimeState.MountingDisabled(_runtime) && player.CanMountCompanion &&
             LinkWithinMountDistance(player.PrecisePosition))
         {
@@ -431,12 +497,12 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         int signal = _animation.CurrentParameter & 0xc0;
         if (signal == 0x80)
         {
-            _speedZ = _record.JumpSpeedZ;
+            _speedZ = _data.IdleHopSpeedZ;
         }
         else if (signal == 0x40)
         {
             OracleObjectMath.UpdateSpeedZ(
-                ref _zFixed, ref _speedZ, _record.JumpGravity);
+                ref _zFixed, ref _speedZ, _data.IdleGravity);
             return;
         }
         TryBeginHazard();
@@ -447,7 +513,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         // carpenter.s:@ricky writes state-$05 substate $03.
         if (_phase != RickyCompanionPhase.Hopping) return;
         _phase = RickyCompanionPhase.Landing;
-        _landingCounter = 0;
     }
 
     private void UpdateMounting(Player player)
@@ -456,7 +521,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         // the mounting jump, including when mounting began during Ricky's
         // parameter-driven idle hop.
         OracleObjectMath.UpdateSpeedZ(
-            ref _zFixed, ref _speedZ, _record.JumpGravity);
+            ref _zFixed, ref _speedZ, _data.IdleGravity);
         // companionCheckMountingComplete cancels before nudging Link.
         if (CompanionRuntimeState.MountingDisabled(_runtime) || player.CompanionMountInterrupted)
         {
@@ -475,21 +540,17 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         if (!player.CompanionJumpReadyToRide)
             return;
 
-        _phase = RickyCompanionPhase.Riding;
+        _runtime.SetWramByte(0xd104,5); // companionFinalizeMounting retains substate.
         _angle = 0xff;
-        _zFixed = 0;
-        _speedZ = 0;
-        _hopCounter = _behavior.HopDelay;
         _screenTransitionsDisabled = false;
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         SetAnimation(_behavior.IdleAnimation + _direction);
         CompanionRuntimeState.BeginAnimalRide(
             _runtime, _saveData,
             CompanionRuntimeState.RickyId,
-            _roomId,
             _precisePosition,
             _direction);
-        _playSound(_record.RickySound);
+        _playSound(SoundId.SndRicky);
         SynchronizePlayer(player, Vector2.Zero, finishMount: true);
     }
 
@@ -505,8 +566,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         if (_itemJustPressed)
         {
             _phase = RickyCompanionPhase.Dismounting;
-            _dismountInitialized = false;
-            _dismountLandingObserved = false;
             return;
         }
 
@@ -574,16 +633,16 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _speed = _behavior.HopSpeed;
         _speedZ = _behavior.HopSpeedZ;
         _landingCounter = _behavior.LandingDelay;
-        _airborneDelay = 0;
         SetAnimation(_behavior.HopAnimation + _direction);
         _playSound((_random.Next().Value & 0x0f) == 0
-            ? _record.RickySound
+            ? SoundId.SndRicky
             : _behavior.JumpSound);
     }
 
     private void UpdateHopping(ICollection<RoomEntitySpawn> spawns)
     {
-        if (_attackJustPressed)
+        bool riddenState=_runtime.ReadWramByte(0xd104)==5;
+        if (riddenState && _attackJustPressed)
         {
             StartPunch(spawns);
             return;
@@ -592,7 +651,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
         int angle = CompanionMovement.AngleForInput(input);
-        if (angle != 0xff)
+        if (riddenState && angle != 0xff)
         {
             bool angleChanged = angle != _angle;
             _angle = angle;
@@ -604,11 +663,17 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         if (!OracleObjectMath.UpdateSpeedZ(
                 ref _zFixed, ref _speedZ, _behavior.HopGravity))
         {
-            bool diagonal = (_angle & 0x04) != 0;
+            bool diagonal = (_runtime.ReadField("wLinkObjectIndex")&1)!=0 && (_angle & 0x04) != 0;
             if (diagonal || !IsHoleAt(_precisePosition +
                     _behavior.HoleOffsets[_direction]))
             {
+                Vector2 before=_precisePosition;
                 ApplyCompanionMovement(_speed);
+                if(_fluteEntrance)
+                {
+                    if(before.X<0 && _precisePosition.X>128)_precisePosition.X-=256;
+                    if(before.Y<0 && _precisePosition.Y>128)_precisePosition.Y-=256;
+                }
             }
             return;
         }
@@ -633,8 +698,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         if (_zFixed != 0)
             _zFixed = 0;
         _animation.Advance();
-        if (_landingCounter > 0 && --_landingCounter > 0)
-            return;
 
         foreach (Vector2 offset in _behavior.LandingProbes)
         {
@@ -661,7 +724,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _speedZ = _behavior.LongJumpSpeedZ;
         _airborneDelay = _behavior.LongJumpDelay;
         _speed = _behavior.LongJumpSpeed;
-        _wallCrossingMask = 0;
         _screenTransitionsDisabled = disableScreenTransitions;
         SetAnimation(_behavior.LongJumpAnimation + _direction);
     }
@@ -812,7 +874,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _airborneDelay--;
         if (_airborneDelay != 0)
             return true;
-        _playSound(_record.RickySound);
+        _playSound(SoundId.SndRicky);
         return false;
     }
 
@@ -820,7 +882,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     {
         _screenTransitionsDisabled = false;
         _phase = RickyCompanionPhase.Landing;
-        _landingCounter = 0;
         if (IsNearScreenEdge())
             _hopCounter = _behavior.HopDelay;
         if (!TryBeginHazard())
@@ -919,7 +980,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
 
         if (!_attackPressed)
         {
-            if (_chargeCounter >= _behavior.ChargeUpdates)
+            if (_chargeCounter == _behavior.ChargeUpdates)
             {
                 spawns.Add(new RickyTornadoSpawn(
                     _precisePosition,
@@ -938,7 +999,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
 
-        if (_chargeCounter < _behavior.ChargeUpdates)
+        if (_chargeCounter != _behavior.ChargeUpdates)
         {
             _chargeCounter++;
             if (_chargeCounter == _behavior.ChargeUpdates)
@@ -957,39 +1018,26 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private void ReturnToRiding(int animationBase)
     {
         _phase = RickyCompanionPhase.Riding;
-        _chargeCounter = 0;
-        _hopCounter = _behavior.HopDelay;
         SetAnimation(animationBase + _direction);
     }
 
     private void UpdateDismounting(Player player)
     {
-        if (!_dismountInitialized)
+        if (_runtime.ReadWramByte(0xd105)==0)
         {
-            _dismountInitialized = true;
+            if(!OracleObjectMath.UpdateSpeedZ(ref _zFixed,ref _speedZ,0x40))return;
+            _runtime.SetWramByte(0xd105,1);
             _screenTransitionsDisabled = false;
-            CompanionRuntimeState.Remember(
-                _runtime,
-                CompanionRuntimeState.RickyId,
-                _group,
-                _roomId,
-                _precisePosition);
-            CompanionRuntimeState.Clear(
+            CompanionRuntimeState.DismountAnimal(
                 _runtime,
                 CompanionRuntimeState.RickyId);
             player.BeginCompanionDismount(_precisePosition, _direction);
+            CompanionRuntimeState.RememberAfterDismount(_runtime,player.Inventory,SpecialObjectId.Ricky,_group,_roomId,_precisePosition);
             SetAnimation(0x17);
             return;
         }
-        if (player.CompanionJumpActive)
-            return;
-        if (!_dismountLandingObserved)
-        {
-            _dismountLandingObserved = true;
-            return;
-        }
+        if (player.CompanionJumpActive) return;
 
-        _dismountPreviousLinkPosition = player.PrecisePosition;
         _phase = RickyCompanionPhase.AwaitingDistance;
     }
 
@@ -998,196 +1046,15 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         // State $06 substate $02 deliberately does not call
         // specialObjectAnimate. The $17 idle clock resumes only after Link
         // has moved far enough away and Ricky returns to state $01.
-        Vector2 sourceOrderLinkPosition = _dismountPreviousLinkPosition;
-        _dismountPreviousLinkPosition = player.PrecisePosition;
-        if (LinkWithinMountDistance(sourceOrderLinkPosition))
+        if (LinkWithinMountDistance(player.PrecisePosition))
+        {
+            TryBeginHazard();
             return;
+        }
         _phase = RickyCompanionPhase.Waiting;
+        _runtime.SetWramByte(0xd105,0);
     }
 
-    internal void BeginTingleDeparture(string message)
-    {
-        if (_finished || _phase == RickyCompanionPhase.TingleDeparture)
-            return;
-        if (LinkRiding || string.IsNullOrWhiteSpace(message))
-        {
-            throw new InvalidOperationException(
-                "tingleScript can only retire a dismounted live Ricky with TX_2006.");
-        }
-
-        _tingleDepartureMessage = message;
-        // tingleScript writes state $0a while preserving var03=$02.
-        _tingleDepartureStage = 2;
-        _tingleDepartureCounter = 0;
-        _phase = RickyCompanionPhase.TingleDeparture;
-    }
-
-    private void UpdateTingleDeparture(Player player)
-    {
-        switch (_tingleDepartureStage)
-        {
-            // rickyStateASubstate2: finish the current idle hop, show TX_2006,
-            // select animation $03, and begin the first cutscene hop while
-            // the text is still open.
-            case 2:
-                if (!OracleObjectMath.UpdateSpeedZ(
-                        ref _zFixed, ref _speedZ, _record.JumpGravity))
-                {
-                    return;
-                }
-                _zFixed = 0;
-                // The source compares Object.yh bytes, not subpixel words.
-                _direction = Mathf.FloorToInt(_precisePosition.Y) <
-                    Mathf.FloorToInt(player.Position.Y)
-                    ? 2
-                    : 0;
-                SetAnimation(_behavior.DepartureAirAnimation);
-                _dialogueRequested(0x2006, _tingleDepartureMessage, _precisePosition);
-                StartTingleDepartureHop();
-                _tingleDepartureStage = 3;
-                return;
-            // rickyStateASubstate3: text freezes the hop exactly where
-            // substate $02 initialized it. Movement begins after dismissal.
-            case 3:
-                if (_dialogueOpen())
-                    return;
-                _direction = 2;
-                _angle = _behavior.DepartureDiagonalAngle;
-                SetAnimation(
-                    _behavior.DepartureGroundAnimationBase + _direction);
-                _tingleDepartureStage = 4;
-                return;
-            // rickyStateASubstate4/$07 share the same hop/landing loop. The
-            // source tests both walls only after the eight-update grounded
-            // delay, rather than using a fixed diagonal travel duration.
-            case 4:
-            case 7:
-                if (_animation.AnimationIndex !=
-                    _behavior.DepartureAirAnimation)
-                {
-                    SetAnimation(_behavior.DepartureAirAnimation);
-                }
-                if (!OracleObjectMath.UpdateSpeedZ(
-                        ref _zFixed, ref _speedZ, _behavior.HopGravity))
-                {
-                    // companionUpdateMovement writes adjacentWallsBitset before
-                    // applying movement. rickyWaitUntilJumpDone leaves that
-                    // byte untouched during the grounded counter, so the wall
-                    // probes below must use the last airborne value.
-                    _tingleDepartureWalls = CalculateAdjacentWallsBitset();
-                    ApplyCompanionMovement(
-                        _speed,
-                        _tingleDepartureWalls);
-                    return;
-                }
-                _zFixed = 0;
-                SetAnimation(
-                    _behavior.DepartureGroundAnimationBase + _direction);
-                if (_tingleDepartureCounter > 0)
-                    _tingleDepartureCounter--;
-                if (_tingleDepartureCounter > 0)
-                    return;
-
-                // The source writes each probe into SpecialObject.angle. When
-                // both probes hit, rickySetJumpSpeed therefore retains $10 and
-                // the cliff jump travels straight down, not down-left.
-                _angle = _behavior.DepartureWallProbeAngle;
-                if (CompanionMovement.FacingWallMask(_angle, _tingleDepartureWalls) != 0)
-                {
-                    _angle = _behavior.DepartureExitAngle;
-                    if (CompanionMovement.FacingWallMask(_angle, _tingleDepartureWalls) != 0)
-                    {
-                        _speedZ = _behavior.LongJumpSpeedZ;
-                        _speed = _behavior.LongJumpSpeed;
-                        _tingleDepartureCounter = _behavior.LongJumpDelay;
-                        SetAnimation(_behavior.LongJumpAnimation + _direction);
-                        _playSound(_behavior.JumpSound);
-                        _tingleDepartureStage++;
-                        return;
-                    }
-                }
-                if (!IsWithinSourceScreenBoundary())
-                {
-                    FinishTingleDeparture();
-                    return;
-                }
-
-                _angle = _tingleDepartureStage == 7
-                    ? _behavior.DepartureExitAngle
-                    : _behavior.DepartureDiagonalAngle;
-                StartTingleDepartureHop();
-                return;
-            // rickyStateASubstate5: the cliff jump uses rickySetJumpSpeed's
-            // SPEED_140 and -$0300 without its ordinary long-jump delay.
-            case 5:
-                _animation.Advance();
-                ApplyRawMovement(_speed);
-                if (!OracleObjectMath.UpdateSpeedZ(
-                        ref _zFixed, ref _speedZ, _behavior.HopGravity))
-                {
-                    return;
-                }
-                _zFixed = 0;
-                SetAnimation(_behavior.DeparturePunchAnimation);
-                _tingleDepartureStage = 6;
-                return;
-            // rickyStateASubstate6: animation $18 emits zero for the Ricky
-            // cry and bit 7 when the straight-down exit hops may begin.
-            case 6:
-                _animation.Advance();
-                int parameter = _animation.CurrentParameter;
-                if (parameter == 0)
-                {
-                    _playSound(_record.RickySound);
-                    return;
-                }
-                if ((parameter & 0x80) == 0)
-                    return;
-                StartTingleDepartureHop();
-                _angle = _behavior.DepartureExitAngle;
-                SetAnimation(
-                    _behavior.DepartureGroundAnimationBase + _direction);
-                _tingleDepartureStage = 7;
-                return;
-            default:
-                throw new InvalidOperationException(
-                    $"Ricky's Tingle departure entered substate ${_tingleDepartureStage:x2}.");
-        }
-    }
-
-    private void StartTingleDepartureHop()
-    {
-        _speed = _behavior.HopSpeed;
-        _speedZ = _behavior.HopSpeedZ;
-        _tingleDepartureCounter = _behavior.DepartureHopDelay;
-    }
-
-    private bool IsWithinSourceScreenBoundary()
-    {
-        int y = Mathf.FloorToInt(_precisePosition.Y);
-        int x = Mathf.FloorToInt(_precisePosition.X);
-        return unchecked((byte)(y + 7)) < 0x8f &&
-            unchecked((byte)(x + 7)) < 0xaf;
-    }
-
-    private void FinishTingleDeparture()
-    {
-        CompanionRuntimeState.Clear(
-            _runtime, CompanionRuntimeState.RickyId);
-        CompanionRuntimeState.ForgetRemembered(_runtime);
-        if (_saveData is not null)
-        {
-            using (_saveData.BeginMutation())
-            {
-                _saveData.WriteWramByte(
-                    _record.RickyStateAddress,
-                    (byte)(_saveData.ReadWramByte(_record.RickyStateAddress) |
-                        _record.LeftMask));
-            }
-        }
-        _finished = true;
-        Visible = false;
-    }
 
     void ICompanionBarrierTarget.SetBarrierCoordinate(bool horizontal, int coordinate)
     {
@@ -1197,7 +1064,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             _precisePosition.Y = coordinate + _precisePosition.Y - Mathf.Floor(_precisePosition.Y);
         _speed = 0; // companionScript_restrict*: writes yh/xh only, then SPEED_0.
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        CompanionRuntimeState.Update(_runtime, CompanionRuntimeState.RickyId, _roomId, _precisePosition, _direction);
+        CompanionRuntimeState.Update(_runtime, CompanionRuntimeState.RickyId, _precisePosition, _direction);
     }
 
     void ICompanionBarrierTarget.SynchronizeRiderAfterObjects(Player player) =>
@@ -1229,13 +1096,13 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         }
     }
 
-    private void ApplyRawMovement(int speed)
+    internal void ApplyRawMovement(int speed)
     {
         NativeObjectMovement.ApplySpeed(_runtime,
             ref _precisePosition, speed, _angle);
     }
 
-    private void ApplyCompanionMovement(int speed)
+    internal void ApplyCompanionMovement(int speed)
     {
         if (_angle == 0xff)
             return;
@@ -1257,6 +1124,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
                 walls |= 1 << (7 - index);
             }
         }
+        _runtime.SetWramByte(0xd133,(byte)walls);
         return walls;
     }
 
@@ -1320,6 +1188,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _screenTransitionsDisabled = true;
         _hazardMounted = LinkRiding;
         _phase = RickyCompanionPhase.HazardFalling;
+        _runtime.SetWramByte(0xd106,0);
+        _runtime.SetWramByte(0xd137,_hazard.Type==HazardType.Water?(byte)0x0e:(byte)0x0d);
         _zFixed = 0;
         _speedZ = 0;
         _playSound(SoundId.SndSplash);
@@ -1331,6 +1201,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         if (!_hazard.Advance(
                 ref _precisePosition,
                 _animation,
+                _runtime,1,_runtime.ReadWramByte(0xd137)==0x0e,
                 _behavior.WaterAnimation,
                 _behavior.HoleAnimation,
                 SetAnimation,
@@ -1340,8 +1211,10 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         }
 
         HazardType completedHazard = _hazard.Type;
+        int respawnAngle=_angle;
         Vector2 respawn = CompanionHazard.ResolveRespawn(
-            player, _saveData, CanRespawnAt);
+            player, _saveData, _runtime, ref respawnAngle, CanRespawnAt,_room,_precisePosition);
+        _angle=respawnAngle;
         _precisePosition = respawn;
         _hazard = default;
         _screenTransitionsDisabled = false;
@@ -1417,7 +1290,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             ZIndex = ObjectDrawPriority.BehindLinkZIndex;
             return;
         }
-        ZIndex = ObjectDrawPriority.RelativeToLink(Position.Y, player.Position.Y, _zFixed >> 8);
+        ZIndex = ObjectDrawPriority.CompanionRelativeToLink(Position.Y, player.Position.Y, _zFixed >> 8);
     }
 
     public void SetScreenTransitionBoundaryCoordinate(
@@ -1444,7 +1317,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         CompanionRuntimeState.Update(
             _runtime,
             CompanionRuntimeState.RickyId,
-            _roomId,
             _precisePosition,
             _direction);
         SynchronizePlayer(player, Vector2.Zero);
@@ -1489,7 +1361,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         CompanionRuntimeState.Update(
             _runtime,
             CompanionRuntimeState.RickyId,
-            _roomId,
             position,
             _direction);
         SynchronizePlayer(player, Vector2.Zero);
@@ -1508,6 +1379,9 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
 
 internal enum RickyCompanionPhase
 {
+    Initializing,
+    Inactive,
+    FluteEntering,
     Waiting,
     Mounting,
     Riding,
@@ -1521,7 +1395,7 @@ internal enum RickyCompanionPhase
     Charging,
     Dismounting,
     AwaitingDistance,
-    TingleDeparture
+    Scripted
 }
 
 internal sealed record RickyCompanionSpawn(

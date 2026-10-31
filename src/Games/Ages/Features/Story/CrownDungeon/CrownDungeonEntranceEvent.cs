@@ -13,8 +13,7 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
     internal int Counter => _runner.Counter;
     public override RoomEventContext Context { get; }
     public bool HasState => _armed || _runner.Active;
-    public bool BlocksGameplay => _runner.Active;
-    public bool FreezesNonInteractionObjects => BlocksGameplay;
+    public bool BlocksGameplay => InputControlHeld;
     public bool MenusDisabled => BlocksGameplay;
 
     internal CrownDungeonEntranceEvent(RoomEventContext context)
@@ -40,12 +39,13 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
 
     internal bool CanTrigger(int group, int room) => group == 0 && room == 0x0a && _armed;
 
-    internal void Trigger(int group, int room)
+    internal NativeScriptInputControl Trigger(int group, int room)
     {
         if (!CanTrigger(group, room) || !Context.Rooms.SaveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80))
             throw new InvalidOperationException($"miscPuzzles_subid11 cannot trigger in {group:x}:{room:x2}.");
         _armed = false;
         _runner.Start(_database.Commands);
+        return EventResources.ScriptInput;
     }
 
     public void UpdateFrame()
@@ -61,13 +61,13 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
         _armed = false;
         Phase = 0;
         if (running) Context.Entities.SetScreenShake(0, 0, 0);
+        ReleaseInputControl();
     }
 
     public override void SetInputEnabled(bool enabled)
     {
         if (!enabled) throw UnsupportedCommand("disable input from script");
-        // enableinput clears $81; ordinary Link and retained parents resume
-        // on the following gameplay pass.
+        base.SetInputEnabled(true);
     }
 
     public override void SetMusic(int music)
@@ -106,7 +106,7 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
             // later position still gets its own attempt.
             if (!Context.Entities.InteractionSlotAvailable) continue;
             // INTERAC_PUFF subid $81 suppresses sound and flickers.
-            var puff = Context.Entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new Vector2(x, 0x20), SoundId.MusNone, Flickers: true));
+            var puff = Context.Entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new Vector2(x, 0x20), SoundId.MusNone, Flickers: true));
             puff.UpdateFrame();
         }
         // Room events follow the entity pass; apply this first shake after

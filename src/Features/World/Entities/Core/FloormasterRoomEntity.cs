@@ -23,7 +23,7 @@ internal sealed class FloormasterRoomEntity : CombatEnemyRoomEntityAdapter<Floor
         Action<int> sound, Func<byte> random, Func<bool> freePart)
         : base(hand, hand.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, hand, 0, hand.TakeSwordHit, hand.TakeBurnHit,
-                hand.ApplySwordKnockback, sound, EnemySwordResponse.Knockback,
+                hand.ApplySwordKnockback, sound,
                 deathPuffAllowed: () => hand.Record.SubId != 0 && !hand.RetreatCompleted,
                 completedOutcome: () => hand.Record.SubId == 0 ?
                     RoomEnemyOutcome.SilentDefeat(source.KillableEnemyIndex, source.CountsAsEnemy) :

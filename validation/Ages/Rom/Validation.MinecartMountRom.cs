@@ -28,11 +28,12 @@ public sealed partial class ValidationRoot
                 else _inventory.EquipA(TreasureId.Bombchus);
             }
             var records = new StaticDungeonObjectDatabase(AgesGameContent.AssetRoot).Minecarts(4);
-            MinecartRuntimeState.Reset(_runtimeState, records);
-            var cart = new MinecartRoomEntity(new ActiveMinecart(2, 0x78, 0x88, 0x78, -1, false),
-                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
-                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
-            _entities.AddEntity(cart);
+            ResetMinecartsForValidation(_runtimeState, records);
+            var interaction = new MinecartInteractionRoomEntity(new MinecartInteractionSpawn(new(0x78, 0x88), StaticSlot: 2),
+                _currentRoom, _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _entities);
+            _entities.AddEntity(interaction);
+            var cart = new MinecartValidationView(_entities, _player);
             Vector2 start = new(136.25f, 136.5f);
             _player.WarpTo(start); _player.Face(Vector2I.Left);
             FailIf(_currentRoom.IsSolid(_player.Position) || _currentRoom.GetTerrainInfo(_player.Position).Hazard != HazardType.None,
@@ -49,6 +50,7 @@ public sealed partial class ValidationRoot
             rom[slot + 0x0b] = 0x88; rom[slot + 0x0d] = 0x78;
             rom[slot + 0x16] = 0x90; rom[slot + 0x17] = 0xcd;
             rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
+            _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
             var sounds = _sound.AttachPlayRequestAudit();
             byte[] linkScratch = new byte[4], sourceLinkScratch = new byte[4];
             int jumpScratchVisits = 0;
@@ -72,11 +74,39 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previousDirections; previousDirections = held;
                 StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1, afterLink: () =>
+                    rom.UpdateGameplay(edge, held, angle, _saveData.ReadField("wPlaytimeCounter"), afterLink: () =>
                     {
                         for (int i = 0; i < 4; i++) sourceLinkScratch[i] = rom[0xcec0 + i];
                     }); edge = 0; update++;
                     string context = $"Minecart 4:78 update={update} batch={batched} Bombchu={bombchu}";
+                    int[] nativeInteractions = Enumerable.Range(2, 14).Where(page =>
+                        rom[0xd040 + page * 256] != 0 && rom[0xd041 + page * 256] == 0x16).ToArray();
+                    int[] portInteractions = _entities.EntityAdapters<MinecartInteractionRoomEntity>()
+                        .Where(actor => !actor.Finished).Select(_entities.NativeInteractionSlot).Order().ToArray();
+                    FailIf(!portInteractions.SequenceEqual(nativeInteractions), context + ": independent INTERAC $16 occupancy/lifetime differs.");
+                    foreach (int page in nativeInteractions)
+                    foreach (int offset in new[] { 0, 1, 2, 4, 6, 8, 9, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+                        0x16, 0x17, 0x1a, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x26, 0x27 })
+                    {
+                        int address = 0xd040 + page * 256 + offset;
+                        FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                            $"{context}: INTERAC $16 byte${address:x4}: port${_runtimeState.ReadWramByte(address):x2}, native${rom[address]:x2}.");
+                    }
+                    if (rom[0xd100] != 0 && rom[0xd101] == 0x0a)
+                        for (int address = 0xd100; address < 0xd140; address++)
+                            FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                                $"{context}: D1 byte${address:x4}: port${_runtimeState.ReadWramByte(address):x2}, native${rom[address]:x2}.");
+                    int[] nativeItems = Enumerable.Range(0xd7, 5).Where(page => rom[page << 8] != 0 && rom[(page << 8) + 1] == 0x1d).ToArray();
+                    int[] portItems = _entities.EntityAdapters<MinecartCollisionRoomEntity>().Where(item => !item.Finished)
+                        .Select(_entities.DynamicItemSlotOf).Order().ToArray();
+                    FailIf(!portItems.SequenceEqual(nativeItems), context + ": ITEM $1d occupancy/lifetime differs.");
+                    foreach (int page in nativeItems)
+                        for (int offset = 0; offset < 0x40; offset++)
+                        {
+                            int address = (page << 8) + offset;
+                            FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                                $"{context}: ITEM $1d byte${address:x4}: port${_runtimeState.ReadWramByte(address):x2}, native${rom[address]:x2}.");
+                        }
                     if (!bombchu && _player.MinecartJumpActive && (rom[0xcc5c] & 0x80) != 0)
                     {
                         jumpScratchVisits++;
@@ -123,6 +153,12 @@ public sealed partial class ValidationRoot
             {
                 for (int approach = 0; !cart.Mounting && approach < 40; approach++) Step(1, 0x18);
                 FailIf(!cart.Mounting || rom[slot + 4] != 2, "Four-update reachable push must begin native minecart boarding.");
+                FailIf(_runtimeState.ReadWramByte(0xd100) != 0 || rom[0xd100] != 0,
+                    "Boarding must retain its interaction before publishing a separate D1 allocation.");
+                // Source objectCopyPosition writes only yh/xh/zh, retaining
+                // destination low bytes and unrelated counters through birth.
+                foreach (var retained in new (int Offset, int Value)[] { (0x0a,0x41), (0x0c,0x83), (0x0e,0x57), (0x35,3), (0x3d,0x9b) })
+                    _runtimeState.SetWramByte(0xd100 + retained.Offset, rom[0xd100 + retained.Offset] = (byte)retained.Value);
                 int health = _inventory.HealthQuarters;
                 if (heartRing != 0xff) SeedHeartRingVehicle(rom, heartRing);
                 for (int wait = 0; !cart.Riding && wait < 64; wait++) Step();

@@ -42,7 +42,8 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.MermaidSuit, 0);
             if (equippedB != 0)
             {
-                _inventory.GiveTreasure(equippedB, equippedB is TreasureId.Bombs or TreasureId.Bombchus ? 0x10 : 1);
+                _inventory.GiveTreasure(equippedB, equippedB == TreasureId.Flute ? 0x0b :
+                    equippedB is TreasureId.Bombs or TreasureId.Bombchus ? 0x10 : 1);
                 _inventory.GiveTreasure(TreasureId.EmberSeeds, 0x10);
             }
             _inventory.EquipA(0); _inventory.EquipB(equippedB);

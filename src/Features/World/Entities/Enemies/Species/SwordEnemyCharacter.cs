@@ -13,7 +13,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
     private OracleRoomData _room = null!;
     private EnemyTerrainMovement _movement = null!;
     private ScentSeedAttraction? _scentAttractionCache;
-    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new();
     private SwordEnemyState _state;
     private int _counter1;
     private int _counter2;

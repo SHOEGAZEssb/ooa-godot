@@ -46,7 +46,6 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
     internal bool Initializing => State == 0;
     internal EyesoarDatabase Data => _world.Data;
     internal void RequestSound(int sound) => _world.Sound(sound);
-    internal BossEntryMovement Entry => _world.Entry;
     internal override bool CollisionEnabled => base.CollisionEnabled && Health > 0 && _collision && !_dying && !IsSpawner;
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (_zFixed >> 8);
 
@@ -85,7 +84,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
         Counter = 60; _zFixed = -0x200; Speed = 0x14;
         if (!IsSpawner) { State = 8; return; }
         State = 0x15; // Source writes SPEED_80+1 before falling through state1.
-        _world.EnableLink(); _world.Sound(SoundId.SndCtrlStopMusic);
+        _world.InitializeBossRoom();
         if (!_world.EnemySlotsAvailable(5))
             throw new InvalidOperationException("ENEMY_EYESOAR $7b:$00 state0: five free ENEMY slots required; source would retain invalid state $15.");
         for (int i = 0; i < 5; i++) spawns.Add(new EyesoarChildSpawn(this, i));
@@ -312,5 +311,5 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
 internal sealed record EyesoarEnvironment(OracleRoomData Room, EyesoarDatabase Data, DungeonBossDatabase Bosses,
     DungeonInteractionVisual SpawnVisual, OracleRandom Random, Func<bool> ShuttersClosed, Func<bool> PartSlotAvailable,
     Func<int, bool> EnemySlotsAvailable, Func<bool> InteractionSlotAvailable, Action<int> Sound,
-    Action DisableLink, Action EnableLink, BossEntryMovement Entry);
+    Action DisableLink, Action EnableLink, Action InitializeBossRoom);
 internal sealed record EyesoarChildSpawn(EyesoarActor Spawner, int Index) : RoomEntitySpawn;

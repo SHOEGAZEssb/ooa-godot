@@ -81,31 +81,6 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\harpItem.tsv'),
     $harpItemRows)
 
-$fluteBody = [regex]::Match($harpAnimationSource, '(?ms)^animationData19f90:(?<body>.*?)^animationData19fa5:')
-$fluteAnimation = @([regex]::Matches($fluteBody.Groups['body'].Value,
-    '(?m)^\s*\.db \$(?<duration>[0-9a-f]{2}) \$(?<graphic>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'))
-if ($fluteAnimation.Count -ne 7) { throw 'LINK_ANIM_MODE_FLUTE source animation changed.' }
-$fluteRows = @("# kind`tindex`tvalue`tsource")
-for ($index=0; $index -lt 7; $index++) {
-    $fluteRows += "parameter`t$index`t$($fluteAnimation[$index].Groups['parameter'].Value)`tspecialObjectAnimationData.s:animationData19f90"
-}
-$fluteSoundNames = @('SND_FILLED_HEART_CONTAINER','SND_FLUTE_RICKY','SND_FLUTE_DIMITRI','SND_FLUTE_MOOSH')
-for ($index=0; $index -lt 4; $index++) {
-    $fluteRows += "sound`t$index`t$($soundIds[$fluteSoundNames[$index]].ToString('x2'))`tharpFluteParent.s:@sfxList"
-}
-foreach ($textId in @(0x510c,0x510f)) {
-    $fluteRows += "text`t$textId`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))`tcompanionSpawner.s:@fluteCall"
-}
-$fluteCallableSource = Read-ImportText (Join-Path $Disassembly 'data\ages\companionCallableRooms.s')
-$fluteCallableBytes = @([regex]::Matches($fluteCallableSource, '%([01]{8})'))
-if ($fluteCallableBytes.Count -ne 32) { throw 'Ages companionCallableRooms must contain 256 room bits.' }
-for ($index=0; $index -lt 256; $index++) {
-    if ($fluteCallableBytes[[int][Math]::Floor($index/8)].Groups[1].Value[$index%8] -eq '1') {
-        $fluteRows += "room`t$index`t01`tcompanionCallableRooms.s:companionCallableRooms/dbrev"
-    }
-}
-Write-CutsceneGeneratedTable((Join-Path $destination 'objects\flute.tsv'), $fluteRows)
-
 # INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
 # NPC, but it uses the same interaction graphics, animation, and OAM tables.
 # Export every placed portal spot so runtime activation stays data-driven.

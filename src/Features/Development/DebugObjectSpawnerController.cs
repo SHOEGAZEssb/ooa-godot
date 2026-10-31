@@ -3,7 +3,7 @@ using System;
 
 namespace Oracles;
 
-public sealed class DebugObjectSpawnerController
+public sealed class DebugObjectSpawnerController : IDisposable
 {
     private const string InputAction = "debug_object_spawner";
     private readonly DebugObjectSpawnerScreen _screen;
@@ -67,6 +67,8 @@ public sealed class DebugObjectSpawnerController
         _lease?.Dispose();
         _lease = null;
     }
+
+    public void Dispose() => Close();
 
     internal void SpawnSelection()
     {

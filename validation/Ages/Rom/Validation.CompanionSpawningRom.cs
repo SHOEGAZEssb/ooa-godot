@@ -32,6 +32,9 @@ public sealed partial class ValidationRoot
             native.Memory[0xc638] = native.Memory[0xc639] = 24;
             native.Remembered(); native.Spawn(subid);
             LoadValidationRoom(0, room);
+            // This probe compares only the placed preset's allocation policy;
+            // both sides leave the restored special object's first visit pending.
+            if (subid is 0 or 2 or 4 or 5) _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
             var actors = _entities.EntityAdapters<IRoomEntity>().Where(e => e is IRoomInitializedCompanion).ToArray();
             FailIf(actors.Length != 1 || actors[0].Node.Position != new Vector2(native.Memory[0xd10d], native.Memory[0xd10b]),
                 $"Preset ${subid:x2} did not preserve native allocation precedence for companion ${id:x2}, remembered={remembered}.");
@@ -63,6 +66,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(new(8, 8));
             var rom = new CompanionRom(id, position, 2, _currentRoom);
             rom.InitializeRemembered(_player.Position, new(40, 40), occupied);
+            rom[0xd124] = 0; // Fresh native slot, before state0 sets collisionType.
             var palette = _entities.PaletteFadeActiveSource;
             try
             {
@@ -71,7 +75,12 @@ public sealed partial class ValidationRoot
                 int update = 0;
                 StepGameplayUpdates(4, Vector2.Zero, batched: batched, afterUpdate: () =>
                 {
-                    rom.Update(0xff); update++;
+                    if (rom[0xd100] != 0) rom.Update(0xff);
+                    update++;
+                    foreach (int address in new[] { 0xd100, 0xd101, 0xd104, 0xd105,
+                        0xd108, 0xd109, 0xd10a, 0xd10b, 0xd10c, 0xd10d, 0xd124 })
+                        FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                            $"Companion ${id:x2} initialization update{update}, occupied={occupied}, frozen={frozen}: native ${address:x4}=${rom[address]:x2}, runtime=${_runtimeState.ReadWramByte(address):x2}.");
                     var actors = _entities.EntityAdapters<IRoomEntity>().Where(e => e is IRoomInitializedCompanion).ToArray();
                     FailIf(actors.Length != rom[0xd100], $"Companion ${id:x2} initialization update {update}, occupied={occupied}, frozen={frozen}: slot differs.");
                     if (actors.Length != 0)
@@ -104,7 +113,7 @@ public sealed partial class ValidationRoot
             destination.SetPositionTileAndCollision(point + new Vector2(0, 5), 0, 0, 0);
             CompanionRuntimeState.Remember(_runtimeState, id, 0, 0x2b, point);
             _player.WarpTo(new(152, 64));
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x2b);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x2b);
             var rom = new CompanionRom(id, point, 2, _currentRoom);
             rom.InitializeRemembered(new(8, 8), new(40, 40), false);
             rom[0xcd00] = 2;
@@ -115,7 +124,7 @@ public sealed partial class ValidationRoot
                 var actors = _entities.EntityAdapters<IRoomEntity>().Where(e => e is IRoomInitializedCompanion).ToArray();
                 FailIf(actors.Length != 1 || actors[0].Node.Visible != (rom[0xd104] != 0),
                     $"Companion ${id:x2} scroll initialization differs at update {update}.");
-                FailIf(CompanionField<Vector2>(actors[0], "_precisePosition") != rom.Position,
+                FailIf(((INativeSpecialObjectRoomEntity)actors[0]).NativeSpecialObjectPosition != rom.Position,
                     "Incoming companion moved before scrolling completed.");
             });
             FailIf(_entities.EntityAdapters<IRoomEntity>().Count(e => e is IRoomInitializedCompanion) != 1 ||
@@ -126,15 +135,12 @@ public sealed partial class ValidationRoot
     private void ValidateCompanionPresetsRom()
     {
         ReinitializeGameplayForValidation();
-        var ricky = new RickyGlovesEventDatabase(); var dimitri = new DimitriDatabase(AgesGameContent.AssetRoot);
+        var ricky = new RickyGlovesEventDatabase(); var dimitri = new AgesDimitriStoryDatabase();
         var moosh = new MooshGoodbyeEventDatabase();
         foreach (int subid in new[] { 1, 2, 3 })
         for (int state = 0; state < 256; state++)
         foreach (bool prerequisite in new[] { false, true })
         {
-            // The goodbye owner explicitly rejects the pre-rescue story
-            // branch; it cannot arise after legitimately obtaining the rope.
-            if (subid == 1 && (state & 0x20) == 0) continue;
             _saveData.WriteWramByte(AgesWramAddress.wCompanionStates, (byte)state);
             _saveData.WriteWramByte(AgesWramAddress.wDimitriState, (byte)state);
             _saveData.WriteWramByte(AgesWramAddress.wMooshState, (byte)state);
@@ -169,10 +175,11 @@ public sealed partial class ValidationRoot
             native.Spawn(subid);
             FailIf(native.Memory[0xd100] == 0, $"Preset ${subid:x2} fixture did not spawn natively.");
             LoadValidationRoom(0, room);
+            if (subid is 0 or 1 or 2) StepGameplayUpdates(1, Vector2.Zero);
             if(subid==3)
             {
                 FailIf(_entities.EntityAdapters<IRoomEntity>().Any(e=>e is IRoomInitializedCompanion)||
-                    _entities.InteractionSlot(_entities.EntityAdapters<DimitriPresetSpawnerRoomEntity>().Single().Node)!=4,
+                    _entities.NativeInteractionSlot(_entities.EntityAdapters<CompanionPresetSpawnerRoomEntity>().Single())!=4,
                     "Placed $67:$03 must reserve $d4 after both Tokays and defer the companion until its own first dispatch.");
                 StepGameplayUpdates(1,Vector2.Zero);
             }
@@ -193,30 +200,40 @@ public sealed partial class ValidationRoot
         var idField = typeof(OracleRoomData).GetField("<Id>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var flagsField = typeof(OracleRoomData).GetField("<TilesetFlags>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
         int originalId = _currentRoom.Id; byte originalFlags = _currentRoom.TilesetFlags;
+        var originalTextSource=_entities.TextActiveSource;
         int cases = 0;
-        void Check(int room, byte flags, int icon, int occupant)
+        void Check(int room, byte flags, int icon, int occupant,bool textActive=false)
         {
             _entities.Clear();
+            _entities.TextActiveSource=()=>textActive;
             foreach (int id in new[] { 0x0a, 0x0b, 0x0c, 0x0d, 0x13 }) CompanionRuntimeState.Clear(_runtimeState, id);
             idField.SetValue(_currentRoom, room); flagsField.SetValue(_currentRoom, flags);
             _inventory.AssignAnimalCompanion(0x0c);
+            _saveData.WriteField("wFluteIcon",(byte)icon);
             if (occupant is 0x0b or 0x0c or 0x0d)
-                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, occupant, room, new(72, 64), 2);
+                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, occupant, new(72, 64), 2);
             else if (occupant != 0)
-                CompanionRuntimeState.Begin(_runtimeState, occupant, room, new(72, 64), 2);
+                CompanionRuntimeState.Begin(_runtimeState, occupant, new(72, 64), 2);
             var native = new CompanionSpawnRom(_currentRoom, 0, _player.Position);
             native.Memory[0xc610] = 0x0c; native.Memory[0xc6b5] = (byte)icon;
             native.Memory[0xd100] = occupant == 0 ? (byte)0 : (byte)1;
             native.Memory[0xd101] = (byte)occupant;
+            if(textActive)
+            {
+                native.Memory[0xcba0]=1; native.Memory[0xcba2]=0x11; native.Memory[0xcba3]=0x55;
+            }
             native.Spawn(0x80);
             string? message = null;
-            new CompanionFluteSpawner(_rooms, _entities, data, (text, _) => message = text).Call(_player, icon);
+            CompanionFluteSpawner.TryCreate(_rooms,_entities,data,(text,_)=>message=text);
+            _entities.UpdateNativeInteractionPass(_player,_entities.FrameCounter);
             int actual = _entities.EntityAdapters<IRoomEntity>().Count(actor => actor is IPlayerRideableRoomEntity);
             bool spawned = occupant == 0 && native.Memory[0xd100] != 0;
             FailIf(actual != (spawned ? 1 : 0), $"Flute room=${room:x2}, flags=${flags:x2}, icon={icon}, slot=${occupant:x2}: allocation differs.");
             int textId = ((native.Memory[0xcba3] - 4) << 8) | native.Memory[0xcba2];
-            FailIf(message != (native.Memory[0xcba0] == 0 ? null : data.Text(textId)),
+            FailIf(message != (textActive || native.Memory[0xcba0] == 0 ? null : data.Text(textId)),
                 $"Flute room=${room:x2}, flags=${flags:x2}, icon={icon}, slot=${occupant:x2}: text differs.");
+            FailIf(textActive && (native.Memory[0xcba0]!=1 || native.Memory[0xcba2]!=0x11 || native.Memory[0xcba3]!=0x55),
+                "companionSpawner.s:@showTextAndDelete must preserve the active native message.");
             cases++;
         }
         try
@@ -226,10 +243,13 @@ public sealed partial class ValidationRoot
             for (int icon = 0; icon < 4; icon++)
             foreach (int occupant in new[] { 0, 0x0a, 0x0b, 0x0c, 0x0d, 0x13 })
                 Check(0x2a, (byte)flags, icon, occupant);
+            Check(0x2a,1,0,0,true);
+            Check(0xff,1,1,0,true);
         }
         finally
         {
             idField.SetValue(_currentRoom, originalId); flagsField.SetValue(_currentRoom, originalFlags);
+            _entities.TextActiveSource=originalTextSource;
             foreach (int id in new[] { 0x0a, 0x0b, 0x0c, 0x0d, 0x13 }) CompanionRuntimeState.Clear(_runtimeState, id);
         }
         GD.Print($"Validated {cases} native flute room, tileset, icon and occupied-slot gates including text selection.");
@@ -283,6 +303,9 @@ public sealed partial class ValidationRoot
         foreach (int blockedCell in new[] { -1, 0, 1 })
         {
             _entities.Clear(); _inventory.AssignAnimalCompanion(id);
+            _saveData.WriteField("wFluteIcon",(byte)(id-0x0a));
+            for(int offset=0;offset<64;offset++)
+                _runtimeState.SetWramByte(0xd100+offset,offset==0?(byte)0:(byte)(0x21+offset));
             _player.WarpTo(new(40, 24));
             for (int y = 0; y < 8; y++)
             for (int x = 0; x < 10; x++)
@@ -300,18 +323,23 @@ public sealed partial class ValidationRoot
             }
             var native = new CompanionSpawnRom(_currentRoom, 0, _player.Position);
             native.Memory[0xc610] = (byte)id; native.Memory[0xc6b5] = (byte)(id - 0x0a);
+            for(int offset=0;offset<64;offset++) native.Memory[0xd100+offset]=_runtimeState.ReadWramByte(0xd100+offset);
             native.Spawn(0x80);
             string? message = null;
-            new CompanionFluteSpawner(_rooms, _entities, data, (text, _) => message = text).Call(_player, id - 0x0a);
+            CompanionFluteSpawner.TryCreate(_rooms,_entities,data,(text,_)=>message=text);
+            _entities.UpdateNativeInteractionPass(_player,_entities.FrameCounter);
             var actors = _entities.EntityAdapters<IRoomEntity>().Where(actor => actor is IPlayerRideableRoomEntity).ToArray();
             FailIf(actors.Length != native.Memory[0xd100], $"Flute candidate={candidate}, blocked={blockedCell}, companion=${id:x2}: allocation differs.");
+            for(int offset=0;offset<64;offset++)
+                FailIf(_runtimeState.ReadWramByte(0xd100+offset)!=native.Memory[0xd100+offset],
+                    $"Flute candidate={candidate}, blocked={blockedCell}, companion=${id:x2}: D1 byte${offset:x2} runtime${_runtimeState.ReadWramByte(0xd100+offset):x2}/native${native.Memory[0xd100+offset]:x2} differs.");
             if (actors.Length != 0)
             {
                 spawned++;
                 var actor = (IRoomEntity)actors.Single();
                 Vector2 p = CompanionField<Vector2>(actor, "_precisePosition");
                 Vector2 mount = CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData);
-                FailIf((byte)(int)p.X != native.Memory[0xd10d] || (byte)(int)p.Y != native.Memory[0xd10b] ||
+                FailIf(OracleObjectPosition.HighByte(p.X) != native.Memory[0xd10d] || OracleObjectPosition.HighByte(p.Y) != native.Memory[0xd10b] ||
                     CompanionField<int>(actor, "_direction") != native.Memory[0xd108] ||
                     mount != new Vector2(native.Memory[0xc639], native.Memory[0xc638]),
                     $"Flute candidate={candidate}, blocked={blockedCell}, companion=${id:x2}: entrance or fallback point differs.");

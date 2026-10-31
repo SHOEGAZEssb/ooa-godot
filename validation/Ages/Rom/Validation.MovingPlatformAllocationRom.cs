@@ -22,7 +22,7 @@ public partial class ValidationRoot
             rom.InitializeLinkGameplay(); rom.InitializeLinkWalkingAnimation(); rom[0xcc39] = 4;
             for (int slot = 2; slot < 16-free; slot++)
             {
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));
                 int address = (0xd0+slot)*256+0x40;
                 rom[address] = 1; rom[address+1] = 5; rom[address+2] = 0x80;
                 rom[address+0xb] = 144; rom[address+0xd] = 224;
@@ -37,11 +37,11 @@ public partial class ValidationRoot
             int available = Enumerable.Range(0xd2,14).Count(page=>rom[page*256+0x40] == 0);
             rom[0xcd00] = 8;
             SomariaPrivate<FrontendRom>(rom,"_rom").Call(0x55b7,0x12);
-            // This platform fixture excludes hostile enemy dispatch. Retain
-            // its parsed ENEMY$59 tile producers in the bounded native pass:
-            // their state0 common draw runs during the preload as well.
+            // Include the preloaded Keese and tile producers' common state0
+            // draws; this platform fixture excludes other hostile dispatch.
+            rom[0xcc16]=0x9d; rom[0xcc17]=1; // Resident Keese sheet.
             var excludedEnemies=Enumerable.Range(0xd0,16).Select(page=>page*256+0x80)
-                .Where(slot=>rom[slot]!=0 && rom[slot+1]!=0x59)
+                .Where(slot=>rom[slot]!=0 && rom[slot+1] is not (0x59 or 0x32))
                 .Select(slot=>(Slot:slot,Enabled:rom[slot])).ToArray();
             foreach (var enemy in excludedEnemies) rom[enemy.Slot]=0;
             frontend.Call(0x2ea5,0x0d);

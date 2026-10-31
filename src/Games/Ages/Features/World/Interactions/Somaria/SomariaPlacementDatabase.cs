@@ -42,5 +42,5 @@ internal sealed class SomariaPlacementDatabase
         (byte)(((byte)(int)Mathf.Floor(position.Y)&0xf0)+8+_alignY));
     internal bool HeightAllowed(int z) => (byte)(z-_zSubtract)>=_zBoundary;
     internal bool RoomAllowed(int group,int room) => group!=_forbiddenGroup || room!=_forbiddenRoom;
-    internal int Hazard(int mode,int tile) => ItemHazardDatabase.For(AgesGameContent.AssetRoot).Hazard(mode,tile);
+    internal int Hazard(int mode,int tile) => TilePropertyDatabase.For(AgesGameContent.AssetRoot).NativeHazardFlags(mode,(byte)tile);
 }

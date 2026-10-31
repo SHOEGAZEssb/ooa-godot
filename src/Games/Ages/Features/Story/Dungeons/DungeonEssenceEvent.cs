@@ -11,6 +11,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
 {
 
     private readonly RoomEventContext _context;
+    private readonly NativeScriptInputControl _input;
     private DungeonEssence? _essence;
     private DungeonEssenceEventPhase _phase;
     private int _counter;
@@ -19,10 +20,11 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
     internal DungeonEssenceEvent(RoomEventContext context)
     {
         _context = context;
+        _input=new(context.Rooms.RuntimeState);
     }
 
     public bool HasState => _phase != DungeonEssenceEventPhase.Inactive;
-    public bool BlocksGameplay => HasState;
+    public bool BlocksGameplay => HasState && _input.LinkDisabled;
     internal int Counter => _counter;
     internal bool TracksEssence => _essence is not null;
 
@@ -32,7 +34,9 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
             return;
         _essence = essence;
         _phase = DungeonEssenceEventPhase.AwaitingHeldPose;
-        _context.Player.BeginCutsceneControl(owner: this);
+        // essence.s state1 keeps ordinary Link behind the shared masks.
+        player.ClearNativeItemParents();
+        _input.SetDisabledObjects(0x81);_input.SetLinkCollisionsAndMenuDisabled(0x81);
         _context.Player.Face(Vector2I.Up);
         _context.RoomView.SetBackgroundFade(Colors.Black, 0.35f);
         _context.Sound.PlaySound(SoundId.SndDropEssence);
@@ -51,7 +55,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
                     return;
                 // essence.s keeps disabledObjects=$81 through the exit warp;
                 // its script never clears that mask. WarpTo resets state04.
-                _context.Player.RequestGetItemState(0x01, static () => true);
+                _context.Player.RequestGetItemState(0x01);
                 _context.ShowDialogue(
                     (_essence ?? throw new InvalidOperationException(
                         "The essence get event has no active essence.")).Message);
@@ -135,6 +139,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
 
     public void Cancel()
     {
+        _input.Cancel();
         if (_essence is not null &&
             GodotObject.IsInstanceValid(_essence))
         {
@@ -146,12 +151,11 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
         _phase = DungeonEssenceEventPhase.Inactive;
         _counter = 0;
         _context.RoomView.ClearBackgroundFade();
-        _context.Player.EndCutsceneControl(this);
     }
 
     private void Finish()
     {
-        _context.Player.EndCutsceneControl(this);
+        _input.Relinquish(); // The source keeps both masks through the exit warp.
         _context.Sound.ClearActiveMusic();
         _context.Transitions.ApplyWarpWithDelayedFadeOut(
             _context.Player,
@@ -160,6 +164,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
             // essence.s state 7 clears wActiveMusic; checkPlayRoomMusic
             // returns while it is zero until the destination script resumes music.
             suppressDestinationMusic: true);
+        StaticObjectState.Clear(_context.Rooms.RuntimeState); // essence.s state7, after warp/music publication.
         // The two-hand pose survives the source-room fade and Player.WarpTo
         // clears it when the destination loads. The source interaction itself
         // is freed there, so retaining it would leave CancelAll holding a

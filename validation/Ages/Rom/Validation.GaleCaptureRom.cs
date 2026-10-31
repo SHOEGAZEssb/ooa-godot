@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
                                 menus.Update(edge, edge, _saveData.ReadWramByte(0xc622));
                             if (rom[0xcbcb] == 0)
                             {
-                                rom.UpdateGameplay(edge, edge, 0xff, _entities.FrameCounter - 1);
+                                rom.UpdateGameplay(edge, edge, 0xff, _saveData.ReadField("wPlaytimeCounter"));
                                 if (allDestinations || arrivalMenuProbe != 0) rom.AdvanceArrivalRoomControl();
                             }
                         }

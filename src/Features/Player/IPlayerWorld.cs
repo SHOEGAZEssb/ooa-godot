@@ -20,14 +20,18 @@ public interface IPlayerWorld
     bool SwordJinxed => false;
     void AdvanceSwordJinxCounter() { }
     bool ItemUsageDisabled { get; }
+    bool FeatherBlockedByMagnet => false;
     bool InShop { get; }
     bool MovementDisabled { get; }
     bool PlayerUpdatesFrozen => false;
     bool NativePaletteChanging => false;
+    // A removed Link object skips dispatch; the native object mask gates individual states.
     bool LinkDisabled => false;
     byte NativeObjectDisableMask => 0;
     bool RingTransformationsAllowed { get; }
     void CreateBabyTransformationPoof(Vector2 position, int z) { }
+    void CreateTransformationDust(Vector2 position, int z) =>
+        throw new NotSupportedException("transformedLink.s Pegasus dust requires the shared interaction owner.");
     bool RidingObject { get; }
     int RaisedFloorOffset
     {
@@ -38,8 +42,13 @@ public interface IPlayerWorld
                 throw new NotSupportedException("Raised-floor Link requires the authoritative wLinkRaisedFloorOffset owner.");
         }
     }
-    void UpdateLinkOnChest(Vector2 position, bool airborne) { }
-    void UpdateActiveLinkTile(Vector2 position) { }
+    void UpdateLinkOnChest() { }
+    byte UpdateActiveLinkTile(Vector2 position, bool airborne) => 0;
+    void UpdateSideScrollActiveTile(Vector2 position) { }
+    void SetLinkTerrainTile(byte position, byte tile) =>
+        throw new NotSupportedException("commonCode.s Link terrain mutation requires the shared changed-tile queue.");
+    void BreakCrackedFloor(byte position, byte tile) =>
+        throw new NotSupportedException("bank0.s:breakCrackedFloor requires the shared tile, audio and interaction owners.");
     bool GaleWarpDisabled => false;
     bool NativeWarpsDisabled => false;
     void SetNativeWarpsDisabled(bool disabled) =>
@@ -91,8 +100,8 @@ public interface IPlayerWorld
     bool BoomerangParentActive => false;
     int BoomerangParentSlot => 0;
     int BoomerangParentGraphic => 0;
-    bool TryBeginBoomerang(Player player, int parentSlot) => false;
-    void UpdateBoomerangParent() { }
+    bool TryBeginBoomerang(Player player, int parentSlot, bool primaryButton) => false;
+    bool UpdateBoomerangParent(Player player) => false;
     void ClearBoomerangParent() { }
     bool BombchuParentActive => false;
     bool BombchuParentAllocated => false;
@@ -107,7 +116,7 @@ public interface IPlayerWorld
     void BeginBiggoron(Player player) { }
     void UpdateBiggoronParent(bool prohibited) { }
     void CancelBiggoron() { }
-    void DrawBiggoron(CanvasItem canvas,Player player,bool damagePalette) { }
+    (Texture2D Texture, Vector2 Offset)? BiggoronLinkBody(Player player, bool damagePalette) => null;
     int SomariaAnimationMode => 0;
     int SomariaAnimationFrame => 0;
     void BeginSomaria(Player player,bool underwater) { }
@@ -134,23 +143,23 @@ public interface IPlayerWorld
           ResolveMovement(position, OracleObjectMovement.Shared.Delta(speed, angle), allowWallSlide);
     Vector2 ApplyNativeUnblockedMovement(Vector2 position,int speed,int angle)=>
         OracleObjectMovement.Shared.ApplySpeed(OracleObjectPosition.FromPixels(position),speed,angle).PrecisePosition;
-    bool IsPushingAgainstWall(
-        Vector2 playerPosition,
-        Vector2I facing,
-        Vector2 movementInput);
     bool UpdatePushableBlocks(
         Vector2 playerPosition,
         Vector2I facing,
         Vector2 movementInput);
     int TilePushingDirection { get; set; }
     ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition);
+    TerrainInfo GetTerrainAtPosition(Vector2 position) => throw new NotSupportedException("Native object-position terrain is not bound.");
+    int ActiveRoomGroup => throw new NotSupportedException("Native active room group is not bound.");
     SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition);
+    SideScrollActiveTiles SideScrollActiveTiles { get; }
     int GetAdjacentWallsBitset(Vector2 playerPosition);
     bool SideScrollTileBlocksPoint(Vector2 point) => false;
-    bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement);
+    bool TryStartTerrainJump(Player player, Vector2 from, Vector2 attemptedMovement, int objectAngle);
     bool ApplyLandedTileHit(Vector2 playerPosition);
     void BeginLedgeScreenTransition(Player player);
     void ResumeLedgeHopAfterScroll(Player player);
+    void CompleteLedgeLanding(Player player) => ApplyLandedTileHit(player.PrecisePosition);
     void SpawnDrowningSplash(Vector2 position, HazardType hazard);
     void SpawnSideScrollBubble(Vector2 position);
     void BeginFallDownHoleWarp(Player player, int packedPosition) =>

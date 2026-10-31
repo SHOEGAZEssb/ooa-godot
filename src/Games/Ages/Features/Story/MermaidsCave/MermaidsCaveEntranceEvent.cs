@@ -12,8 +12,7 @@ internal sealed class MermaidsCaveEntranceEvent : RoomCutsceneCommandHost, IRoom
     internal int Counter => _runner.Counter;
     public override RoomEventContext Context { get; }
     public bool HasState => _armed || _runner.Active;
-    public bool BlocksGameplay => _runner.Active;
-    public bool FreezesNonInteractionObjects => BlocksGameplay;
+    public bool BlocksGameplay => InputControlHeld;
     public bool MenusDisabled => BlocksGameplay;
 
     internal MermaidsCaveEntranceEvent(RoomEventContext context)
@@ -37,12 +36,13 @@ internal sealed class MermaidsCaveEntranceEvent : RoomCutsceneCommandHost, IRoom
     internal bool CanTrigger(int group, int room) =>
         _armed && _entrance.Group == group && _entrance.Room == room;
 
-    internal void Trigger(int group, int room)
+    internal NativeScriptInputControl Trigger(int group, int room)
     {
         if (!CanTrigger(group, room) || !Context.Rooms.SaveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80))
             throw new InvalidOperationException($"miscPuzzles_subid12 cannot trigger in {group:x}:{room:x2}.");
         _armed = false;
         _runner.Start(_database.Commands);
+        return EventResources.ScriptInput;
     }
 
     public void UpdateFrame()
@@ -54,13 +54,13 @@ internal sealed class MermaidsCaveEntranceEvent : RoomCutsceneCommandHost, IRoom
     {
         _runner.Clear();
         _armed = false;
+        ReleaseInputControl();
     }
 
     public override void SetInputEnabled(bool enabled)
     {
         if (!enabled) throw UnsupportedCommand("disable input from script");
-        // enableinput clears the $81 mask, then scriptend retires the owner
-        // in this same update. Link and item parents resume on the next pass.
+        base.SetInputEnabled(true);
     }
 
     public override void SetMusic(int music)

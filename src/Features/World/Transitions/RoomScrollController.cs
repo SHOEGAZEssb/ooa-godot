@@ -8,6 +8,11 @@ internal sealed class RoomScrollController
 {
     private Vector2 _start, _linkStep;
     private int _setupRemaining, _cleanupRemaining;
+    private ScreenTransitionGraphicsDatabase? _graphics;
+    private ScreenTransitionPaletteDatabase? _palettes;
+    private ScreenTransitionRenderer? _renderer;
+    private int _loadedUnique, _unique, _entries, _setupFrames, _postScrollEntries;
+    private bool _uploadGraphics;
     internal Vector2I Direction { get; private set; }
     internal Vector2 FinishOffset { get; private set; }
     internal int Frame { get; private set; }
@@ -15,9 +20,78 @@ internal sealed class RoomScrollController
     internal int TotalFrames { get; private set; }
     internal int Distance { get; private set; }
     internal bool Active { get; private set; }
+    internal (byte State,byte Substate,byte Step) NativePhase
+    {
+        get
+        {
+            if (!Active) return (2,0,0);
+            if (_setupRemaining == _setupFrames) return (3,0,0);
+            if (_setupRemaining > 3) return (4,0,0);
+            if (_setupRemaining == 3) return (5,0,0);
+            byte substate = (byte)(Direction.X != 0 ? 2 : 1);
+            byte step = (byte)(_setupRemaining > 0 ? 2 - _setupRemaining : Frame < Frames ? 2 :
+                _postScrollEntries != 0 ? (_cleanupRemaining > _postScrollEntries ? 3 : 4) :
+                _cleanupRemaining > 1 ? 3 : 5);
+            return (5,substate,step);
+        }
+    }
     internal float Pixels => Frame * 4;
     internal Vector2 LinkPosition => _start + _linkStep * Frame;
     internal Vector2 DestinationPosition => _start + _linkStep * Frames + FinishOffset;
+
+    internal void ResetGraphics(OracleRoomData room)
+    {
+        _graphics ??= new(room.AssetRoot);
+        if (_graphics.AssetRoot != room.AssetRoot)
+            throw new ArgumentException("A scroll owner cannot cross game asset packs.");
+        _loadedUnique = _graphics.ForTileset(room.TilesetId, room.TilesetStateModifier).Unique |
+            (room.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
+    }
+
+    internal void Begin(Vector2 start, Vector2I direction, OracleRoomData source, OracleRoomData target)
+    {
+        if (source.AssetRoot != target.AssetRoot || _graphics?.AssetRoot != source.AssetRoot)
+            throw new ArgumentException("A native scroll requires graphics initialized from its source pack.");
+        _setupFrames = 4;
+        int cleanup = 2 + (direction.X != 0 ? (target.Width - 160) / 8 : (target.Height - 128) / 8);
+        (_unique, _entries) = _graphics.ForTileset(target.TilesetId, target.TilesetStateModifier);
+        if (target.LoadsUniqueGraphicsAfterScroll) _unique |= 0x80;
+        _uploadGraphics = _unique != 0 && _unique != _loadedUnique;
+        _postScrollEntries = 0;
+        if (_unique != 0)
+        {
+            int updates = _unique == _loadedUnique ? 1 : _entries;
+            if ((_unique & 0x80) == 0) _setupFrames += updates;
+            else { cleanup += updates - 1; _postScrollEntries = updates; }
+            _loadedUnique = _unique;
+        }
+        Begin(start, direction, source.Width, source.Height, _setupFrames, cleanup);
+    }
+
+    internal void BindGraphics(OracleRoomData source, OracleRoomData target, Image sourceGraphics,
+        Color[,] sourceColors, OracleSaveData save, int stateModifier)
+    {
+        _palettes ??= new(target.AssetRoot);
+        bool routePresent = _palettes.TryGet(target.Group, target.Id, Direction, save, stateModifier, out var route);
+        bool smooth = save.Game == OracleGame.Seasons ? target.Group == 0 :
+            (target.TilesetFlags & (int)TilesetFlags.Outdoors) != 0 && source.TilesetPaletteId != target.TilesetPaletteId;
+        _renderer = new(source, target, sourceGraphics, sourceColors,
+            _uploadGraphics ? _graphics!.Uploads(_unique) : Array.Empty<ScreenGraphicsUpload>(),
+            target.LoadsUniqueGraphicsAfterScroll ? TotalFrames - _entries + 1 : 2,
+            _setupFrames > 4 && !routePresent ? _setupFrames - 3 : -1,
+            _setupFrames - 2, smooth && routePresent ? route : null);
+    }
+
+    internal void FinishGraphics()
+    {
+        _renderer?.Finish();
+        _renderer = null;
+    }
+    internal void Cancel()
+    {
+        Active = false;
+        _renderer = null;
+    }
 
     internal void Begin(Vector2 start, Vector2I direction, int width, int height, int setupFrames, int cleanupFrames)
     {
@@ -39,6 +113,7 @@ internal sealed class RoomScrollController
     internal bool Advance()
     {
         if (!Active) return false;
+        _renderer?.Advance();
         if (_setupRemaining > 0) { _setupRemaining--; return false; }
         if (Frame == Frames)
         {

@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             _runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);
             var data=new DungeonBossDatabase(AgesGameContent.AssetRoot);var parent=new GiantGhiniBoss();
             parent.Initialize(data.Enemy(0x70),_currentRoom,new(120.25f,88.5f),_random,_sound.PlaySound,
-                ()=>false,_entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen);
+                ()=>false,_entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen,_entities.InitializeBossRoom);
             F1Set(parent,"_initialized",true);F1Set(parent,"_state",intro?GiantGhiniBossBossState.IntroWait:GiantGhiniBossBossState.Moving);
             F1Set(parent,"_childrenAlive",1);
             var child=new GiantGhiniChild();child.Initialize(data.Enemy(0x3f),parent,_currentRoom,index,_random);
@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
             native[at+0x17]=0xd0;native.Word(at+10,fractional?0x5880:0x5800);native.Word(at+12,fractional?0x7840:0x7800);
             int SourceState()=>child.InitializationPending?0:child.State switch
             {ChildState.Waiting=>8,ChildState.SpawnDelay=>9,ChildState.Charging=>10,ChildState.Attached=>11,_=>12};
-            void Step(int count,int pressed=0)=>StepGameplayUpdates(count,Vector2.Zero,pressed:MenuRomActions(pressed),batched:batched,afterUpdate:()=>
+            void Step(int count,int pressed=0)=>StepGameplayUpdates(count,Vector2.Zero,held:MenuRomActions(pressed),pressed:MenuRomActions(pressed),batched:batched,afterUpdate:()=>
             {
                 byte[] expected=new byte[4];for(int i=0;i<4;i++)native[0xcec0+i]=(byte)(0xa5+i);
                 native[0xccd8]=0;native[0xcc61]&=15;

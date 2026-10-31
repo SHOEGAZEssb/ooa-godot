@@ -10,4 +10,4 @@ internal sealed record VireRoomEnvironment(
     Func<Vector2> Camera, Func<Vector2,int,int,int> Puff, Func<int,int> PuffParameter,
     Func<VireProjectileSpawn,bool> Projectile, Func<int,bool> CanAllocateEnemies,
     Func<VireCharacter,int,bool> Bat, Func<int,VireCharacter?> Parent,
-    Func<RoomEntitySpawn,bool> Part, BossEntryMovement Entry);
+    Func<RoomEntitySpawn,bool> Part);

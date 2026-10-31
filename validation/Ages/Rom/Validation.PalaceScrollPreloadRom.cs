@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(1, 0x36);
             _player.WarpTo(new(0x50, 0x7f));
             FailIf(_collision.Collides(_player.Position), "Palace $1:$36 south approach is solid.");
-            _transitions.BeginScroll(_player, Vector2I.Down, 0x46);
+            _transitions.BeginValidationScroll(_player, Vector2I.Down, 0x46);
             var rom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 2, 0x50, 0x7f);
             const int trigger = 0xd240;
             rom[trigger] = 1; rom[trigger + 1] = 0x6b; rom[trigger + 2] = 2;
@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
             int edgeX = Enumerable.Range(8, 144).First(x => !_collision.Collides(new(x, edgeY)));
             _player.WarpTo(new(edgeX, edgeY));
             var seed = _random.CaptureState();
-            _transitions.BeginScroll(_player, direction, targets[index]);
+            _transitions.BeginValidationScroll(_player, direction, targets[index]);
             var guards = _entities.EntityAdapters<AmbiGuardRoomEntity>().ToArray();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 0, edgeX, edgeY);
             rom[0xcd00] = 8; rom[0xcc08] = 0x4d;
@@ -136,7 +136,7 @@ public sealed partial class ValidationRoot
                 Enumerable.Range(0, 16).All(y => !_collision.Collides(new(x, y))));
             _player.WarpTo(new(edgeX, 0));
             var seed = _random.CaptureState();
-            _transitions.BeginScroll(_player, Vector2I.Up, 0xce);
+            _transitions.BeginValidationScroll(_player, Vector2I.Up, 0xce);
             FailIf(!_transitions.ScrollActive, "Possessed Nayru fixture must enter $5:$ce through scrolling.");
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 0, edgeX, 6);
             rom[0xcd00] = 8; rom[0xcd02] = 0; rom[0xcc08] = 0xd0;

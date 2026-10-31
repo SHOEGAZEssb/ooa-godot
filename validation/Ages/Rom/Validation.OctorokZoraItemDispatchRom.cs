@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
                 _entities.Clear();
                 var database = EnemyDatabase.For(AgesGameContent.AssetRoot);
                 var source = new RoomObjectRecord(0, 0x33, 0, RoomObjectKind.FixedEnemy, 9, sub, 2, 1, 72, 112, 0x47, 0);
-                var adapter = new RoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms)
+                var adapter = new AgesRoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms)
                     .CreateOrderedEnemy(database.EnemyHandlers.ResolveHandler(source), source, _currentRoom,
                         new(112, 72), 0, 0, EnemyPlacementContext.Unrestricted)!;
                 _entities.RegisterEnemySlot(adapter, 0); _entities.AddEntity(adapter);

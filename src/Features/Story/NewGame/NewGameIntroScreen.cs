@@ -15,10 +15,10 @@ public partial class NewGameIntroScreen : Node2D
     private const int DialogueZIndex = 2;
     private CutsceneSpriteRenderer _renderer = null!;
     private NewGameIntroRecord _record;
-    private IntroSpriteFrame[] _linkSpin = null!;
-    private IntroSpriteFrame[] _linkVanish = null!;
-    private IntroSpriteFrame[] _orbDescend = null!;
-    private IntroSpriteFrame[] _orbVanish = null!;
+    private ObjectSpriteFrame[] _linkSpin = null!;
+    private ObjectSpriteFrame[] _linkVanish = null!;
+    private ObjectSpriteFrame[] _orbDescend = null!;
+    private ObjectSpriteFrame[] _orbVanish = null!;
     private int _clock;
     private int _linkZ;
     private int _spinClock;
@@ -28,10 +28,10 @@ public partial class NewGameIntroScreen : Node2D
     private bool _linkVisible = true;
     internal bool LinkVisible => _linkVisible;
     internal int LinkZ => _linkZ;
-    internal IntroSpriteFrame LinkFrame => _vanishing
+    internal ObjectSpriteFrame LinkFrame => _vanishing
         ? AnimationFrame(_linkVanish, _stageFrame, -1)
         : AnimationFrame(_linkSpin, _spinClock, 0);
-    internal IntroSpriteFrame OrbFrame => _vanishing
+    internal ObjectSpriteFrame OrbFrame => _vanishing
         ? AnimationFrame(_orbVanish, _stageFrame, 2)
         : AnimationFrame(_orbDescend, _orbClock, 0);
     internal bool OrbVisible => _vanishing
@@ -73,10 +73,10 @@ public partial class NewGameIntroScreen : Node2D
         yield return false;
         // Build every imported OAM cell before the screen is presented. Retain
         // this renderer so file selection and first-draw never recreate them.
-        foreach (IntroSpriteFrame[] animation in new[] { _linkSpin, _linkVanish, _orbDescend, _orbVanish })
-        foreach (IntroSpriteFrame frame in animation)
+        foreach (ObjectSpriteFrame[] animation in new[] { _linkSpin, _linkVanish, _orbDescend, _orbVanish })
+        foreach (ObjectSpriteFrame frame in animation)
         {
-            foreach (IntroOamPart part in frame.Parts)
+            foreach (ObjectSpritePart part in frame.Parts)
                 _renderer.CellTexture(frame, part);
             yield return false;
         }
@@ -137,8 +137,8 @@ public partial class NewGameIntroScreen : Node2D
     }
 
 
-    private static IntroSpriteFrame AnimationFrame(
-        IntroSpriteFrame[] frames,
+    private static ObjectSpriteFrame AnimationFrame(
+        ObjectSpriteFrame[] frames,
         int clock,
         int loopStart)
     {

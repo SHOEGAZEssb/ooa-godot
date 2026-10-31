@@ -66,7 +66,7 @@ public sealed partial class ValidationRoot
             !OracleSaveData.TryDeserialize(save, OracleGame.Ages, out _),
             "Separating Ages bindings changed the original save image/signature.");
         var empty = new OracleRuntimeState(OracleGame.Ages);
-        var ages = AgesGameContent.CreateRuntimeState();
+        var ages = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         FailIf(empty.ReadWramByte(0xcc4d) != 0 || empty.ReadWramByte(0xcc4e) != 0 ||
             ages.ReadWramByte(0xcc4d) != 0xf0 || ages.ReadWramByte(0xcc4e) != 0xff,
             "Ages seed-tree initialization leaked into the shared memory mechanism or lost its source bytes.");

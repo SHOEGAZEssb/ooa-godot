@@ -132,7 +132,11 @@ public sealed partial class ValidationRoot
             FailIf(seed.OwnsGameLogic || _player.CutsceneControlled || _entities.PlayerMenusDisabled ||
                 _hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0 ||
                 _runtimeState.ReadWramByte(AgesWramAddress.wDisabledObjects) != 0 || _saveData.MakuMapTextPresent != 0x60,
-                "Maku Seed completion must restore gameplay and map advice $60.");
+                $"Maku Seed completion must restore gameplay and map advice $60: native={seed.OwnsGameLogic}, " +
+                $"controlled={_player.CutsceneControlled}, mode={SomariaPrivate<object>(_player, "_scriptControl")}, " +
+                $"owner={SomariaPrivate<object>(_player, "_cutsceneControlOwner")?.GetType().Name}, phase08={SomariaPrivate<int>(_player, "_forcedState08Phase")}, " +
+                $"objects=${_runtimeState.ReadField("wDisabledObjects"):x2}, menu=${_runtimeState.ReadField("wMenuDisabled"):x2}, " +
+                $"hud={_hud.StatusBarHidden}/{_hud.HiddenStatusBarFadeAlphaForValidation}, map=${_saveData.MakuMapTextPresent:x2}.");
             LoadValidationRoom(0, 0x48);
             LoadValidationRoom(0, 0x38);
             _player.WarpTo(new(0x50, 0x68));

@@ -36,7 +36,7 @@ public partial class ValidationRoot
             var occupants = new List<InteractionSlotValidationEntity>();
             while (_entities.InteractionSlotAvailable)
             {
-                var puff = new PuzzlePuffEffect();
+                var puff = new StationaryDebrisEffect();
                 puff.Initialize(AgesGameContent.AssetRoot, new(24,24), SoundId.MusNone);
                 var occupant = new InteractionSlotValidationEntity(puff, _ => { });
                 occupants.Add(occupant);

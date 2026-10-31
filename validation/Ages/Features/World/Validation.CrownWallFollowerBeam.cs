@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
                 Vector2 impact = beam.Position;
                 if (exhausted)
                     while (_entities.InteractionSlotAvailable)
-                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 24), SoundId.MusNone));
+                        _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24, 24), SoundId.MusNone));
                 var text = _entities.TextActiveSource;
                 try
                 {

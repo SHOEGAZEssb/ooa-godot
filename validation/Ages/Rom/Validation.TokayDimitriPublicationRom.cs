@@ -83,6 +83,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close();native[0xcba0]=0;externalHold=false;
             _runtimeState.SetWramByte(0xcc8a,0x83);native[0xcc8a]=0x83;Step(3);
             _runtimeState.SetWramByte(0xcc8a,0x81);native[0xcc8a]=0x81;
+            StageDeferredNativeObjectPassCaller();
             _runtimeState.SetWramByte(0xcd00,(byte)scroll);native[0xcd00]=(byte)scroll;Step(holdLength);
             _runtimeState.SetWramByte(0xcd00,0);native[0xcd00]=0;Step(35);
             FailIf(first.Npc.Active||second.Npc.Active||_runtimeState.ReadWramByte(0xcc8a)!=0,

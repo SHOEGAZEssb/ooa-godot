@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
             {
                 // $d6 is reserved: five occupied $d7-$db slots block only
                 // the chain. @noCollisionWithTile retries each flight update.
-                var bombs = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+                var bombs = new BombDatabase(AgesGameContent.AssetRoot).Data;
                 for (int index = 0; index < 5; index++)
                 {
                     var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, bombs, 0, _ => { }));

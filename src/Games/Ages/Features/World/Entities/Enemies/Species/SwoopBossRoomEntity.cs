@@ -5,13 +5,11 @@ namespace Oracles;
 
 internal sealed class SwoopBossRoomEntity
     : CombatEnemyRoomEntityAdapter<SwoopBoss>, IFixedRoomEntity,
-        IPlayerRestriction, IPlayerForcedMovement
+        IPlayerRestriction, IScreenTransitionPreloadRoomEntity
 {
-    private readonly BossEntryMovement _entryMovement;
-    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
-    private bool _initialized;
+    protected override int GaleCollisionMode => ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
 
-    internal SwoopBossRoomEntity(SwoopBoss boss, Vector2I entryDirection)
+    internal SwoopBossRoomEntity(SwoopBoss boss)
         : base(
             boss,
             boss.SetTransitionDrawOffset,
@@ -32,7 +30,6 @@ internal sealed class SwoopBossRoomEntity
                         killableEnemyIndex: 0)),
             collisionZ: () => boss.ZFixed >> 8)
     {
-        _entryMovement = new BossEntryMovement(entryDirection);
     }
 
     // wDisabledObjects remains set through Swoop's one-time entrance and is
@@ -48,12 +45,12 @@ internal sealed class SwoopBossRoomEntity
         ICollection<RoomEntitySpawn> spawns)
     {
         Entity.UpdateFrame(frame.Player, spawns);
-        if (_initialized)
-            return;
-        _initialized = true;
-        _entryMovement.Arm();
     }
 
-    public void UpdatePlayerForcedMovement(Player player) =>
-        _entryMovement.Update(player);
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.PrepareForScreenTransition(spawns);
+        return ScreenTransitionPresentation.Hidden;
+    }
+
 }

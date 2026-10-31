@@ -5,9 +5,11 @@ using System.Collections.Generic;
 namespace Oracles;
 
 // Presentation only: never allocate an actor or run its initialization/AI.
-internal sealed class DebugObjectPreview(EnemyDatabase enemies)
+internal sealed class DebugObjectPreview(string assetRoot)
 {
-    private string AssetRoot => enemies.AssetRoot;
+    private string AssetRoot => assetRoot;
+    private EnemyDatabase? _enemies;
+    private EnemyDatabase Enemies => _enemies ??= EnemyDatabase.For(AssetRoot);
     private ItemDropDatabase? _dropsSourceCache;
     private ItemDropDatabase _drops => _dropsSourceCache ??= new(AssetRoot);
     private readonly Dictionary<(bool Drop, int Id, int SubId), Texture2D?> _textures = new();
@@ -24,7 +26,7 @@ internal sealed class DebugObjectPreview(EnemyDatabase enemies)
             visual = new(["spr_common_items"], [drop.Animation], drop.TileBase, drop.Palette);
         }
         else
-            visual = EnemyVisual(entry.Id, entry.SubId);
+            visual = entry.HasImportedDefinition ? EnemyVisual(entry.Id, entry.SubId) : null;
 
         texture = visual is null ? null : BuildRepresentativeFrame(visual);
         if (texture is null && entry.Supported)
@@ -56,31 +58,30 @@ internal sealed class DebugObjectPreview(EnemyDatabase enemies)
         }
         var source = new RoomObjectRecord(0, 0, 0, RoomObjectKind.FixedEnemy,
             id, subId, 0, 1, 0, 0, 0, 0xff);
-        if (enemies.TryGetImportedEnemyDefinition(source, out var common))
+        if (id == EnemyId.Keese && KeeseDatabase.For(AssetRoot).TryGetDefinition(source,out var keese))
+            return new([keese.SpriteName],[keese.IdleAnimation,keese.FlyAnimation],keese.TileBase,keese.Palette);
+        if (EnemyDefinitionDatabase.For(AssetRoot).Definitions.TryGetValue(
+            (id,id == EnemyId.PodobooTower ? 0 : subId),out var record))
+        {
+            return new(record.Sprites,record.Animations,record.TileBase,record.Palette,record.SourceGrayscaleInverted);
+        }
+        if (id == EnemyId.Octorok && OctorokDatabase.For(AssetRoot).TryGetDefinition(source, out var octorok))
+            return new([octorok.SpriteName], [octorok.DownAnimation], octorok.TileBase, octorok.Palette);
+        if (Enemies.TryGetImportedEnemyDefinition(source, out var common))
             return new(common.Sprites, common.Animations, common.TileBase, common.Palette,
                 common.SourceGrayscaleInverted,
-                id == 0x47 ? enemies.ColorChangingGelPalettes : null);
-        if (enemies.TryGetKeeseDefinition(source, out var keese))
-            return new([keese.SpriteName], [keese.IdleAnimation, keese.FlyAnimation],
-                keese.TileBase, keese.Palette);
-        if (enemies.TryGetOctorokDefinition(source, out var octorok))
-            return new([octorok.SpriteName], [octorok.DownAnimation], octorok.TileBase, octorok.Palette);
-        if (enemies.TryGetStalfosDefinition(source, out var stalfos))
+                id == 0x47 ? Enemies.ColorChangingGelPalettes : null);
+        if (Enemies.TryGetStalfosDefinition(source, out var stalfos))
             return new([stalfos.SpriteName], [stalfos.WalkAnimation], stalfos.TileBase, stalfos.Palette);
-        if (enemies.TryGetZolDefinition(source, out var zol))
+        if (Enemies.TryGetZolDefinition(source, out var zol))
             return new([zol.SpriteName], [subId == 0 ? zol.WaitAnimation : zol.RedIdleAnimation],
                 zol.TileBase, zol.Palette);
-        if (enemies.TryGetCrowDefinition(source, out var crow))
+        if (Enemies.TryGetCrowDefinition(source, out var crow))
             return new([crow.SpriteName], [crow.PerchedRightAnimation], crow.TileBase, crow.Palette);
-        if (id == enemies.Gel.Id && subId == enemies.Gel.SubId)
+        if (id == Enemies.Gel.Id && subId == Enemies.Gel.SubId)
         {
-            GelDefinition gel = enemies.Gel;
+            GelDefinition gel = Enemies.Gel;
             return new([gel.SpriteName], [gel.NormalAnimation], gel.TileBase, gel.Palette);
-        }
-        if (id == enemies.MaskedMoblin.Id && subId is 0 or 1)
-        {
-            MaskedMoblinRecord moblin = enemies.MaskedMoblin;
-            return new([moblin.SpriteName], [moblin.DownAnimation], moblin.TileBase, moblin.Palette);
         }
         return null;
     }

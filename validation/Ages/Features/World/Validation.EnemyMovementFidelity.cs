@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
         Check("negative charge component", center, 0x32, 0x1f, 0x0c, center + new Vector2(-62 / 256.0f, 0), true);
         Check("X word overflow", new(255.875f, 64.5f), 0x0a, ObjectAngle.Right, 0, new(0.125f, 64.5f), true);
         Check("Y word underflow", new(64.5f, 0), 0x05, ObjectAngle.Up, 0, new(64.5f, 255.875f), true);
-        var memory = AgesGameContent.CreateRuntimeState();
+        var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         node.BindMovementMemory(memory);
         for (int repeat = 0; repeat < 2; repeat++)
         {

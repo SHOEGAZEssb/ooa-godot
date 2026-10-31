@@ -120,9 +120,20 @@ public sealed partial class ValidationRoot : GameRoot
             // this once per worker, outside scenario execution and timing.
             _scriptResources?.Dispose();
             _scriptResources = null;
-            _sound.ReleaseOutput();
+            ulong playbackId = ReleaseValidationAudioOutput(_sound);
             GC.Collect();
             GC.WaitForPendingFinalizers();
+            // The mixer releases its native reference asynchronously; collect
+            // the managed binding again after that handoff, before quitting.
+            var outputShutdown = System.Diagnostics.Stopwatch.StartNew();
+            while (playbackId != 0 && GodotObject.IsInstanceIdValid(playbackId) && outputShutdown.Elapsed.TotalSeconds < 2)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+            FailIf(playbackId != 0 && GodotObject.IsInstanceIdValid(playbackId),
+                "The AudioServer retained stopped generator playback after its shutdown handoff.");
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (_failedValidationCount != 0)
@@ -136,6 +147,16 @@ public sealed partial class ValidationRoot : GameRoot
             GD.PushError($"Validation failed.\n{exception}");
             GetTree().Quit(1);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static ulong ReleaseValidationAudioOutput(OracleSoundEngine sound)
+    {
+        ulong id = ((AudioStreamGeneratorPlayback?)typeof(OracleSoundEngine)
+            .GetField("_playback", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(sound))?.GetInstanceId() ?? 0;
+        sound.ReleaseOutput();
+        return id;
     }
 
     private static void FailIf(
@@ -292,10 +313,40 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGeneratedTableReader);
         RunIsolatedValidation(ValidateGameContentBoundaries);
         RunIsolatedValidation(ValidateSharedRoomRuntime);
+        RunIsolatedValidation(ValidateSharedMainThreadClock);
+        RunIsolatedValidation(ValidateSharedTileProperties);
+        RunIsolatedValidation(ValidateSharedInventoryPresentation);
+        RunIsolatedValidation(ValidateSharedTreasureDisplay);
+        RunIsolatedValidation(ValidateSharedTreasureCollection);
+        RunIsolatedValidation(ValidateSharedTreasureVisualsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedParentItemUsage);
+        RunIsolatedValidation(ValidateSharedLinkItemData, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedTerrainData);
+        RunIsolatedValidation(ValidateSharedCommonEffects);
+        RunIsolatedValidation(ValidateSharedPlayerWorld);
+        RunIsolatedValidation(ValidateSharedAirRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedInventoryScreen);
+        RunIsolatedValidation(ValidateSharedScreenPalettes);
+        RunIsolatedValidation(ValidateSharedScrollGraphics);
+        RunIsolatedValidation(ValidateSharedRememberedCompanions);
+        RunIsolatedValidation(ValidateSharedCheckpoints);
+        RunIsolatedValidation(ValidateSharedObjectDispatcher);
+        RunIsolatedValidation(ValidateSharedGameKeysRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedGameplaySession, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedDungeonLayouts, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedDiggingEnemyData, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedTileInteractionData, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedPushTileDataRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedOpenedChests, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsWorldRooms, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedFlagCatalogs);
+        RunIsolatedValidation(ValidateSharedMap);
+        RunIsolatedValidation(ValidateSharedGameplayScene);
         RunIsolatedValidation(ValidateSeasonsOpeningAssets);
         RunIsolatedValidation(ValidateSeasonsFrontend);
         RunIsolatedValidation(ValidateSeasonsMenuAssets);
         RunIsolatedValidation(ValidateSeasonsOpeningFlow);
+        RunIsolatedValidation(ValidateSeasonsPersistence);
         RunIsolatedValidation(ValidateMenuLifecycleFoundation);
         RunIsolatedValidation(ValidateRepresentativeRooms);
         RunIsolatedValidation(ValidateNuunCompanionLayouts);
@@ -404,6 +455,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSpikeTilesRom, requiresRom: true);
         RunIsolatedValidation(ValidateObjectCollisionGeometryRom, requiresRom: true);
         RunIsolatedValidation(ValidateCollisionMasksRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedObjectCollisionDataRom, requiresRom: true);
         RunIsolatedValidation(ValidateLinkContactGeometryRom, requiresRom: true);
         RunIsolatedValidation(ValidateCollisionOrderRom, requiresRom: true);
         RunIsolatedValidation(ValidateObjectAnimationRom, requiresRom: true);
@@ -466,6 +518,19 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDimitriUnblockedPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateMooshCliffPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateFairyFlightPublicationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFairyControllerSlotsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFairyRevealSlotsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFairyExitSlotsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFairyPendingCutsceneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionControllerSlotsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionRewardBirthSlotsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionCleanupSlotsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedCompanionSlotMemory);
+        RunIsolatedValidation(ValidateSharedCompanionInitializationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedSpecialObjectOwnership);
+        RunIsolatedValidation(ValidateSharedRoomResetRom, requiresRom: true);
+        RunIsolatedValidation(ValidateVireEntranceSlotsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTuniNutSlotsRom, requiresRom: true);
         RunIsolatedValidation(ValidateGoronScriptPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateGoronDebrisPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateTargetCrystalPublicationRom, requiresRom: true);
@@ -500,6 +565,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCompanionSpawnInitializationRom, requiresRom: true);
         RunIsolatedValidation(ValidateCompanionSpawnScrollRom, requiresRom: true);
         RunIsolatedValidation(ValidateDimitriWaterDismountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDimitriDepartureRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDimitriConstructionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDimitriDepartureGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRickyGloveSpawnerRom, requiresRom: true);
         RunIsolatedValidation(ValidateTreasureRupeeValues);
         RunIsolatedValidation(ValidateCpuDecimalArithmetic);
         RunIsolatedValidation(ValidateCpuCallBoundaries);
@@ -516,6 +585,16 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoomTileChanges);
         RunIsolatedValidation(ValidateRoomLoadTileEventsRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomEntryEffectsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRoomObjectLoadLifetimeRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRoomInitializationPreambleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRoomRootAdmissionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedMapleAdmissionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedWalkingAnimationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedLinkAnimationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedParentAnimationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedParentButtonsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedStaticObjectsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedRememberedCompanionInitializationRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomEntryEffectsGameplay);
         RunIsolatedValidation(ValidateRollingRidgeVines);
         RunIsolatedValidation(ValidateExplicitSavePersistence);
@@ -657,6 +736,12 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRaftMovementPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateRaftWaterTilesRom, requiresRom: true);
         RunIsolatedValidation(ValidateRaftDismountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftSlotLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftInteractionAdmissionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftTransformedMountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDebugSavestateRafts);
+        RunIsolatedValidation(ValidateRaftUpdateAdmissionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateNativeForcedMovementAdmissionRom, requiresRom: true);
         RunIsolatedValidation(ValidateRaftSwordARom, requiresRom: true);
         RunIsolatedValidation(ValidateRaftSwordBRom, requiresRom: true);
         RunIsolatedValidation(ValidateRaftShieldARom, requiresRom: true);
@@ -668,6 +753,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRaftFeatherRom, requiresRom: true);
         RunIsolatedValidation(ValidateRaftSeedShooterRom, requiresRom: true);
         RunIsolatedValidation(ValidateMinecartMountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartCollisionItemRom, requiresRom: true);
         RunIsolatedValidation(ValidateMinecartTracksRom, requiresRom: true);
         RunIsolatedValidation(ValidateMinecartApproachRom, requiresRom: true);
         RunIsolatedValidation(ValidateMinecartSwordMountRom, requiresRom: true);
@@ -1085,6 +1171,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateFallingBoulderRooms);
         RunIsolatedValidation(ValidateFallingBoulderContact);
         RunIsolatedValidation(ValidateRoom06aRickyGloves);
+        RunIsolatedValidation(ValidateRickyScriptedCompanionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRickyInteractionPlacementRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMooshScriptedCompanionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMooshInteractionPlacementRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSharedRickyInitialStateRom, requiresRom: true);
         RunIsolatedValidation(ValidateRickyRiding);
         RunIsolatedValidation(ValidateCompanionWaitingFidelity);
         RunIsolatedValidation(ValidateMountedCompanionHurtbox);
@@ -1092,6 +1183,13 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCompanionAttackFidelity);
         RunIsolatedValidation(ValidateRoom098RickyGlovesPickup);
         RunIsolatedValidation(ValidateRoom06bMooshGoodbye);
+        RunIsolatedValidation(ValidateMooshGoodbyePlacementRom, requiresRom: true);
+        RunIsolatedValidation(ValidateScriptedCompanionScrollRom, requiresRom: true);
+        RunIsolatedValidation(ValidateForestCompanionBodiesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateForestPlacementCapacityRom, requiresRom: true);
+        RunIsolatedValidation(ValidateForestFluteHandoffRom, requiresRom: true);
+        RunIsolatedValidation(ValidateForestRescueHandoffRom, requiresRom: true);
+        RunIsolatedValidation(ValidateForestControllerScrollRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom06cMooshRescue);
         RunIsolatedValidation(ValidateMakuTreeSavedCutscene);
         RunIsolatedValidation(ValidateMakuTreeAdviceAndLayout);
@@ -1208,7 +1306,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeedTrees);
         RunIsolatedValidation(ValidateRoom180OwlStatue);
         RunIsolatedValidation(ValidateGashaSpots);
-        RunIsolatedValidation(ValidateMapleEvents);
+        RunIsolatedValidation(ValidateMapleEvents, requiresRom: true);
         RunIsolatedValidation(ValidateObjectSpeedTable);
         RunIsolatedValidation(ValidateEnemyBehaviorTables);
         RunIsolatedValidation(ValidateEnemyMovementReturnFlags);
@@ -1244,6 +1342,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGiantGhiniBodyRom, requiresRom: true);
         RunIsolatedValidation(ValidateGiantGhiniChildRom, requiresRom: true);
         RunIsolatedValidation(ValidateGiantGhiniContactRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBossInitializationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBossHeaderBindings);
         RunIsolatedValidation(ValidateHeadThwompDropperPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateHeadThwompFireballPublicationRom, requiresRom: true);
         RegisterValidationMatrix(ValidateHeadThwompCircularPublicationRom, 32, 4);
@@ -1430,6 +1530,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateProjectilePartAdmissionRom, requiresRom: true);
         RunIsolatedValidation(ValidateBurnPartAdmissionRom, requiresRom: true);
         RunIsolatedValidation(ValidateArrowPartAdmissionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMoblinSharedHandlerRom, requiresRom: true);
         RunIsolatedValidation(ValidateCuccoPartAdmissionRom, requiresRom: true);
         RunIsolatedValidation(ValidateRemainingPartAdmissionRom, requiresRom: true);
         RunIsolatedValidation(ValidateEnemyAdmissionRom, requiresRom: true);
@@ -1469,6 +1570,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePodobooTowers);
         RunIsolatedValidation(ValidateHostileProjectileLifecycle);
         RunIsolatedValidation(ValidateEnemyShieldBumps);
+        RunIsolatedValidation(ValidateLiveEnemyShieldCollisions, requiresRom: true);
         RunIsolatedValidation(ValidateEnemySwordKnockback);
         RunIsolatedValidation(ValidateEnemyDamageBlink);
         RunIsolatedValidation(ValidateEnemyHazards);
@@ -1489,6 +1591,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateEnterPastMovementPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateCrescentIslandPastStairs);
         RunIsolatedValidation(ValidateRoom5ccDiveWarp);
+        RunIsolatedValidation(ValidateSharedWarpData, requiresRom: true);
         RunIsolatedValidation(ValidateHouseWarp);
         RunIsolatedValidation(ValidateCaveWarps);
         RunIsolatedValidation(ValidateMakuTreeSouthExitReveal);
@@ -1522,6 +1625,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateHealth);
         RunIsolatedValidation(ValidateLinkDamagePaletteAssets);
         RunIsolatedValidation(ValidateChests);
+        RunIsolatedValidation(ValidateChestRoomLookupRom, requiresRom: true);
         RunIsolatedValidation(ValidateInventoryFoundation);
         RunIsolatedValidation(ValidateSaveOptions);
         RunIsolatedValidation(ValidateSaveMenuBackgroundIsolation);
@@ -1729,6 +1833,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoomOfRitesCollapseRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomOfRitesReunionRom, requiresRom: true);
         RunIsolatedValidation(ValidateOverworldKeyholeAndGraveyardGate,requiresRom:true);
+        RunIsolatedValidation(ValidateKeyholeControlCancellation);
         RunIsolatedValidation(ValidateCrownDungeonEntrance,requiresRom:true);
         RunIsolatedValidation(ValidateMermaidsCaveEntrances,requiresRom:true);
         RunIsolatedValidation(ValidateLibraryKeyholeRom,requiresRom:true);
@@ -1764,13 +1869,15 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRemoteMakuHudPlacement);
         RunIsolatedValidation(ValidateRemoteMakuHarpCutscene);
         RunIsolatedValidation(ValidatePostD3RemoteMakuCutscene);
-        RunIsolatedValidation(ValidateFairiesWoodsSequence);
+        RunIsolatedValidation(ValidateFairiesWoodsSequence, requiresRom: true);
+        RunIsolatedValidation(ValidateFairiesWoodsNativeControl, requiresRom: true);
         RunIsolatedValidation(ValidateGameOverRestart);
         RunIsolatedValidation(ValidateSaveAndQuitToTitle);
         RunIsolatedValidation(ValidateRoom083Interactions);
         RunIsolatedValidation(ValidateFountainFairies);
         RunIsolatedValidation(ValidateDebugSavestates);
         RunIsolatedValidation(ValidateDebugSavestateMinecarts);
+        RunIsolatedValidation(ValidateDebugSavestateCompanions);
         RunIsolatedValidation(ValidateInventoryFlagIsolation);
         RunIsolatedValidation(ValidateMovingSideScrollPlatforms);
         RunIsolatedValidation(ValidateWingDungeon, requiresRom:true);

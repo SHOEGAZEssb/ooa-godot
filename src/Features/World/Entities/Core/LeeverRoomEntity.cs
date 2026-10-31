@@ -22,8 +22,7 @@ internal sealed class LeeverRoomEntity
                 leever.TakeSwordHit,
                 leever.TakeBurnHit,
                 leever.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback))
+                soundRequested))
     { }
 
     public void UpdateFrame(

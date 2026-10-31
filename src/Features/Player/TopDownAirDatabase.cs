@@ -35,7 +35,12 @@ internal sealed class TopDownAirDatabase
         CompanionJumpSpeedRaw: Constant("companion-jump-speed-raw"),
         CompanionJumpSpeedZ: Constant("companion-jump-speed-z"),
         CompanionDismountZ: Constant("companion-dismount-z"),
-        CompanionDismountAngle: Constant("companion-dismount-angle"));
+        CompanionDismountAngle: Constant("companion-dismount-angle"),
+        CapeLevel: Constant("cape-level"),
+        CapeSpeedZ: Constant("cape-speed-z"),
+        CapeMinimumSpeedZ: Constant("cape-minimum-speed-z"),
+        CapeAnimationDurations: [Constant("cape-phase-0"),Constant("cape-phase-1")],
+        CapeSound: Constant("cape-sound"));
 
     private TopDownAirDatabase(string assetRoot)
     {
@@ -53,7 +58,8 @@ internal sealed class TopDownAirDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
         TopDownAirParameters parameters = Parameters;
-        if (_constants.Count != 15 ||
+        bool seasons = OracleAssetPack.GameFor(assetRoot) == OracleGame.Seasons;
+        if (_constants.Count != 21 ||
             parameters.Gravity != 0x20 ||
             parameters.ReducedGravity != 0x0a ||
             parameters.MaximumFallSpeed != 0x0300 ||
@@ -67,10 +73,13 @@ internal sealed class TopDownAirDatabase
             parameters.CompanionDismountZ != -8 ||
             parameters.CompanionDismountAngle != 0xff ||
             !parameters.AnimationPhaseDurations.AsSpan().SequenceEqual(
-                [9, 9, 6]))
+                [9, 9, 6]) ||
+            parameters.CapeLevel != (seasons ? 2 : 0) || parameters.CapeSpeedZ != (seasons ? -128 : 0) ||
+            parameters.CapeMinimumSpeedZ != (seasons ? 256 : 0) || parameters.CapeSound != (seasons ? SoundId.SndThrow : 0) ||
+            !parameters.CapeAnimationDurations.AsSpan().SequenceEqual(seasons ? [6,40] : [0,0]))
         {
             throw new InvalidOperationException(
-                "Imported Ages top-down Link air data is incomplete.");
+                $"{AssetRoot}: imported native Link air/Cape data is incomplete.");
         }
     }
 
@@ -94,4 +103,9 @@ internal readonly record struct TopDownAirParameters(
     int CompanionJumpSpeedRaw,
     int CompanionJumpSpeedZ,
     int CompanionDismountZ,
-    int CompanionDismountAngle);
+    int CompanionDismountAngle,
+    int CapeLevel,
+    int CapeSpeedZ,
+    int CapeMinimumSpeedZ,
+    int[] CapeAnimationDurations,
+    int CapeSound);

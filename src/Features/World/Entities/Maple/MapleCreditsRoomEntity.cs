@@ -4,8 +4,14 @@ using System.Collections.Generic;
 namespace Oracles;
 
 // SPECIALOBJECT_MAPLE_CUTSCENE $12 retains w1Companion's pre-Link dispatch.
-internal sealed class MapleCreditsRoomEntity : IRoomEntity,IFixedRoomEntity,IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze
+internal sealed class MapleCreditsRoomEntity : IRoomEntity,IFixedRoomEntity,IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze,INativeSpecialObjectRoomEntity
 {
+    int INativeSpecialObjectRoomEntity.NativeSpecialObjectId => SpecialObjectId.MapleCutscene;
+    Vector2 INativeSpecialObjectRoomEntity.NativeSpecialObjectPosition
+    {
+        get => Maple.BookTargetPosition;
+        set => Maple.SetNativePosition(value);
+    }
     internal MapleEncounter Maple {get;}=new();
     public Node2D Node=>Maple;
     public bool UpdatesDuringDialogue=>true;

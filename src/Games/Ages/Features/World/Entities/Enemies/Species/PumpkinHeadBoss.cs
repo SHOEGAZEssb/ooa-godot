@@ -42,7 +42,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private readonly Action<int> _startScreenShake;
     private readonly Action _disableLinkCollisionsAndMenu;
     private readonly Action _restoreRoomMusic;
-    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
+    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase(AgesGameContent.AssetRoot).Data;
     private readonly int _bodyPalette;
     private readonly int _ghostPalette;
     private readonly int _headPalette;
@@ -81,6 +81,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private int _frameCounter;
     private bool _projectileFired;
     private bool _initialized;
+    private readonly Action _initializeBossRoom;
     private int _bodyRadiusX = 12;
     private bool _introGhostVisible = true;
     private ExposedPhase _exposedPhase;
@@ -155,11 +156,13 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         Action restoreRoomMusic,
         int bodyPalette,
         int ghostPalette,
-        OracleRuntimeState memory)
+        OracleRuntimeState memory,
+        Action initializeBossRoom)
     {
         AssetRoot = record.AssetRoot;
         _room = room;
         _memory = memory;
+        _initializeBossRoom = initializeBossRoom;
         _random = random;
         _playSound = playSound;
         _shuttersClosed = shuttersClosed;
@@ -193,6 +196,15 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         }
     }
 
+    internal void PrepareForScreenTransition()
+    {
+        if (_initialized) return;
+        _random.Next(); // enemyStandardUpdate initializes the native subid0 spawner.
+        _initialized = true;
+        _initializeBossRoom();
+        Visible = false; // The native subid0 spawner has no drawable body.
+    }
+
     internal void UpdateFrame(
         Player player,
         ICollection<RoomEntitySpawn> spawns,
@@ -208,8 +220,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             _ghostInvincibility--;
         if (!_initialized)
         {
-            _initialized = true;
-            _playSound(SoundId.SndCtrlStopMusic);
+            PrepareForScreenTransition();
             return;
         }
         switch (_state)
@@ -224,6 +235,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                         Size: 1,
                         YOffset: 6), spawns)) break;
                     _state = BossState.Falling;
+                    Visible = true;
                 }
                 break;
             case BossState.Falling:

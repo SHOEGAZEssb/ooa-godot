@@ -11,7 +11,8 @@ internal sealed class CompanionRom
     internal CompanionRom(int id, Vector2 position, int direction, OracleRoomData room)
     {
         _entry = id switch { 0x0b => 0x6d1e, 0x0c => 0x7382, _ => 0x7865 };
-        this[0xd100] = 1; this[0xd101] = (byte)id; this[0xd104] = 5;
+        // commonCode.s:companionFinalizeMounting sets enabled bit1 in state5.
+        this[0xd100] = 3; this[0xd101] = (byte)id; this[0xd104] = 5;
         this[0xd108] = (byte)direction; this[0xd109] = 0xff;
         this[0xd139] = 0x10; this[0xd13c] = 1;
         this[0xd000] = 1; this[0xd001] = 9; this[0xd004] = 1;
@@ -69,6 +70,7 @@ internal sealed class CompanionRom
     internal Vector2 LinkPixels => new(this[0xd00d], this[0xd00b]);
     internal void WaitForMount(Vector2 linkPosition)
     {
+        this[0xd100] = 1;
         this[0xd104] = 1; this[0xd13c] = 0;
         this[0xd001] = 0; this[0xd024] = 0x80;
         this[0xcc2c] = 0xd0; this[0xcc96] = 0;
@@ -79,6 +81,8 @@ internal sealed class CompanionRom
     internal void EnterFromFlute(int direction)
     {
         WaitForMount(new(8, 8));
+        // This fixture starts with a fresh Flute slot, before Ricky's state0 initialization.
+        this[0xd139]=0;
         this[0xd104] = 0x0c; this[0xd103] = 0;
         this[0xd108] = (byte)direction; this[0xd109] = (byte)(direction * 8);
         this[0xc646] = 0x80; this[0xc647] = 0x80; this[0xc648] = 0x80;
@@ -86,9 +90,10 @@ internal sealed class CompanionRom
     internal void ThrowDimitri(Vector2 heldPosition, int z, Vector2 link, int direction, bool drop)
     {
         WaitForMount(link);
+        this[0xd100] = 3; // Retained until dimitriState2Substate2's first eligible visit.
         this[0xd104] = 2; this[0xd105] = 2; this[0xd13f] = 0xff;
         this[0xd108] = this[0xd008] = (byte)direction;
-        Word(0xd10c, (int)heldPosition.X * 256); Word(0xd10a, (int)heldPosition.Y * 256);
+        Word(0xd10c, (int)(heldPosition.X * 256)); Word(0xd10a, (int)(heldPosition.Y * 256));
         Word(0xd10e, z * 256);
         _rom.Call(0x2b0a, objectPage: 0xd1, accumulator: 0x18 + direction);
         this[0xdc00] = 1; this[0xdc01] = 0x16;
@@ -156,6 +161,7 @@ internal sealed class CompanionRom
             _rom.Call(ObjectCollisionRom.Scan, bank: 7);
             this[0xffae] = 0;
         }
+        _rom.Call(0x2b25, bank: 0); // Native object graphics tail publishes OAM/cache aliases.
         _rom.Call(0x427d, bank: 1); // updateScreenShake, including shared RNG draws.
     }
 }

@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             if (mode == 4)
                 for (int index = 0; index < 13; index++)
                 {
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));
+                    _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));
                     int slot = (0xd2+index)*256+0x40;
                     rom[slot] = 1; rom[slot+1] = 5; rom[slot+2] = 0x80; rom[slot+0xb] = 144; rom[slot+0xd] = 224;
                 }

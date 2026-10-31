@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
         int saveWrites = _saveWriteRequests;
         int musicRequests =
             _sound.PlayRequestsFor(SoundId.MusGameOver);
-        AgesGameSceneGraph dyingScene = _scene;
+        GameplaySceneGraph dyingScene = _scene;
         RoomEntityManager dyingEntities = _entities;
 
         BeginGameOver();
@@ -45,12 +45,12 @@ public sealed partial class ValidationRoot
             "the BCD death count, play MUS_GAMEOVER, and open the forced menu.");
 
         byte[] stoppedPlaytime = Enumerable.Range(0xc622, 4).Select(_saveData.ReadWramByte).ToArray();
-        StepGameplayUpdates((int)AgesInventoryMenuController.FastFadeFrames, Vector2.Zero, batched: true);
+        StepGameplayUpdates((int)InventoryMenuController.FastFadeFrames, Vector2.Zero, batched: true);
         FailIf(!stoppedPlaytime.SequenceEqual(Enumerable.Range(0xc622, 4).Select(_saveData.ReadWramByte)),
             "Game Over must leave playtime frozen while THREAD_1 is stopped.");
         _inventoryMenu.SelectSaveOption();
         for (int update = 0;
-            update < AgesInventoryMenuController.SaveSelectionDelayFrames;
+            update < InventoryMenuController.SaveSelectionDelayFrames;
             update++)
         {
             _inventoryMenu.Update(1.0 / 60.0);
@@ -138,7 +138,7 @@ public sealed partial class ValidationRoot
     {
         // The suite runs synchronously in one Godot host frame. Each simulated
         // update must own its input, including neutral updates after an error.
-        static void TickSaveMenu(AgesInventoryMenuController menu, string? action = null)
+        static void TickSaveMenu(InventoryMenuController menu, string? action = null)
         {
             string[] actions = action is null ? [] : [action];
             Input.BeginOriginalUpdate(new ApplicationInputSnapshot(actions, actions, Vector2.Zero));
@@ -146,7 +146,7 @@ public sealed partial class ValidationRoot
             finally { Input.EndOriginalUpdate(); }
         }
 
-        AgesGameSceneGraph gameplayScene = _scene;
+        GameplaySceneGraph gameplayScene = _scene;
         // Reproduce a released B edge left by an earlier synchronous scenario.
         Input.ActionPress("item");
         Input.ActionRelease("item");
@@ -154,7 +154,7 @@ public sealed partial class ValidationRoot
             Godot.Input.IsActionPressed("item") || !Godot.Input.IsActionJustPressed("item"),
             "The save-error regression did not arrange a released native B edge.");
         bool quitAfterFailure = false;
-        var failedMenu = new AgesInventoryMenuController(
+        var failedMenu = new InventoryMenuController(
             _inventoryScreen,
             _saveQuitScreen,
             _menuLifecycle,
@@ -171,7 +171,7 @@ public sealed partial class ValidationRoot
         {
             TickSaveMenu(failedMenu, "attack");
             failedAttempts++;
-            for (int frame = 0; frame <= AgesInventoryMenuController.SaveSelectionDelayFrames; frame++)
+            for (int frame = 0; frame <= InventoryMenuController.SaveSelectionDelayFrames; frame++)
             {
                 FailIf(
                     !_saveQuitScreen.SaveErrorVisible ||
@@ -184,7 +184,7 @@ public sealed partial class ValidationRoot
                     $"open={failedMenu.SaveMenuOpen}, saves={failedMenu.SaveRequests}, " +
                     $"quits={failedMenu.QuitRequests}, cursor={_saveQuitScreen.Cursor}, " +
                     $"delay={_saveQuitScreen.DelayCounter}, quit={quitAfterFailure}.");
-                if (frame < AgesInventoryMenuController.SaveSelectionDelayFrames)
+                if (frame < InventoryMenuController.SaveSelectionDelayFrames)
                     TickSaveMenu(failedMenu);
             }
             TickSaveMenu(failedMenu, dismissAction);
@@ -198,13 +198,15 @@ public sealed partial class ValidationRoot
         }
         failedMenu.CloseImmediatelyForValidation();
 
+        var quittingMenu = _inventoryMenu;
+        var quittingPause = _gameplayPause;
         _inventoryMenu.OpenSaveImmediatelyForValidation();
         _saveQuitScreen.Move(1);
         _saveQuitScreen.Move(1);
         int saveRequests = _inventoryMenu.SaveRequests;
         int saveWrites = _saveWriteRequests;
         TickSaveMenu(_inventoryMenu, "attack");
-        for (int frame = 0; frame < AgesInventoryMenuController.SaveSelectionDelayFrames - 1; frame++)
+        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames - 1; frame++)
             TickSaveMenu(_inventoryMenu);
         FailIf(
             !_inventoryMenu.SaveMenuOpen || _inventoryMenu.QuitRequests != 0 ||
@@ -212,15 +214,17 @@ public sealed partial class ValidationRoot
             "Save and Quit left gameplay before the original $1e-update delay expired.");
         TickSaveMenu(_inventoryMenu);
         FailIf(
-            _inventoryMenu.SaveRequests != saveRequests + 1 ||
+            quittingMenu.SaveRequests != saveRequests + 1 ||
             _saveWriteRequests != saveWrites + 1 ||
-            _inventoryMenu.QuitRequests != 1 ||
+            quittingMenu.QuitRequests != 1 ||
             _frontendIntro is null ||
             _frontendIntro.Stage != FrontendIntroStage.Title ||
             _frontendIntroScreen is null || _frontendIntroScreen.Visible ||
             _mainMenu is not null ||
             _mainMenuScreen is null || !_mainMenuScreen.Visible ||
-            _inventoryMenu.IsActive || !gameplayScene.IsQueuedForDeletion() ||
+            quittingMenu.IsActive || quittingPause.IsLeased || _gameplaySession is not null || _gameplayMenus is not null ||
+            MapMenuOpen || InventoryMenuOpen || DebugFlagMenuOpen || IsTransitioning || DialogueOpen ||
+            !gameplayScene.IsQueuedForDeletion() ||
             _sound.IsQueuedForDeletion() ||
             _frontendIntroScreen.GetParent() != this ||
             _mainMenuScreen.GetParent() != this,
@@ -286,7 +290,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _saveWriteRequests != saveWrites ||
             _inventoryMenu.SaveRequests != menuSaveRequests ||
-            _saveQuitScreen.DelayCounter != AgesInventoryMenuController.SaveSelectionDelayFrames,
+            _saveQuitScreen.DelayCounter != InventoryMenuController.SaveSelectionDelayFrames,
             "Ordinary save-image changes, application exit, or Continue unexpectedly wrote the active file.");
         _inventoryMenu.CloseImmediatelyForValidation();
 

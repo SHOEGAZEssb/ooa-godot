@@ -24,8 +24,9 @@ internal sealed class RoomShopDatabase
             else if (_flags[index] != 0)
                 throw new InvalidOperationException($"roomGfxChanges.s: invalid initial shop flags${_flags[index]:x2} in room${index >> 8:x}:${index & 255:x2}.");
         }
-        if (shops != 4)
-            throw new InvalidOperationException("roomGfxChanges.s: expected four handler$04 shop initializations.");
+        int expected = assetRoot == SeasonsGameContent.AssetRoot ? 12 : 4;
+        if (shops != expected)
+            throw new InvalidOperationException($"roomGfxChanges.s: expected{expected} handler$04 shop initializations.");
     }
 
     internal byte InitialFlags(int group,int room)

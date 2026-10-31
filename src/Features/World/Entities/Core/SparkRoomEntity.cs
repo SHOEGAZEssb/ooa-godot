@@ -47,7 +47,6 @@ internal sealed class SparkRoomEntity
                 spark.TakeBurnHit,
                 (_, _) => { },
                 soundRequested,
-                EnemySwordResponse.NoKnockback,
                 completedOutcome: () => spark.TransformationCompleted
                     ? RoomEnemyOutcome.SilentDeletion(false) : RoomEnemyOutcome.EnemyDie(combatSource.KillableEnemyIndex),
                 acceptedHitSound: 0))

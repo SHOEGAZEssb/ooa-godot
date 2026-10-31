@@ -28,6 +28,7 @@ internal sealed class SomariaRom
     }
     internal byte Underlying(int packed) => _rom.BankByte(3, 0xdf00 + packed);
     internal byte FloorPermutation(int index) => _rom.BankByte(4,0xd000+index);
+    internal void SetFloorPermutation(int index, byte value) => _rom.SetBankByte(4, 0xd000 + index, value);
     internal byte BackgroundTile(int x, int y) => _rom.BankByte(3, 0xd800 + y * 32 + x);
     internal byte BackgroundAttribute(int x, int y) => _rom.BankByte(3, 0xdc00 + y * 32 + x);
     internal byte TileCollision(int tile) => _rom.BankByte(3,0xdb00+tile);
@@ -41,6 +42,8 @@ internal sealed class SomariaRom
     internal void AdvanceEnemyAndPartCollisions() => _rom.Call(0x41d1,7);
     internal void AdvanceInteractions() => _rom.Call(0x3b36,0); // bank0.updateInteractions, including the scroll/always-update gates.
     internal void AdvanceScreenBoundary() => _rom.Call(0x4000, 1); // bank1.func_4000, including the wScrollMode=$00 gate.
+    internal void AdvanceFairyHidingCutscene() => _rom.Call(0x6103, 3); // miscCutscenes.s:func_03_6103.
+    internal void AdvancePaletteThread() => _rom.AdvancePalette();
     internal void HitEnemyWithItem(int slot,int collision,int damage,int itemId=0,Godot.Vector2? origin=null)
     {
         int enemy=0xd080+slot*256;
@@ -248,6 +251,12 @@ internal sealed class SomariaRom
     internal void SetOutgoingInteractions() => _rom.Call(0x49f1,1); // setInteractionsEnabledTo2.
     internal void SetOutgoingParts() => _rom.Call(0x49ff,1); // setPartsEnabledTo2.
     internal void ClearOutgoingParts() => _rom.Call(0x4a3f,1); // clearPartsWithEnabled2.
+    internal void BeginObjectScroll()
+    {
+        _rom.Call(0x49d7, 1); // bank1.setObjectsEnabledTo2, including D1.
+        this[0xcd00] = 2;
+    }
+    internal void FinishObjectScroll() => _rom.Call(0x4a17, 1); // bank1.clearObjectsWithEnabled2.
     internal void AdvanceInteractions(int frameCounter)
     {
         this[0xcc00] = (byte)frameCounter;

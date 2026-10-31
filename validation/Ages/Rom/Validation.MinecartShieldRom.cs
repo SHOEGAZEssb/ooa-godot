@@ -1,6 +1,5 @@
 using Godot;
 using System.Linq;
-using System.Reflection;
 
 namespace Oracles;
 
@@ -29,11 +28,11 @@ public sealed partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(center, track, 0, 0);
             _currentRoom.SetPositionTileAndCollision(center + (Vector2)directions[direction] * 16, track, 0, 0);
             _currentRoom.SetPositionTileAndCollision(center - (Vector2)directions[direction] * 16, 0x5f, 0, 0);
-            MinecartRuntimeState.Reset(_runtimeState, []);
-            MinecartRuntimeState.BeginRide(_runtimeState, 0, 0x00, center, direction);
+            ResetMinecartsForValidation(_runtimeState, []);
+            MinecartValidationView.PrepareMountedBody(_runtimeState, center, direction);
             var cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, direction, true),
-                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
-                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
+                _currentRoom, _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound, _entities);
             _entities.AddEntity(cart);
             _player.WarpTo(center + new Vector2(0.25f, 0.5f)); _player.Face(directions[direction]);
             _player.FinishMinecartMount(center, direction, 0);
@@ -46,25 +45,24 @@ public sealed partial class ValidationRoot
             rom[0xd108] = (byte)direction; rom[0xd109] = (byte)(direction * 8);
             rom[0xd10b] = 72; rom[0xd10d] = 88;
             rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
+            MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
             var sounds = _sound.AttachPlayRequestAudit();
             int update = 0, previousHeld = 0;
             int shieldButton = primary ? 1 : 2;
-            T Private<T>(string field) => (T)typeof(Player).GetField(field,
-                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
             void Step(int count, bool held)
             {
                 int buttons = held ? shieldButton : 0;
                 int edge = buttons & ~previousHeld; previousHeld = buttons;
                 StepGameplayUpdates(count, Vector2.Zero, MenuRomActions(buttons), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, buttons, 0xff, _entities.FrameCounter - 1); edge = 0; update++;
+                    rom.UpdateGameplay(edge, buttons, 0xff, _saveData.ReadField("wPlaytimeCounter")); edge = 0; update++;
                     string context = $"Minecart Shield L{level}, dir={direction}, A={primary}, update={update}, batch={batched}";
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                         _player.MinecartRideActive != (rom[0xcc2c] == 0xd1), context + ": rider XY/ownership differs.");
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
-                        Private<int>("_shieldParentButton") != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
-                        Private<bool>("_shieldParentInitialized") != (rom[0xd504] != 0),
-                        $"{context}: Shield parent/raised state differs: runtime={_player.IsUsingShield}/{Private<int>("_shieldParentButton")}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}.");
+                        _player.ShieldParentButton != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
+                        _player.ShieldParentInitialized != (rom[0xd504] != 0),
+                        $"{context}: Shield parent/raised state differs: runtime={_player.IsUsingShield}/{_player.ShieldParentButton}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}.");
                     for (int address = 0xcd80; address < 0xcdc0; address++)
                         FailIf(_runtimeState.ReadWramByte(address) != rom[address], $"{context}: static byte ${address:x4} differs.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds), context + ": sounds differ.");
@@ -76,7 +74,7 @@ public sealed partial class ValidationRoot
             _dialogue.ShowMessage("Shield cart pause.", _player.Position.Y); rom[0xcba0] = 1;
             Step(6, true); _dialogue.Close(); rom[0xcba0] = 0;
             Step(40, true);
-            FailIf(!cart.Dismounting, "Shield handoff fixture must reach the platform and its airborne dismount.");
+            FailIf(!cart.Finished, "Shield handoff fixture must reach the platform and its airborne dismount.");
             Step(48, true);
             FailIf(!_player.IsUsingShield || rom[0xcc6f] != level || _player.MinecartJumpActive,
                 "Held Shield must initialize after dismount landing restores ordinary allocation.");

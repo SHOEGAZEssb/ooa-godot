@@ -51,7 +51,7 @@ public sealed partial class ValidationRoot
             rom[parent+0xb] = (byte)record.Y; rom[parent+0xd] = (byte)record.X;
             _saveData.SetRoomFlag(4,selected.Target,OracleSaveData.RoomFlagItem,collectedDestination);
             rom[0xc900+selected.Target] = _saveData.GetRoomFlags(4,selected.Target);
-            _transitions.BeginScroll(_player,selected.Direction,selected.Target);
+            _transitions.BeginValidationScroll(_player,selected.Direction,selected.Target);
             rom.SetOutgoingInteractions(); rom.ClearRoomVariables(true);
             rom[0xcc30] = (byte)selected.Target; rom[0xcd00] = 8;
             // Incoming producers are excluded. Declare their actual physical

@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
             var seed = _random.CaptureState();
             for (int slot = 2; slot < 16 - free; slot++)
             {
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224, 144), SoundId.MusNone));
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224, 144), SoundId.MusNone));
                 int address = (0xd0 + slot) * 256 + 0x40;
                 rom[address] = 2; rom[address + 1] = 5; rom[address + 2] = 0x80;
                 rom[address + 0xb] = 144; rom[address + 0xd] = 224;

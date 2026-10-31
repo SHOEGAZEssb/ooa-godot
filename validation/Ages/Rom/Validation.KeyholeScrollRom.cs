@@ -35,7 +35,7 @@ public partial class ValidationRoot
             rom[0xd24b] = (byte)source.Position.Y; rom[0xd24d] = (byte)source.Position.X;
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Right,out int target) || target != 0xa6,
                 "Keyhole cancellation must use imported adjacency$4:$a5 -> $4:$a6.");
-            _transitions.BeginScroll(_player,Vector2I.Right,target);
+            _transitions.BeginValidationScroll(_player,Vector2I.Right,target);
             rom.SetOutgoingInteractions(); rom[0xcd00] = 8; rom[0xcc30] = 0xa6;
             var sounds = _sound.AttachPlayRequestAudit(); int update = 0;
             void Step(int count = 1) => StepGameplayUpdates(count,Vector2.Zero,batched:batch,afterUpdate:() => {

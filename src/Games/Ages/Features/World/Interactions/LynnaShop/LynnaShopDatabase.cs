@@ -13,6 +13,7 @@ internal sealed class LynnaShopDatabase
     private readonly Dictionary<string, int> _constants = new(StringComparer.Ordinal);
     private readonly Dictionary<int, ItemRecord> _items = new();
     private readonly List<ItemRecord> _placements = new();
+    internal IReadOnlyList<ItemRecord> Placements => _placements;
     private readonly Dictionary<int, string> _texts = new();
     private readonly Dictionary<(int InteractionId, int Animation), string> _animations = new();
 
@@ -120,20 +121,6 @@ internal sealed class LynnaShopDatabase
             }
         }
         return stock;
-    }
-
-    public void ApplyCompanionEntryState(OracleSaveData? save)
-    {
-        if (save is null)
-            return;
-        byte state = save.ReadWramByte(DimitriStateAddress);
-        if ((state & DimitriSavedMask) == 0)
-            return;
-        if (save.WriteWramByte(
-            DimitriStateAddress, (byte)(state | DimitriDisappearMask)))
-        {
-            save.CommitInventoryChange();
-        }
     }
 
     private void UpdateStockMemory(OracleSaveData? save)

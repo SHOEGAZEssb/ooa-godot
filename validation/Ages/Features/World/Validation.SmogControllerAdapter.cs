@@ -80,8 +80,8 @@ public partial class ValidationRoot
             for (int i = 0; i < 3; i++)
                 _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(72 + i * 24,72),3));
             Step(5);
-            var puffNode = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
-            var puff = System.Linq.Enumerable.Single(_entities.EntityAdapters<PuzzlePuffRoomEntity>());
+            var puffNode = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+            var puff = System.Linq.Enumerable.Single(_entities.EntityAdapters<StationaryDebrisRoomEntity>());
             FailIf(_entities.InteractionSlot(puffNode) != 2 || puff.Counter2Alias != 60,
                 "The first puff must inherit the disabled INTERACTION$d2 counter2 written by ENEMY$d2.");
             Step(19);
@@ -89,8 +89,8 @@ public partial class ValidationRoot
                 "Puff initialization and animation must preserve the inherited unused counter2.");
             Step(1);
             FailIf(!puffNode.Finished, "Inherited counter2 must not change puff deletion on update20.");
-            var nextPuff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
-            var nextAdapter = System.Linq.Enumerable.Single(_entities.EntityAdapters<PuzzlePuffRoomEntity>());
+            var nextPuff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+            var nextAdapter = System.Linq.Enumerable.Single(_entities.EntityAdapters<StationaryDebrisRoomEntity>());
             FailIf(_entities.InteractionSlot(nextPuff) != 2 || nextAdapter.Counter2Alias != 0,
                 "Deleting the first puff must clear the inherited byte before reuse.");
             foreach (bool killPuff in new[] { false,true })

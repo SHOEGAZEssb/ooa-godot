@@ -241,13 +241,6 @@ $gashaConstantsRows = @(
     "spot-flags-address`t50764",
     "kill-counters-address`t50767")
 
-$gashaMaturityRows = @(
-    "# treasure-id`tmode`tamount",
-    "40`tfixed`t150",
-    "2b`tfixed`t36",
-    "41`tfixed`t100",
-    "29`tparameter`t4")
-
 foreach ($table in @(
     @('objects\gasha_spots.tsv',$gashaSpotRows),
     @('metadata\gasha_probabilities.tsv',$gashaProbabilityRows),
@@ -256,8 +249,7 @@ foreach ($table in @(
     @('metadata\gasha_nut.tsv',$gashaNutRows),
     @('metadata\gasha_text.tsv',$gashaTextRows),
     @('metadata\gasha_disappearance.tsv',$gashaDisappearanceRows),
-    @('metadata\gasha_constants.tsv',$gashaConstantsRows),
-    @('metadata\treasure_gasha_maturity.tsv',$gashaMaturityRows))) {
+    @('metadata\gasha_constants.tsv',$gashaConstantsRows))) {
     Write-GeneratedTable(
         (Join-Path $destination $table[0]),
         $table[1])

@@ -18,7 +18,7 @@ internal sealed class PincerRoomEntity : CombatEnemyRoomEntityAdapter<PincerChar
     internal EnemyCombatSourceDescriptor Source {get;}
     internal PincerRoomEntity(PincerCharacter actor,EnemyCombatSourceDescriptor source,Action<int> sound)
         :base(actor,actor.SetTransitionDrawOffset,EnemyCombatDescriptor.WithContactDamage(source,actor,actor.Record.DamageQuarters,
-            actor.Hit,_=>false,(_,_)=>{},sound,EnemySwordResponse.NoKnockback,
+            actor.Hit,_=>false,(_,_)=>{},sound,
             completedOutcome:()=>actor.Spawned || actor.BodyDeleted ? RoomEnemyOutcome.SilentDeletion(false) : RoomEnemyOutcome.EnemyDie(source.KillableEnemyIndex)),
             collisionZ:()=>actor.ZFixed>>8) => Source=source;
     public void BindEnemySlot(int slot,Func<int,IRoomEntity?> resolve)=>Entity.NativeSlot=slot;

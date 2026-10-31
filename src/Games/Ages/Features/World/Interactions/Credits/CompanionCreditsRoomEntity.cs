@@ -7,8 +7,15 @@ namespace Oracles;
 // companionCutscene.s:$11 -> $10 -> $0f. One owner retains the physical
 // w1Companion slot while native replacements clear id..$3f, but not enabled.
 internal sealed partial class CompanionCreditsRoomEntity(RoomEventContext context,BlackTowerEndingDatabase data,Vector2 position) :
-    TransitionOffsetNode2D,IRoomEntity,IFixedRoomEntity,IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze
+    TransitionOffsetNode2D,IRoomEntity,IFixedRoomEntity,IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze,INativeSpecialObjectRoomEntity
 {
+    int INativeSpecialObjectRoomEntity.NativeSpecialObjectId => Id;
+    bool INativeSpecialObjectRoomEntity.MatchesNativeSpecialObjectId(int id) => id is >= 0x0f and <= 0x11;
+    Vector2 INativeSpecialObjectRoomEntity.NativeSpecialObjectPosition
+    {
+        get => _position;
+        set { _position = value; Position = value.Floor(); }
+    }
     private EnemyAnimationPlayer _animation=null!;
     private Vector2 _position=position;
     internal int Id=>CompanionRuntimeState.ReadCutsceneId(context.Entities.RuntimeState);
@@ -43,9 +50,9 @@ internal sealed partial class CompanionCreditsRoomEntity(RoomEventContext contex
         string sprite;string[] animations;int tile=0,palette;int[][]? offsets=null;
         switch(Id)
         {
-            case 0x11:var moosh=new MooshRescueEventDatabase().Visual;sprite=moosh.Sprite;animations=moosh.Animations;tile=moosh.TileBase;palette=moosh.Palette;break;
-            case 0x10:var dimitri=new DimitriDatabase(AgesGameContent.AssetRoot);sprite="spr_dimitri";animations=dimitri.Animations;offsets=dimitri.SourceOffsets;palette=2;break;
-            case 0x0f:var ricky=new RickyGlovesEventDatabase().Visual;sprite=ricky.Sprite;animations=ricky.Animations;offsets=ricky.AnimationSourceOffsets;tile=ricky.TileBase;palette=ricky.Palette;break;
+            case 0x11:var moosh=new CompanionVisualDatabase(AgesGameContent.AssetRoot,SpecialObjectId.Moosh);sprite=moosh.Sprite;animations=moosh.Animations;offsets=moosh.SourceOffsets;tile=moosh.TileBase;palette=moosh.Palette;break;
+            case 0x10:var dimitri=new DimitriVisualDatabase(AgesGameContent.AssetRoot);sprite="spr_dimitri";animations=dimitri.Animations;offsets=dimitri.SourceOffsets;palette=2;break;
+            case 0x0f:var ricky=new CompanionVisualDatabase(AgesGameContent.AssetRoot,SpecialObjectId.Ricky);sprite=ricky.Sprite;animations=ricky.Animations;offsets=ricky.SourceOffsets;tile=ricky.TileBase;palette=ricky.Palette;break;
             default:throw new NotSupportedException($"companionCutscene.s: SPECIALOBJECT${Id:x2}.");
         }
         _animation=new(this,animations.Length);

@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
             {_runtimeState.SetWramByte(pair.Item1,(byte)pair.Item2);rom[pair.Item1]=(byte)pair.Item2;}
             int update=0,lastLine=-1,signalAt=0,holdAt=0;bool sawBank1=false,sawAlias=false,poolInjected=false;
             var checkedCells=new HashSet<(int,int)>();var fillers=new List<Node2D>();
-            var screen=_scene.EndingScreen;
+            var screen=_endingScreen;
             void Compare()
             {
                 rom.AdvanceWarpPalette();rom.AdvanceBlackTowerEnding();rom.UpdateCredits(++update);
@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
                     poolInjected=true;
                     for(int index=0;index<13;index++)
                     {
-                        var filler=_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));fillers.Add(filler);
+                        var filler=_entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));fillers.Add(filler);
                         int at=0xd040+_entities.InteractionSlot(filler)*256;rom[at]=1;rom[at+1]=5;rom[at+2]=0x80;rom[at+11]=144;rom[at+13]=224;
                     }
                     StepGameplayUpdates(3,Vector2.Zero,afterUpdate:Compare);

@@ -31,7 +31,6 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
     private int _secretInputIndex = -1;
     private int _secretResult;
     private bool _secretPending;
-    private bool _ownsDisabledMask;
     private int _generation;
     private int _rewardIndex = -1;
     private int _rewardPhase;
@@ -105,19 +104,9 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
     public override void SetDisabledObjects(int value)
     {
         if (value != 0x91) throw UnsupportedCommand($"set disabled objects ${value:x2}");
-        Entities.RuntimeState.SetField("wDisabledObjects", 0x91);
-        _ownsDisabledMask = true;
+        base.SetDisabledObjects(value);
     }
 
-    public override void SetInputEnabled(bool enabled)
-    {
-        base.SetInputEnabled(enabled);
-        if (enabled && _ownsDisabledMask)
-        {
-            Entities.RuntimeState.SetField("wDisabledObjects", 0);
-            _ownsDisabledMask = false;
-        }
-    }
 
     public override bool MemoryEquals(string binding, int value) => binding switch
     {
@@ -432,10 +421,5 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
         if (_upgradeTreasure is not null && GodotObject.IsInstanceValid(_upgradeTreasure))
             _upgradeTreasure.Finish(ScriptPlayer);
         _upgradeTreasure = null;
-        if (_ownsDisabledMask)
-        {
-            Entities.RuntimeState.SetField("wDisabledObjects", 0);
-            _ownsDisabledMask = false;
-        }
     }
 }

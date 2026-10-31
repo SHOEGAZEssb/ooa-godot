@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         NpcRecord fairyRecord = npcs.GetRoomNpcs(0, 0x83).Single(npc =>
             npc.Id == 0xd5 && npc.SubId == 0x00);
         var visibility = new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot);
-        var runtime = AgesGameContent.CreateRuntimeState();
+        var runtime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         var predicateSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         FailIf(
             fairyRecord is not
@@ -92,18 +92,18 @@ public sealed partial class ValidationRoot
             "its source spawn wait.");
 
         for (int update = 0; update < 40; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             sounds.Count != 0 ||
-            manager.Entities<PuzzlePuffEffect>().Count != 0 ||
+            manager.Entities<StationaryDebrisEffect>().Count != 0 ||
             fairy.Visible,
             "The Great Fairy advanced its always-update script while " +
             "the destination room was scrolling.");
 
         manager.FinishScreenTransition();
-        manager.Update(1.0 / 60.0, _player);
-        PuzzlePuffEffect puff =
-            manager.Entities<PuzzlePuffEffect>().Single();
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
+        StationaryDebrisEffect puff =
+            manager.Entities<StationaryDebrisEffect>().Single();
         FailIf(
             !sounds.SequenceEqual(
                 new[]
@@ -119,13 +119,13 @@ public sealed partial class ValidationRoot
             "source kill-enemy/poof appearance while remaining untalkable.");
 
         for (int update = 0; update < 31; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             fairy.Visible ||
             sounds.Contains(SoundId.MusFairyFountain),
             "The Great Fairy appeared before its 32-update source wait.");
 
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !fairy.Visible || !fairy.ScriptVisible ||
             sounds.Count(sound =>
@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
             "MUS_FAIRY_FOUNTAIN after update 32.");
 
         for (int update = 0; update < 7; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             manager.FrameCounter != 80 ||
             fairy.ScriptDrawOffset != new Vector2(0, -17),
@@ -143,7 +143,7 @@ public sealed partial class ValidationRoot
 
         manager.TextActiveSource = static () => true;
         for (int update = 0; update < 8; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             manager.FrameCounter != 88 ||
             fairy.ScriptDrawOffset != new Vector2(0, -17),
@@ -178,7 +178,7 @@ public sealed partial class ValidationRoot
 
             LoadValidationRoom(0, 0x83);
             for (int update = 0; update < 33; update++)
-                _entities.Update(1.0 / 60.0, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             NpcCharacter fairy = _entities.Entities<NpcCharacter>().Single(
                 npc => npc.Record.Id == 0xd5 && npc.Record.SubId == 0x00);
             FailIf(
@@ -293,7 +293,7 @@ public sealed partial class ValidationRoot
             _roomEvents.Get<WingDungeonCollapseEvent>();
         RemoteMakuWingDungeonEvent remoteMaku =
             _roomEvents.Get<RemoteMakuWingDungeonEvent>();
-        BraceletDatabaseRecord braceletData = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
+        BraceletDatabaseRecord braceletData = new BraceletDatabase(AgesGameContent.AssetRoot).Data;
         Vector2 rock = new(0x38, 0x48);
 
         try
@@ -455,7 +455,7 @@ public sealed partial class ValidationRoot
                 collapse.Counter != 30 ||
                 collapse.Phase != 1 ||
                 collapse.DustCounter != 0x69 ||
-                _entities.Entities<PuzzlePuffEffect>().Count == 0 ||
+                _entities.Entities<StationaryDebrisEffect>().Count == 0 ||
                 _sound.PlayRequestsFor(
                     SoundId.SndDoorClose) != 1,
                 "The first 6x6 collapse map, door-close sound, or " +
@@ -568,7 +568,7 @@ public sealed partial class ValidationRoot
             // This fixture steps the event directly. Its existing native
             // INTERAC_PUFF objects still need one update each so their finite
             // interaction slots expire; the emitter initializes new puffs.
-            foreach (var puff in _entities.Entities<PuzzlePuffEffect>())
+            foreach (var puff in _entities.Entities<StationaryDebrisEffect>())
                 puff.UpdateFrame();
             collapse.UpdateFrame();
         }

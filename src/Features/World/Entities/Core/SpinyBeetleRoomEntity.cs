@@ -29,7 +29,6 @@ internal sealed class SpinyBeetleRoomEntity
                 beetle.TakeBurnHit,
                 beetle.ApplyAcceptedSwordResponse,
                 soundRequested,
-                EnemySwordResponse.Knockback,
                 acceptedHitSound: 0))
     {
         _soundRequested = soundRequested;

@@ -11,7 +11,6 @@ internal struct CompanionHazard
 {
     internal HazardType Type { get; private set; }
     private Vector2 Center { get; set; }
-    private bool AnimationStarted { get; set; }
 
     internal static bool TryCreate(
         OracleRoomData room,
@@ -40,18 +39,21 @@ internal struct CompanionHazard
     internal bool Advance(
         ref Vector2 position,
         EnemyAnimationPlayer animation,
+        OracleRuntimeState memory,
+        byte startedCounter,
+        bool water,
         int waterAnimation,
         int holeAnimation,
         Action<int> setAnimation,
         Action<int> playSound)
     {
-        bool water = Type == HazardType.Water;
         if (!water && !DragToCenter(ref position))
             return false;
 
-        if (!AnimationStarted)
+        if (memory.ReadWramByte(0xd106)==0)
         {
-            AnimationStarted = true;
+            // State4 latches counter1 to $01 (Ricky/Dimitri) or $ff (Moosh).
+            memory.SetWramByte(0xd106,startedCounter);
             setAnimation(water ? waterAnimation : holeAnimation);
             if (!water)
             {
@@ -67,9 +69,22 @@ internal struct CompanionHazard
     internal static Vector2 ResolveRespawn(
         Player player,
         OracleSaveData saveData,
-        Func<Vector2, bool> canRespawnAt)
+        OracleRuntimeState memory,
+        ref int angle,
+        Func<Vector2, bool> canRespawnAt,OracleRoomData room,Vector2 previousPosition)
     {
-        Vector2 localRespawn = player.LocalRespawnPosition;
+        memory.SetField("wDisableScreenTransitions",0);memory.SetField("wLinkForceState",0);memory.SetField("wcc50",0);
+        // specialObjectSetCoordinatesToRespawnYX resets angle before validation.
+        angle = 0xff;
+        memory.SetWramByte(0xd109, 0xff);
+        // Native copies replace high bytes; the companion's position lows survive.
+        Vector2 fraction=previousPosition-OracleObjectMath.ToPixelPosition(previousPosition);
+        Vector2 localRespawn = OracleObjectMath.ToPixelPosition(player.LocalRespawnPosition)+fraction;
+        if(memory.Game==OracleGame.Seasons && room.GetMetatile(OracleObjectMath.ToPixelPosition(localRespawn)+new Vector2(0,5))==0x20)
+        {
+            RememberedCompanion remembered=CompanionRuntimeState.ReadRemembered(memory);
+            localRespawn=new Vector2(remembered.X,remembered.Y)+fraction;
+        }
         if (canRespawnAt(localRespawn))
             return localRespawn;
 
@@ -77,7 +92,7 @@ internal struct CompanionHazard
         Vector2 lastMount =
             CompanionRuntimeState.ReadLastAnimalMountPosition(saveData);
         player.SetLocalRespawnCoordinates(lastMount);
-        return lastMount;
+        return lastMount+fraction;
     }
 
     private bool DragToCenter(ref Vector2 position)

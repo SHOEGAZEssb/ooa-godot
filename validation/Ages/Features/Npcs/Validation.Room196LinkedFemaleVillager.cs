@@ -48,7 +48,8 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
             FailIf(!_dialogue.ChoiceActive ||
                 !PlainWords(_dialogue.CurrentMessage).Contains("Holodrum", StringComparison.Ordinal) ||
-                !_player.CutsceneControlled,
+                _player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80,
                 "Room 1:96 $3b:$06 was not reachable for the TX_4d19 linked offer.");
             _dialogue.SubmitChoiceForValidation(1);
             StepGameplayUpdates(20, Vector2.Zero, batched: batched);
@@ -89,7 +90,8 @@ public sealed partial class ValidationRoot
                 "Room 1:96 Yes did not reach TX_4d1d.");
             _dialogue.Close();
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x55),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x55),
                 "Room 1:96 linked script did not release Link and retain flag $55.");
 
             ApproachLibraryActor(npc, batched);
@@ -99,7 +101,8 @@ public sealed partial class ValidationRoot
                 "Room 1:96 second A press did not return to TX_4d19's offer loop.");
             LoadValidationRoom(1, 0x97);
             _dialogue.Close();
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x55),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x55),
                 "Room 1:96 cancellation did not release input and retain generated flag $55.");
         }
         GD.Print("Validated room 1:96 $3b:$06 linked visibility, collision approach, TX_4d19-TX_4d1d choice waits, source secret $25, repeat, cancellation and batched updates.");

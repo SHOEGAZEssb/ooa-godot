@@ -62,15 +62,15 @@ public sealed partial class ValidationRoot
             _inventory.EquipA(0);_inventory.EquipB(0);_player.WarpTo(new(120,84));_transitions.ResetCamera();
             FailIf(_collision.Collides(_player.Position),"Bee contact must begin on the arena's actual floor below the source parent.");
             var seed=_random.CaptureState();var rom=new SomariaRom(_saveData,seed,_currentRoom,0,120,84)
-                {CompanionDispatchEnabled=true,HostileEnemiesEnabled=true,HostilePartsEnabled=true};
+                {CompanionDispatchEnabled=true,HostileEnemiesEnabled=true,HostilePartsEnabled=true,NativeGameKeysEnabled=true};
             rom.InitializeLinkGameplay();rom[0xcc08]=0xd7;rom[0xcc0a]=0xd8;rom[0xcc0c]=0xd9;rom[0xcc0e]=0xda;
             rom[0xd080]=1;rom[0xd081]=2;rom[0xd08b]=64;rom[0xd08d]=120;rom[0xcdd1]=1;
             rom[0xcd16]=0;rom[0xcd17]=0xd0;Vector2 camera=-_entities.ToScreen(Vector2.Zero);rom[0xffaa]=(byte)camera.Y;rom[0xffac]=(byte)camera.X;
-            int update=0,pressed=0,held=0,angle=255;VeranBeeProjectileRoomEntity? shot=null;int at=0;
+            int update=0,pressed=0,held=0,sampleHeld=0,angle=255;VeranBeeProjectileRoomEntity? shot=null;int at=0;
             var sounds=_sound.AttachPlayRequestAudit();bool sawCaught=false,sawMove=false,sawStop=false;
             void Compare()
             {
-                rom.UpdateGameplay(pressed,held,angle,++update);rom.AdvanceTileGraphics();rom.AdvanceScreenShake();rom.AdvanceCameraPosition();
+                rom.UpdateGameplay(pressed,sampleHeld,angle,++update);rom.AdvanceTileGraphics();rom.AdvanceScreenShake();rom.AdvanceCameraPosition();
                 FailIf(_player.PrecisePosition!=new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f)||
                     _player.HealthQuarters!=rom[0xc6aa]||_entities.PlayerSwordDisabled!=((rom[0xccd8]&32)!=0)||
                     _entities.PlayerMovementDisabled!=((rom[0xcc61]&32)!=0)||!sounds.Requests.SequenceEqual(rom.Sounds),
@@ -97,8 +97,9 @@ public sealed partial class ValidationRoot
             held=0x10;angle=8;
             for(int bound=0;bound<260&&!shot.Finished;bound+=4)
             {
-                if(mash&&bound%16==0)pressed=0x10;
-                StepGameplayUpdates(4,Vector2.Right,MenuRomActions(held),MenuRomActions(pressed),batched,Compare);
+                if(mash&&bound%16==0)pressed=1;
+                sampleHeld=held|pressed;
+                StepGameplayUpdates(4,Vector2.Right,MenuRomActions(sampleHeld),MenuRomActions(pressed),batched,Compare);
             }
             FailIf(!shot.Finished||!sawCaught||!sawMove||!sawStop||_entities.PlayerSwordDisabled||_entities.PlayerMovementDisabled,
                 "The attached projectile must alternate movement, suppress swords, respond to fresh keys and release every restriction on deletion.");

@@ -8,7 +8,8 @@ $fixtureSource = Join-Path $temporary 'fixture.cs'
 $timingProfile = Join-Path $temporary 'timing profile [fixture].tsv'
 $childPidFile = Join-Path $temporary 'child.pid'
 # Explicit fixture input keeps this launcher test independent of ROM builds.
-$fixtureParameters = @{ Godot = $fixture; Rom = (Join-Path $temporary 'reference ROM [US].gbc') }
+$fixtureParameters = @{ Godot = $fixture; Rom = (Join-Path $temporary 'reference ROM [US].gbc');
+    SeasonsRom = (Join-Path $temporary 'reference Seasons ROM [US].gbc') }
 try {
     # PowerShell 7 cannot emit console applications through Add-Type. Build a
     # Framework executable so this same fixture exercises both shell editions.
@@ -39,6 +40,7 @@ public static class ValidationLauncherFixture {
         string shard = "1/1";
         string selected = null;
         string rom = null;
+        string seasonsRom = null;
         bool skipRom = false;
         bool continueOnFailure = false;
         bool profileMemory = false;
@@ -48,6 +50,8 @@ public static class ValidationLauncherFixture {
             if (arg.StartsWith("--validate-shard=")) shard = arg.Substring(17);
             if (arg.StartsWith("--validate-only=")) selected = arg.Substring(16);
             if (arg.StartsWith("--validation-rom=")) rom = arg.Substring(17);
+            const string seasonsPrefix = "--validation-seasons-rom=";
+            if (arg.StartsWith(seasonsPrefix)) seasonsRom = arg.Substring(seasonsPrefix.Length);
             if (arg == "--skip-rom-validation") skipRom = true;
             if (arg == "--validate-continue-on-failure") continueOnFailure = true;
             if (arg == "--validate-memory-profile") profileMemory = true;
@@ -60,7 +64,8 @@ public static class ValidationLauncherFixture {
             Path.GetFileName(timingProfile) != "timing-profile.tsv" ||
             File.ReadAllText(timingProfile) != expectedProfile)) return 96;
         if (selected == "ValidateRomArgument" && (rom == null || !Path.IsPathRooted(rom) ||
-            Path.GetFileName(rom) != "reference ROM [US].gbc")) return 93;
+            Path.GetFileName(rom) != "reference ROM [US].gbc" || seasonsRom == null ||
+            !Path.IsPathRooted(seasonsRom) || Path.GetFileName(seasonsRom) != "reference Seasons ROM [US].gbc")) return 93;
         if (selected == "ValidateSkipRomArgument" && !skipRom) return 94;
         if (selected == "ValidateCrash") {
             Console.Error.WriteLine("fixture native failure");
@@ -205,7 +210,8 @@ public static class ValidationLauncherFixture {
     }
     finally { $env:OOA_TEST_VALIDATION_CHILD_PID = $previousPidPath }
     & $launcher -Godot $fixture -ValidateOnly ValidateRomArgument `
-        -Rom (Join-Path $temporary 'reference ROM [US].gbc') -TimeoutSeconds 15
+        -Rom (Join-Path $temporary 'reference ROM [US].gbc') `
+        -SeasonsRom (Join-Path $temporary 'reference Seasons ROM [US].gbc') -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateSkipRomArgument `
         -SkipRomValidation -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture `

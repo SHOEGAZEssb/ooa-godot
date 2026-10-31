@@ -17,19 +17,23 @@ $Rom = Resolve-OracleRom -Rom $Rom
 $seasonsReference = Resolve-OracleRom -Game seasons -RequireSymbols
 $SeasonsRom = if ($SeasonsRom) { Resolve-OracleRom -Game seasons -Rom $SeasonsRom } else { $seasonsReference }
 $seasonsRomBytes = [IO.File]::ReadAllBytes($SeasonsRom)
-$agesSymbols = @{}
-foreach ($line in [IO.File]::ReadAllLines([IO.Path]::ChangeExtension((Resolve-OracleRom -Game ages -RequireSymbols), '.sym'))) {
-    if ($line -match '^(?<bank>[0-9a-f]{2}):(?<address>[0-9a-f]{4}) (?<name>\S+)$') {
-        $bank = [Convert]::ToInt32($Matches['bank'], 16); $address = [Convert]::ToInt32($Matches['address'], 16)
-        $agesSymbols[$Matches['name']] = if ($address -ge 0x8000 -or $bank -eq 0) { $address } else { $bank * 0x4000 + ($address -band 0x3fff) }
+# Native labels are bank scoped; Seasons' interaction and companion can share a name.
+function Read-CompiledRomSymbols([string]$path) {
+    $symbols=[Collections.Hashtable]::new([StringComparer]::Ordinal)
+    foreach($line in [IO.File]::ReadAllLines($path)){
+        if($line -notmatch '^(?<bank>[0-9a-f]{2}):(?<address>[0-9a-f]{4}) (?<name>\S+)$'){continue}
+        $bank=[Convert]::ToInt32($Matches.bank,16);$address=[Convert]::ToInt32($Matches.address,16);$name=$Matches.name
+        $actual=if($address -ge 0x8000 -or $bank -eq 0){$address}else{$bank*0x4000+($address -band 0x3fff)}
+        $qualified='bank:{0:x2}:{1}' -f $bank,$name
+        foreach($key in @($name,$qualified)){
+            if($symbols.ContainsKey($key) -and $symbols[$key] -ne $actual){$symbols["ambiguous:$key"]=1}
+            $symbols[$key]=$actual
+        }
     }
+    return $symbols
 }
-$seasonsSymbols = @{}
-foreach ($line in [IO.File]::ReadAllLines([IO.Path]::ChangeExtension($seasonsReference, '.sym'))) {
-    if ($line -notmatch '^(?<bank>[0-9a-f]{2}):(?<address>[0-9a-f]{4}) (?<name>\S+)$') { continue }
-    $bank = [Convert]::ToInt32($Matches['bank'], 16); $address = [Convert]::ToInt32($Matches['address'], 16)
-    $seasonsSymbols[$Matches['name']] = if ($address -ge 0x8000 -or $bank -eq 0) { $address } else { $bank * 0x4000 + ($address -band 0x3fff) }
-}
+$agesSymbols=Read-CompiledRomSymbols ([IO.Path]::ChangeExtension((Resolve-OracleRom -Game ages -RequireSymbols),'.sym'))
+$seasonsSymbols=Read-CompiledRomSymbols ([IO.Path]::ChangeExtension($seasonsReference,'.sym'))
 if ($seasonsSymbols['wLinkHealth'] -ne 0xc6a2 -or $seasonsSymbols['wGlobalFlags'] -ne 0xc6ca) { throw 'Seasons build symbols do not match the supported WRAM layout.' }
 
 class ImportStageContract {
@@ -79,10 +83,17 @@ function New-ImportStageContract(
 $stageContracts = @(
     New-ImportStageContract 'vanilla-tilesets' 'Ages/Import-VanillaTilesets.ps1' `
         -functionOutputs @('Expand-TransitionGraphics')
+    New-ImportStageContract 'global-flags' 'Shared/Import-GlobalFlags.ps1' `
+        -outputs @('globalFlagValues', 'seasonsGlobalFlagValues') `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'single-tile-changes' 'Shared/Import-SingleTileChanges.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -outputs @('singleTileChangeRecords')
     New-ImportStageContract 'world' 'Ages/Import-WorldAssets.ps1' `
+        -inputs @('globalFlagValues') `
         -outputs @(
-            'globalFlagValues', 'singleTileChangeRecords', 'tilesets',
-            'paletteHeaderSource', 'paletteDataSource', 'tilesetRecordSize', 'tilesetMetadata')
+            'tilesets',
+            'paletteHeaderSource', 'paletteDataSource', 'tilesetRecordSize', 'tilesetMetadata', 'continuousRespawnRows')
     New-ImportStageContract 'suction-pits' 'Ages/Import-SuctionPitData.ps1'
     New-ImportStageContract 'save-initialization' 'Ages/Import-SaveInitializationData.ps1'
     New-ImportStageContract 'menus' 'Ages/Import-MenuAssets.ps1' `
@@ -99,11 +110,15 @@ $stageContracts = @(
             'allTextFallthroughIds', 'objectGfxHeaderSource') `
         -functionInputs @('Normalize-DialogueText') `
         -functionOutputs @('Read-IntroOamParts')
+    New-ImportStageContract 'treasure-catalog-reader' 'Shared/Read-TreasureObjects.ps1' `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost') `
+        -functionOutputs @('Read-TreasureObjectCatalog')
     New-ImportStageContract 'map-and-items' 'Ages/Import-MapAndItemData.ps1' `
-        -inputs @('allTextIdsByName', 'allTextPositions', 'allTexts', 'allTextFallthroughIds') `
+        -inputs @('allTextIdsByName', 'allTextPositions', 'allTexts', 'allTextFallthroughIds', 'agesSymbols') `
+        -functionInputs @('Read-TreasureObjectCatalog', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost') `
         -outputs @(
             'enemyUnspawnableTileCount', 'soundIds', 'treasureIds',
-            'treasureObjectRecords', 'treasureObjectSource', 'topDownAirRows') `
+            'treasureObjectRecords', 'treasureObjectSource') `
         -functionOutputs @('Read-HexBytes')
     New-ImportStageContract 'interaction-presentation' 'Shared/Read-InteractionPresentation.ps1' `
         -functionOutputs @('Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
@@ -231,7 +246,7 @@ $stageContracts = @(
         -inputs @('allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'musicConstantSource') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-rafton' 'Ages/Import-RaftonData.ps1' `
-        -inputs @('allTextFallthroughIds', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'roomFlagSource', 'speedSource', 'tradeItemSource', 'treasureObjectRecords') `
+        -inputs @('agesSymbols', 'allTextFallthroughIds', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'roomFlagSource', 'speedSource', 'tradeItemSource', 'treasureObjectRecords') `
         -outputs @('raftObjectSource') `
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-tokay-theft' 'Ages/Import-TokayTheftData.ps1' `
@@ -250,8 +265,8 @@ $stageContracts = @(
         -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'treasureIds') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-companions' 'Ages/Import-CompanionData.ps1' `
-        -inputs @('allTextFallthroughIds', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource') `
-        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+        -inputs @('agesSymbols', 'allTextFallthroughIds', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-carpenters' 'Ages/Import-CarpenterData.ps1' `
         -inputs @('allTexts', 'globalFlagValues') `
         -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
@@ -282,8 +297,8 @@ $stageContracts = @(
     New-ImportStageContract 'enemies' 'Ages/Import-EnemyData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'gfxNames', 'paletteHeaderSource') `
         -outputs @(
-            'crowRows', 'gelInstanceCount', 'keeseInstanceCount',
-            'octorokInstanceCount', 'orderedObjectRows', 'partAnimationSource',
+            'commonEnemyRows', 'crowRows', 'gelInstanceCount', 'keeseInstanceCount',
+            'octorokInstanceCount', 'octorokDefinitionRows', 'orderedObjectRows', 'orderedObjectSources', 'partAnimationSource',
             'partDataSource', 'partOamSource', 'stalfosInstanceCount',
             'zolInstanceCount') `
         -functionInputs @('Read-PaletteBytes', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted') `
@@ -349,7 +364,8 @@ $stageContracts = @(
     New-ImportStageContract 'puzzle-trap-reset' 'Ages/Import-PuzzleTrapReset.ps1'
     New-ImportStageContract 'link-squish' 'Ages/Import-LinkSquish.ps1' `
         -functionInputs @('Read-HexBytes')
-    New-ImportStageContract 'static-dungeon-objects' 'Ages/Import-StaticDungeonObjects.ps1'
+    New-ImportStageContract 'static-dungeon-objects' 'Shared/Import-StaticDungeonObjects.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes')
     New-ImportStageContract 'part-switch' 'Ages/Import-PartSwitch.ps1'
     New-ImportStageContract 'seed-shooter-eye-statue' 'Ages/Import-SeedShooterEyeStatue.ps1'
     New-ImportStageContract 'armos-warrior' 'Ages/Import-ArmosWarrior.ps1' `
@@ -368,8 +384,7 @@ $stageContracts = @(
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'soundIds') `
         -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-InteractionGraphics', 'Resolve-PalaceText', 'Read-PaletteBytes', `
             'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow')
-    New-ImportStageContract 'navigation' 'Ages/Import-WorldNavigation.ps1' `
-        -functionInputs @('Expand-TransitionGraphics')
+    New-ImportStageContract 'navigation' 'Ages/Import-WorldNavigation.ps1'
     New-ImportStageContract 'room-of-rites' 'Ages/Import-RoomOfRites.ps1' `
         -inputs @('gfxNames','interactionGraphics') `
         -functionInputs @('Copy-EnemySprite','Resolve-NpcAnimation','Get-EnemySpriteSourceGrayscaleInverted','Read-PaletteBytes')
@@ -423,15 +438,174 @@ $stageContracts = @(
         -functionInputs @('Read-PaletteBytes', 'Get-ImportSpriteSourceGrayscaleInverted')
     New-ImportStageContract 'background-animations' 'Shared/Import-BackgroundAnimations.ps1' -inputs @('seasonsRomBytes', 'seasonsSymbols')
     New-ImportStageContract 'seasons-opening' 'Seasons/Import-Opening.ps1' `
-        -inputs @('seasonsRomBytes', 'seasonsSymbols', 'topDownAirRows') `
-        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes', 'Normalize-DialogueText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
+        -inputs @('seasonsRomBytes', 'seasonsSymbols') `
+        -outputs @('seasonInventoryTexts', 'seasonMapTexts', 'seasonTreasureTexts', 'seasonTileInteractionTexts', 'seasonFluteTexts') `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes', 'Normalize-DialogueText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames', 'Get-ImportSpriteSourceGrayscaleInverted')
     New-ImportStageContract 'seasons-frontend' 'Seasons/Import-Frontend.ps1' `
         -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes')
     New-ImportStageContract 'seasons-room-runtime' 'Seasons/Import-RoomRuntime.ps1' `
         -inputs @('seasonsRomBytes', 'seasonsSymbols')
-    New-ImportStageContract 'cpu-graphics' 'Shared/Import-CpuGraphics.ps1'
     New-ImportStageContract 'common-engine' 'Shared/Import-CommonEngineData.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes')
+    New-ImportStageContract 'object-streams' 'Shared/Import-ObjectStreams.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'orderedObjectRows', 'orderedObjectSources') `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'minecart-native' 'Shared/Import-MinecartData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-AssemblyConstants')
     New-ImportStageContract 'wram-fields' 'Shared/Import-WramFields.ps1' -inputs @('agesSymbols', 'seasonsSymbols')
+    New-ImportStageContract 'maple-admission' 'Shared/Import-MapleAdmission.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'remembered-companion-initialization' 'Shared/Import-RememberedCompanionInitialization.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'death-respawn' 'Shared/Import-DeathRespawnData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'continuousRespawnRows') `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'seasons-treasure-catalog' 'Seasons/Import-TreasureCatalog.ps1' `
+        -inputs @('seasonsSymbols', 'seasonsRomBytes', 'seasonTreasureTexts') `
+        -outputs @('seasonTreasureObjectRecords') `
+        -functionInputs @('Read-TreasureObjectCatalog', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'inventory-presentation' 'Shared/Import-InventoryPresentation.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionOutputs @('Read-MenuRomBytes', 'Add-MenuRomOam')
+    New-ImportStageContract 'status-bar' 'Shared/Import-StatusBarData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'companion-mechanics' 'Shared/Import-CompanionMechanics.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'dungeon-layouts' 'Shared/Import-DungeonLayouts.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'common-enemy-behavior' 'Shared/Import-CommonEnemyBehavior.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'ghini-data' 'Shared/Import-GhiniData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'treasure-collection' 'Shared/Import-TreasureCollection.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -outputs @('rupeeValuesByGame') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'treasure-visuals' 'Shared/Import-TreasureVisuals.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'treasureObjectRecords', 'seasonTreasureObjectRecords') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted')
+    New-ImportStageContract 'tile-interactions' 'Shared/Import-TileInteractions.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'allTexts', 'treasureObjectRecords', 'seasonTileInteractionTexts', 'seasonTreasureObjectRecords', 'rupeeValuesByGame') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'parent-item-usage' 'Shared/Import-ParentItemUsage.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'link-items' 'Shared/Import-LinkItemData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'soundIds', 'allTexts', 'seasonFluteTexts') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'transformed-link' 'Shared/Import-TransformedLink.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'swimming' 'Shared/Import-SwimmingData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'common-effects' 'Shared/Import-CommonEffects.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'soundIds') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
+    New-ImportStageContract 'map-presentation' 'Shared/Import-MapPresentation.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Add-MenuRomOam', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'map-assets' 'Shared/Import-MapAssets.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'seasonMapTexts') `
+        -functionInputs @('Read-MenuRomBytes', 'Expand-TransitionGraphics')
+    New-ImportStageContract 'inventory-assets' 'Shared/Import-InventoryAssets.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'allTexts', 'seasonInventoryTexts') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'tile-properties' 'Shared/Import-TileProperties.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionOutputs @('Read-CollisionTableStreams')
+    New-ImportStageContract 'enemy-placement' 'Shared/Import-EnemyPlacementData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-CollisionTableStreams')
+    New-ImportStageContract 'tile-push-data' 'Shared/Import-TilePushData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-CollisionTableStreams', 'Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'tile-contact-data' 'Shared/Import-TileContactData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'allTexts', 'allTextFallthroughIds', 'seasonTileInteractionTexts', 'soundIds') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'overworld-keyholes' 'Shared/Import-OverworldKeyholes.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'allTexts', 'seasonTileInteractionTexts') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-CollisionTableStreams', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
+    New-ImportStageContract 'room-shop-data' 'Shared/Import-RoomShopData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'standard-tile-substitutions' 'Shared/Import-StandardTileSubstitutions.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'terrain' 'Shared/Import-TerrainData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'soundIds') `
+        -functionInputs @('Read-CollisionTableStreams', 'Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'warps' 'Shared/Import-Warps.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-CollisionTableStreams', 'Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'room-info' 'Shared/Import-RoomInfo.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource')
+    New-ImportStageContract 'item-drops' 'Shared/Import-ItemDrops.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-CollisionTableStreams', 'Find-ImportSpriteSource')
+    New-ImportStageContract 'seasons-enemy-catalog' 'Seasons/Import-EnemyCatalog.ps1' `
+        -inputs @('seasonsRomBytes', 'seasonsSymbols') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'object-collisions' 'Shared/Import-ObjectCollisions.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'common-enemy-data' 'Shared/Import-CommonEnemyData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource') `
+        -functionOutputs @('Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'companion-visuals' 'Shared/Import-CompanionVisuals.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-NativeObjectPointerLabels')
+    New-ImportStageContract 'enemy-definitions' 'Shared/Import-EnemyDefinitions.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'commonEnemyRows') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'digging-enemy-data' 'Shared/Import-DiggingEnemyData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'beamos-data' 'Shared/Import-BeamosData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'octorok-data' 'Shared/Import-OctorokData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'octorokDefinitionRows') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'archer-data' 'Shared/Import-ArcherData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'carried-objects' 'Shared/Import-CarriedObjects.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'bombs' 'Shared/Import-Bombs.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'soundIds') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-NativeObjectPointerLabels', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource')
+    New-ImportStageContract 'seeds' 'Shared/Import-Seeds.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'soundIds') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-NativeObjectPointerLabels', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource') `
+        -functionOutputs @('Read-NativeItemAnimation')
+    New-ImportStageContract 'boomerang' 'Shared/Import-Boomerang.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'soundIds') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-NativeObjectPointerLabels', 'Read-NativeItemAnimation', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'ricky-data' 'Shared/Import-RickyData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-NativeObjectPointerLabels', 'Read-NativeItemAnimation', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'bombchus' 'Shared/Import-Bombchus.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-NativeObjectPointerLabels', 'Read-NativeItemAnimation', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'bracelet' 'Shared/Import-Bracelet.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'screen-transition-palettes' 'Shared/Import-ScreenTransitionPalettes.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'globalFlagValues')
+    New-ImportStageContract 'screen-transition-graphics' 'Shared/Import-ScreenTransitionGraphics.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Expand-TransitionGraphics')
+    New-ImportStageContract 'cpu-graphics' 'Shared/Import-CpuGraphics.ps1'
     New-ImportStageContract 'manifest' 'Shared/Write-GeneratedTableManifest.ps1'
 )
 

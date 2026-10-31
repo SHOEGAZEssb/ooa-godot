@@ -120,7 +120,7 @@ public sealed partial class ValidationRoot
         const BindingFlags fields = BindingFlags.NonPublic | BindingFlags.Instance;
         var preparedIntro = (NewGameIntroScreen)typeof(GameRoot)
             .GetField("_newGameIntroScreen", fields)!.GetValue(this)!;
-        var preparedGameplay = (AgesGameSceneGraph)typeof(GameRoot)
+        var preparedGameplay = (GameplaySceneGraph)typeof(GameRoot)
             .GetField("_preparedGameplayScene", fields)!.GetValue(this)!;
         FailIf(preparedGameplay is null || preparedGameplay.IsInsideTree(),
             "Startup gameplay presentation must remain detached until a file is selected.");
@@ -141,9 +141,10 @@ public sealed partial class ValidationRoot
         var secondCatalog = AgesRoomEntityResources.CreateSession(_rooms);
         FailIf(ReferenceEquals(firstCatalog, secondCatalog) ||
             !ReferenceEquals(firstCatalog.DungeonMaps, _rooms.DungeonMaps) ||
-            !ReferenceEquals(firstCatalog.SmogProjectile, secondCatalog.SmogProjectile),
+            !ReferenceEquals(firstCatalog.SmogProjectile, secondCatalog.SmogProjectile) ||
+            !ReferenceEquals(firstCatalog.DimitriStory, secondCatalog.DimitriStory),
             "Boot definitions did not populate separate session catalogs with current-world maps and shared immutable records.");
-        foreach (string graphicsField in new[] { "_swordBeamData", "_dimitriData", "_gashaSpotsData" })
+        foreach (string graphicsField in new[] { "_swordBeamData", "_gashaSpotsData" })
             FailIf(typeof(AgesRoomEntityResources).GetField(graphicsField, fields)!.GetValue(firstCatalog) is not null,
                 $"Boot worker retained graphics-bearing definition {graphicsField} in its shared data.");
         var selectedSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);

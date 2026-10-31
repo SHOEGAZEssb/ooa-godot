@@ -22,11 +22,11 @@ public partial class ValidationRoot
             Vector2 start = new(c.X,c.Y);
             // Declare a mounted cart on the original edge track. The
             // reachable mounting producer has separate native coverage.
-            MinecartRuntimeState.Reset(_runtimeState,[]);
-            MinecartRuntimeState.BeginRide(_runtimeState,0,c.Room,start,c.Direction);
+            ResetMinecartsForValidation(_runtimeState,[]);
+            MinecartValidationView.PrepareMountedBody(_runtimeState, start, c.Direction);
             var cart = new MinecartRoomEntity(new ActiveMinecart(-1,c.Room,c.Y,c.X,c.Direction,true),
-                _currentRoom,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),_runtimeState,
-                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"),_sound.PlaySound);
+                _currentRoom,_runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"),_sound.PlaySound, _entities);
             _entities.AddEntity(cart);
             _player.WarpTo(start+new Vector2(0.25f,0.5f)); _player.Face(c.Direction == 2 ? Vector2I.Down : Vector2I.Up);
             _player.FinishMinecartMount(start,c.Direction,0);
@@ -40,6 +40,8 @@ public partial class ValidationRoot
             rom[0xd10b] = (byte)c.Y; rom[0xd10d] = (byte)c.X;
             rom.CreateMenuView().LoadDungeon(4);
             rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter);
+            MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
+            var collisionItem = _entities.EntityAdapters<MinecartCollisionRoomEntity>().Single();
             var frontend = SomariaPrivate<FrontendRom>(rom,"_rom");
             rom[0xcd04] = 2; rom[0xcd0c] = 234; rom[0xcd0d] = 169;
             var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
@@ -56,6 +58,11 @@ public partial class ValidationRoot
                 Vector2 nativeCart = new(rom.Word(0xd10c)/256f,rom.Word(0xd10a)/256f);
                 Vector2 nativeLink = new(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f);
                 update++;
+                FailIf(collisionItem.Finished || _entities.DynamicItemSlotOf(collisionItem) != 0xd7,
+                    "Scrolling must retain the enabled$03 minecart ITEM in its original physical slot.");
+                for (int address = 0xd700; address < 0xd740; address++)
+                    FailIf(_runtimeState.ReadWramByte(address) != rom[address],
+                        $"Minecart scroll {stage}, update{update}, byte${address:x4}: port${_runtimeState.ReadWramByte(address):x2}, native${rom[address]:x2}.");
                 FailIf(NativePoint(cart.ScreenTransitionPosition) != nativeCart || cart.Direction != rom[0xd108] ||
                     NativePoint(_player.PrecisePosition) != nativeLink || !_player.MinecartRideActive ||
                     !sounds.Requests.SequenceEqual(rom.Sounds),
@@ -63,7 +70,7 @@ public partial class ValidationRoot
             }
             for (int travel = 0; !_transitions.ScrollActive && travel < 40; travel++)
                 StepGameplayUpdates(1,Vector2.Zero,batched:batch,afterUpdate:()=> {
-                    rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter-1,
+                    rom.UpdateGameplay(0,0,0xff,_saveData.ReadField("wPlaytimeCounter"),
                         afterInteractions:()=>frontend.Call(0x4000,1));
                     rom.AdvanceTileGraphics(); rom.CheckTileWarps(); rom.SelectNextActiveRoom();
                     Compare("exit approach");
@@ -103,7 +110,7 @@ public partial class ValidationRoot
             CompareDoorAllocations();
             void Step(int count) => StepGameplayUpdates(count,Vector2.Zero,batched:batch,afterUpdate:()=> {
                 bool frozen = scroll[0xcd04] != 2;
-                rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter-1,afterInteractions:()=> {
+                rom.UpdateGameplay(0,0,0xff,_saveData.ReadField("wPlaytimeCounter"),afterInteractions:()=> {
                     if (frozen)
                     {
                         scroll.Update();

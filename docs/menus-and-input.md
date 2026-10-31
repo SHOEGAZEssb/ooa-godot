@@ -10,6 +10,60 @@ Closed -> OpeningFadeOut -> OpeningFadeIn -> Open
 Open   -> ClosingFadeOut -> ClosingFadeIn -> Closed
 ```
 
+Presentation data belongs to the menu that consumes it. File/save, inventory,
+map and ring readers bind their own tables from the selected game pack;
+opening one menu must not require another menu's native tables. Retained
+graphics are keyed by their content pack, while cursor and lifecycle state
+belong to the active screen and session.
+
+`GameplayMenus` constructs the map, inventory, child-name entry, flag editor, object spawner, collision debug,
+pause lease and modal lifecycle for either selected pack. Both production entry
+paths use this composition and its normal-menu dispatch. Their source phase
+owners decide whether that dispatch is eligible; native cutscenes can omit it.
+`GameplaySession` creates and advances that menu owner for both games, so
+content-specific openings share the same pause, status and disposal lifecycle.
+Script-opened child-name entry uses that common lifecycle and the selected
+pack's file-menu keyboard. A valid menu result writes the candidate name before
+the source script confirms family progression. The actor's armed wait remains
+frozen throughout opening, input and closing; its next eligible update follows
+the menu's final closing update. Room replacement cancels the menu through its
+shared owner without committing unfinished input.
+The object picker reads the selected pack's classified enemy identities and
+supported native item-drop rows without loading unrelated enemy AI or story
+tables. Spawns use the shared slot allocator and the selected entity factory;
+missing native handlers report their source identity without allocating a slot
+or consuming gameplay RNG. Disposing the session closes the tool and releases
+its pause lease without running a gameplay update.
+The shared application input handler also owns health refill. A flag editor
+loads the selected game's treasure catalog, whose IDs follow active assembly
+macro order and are checked against compiled native records during import.
+The shared inventory grant body consumes each pack's collection behaviors and
+ordered removal/addition tables. Game-specific quantities bind their native
+save fields; raw script writes and inventory presentation observe the same
+state. Currency targets and Gasha maturity rewards remain selected source data.
+The debug named-Flute grant supplies its icon and the selected animal's native
+ready-to-ride bit, preserving other animal state and global quest flags. Retail
+treasure collection retains the source's separate quest initialization.
+The application owns the common Continue reconstruction order: release the old
+session, restart sound, advance the initialization clock and invoke the selected
+content composition. Game-over menus stop the main-thread playtime/frame clock
+while their foreground fade and selection-delay counters continue.
+
+The shared inventory screen follows the selected graphics header's upload
+order, including overlapping VRAM writes. Its room-context provider reads the
+active room and live game state without retaining a second copy. Time/season
+blurbs, passive items, text indices, sprite palettes and treasure-display
+selectors are imported data. Native Harp, Rod, Magnet Gloves, seed-picker and
+boxing gates remain explicit at the common source dispatch points.
+
+The shared map screen reads each pack's native world dimensions, cursor and
+popup boundaries, ordered tile substitutions, text and OAM tables. Graphics
+headers are decoded during import into banked VRAM snapshots; presentation
+uses native signed BG addressing and OBJ tile pairs. Map artwork and room
+availability are separate contracts: debug travel asks the active room-content
+owner whether a selected destination exists. The map lifecycle restores the
+captured room palettes when closing, including slots a dungeon header retains.
+
 The common fast fade lasts 11 original updates in each direction. The screen
 swap occurs at full white. A menu-to-menu switch may retain ownership while
 white; it must not briefly resume gameplay between screens. Timing-critical
@@ -23,6 +77,9 @@ Both retain the eleven-update lifecycle, with distinct intermediate colors.
 the exact processing/input state it suspends and restores that state on
 release. Never blindly enable Link when a menu closes: another owner may have
 disabled gameplay first. Failed acquisition leaves the caller unchanged.
+Session teardown also releases active leases, preserving their captured process
+state. It cancels lifecycle ownership without calling save, travel or story
+completion handlers; destroying a scene must not complete an abandoned menu.
 
 Gameplay-owned submenus may use their interaction controller when that matches
 the original mechanism. Do not force every prompt through the map/inventory
@@ -34,6 +91,21 @@ order; its header and secret panel stay fixed while only the name field scrolls.
 Normal map and inventory closing resume gameplay on the update that releases
 menu ownership. The post-menu return value observes the cleared menu state,
 so an eligible stair can activate on that same update.
+Before room fade-in, the common closing lifecycle restores parent button masks
+after room graphics return. Each parent uses its live `var03` byte rather than
+retaining a private A/B assignment. B takes precedence when both equipment bytes
+match; unassigned and inactive slots receive zero. Reassignment preserves the
+parent's state and counters while object dispatch remains paused. Lifecycle
+cancellation or scene disposal releases ownership without running this handoff.
+The shared Shield/instrument slot checks A before B, using the selected pack's
+held/edge rules, before parent handlers advance. Its occupancy remains reserved
+through admission even if its handler deletes it later in the update.
+Flute and Harp playback share one controller and selected-pack animation/cue
+data. Ages binds its Harp tune effects separately. Link clears the preceding
+instrument publication at the normal handler's front-tile boundary; completion
+retains its publication for later consumers in that update. Floating music notes
+occupy native interaction slots and advance in that slot walk, including their
+initialization, text/freeze exceptions and retirement.
 Toggle-floor cutscenes bypass normal menu dispatch throughout their handler,
 including the update that releases the object freeze. Fresh menu input becomes
 eligible on the following normal gameplay update.
@@ -147,6 +219,21 @@ resumes on the retained global phase after closing.
 Gameplay and inventory use the same composed HUD texture, including item OAM
 and its background priority overlays. Inventory does not redraw equipped icons
 through its storage-item renderer.
+The status owner reads displayed hearts and money from live runtime bytes;
+the HUD keeps their last published presentation. Native update-disable writes
+freeze both counters independently of the retained blanked HUD image. Hide/show
+calls write the same native gate, and debug reconstruction republishes captured
+displayed values without advancing recovery. Preparing the display does not
+write native state; gameplay initialization installs those values at entry.
+Full warp loading requests common graphics after its native status-gate write:
+Ages clears that byte, while Seasons preserves it. Seasons' common-graphics
+loader selects rupees or ore using the native room flags and
+snaps the display only when that selector changes. Its key/ore tile is retained
+graphics state: ordinary scrolling keeps it, while full room loads and inventory
+graphics restoration reload it. Dungeon flags take precedence over Subrosia;
+Ages retains its distinct large-indoor key exclusion. Inventory initialization
+updates status inside the graphics loader and again at the menu dispatch tail;
+ring initialization does the same, with the tail update limited to appraisal.
 
 ## Input contract
 

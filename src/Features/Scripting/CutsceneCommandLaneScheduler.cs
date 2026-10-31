@@ -63,6 +63,23 @@ internal sealed class CutsceneCommandLaneScheduler(ICutsceneCommandHost host)
         }
     }
 
+    public bool AdvanceLane(string name)
+    {
+        if (!_byName.TryGetValue(name, out Lane? lane))
+            throw new InvalidOperationException($"Cutscene lane '{name}' is not registered.");
+        if (lane.Runner.Active)
+        {
+            lane.BeforeAdvance?.Invoke();
+            lane.Runner.AdvanceFrame();
+        }
+        return lane.Runner.Active;
+    }
+
+    public void StopLane(string name)
+    {
+        if (_byName.TryGetValue(name, out Lane? lane)) lane.Runner.Clear();
+    }
+
     public void Clear()
     {
         foreach (Lane lane in _lanes)

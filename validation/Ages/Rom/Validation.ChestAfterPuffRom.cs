@@ -37,7 +37,7 @@ public partial class ValidationRoot
                     _rooms.PendingTileGraphics != ((rom[0xcce0]-rom[0xccdf])&31) ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"Chest branch={branch} update{update}: controller={script.Finished}:{script.Counter}/{rom[0xd240]:x2}:{rom[0xd246]}, triggers={_entities.ActiveTriggers:x2}/{rom[0xcca0]:x2}, queue={_rooms.PendingTileGraphics}/{((rom[0xcce0]-rom[0xccdf])&31)}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
-                var puffs = _entities.Entities<PuzzlePuffEffect>();
+                var puffs = _entities.Entities<StationaryDebrisEffect>();
                 int[] native = Enumerable.Range(0xd2,14).Select(page => page*256+0x40).Where(slot => rom[slot] != 0 && rom[slot+1] == 5).ToArray();
                 FailIf(puffs.Count != native.Length,"Chest puff must allocate after its controller into the shared INTERACTION pool.");
                 if (puffs.Count != 0) FailIf(_entities.InteractionSlot(puffs[0]) != (native[0]>>8)-0xd0 ||

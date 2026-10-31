@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
                     if(owner.Stage==1)FailIf(update-fade!=840||rom[0xcfde]!=4||rom[0xcfdf]!=0||owner.State!=0,"Linked title must select vignette $04 at the exact source boundary.");
                     if(!pixels&&owner.State==2&&!_transitions.NativePaletteFadeActive)
                     {
-                        pixels=true;using var image=_scene.EndingScreen.BackgroundTexture!.GetImage();
+                        pixels=true;using var image=_endingScreen.BackgroundTexture!.GetImage();
                         for(int y=0;y<144;y++)for(int x=0;x<160;x++)
                         {
                             int map=0x9c00+(y/8)*32+x/8,tile=rom.VramByte(0,map),flags=rom.VramByte(1,map),at=0x9000+unchecked((sbyte)tile)*16;
@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
             FailIf(hold==0||fade==0||!cancel&&(!pixels||owner.Stage!=1),"Linked title must finish or cancel its native hold/fade.");
             owner.Cancel();
             FailIf(_inventory.HealthQuarters!=health||_inventory.ActiveRing!=ring||_inventory.EquippedB!=TreasureId.Shield||_inventory.EquippedA!=TreasureId.Sword||
-                _scene.EndingScreen.Visible||!_hud.Visible,"Linked title cancellation must restore inventory and presentation ownership.");
+                _endingScreen.Visible||!_hud.Visible,"Linked title cancellation must restore inventory and presentation ownership.");
         }
     }
 }

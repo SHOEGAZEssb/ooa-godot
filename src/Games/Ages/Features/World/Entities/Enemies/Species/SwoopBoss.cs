@@ -7,7 +7,9 @@ namespace Oracles;
 /// <summary>ENEMY_SWOOP $71 native miniboss.</summary>
 internal sealed partial class SwoopBoss : EnemyCharacter
 {
-    internal override bool InitializationPending => false;
+    internal override bool InitializationPending => !_initialized;
+    private bool _initialized;
+    private Action _initializeBossRoom = null!;
 
     private static readonly int[] Speeds = { 0x14, 0x28, 0x3c };
     private static readonly int[] FramesBeforeAttack = { 255, 150, 60 };
@@ -77,7 +79,8 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         Action<int, string, Vector2> showDialogue,
         Func<bool> dialogueOpen,
         Func<long> animationTick,
-        string introMessage)
+        string introMessage,
+        Action initializeBossRoom)
     {
         AssetRoot = record.AssetRoot;
         Record = record;
@@ -94,6 +97,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         _dialogueOpen = dialogueOpen;
         _animationTick = animationTick;
         _introMessage = introMessage;
+        _initializeBossRoom = initializeBossRoom;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record),
@@ -103,6 +107,16 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         Visible = false;
     }
 
+    internal void PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_initialized) return;
+        _random.Next(); // enemyStandardUpdate's state-zero initialization.
+        _initialized = true;
+        _initializeBossRoom();
+        TrySpawnNativePart(new BossShadowSpawn(() => Position, () => _zFixed >> 8,
+            () => !IsDead, Size: 1, YOffset: 8), spawns);
+    }
+
     internal void UpdateFrame(
         Player player,
         ICollection<RoomEntitySpawn> spawns)
@@ -110,6 +124,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         if (IsDead)
             return;
         BeginFrame();
+        if (!_initialized) { PrepareForScreenTransition(spawns); return; }
         if (_dying)
         {
             Visible = (_deathCounter & 1) != 0;
@@ -128,7 +143,6 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         {
             _introStarted = true;
             _disableLink();
-            _playSound(SoundId.SndCtrlStopMusic);
         }
 
         switch (_state)

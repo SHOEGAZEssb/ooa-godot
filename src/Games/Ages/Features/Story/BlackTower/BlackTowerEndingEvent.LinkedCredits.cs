@@ -18,8 +18,8 @@ internal sealed partial class BlackTowerEndingEvent
         // Unlike scenes $00..$03, linked scenes retain room identity and
         // cleared gameplay terrain. Their graphics headers supply the map.
         context.Entities.ClearDynamicInteractions();context.Transitions.ResetCamera();
-        Screens.ApplyPalette(0x0f,context.Rooms.World.BackgroundPalettes,context.Entities);
-        Screens.ApplyPalette(index==7?0xae:0xca,context.Rooms.World.BackgroundPalettes,context.Entities);
+        Screens.ApplyPalette(0x0f,context.Rooms.BackgroundPalettes,context.Entities);
+        Screens.ApplyPalette(index==7?0xae:0xca,context.Rooms.BackgroundPalettes,context.Entities);
         Screen.Load($"credits-linked{index}");Write(AgesWramAddress.wTilesetAnimation,index==7?255:1);Write(AgesWramAddress.wScrollMode,1);
         if(index!=7)Screen.BeginNativeAnimation(context.AnimationTick());
         foreach(var actor in Data.Placements(index switch{4=>"objectData5542",5=>"objectData5514",6=>"objectData5560",_=>"objectData556a"}))
@@ -50,7 +50,7 @@ internal sealed partial class BlackTowerEndingEvent
                     var fountainData=_fountains??=new(AgesGameContent.AssetRoot);
                     var placement=new FountainPlacement(context.Rooms.ActiveGroup,context.Rooms.CurrentRoom.Id,actor.SubId,actor.Position,"objects/ages/extraData2.s:objectData5542");
                     context.Entities.AddEntity(new FountainDecorationRoomEntity(placement,fountainData,context.Rooms.SaveData,
-                        ()=>Screens.ApplyPalette(fountainData.UsesRuinedPalette(placement.Group,placement.Room,context.Rooms.SaveData)?0x7c:0x7d,context.Rooms.World.BackgroundPalettes,context.Entities)));break;
+                        ()=>Screens.ApplyPalette(fountainData.UsesRuinedPalette(placement.Group,placement.Room,context.Rooms.SaveData)?0x7c:0x7d,context.Rooms.BackgroundPalettes,context.Entities)));break;
                 default:throw new NotSupportedException($"objects/ages/extraData2.s:linked scene${index:x2} INTERAC${actor.Id:x2}:${actor.SubId:x2}.");
             }
     }

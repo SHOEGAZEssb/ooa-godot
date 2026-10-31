@@ -4,22 +4,31 @@ using System;
 namespace Oracles;
 
 /// <summary>Drives the real application loop with explicit host samples.</summary>
-internal sealed class ApplicationValidationFixture(GameRoot root)
+internal sealed class ApplicationValidationFixture(GameRoot root, Action? updateObserver = null)
 {
     internal long UpdateCount => root.ApplicationUpdates.UpdateCount;
     internal double Remainder => root.ApplicationUpdates.Remainder;
 
-    internal void Capture(string[] held, string[] pressed, Vector2 movement) =>
-        root.ApplicationInput.CaptureSample(held, pressed, movement);
+    internal void Capture(string[] held, string[] pressed, Vector2 movement)
+    {
+        // Synthetic movement supplies the same D-pad bits as a physical host.
+        var keys = new System.Collections.Generic.List<string>(held);
+        if (movement.X > 0) keys.Add("move_right");
+        if (movement.X < 0) keys.Add("move_left");
+        if (movement.Y > 0) keys.Add("move_down");
+        if (movement.Y < 0) keys.Add("move_up");
+        root.ApplicationInput.CaptureSample(keys, pressed, movement);
+    }
 
     internal int Advance(double elapsed, Action? afterUpdate = null)
     {
-        if (afterUpdate is null)
+        if (afterUpdate is null && updateObserver is null)
             return root.ApplicationUpdates.Advance(elapsed, root.AdvanceApplicationUpdate);
         return root.ApplicationUpdates.Advance(elapsed, () =>
         {
             root.AdvanceApplicationUpdate();
-            afterUpdate();
+            updateObserver?.Invoke();
+            afterUpdate?.Invoke();
         });
     }
 

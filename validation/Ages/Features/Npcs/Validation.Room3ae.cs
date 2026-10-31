@@ -156,7 +156,7 @@ public sealed partial class ValidationRoot
 
             _dialogue.Close();
             _interactions.Update(1.0 / 60.0, _player);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             if (GodotObject.IsInstanceValid(harp))
                 harp.Free();
             _player.AdvanceApplicationUpdate();

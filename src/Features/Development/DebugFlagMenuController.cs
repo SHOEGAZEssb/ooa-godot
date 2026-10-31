@@ -3,7 +3,7 @@ using System;
 
 namespace Oracles;
 
-public sealed class DebugFlagMenuController
+public sealed class DebugFlagMenuController : IDisposable
 {
     private const string InputAction = "debug_flags";
     private readonly DebugFlagScreen _screen;
@@ -80,6 +80,14 @@ public sealed class DebugFlagMenuController
         _pauseLease = null;
         if (_inventory.AnimalCompanion != _companionOnOpen)
             _companionChanged();
+    }
+
+    public void Dispose()
+    {
+        if (IsActive) _screen.Close();
+        IsActive = false;
+        _pauseLease?.Dispose();
+        _pauseLease = null;
     }
 
     private static void EnsureInputAction()

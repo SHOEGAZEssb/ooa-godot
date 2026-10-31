@@ -19,7 +19,7 @@ public static class AssemblySourceQuery
         IEnumerable<AssemblyNode> nodes = command switch
         {
             "NODES" => file.Nodes,
-            "LABEL_NODES" => file.GetLabelBlockNodes(
+            "LABEL_NODES" => file.GetActiveLabelBlockNodes(
                 Required(label, command, "label")),
             "LABELS" => file.Nodes.Where(node =>
                 node.Kind == AssemblyNodeKind.Label),
@@ -58,7 +58,7 @@ public static class AssemblySourceQuery
         string? label) =>
         string.IsNullOrEmpty(label)
             ? file.Nodes
-            : file.GetLabelBlockNodes(label);
+            : file.GetActiveLabelBlockNodes(label);
 
     private static string Required(
         string? value,

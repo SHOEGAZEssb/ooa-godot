@@ -126,6 +126,35 @@ Write-CutsceneGeneratedTable(
 $fairyMinigamePath = Join-Path $Disassembly `
     'object_code\ages\interactions\fairyHidingMinigame.s'
 $fairyMinigameSource = Read-ImportText $fairyMinigamePath
+$fairyObjectPath = Join-Path $Disassembly 'objects/ages/mainData.s'
+$fairyObjectSource = Read-ImportText $fairyObjectPath
+$fairyControllerRows = [Collections.Generic.List[string]]::new()
+$fairyControllerRows.Add("# group`troom`torder`tid`tsubid`ty`tx`tsource")
+if ([regex]::Matches($fairyObjectSource, '(?m)^\s*obj_Interaction \$6c\b').Count -ne 5) {
+    throw 'objects/ages/mainData.s: expected all five placed INTERAC_FAIRY_HIDING_MINIGAME controllers.'
+}
+foreach ($spec in @(@(0x80,1,0x58,0x48), @(0x81,1,0x28,0x58), @(0x82,0,0,0), @(0x91,1,0x38,0x28), @(0x92,2,0x28,0x9f))) {
+    $label = 'group0Map' + $spec[0].ToString('x2') + 'ObjectData'
+    $nodes = @(Read-AssemblyLabelNodes $fairyObjectPath $label | Where-Object { $_.Kind -eq 'MacroInvocation' })
+    $controllers = @($nodes | Where-Object { $_.Name -eq 'obj_Interaction' -and $_.Operands[0] -eq '$6c' })
+    if ($controllers.Count -ne 1) { throw "objects/ages/mainData.s:${label}: expected one fairy controller." }
+    $order = [array]::IndexOf($nodes, $controllers[0])
+    $values = @($controllers[0].Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if ($spec[1] -eq 0 -and $values.Count -eq 2) { $values += @(0,0) }
+    if ($order -ne 0 -or $values.Count -ne 4 -or $values[1] -ne $spec[1] -or $values[2] -ne $spec[2] -or $values[3] -ne $spec[3]) {
+        throw "objects/ages/mainData.s:${label}: fairy controller order, subid or coordinates changed."
+    }
+    $fairyControllerRows.Add("0`t$($spec[0].ToString('x2'))`t$order`t6c`t$($values[1].ToString('x2'))`t$($values[2].ToString('x2'))`t$($values[3].ToString('x2'))`tobjects/ages/mainData.s:${label}")
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/fairies_woods_controllers.tsv'), $fairyControllerRows)
+$fairyReturn = [regex]::Match($fairyMinigameSource,
+    '(?ms)^@warpDestination:\s+m_HardcodedWarpA ROOM_AGES_(?<room>[0-7][0-9a-f]{2}),\s*\$(?<transition>[0-9a-f]{2}),\s*\$(?<position>[0-9a-f]{2}),\s*\$(?<request>[0-9a-f]{2})')
+if (!$fairyReturn.Success) { throw 'fairyHidingMinigame.s:@warpDestination: missing hardcoded return warp.' }
+$fairyReturnRoom = [Convert]::ToInt32($fairyReturn.Groups['room'].Value, 16)
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/fairies_woods_return_warp.tsv'), @(
+    "# group`troom`ttransition`tposition`trequest`tsource",
+    "$((0x80 -bor ($fairyReturnRoom -shr 8)).ToString('x2'))`t$(($fairyReturnRoom -band 255).ToString('x2'))`t$($fairyReturn.Groups['transition'].Value)`t$($fairyReturn.Groups['position'].Value)`t$($fairyReturn.Groups['request'].Value)`tfairyHidingMinigame.s:@warpDestination"
+))
 $forestFairyPath = Join-Path $Disassembly `
     'object_code\ages\interactions\forestFairy.s'
 $forestFairySource = Read-ImportText $forestFairyPath
@@ -137,6 +166,11 @@ $forestTransitionPath = Join-Path $Disassembly 'code\bank1.s'
 $forestTransitionSource = Read-ImportText $forestTransitionPath
 $paletteFadePath = Join-Path $Disassembly 'code\bank0.s'
 $paletteFadeSource = Read-ImportText $paletteFadePath
+# _scriptCmd_asmRetFunc sets carry: these helpers continue into the next
+# command in the same interaction visit, including following waits/writes.
+if ($paletteFadeSource -notmatch '(?ms)^_scriptCmd_asmRetFunc:\s+pop hl\s+pop af\s+setrombank\s+ldh a,\(<hActiveObject\)\s+ld d,a\s+scf\s+ret') {
+    throw 'bank0.s:_scriptCmd_asmRetFunc: ASM15 carry-set continuation changed.'
+}
 $miscCutscenePath = Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s'
 $miscCutsceneSource = Read-ImportText $miscCutscenePath
 $roomSpecificPath = Join-Path $Disassembly 'code\ages\roomSpecificCode.s'
@@ -328,21 +362,21 @@ $fairyIntroRows.Add(
 Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 0 `
     'fairyHidingMinigame_subid00Script' `
     '^\s*asm15 fairyHidingMinigame_spawnForestFairyIndex, \$00\s*$' `
-    'nativeyield' '' '' '' 'SpawnForestFairy:0'
+    'native' '' '' '' 'SpawnForestFairy:0'
 Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 1 `
     'fairyHidingMinigame_subid00Script' '^\s*wait 20\s*$' `
     'wait' '' '20' '' ''
 Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 2 `
     'fairyHidingMinigame_subid00Script' `
     '^\s*asm15 fairyHidingMinigame_spawnForestFairyIndex, \$01\s*$' `
-    'nativeyield' '' '' '' 'SpawnForestFairy:1'
+    'native' '' '' '' 'SpawnForestFairy:1'
 Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 3 `
     'fairyHidingMinigame_subid00Script' '^\s*wait 20\s*$' `
     'wait' '' '20' '' '' 1
 Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 4 `
     'fairyHidingMinigame_subid00Script' `
     '^\s*asm15 fairyHidingMinigame_spawnForestFairyIndex, \$02\s*$' `
-    'nativeyield' '' '' '' 'SpawnForestFairy:2'
+    'native' '' '' '' 'SpawnForestFairy:2'
 Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' 5 `
     'fairyHidingMinigame_subid00Script' `
     '^\s*checkmemoryeq wTmpcfc0\.fairyHideAndSeek\.cfd2, \$03\s*$' `
@@ -392,7 +426,7 @@ $revealPatterns = @(
     @('checkmemoryeq', '', '01', '', 'FairySignal',
         '^\s*checkmemoryeq wTmpcfc0\.fairyHideAndSeek\.cfd2, \$01\s*$'),
     @('wait', '', '20', '', '', '^\s*wait 20\s*$'),
-    @('nativeyield', '', '', '', 'ShowFairyFoundText',
+    @('native', '', '', '', 'ShowFairyFoundText',
         '^\s*asm15 fairyHidingMinigame_showFairyFoundText\s*$'),
     @('writememory', '', '00', '', 'FairySignal',
         '^\s*writememory\s+wTmpcfc0\.fairyHideAndSeek\.cfd2, \$00\s*$'),
@@ -434,7 +468,7 @@ $exitCommands = @(
         '^\s*showtext TX_110c\s*$'),
     @('@checkLinkLeaving', 'jumpiftextoptioneq', '', '00', '8', '',
         '^\s*jumpiftextoptioneq \$00, @leave\s*$'),
-    @('@checkLinkLeaving', 'nativeyield', '', '', '', 'MoveLinkBackLeft',
+    @('@checkLinkLeaving', 'native', '', '', '', 'MoveLinkBackLeft',
         '^\s*asm15 fairyHidingMinigame_moveLinkBackLeft\s*$'),
     @('@checkLinkLeaving', 'wait', '', '10', '', '', '^\s*wait 10\s*$'),
     @('@checkLinkLeaving', 'scriptjump', '', '2', '', '',

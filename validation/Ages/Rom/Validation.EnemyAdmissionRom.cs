@@ -68,17 +68,17 @@ public sealed partial class ValidationRoot
             {
                 var boss = new GiantGhiniBoss();
                 boss.Initialize(new DungeonBossDatabase(AgesGameContent.AssetRoot).Enemy(id), _currentRoom, new(80, 72), _random,
-                    _entities.OnSoundRequested, () => false, () => { }, () => { },_entities.ToScreen);
-                parent = new GiantGhiniBossRoomEntity(boss, Vector2I.Up);
+                    _entities.OnSoundRequested, () => false, () => { }, () => { },_entities.ToScreen,_entities.InitializeBossRoom);
+                parent = new GiantGhiniBossRoomEntity(boss);
             }
             else if (id == 0x7a)
             {
                 var boss = new ShadowHagBoss();
                 boss.Initialize(new DungeonBossDatabase(AgesGameContent.AssetRoot).Enemy(id), _currentRoom, new(80, 72), _random,
-                    _entities.OnSoundRequested, () => false, () => { }, () => { }, () => { }, (_, _, _) => { }, () => false, "");
+                    _entities.OnSoundRequested, () => false, () => { }, () => { }, () => { }, (_, _, _) => { }, () => false, "",_entities.InitializeBossRoom);
                 F1Set(boss, "_initialized", true); F1Set(boss, "_introActive", false);
                 F1Set(boss, "_state", ShadowHagState.SpawningBugs); F1Set(boss, "_counter1", 0x31);
-                parent = new ShadowHagBossRoomEntity(boss, Vector2I.Up);
+                parent = new ShadowHagBossRoomEntity(boss);
             }
             else
             {

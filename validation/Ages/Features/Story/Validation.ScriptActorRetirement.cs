@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             };
 
             _player.WarpTo(new(6, 64));
-            _transitions.BeginScroll(_player, Vector2I.Left, 0x7b);
+            _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x7b);
             FailIf(actor.IsRetired || binding.Actor != actor || !binding.ButtonPending || !actor.Visible,
                 "$0:$7c -> $0:$7b scroll start retired the outgoing Poe or cleared its binding prematurely.");
             StepGameplayUpdates(_transitions.ScrollTotalFrames - 1, Vector2.Zero, batched: batched);

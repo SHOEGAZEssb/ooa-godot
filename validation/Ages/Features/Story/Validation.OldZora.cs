@@ -43,7 +43,8 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
                 Step(1);
                 Text(id, fragment);
-                FailIf(!trade.BlocksGameplay || !_player.CutsceneControlled,
+                FailIf(!trade.BlocksGameplay || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                    _runtimeState.ReadField("wMenuDisabled") != 0x80,
                     "oldZoraScript failed to disable input before dialogue.");
             }
             void Wait30()

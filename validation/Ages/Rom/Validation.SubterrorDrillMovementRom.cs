@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(24, 112)); _player.BeginCutsceneControl();
             var owner = _entities.EntityAdapters<IRoomEntity>().Single(actor => actor.Node is SubterrorBoss); F1Retain(owner);
             var boss = (SubterrorBoss)owner.Node;
-            F1Set(owner, "_initialized", true); F1Set(boss, "_initialized", true); F1Set(boss, "_introActive", intro);
+            F1Set(boss, "_initialized", true); F1Set(boss, "_introActive", intro);
             F1Set(boss, "_shuttersClosed", (System.Func<bool>)(() => true));
             F1Set(boss, "_state", intro ? SubterrorState.WaitingForDoors : SubterrorState.AboveGround);
             F1Set(boss, "_substate", intro ? 0 : 2); F1Set(boss, "_counter1", 3); F1Set(boss, "_counter2", intro ? 1 : 0);
@@ -66,7 +66,6 @@ public sealed partial class ValidationRoot
             // imported miniboss room and real application/ENEMY dispatch.
             // SPEED_80 moving down adds $0080 before the distance gate.
             boss.Position = new(64.25f, 64.5f); boss.Health = 12;
-            F1Set(owner, "_initialized", true);
             F1Set(boss, "_initialized", true); F1Set(boss, "_introActive", false);
             F1Set(boss, "_state", SubterrorState.UndergroundMoving); F1Set(boss, "_substate", 1);
             F1Set(boss, "_counter1", 30); F1Set(boss, "_counter2", 1);

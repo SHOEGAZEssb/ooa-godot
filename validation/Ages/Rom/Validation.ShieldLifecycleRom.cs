@@ -1,6 +1,5 @@
 using Godot;
 using System.Linq;
-using System.Reflection;
 
 namespace Oracles;
 
@@ -11,8 +10,6 @@ public sealed partial class ValidationRoot
 
     private void ValidateShieldLifecycleRom(bool airborne)
     {
-        static T Private<T>(object owner, string field) => (T)owner.GetType()
-            .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(owner)!;
         int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int level in new[] { 1, 2, 3 })
@@ -51,9 +48,9 @@ public sealed partial class ValidationRoot
                     edge = 0;
                     string context = $"Shield L{level} A={primary} direction={direction} airborne={airborne}/{jumpUpdates} update={++update}";
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
-                        Private<int>(_player, "_shieldParentButton") != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
-                        Private<bool>(_player, "_shieldParentInitialized") != (rom[0xd504] != 0),
-                        $"{context}: raised/parent initialized runtime={_player.IsUsingShield}/{Private<int>(_player, "_shieldParentButton")}/{Private<bool>(_player, "_shieldParentInitialized")}, ROM=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd503]:x2}/${rom[0xd504]:x2}.");
+                        _player.ShieldParentButton != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
+                        _player.ShieldParentInitialized != (rom[0xd504] != 0),
+                        $"{context}: raised/parent initialized runtime={_player.IsUsingShield}/{_player.ShieldParentButton}/{_player.ShieldParentInitialized}, ROM=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd503]:x2}/${rom[0xd504]:x2}.");
                     FailIf(_player.Position != new Vector2(rom[0xd00d], rom[0xd00b]) ||
                         _player.FacingVector != (Vector2I)OracleObjectMath.StrictCardinalVector(rom[0xd008] * 8),
                         context + ": movement/facing differs from native raised-shield Link.");

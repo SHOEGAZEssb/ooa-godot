@@ -20,17 +20,70 @@ Live messages still resolve names and create fresh segments when they open.
 ## Composition and scenes
 
 `scenes/main.tscn` owns the application root and persistent sound engine.
-`GameRoot` presents the boot/attract/title/file flow and creates
-`scenes/ages/gameplay.tscn` for active play. Its single RNG owner spans that frontend
+`GameRoot` presents the boot/attract/title/file flow. Both native gameplay scenes
+inherit `scenes/gameplay.tscn`, which owns the common world, camera, interface,
+menu and development nodes. Its single RNG owner spans that frontend
 and gameplay boundary; replaying or dwelling on the title must advance the same
 state later consumed by room objects.
 
+Both file-entry paths bind `GameplaySession`. It constructs HUD/dialogue,
+status, menus and pause ownership, entity sound bindings and the object
+dispatcher against the selected room, inventory and runtime owners. Its
+foreground dispatch owns the main-thread clock, debug/menu ordering, shock,
+object-pass continuation, status, post-object collision dispatch and dialogue
+advancement. Each native caller supplies collision eligibility around source
+cutscenes and transitions; the game binding does not invoke another collision
+walk. Composition requires
+the same save, inventory and runtime instances; matching game or pack identifiers
+alone do not admit an independent state owner. Native bindings
+select source eligibility and reduced cutscene updates at explicit phases;
+they do not run a second gameplay loop. Shock advances before menu eligibility
+is sampled, including its terminal update. A yielded object pass resumes at
+its existing continuation while the main-thread clock remains stopped.
+
+Each session binds one shared transition owner against those same room/entity
+instances before its first update. Menu transition admission, Gale travel and
+cancellation, and arrival-palette handoff use that owner directly. Games supply
+native room-pack, navigation and sequence rules around the ordinary lifecycle.
+The active foreground session selects the current camera; the transition owner
+publishes camera coordinates and their canvas transform in the same update.
+
+The object tail advances the source screen-transition handler after interactions
+and before rider/held-object copies and native item post updates. The final scroll
+tick still freezes destination AI earlier in that pass. A yielded interaction
+retains the pending item post pass until the same object dispatch resumes.
+
+The common player world owns Bomb and Bracelet input and their lift/carry/throw
+parents, and Satchel input with its live Pegasus counter, for both games.
+Link movement, dust and item input read that same counter owner. The common entity factory constructs Bomb and physical
+seed children, including attached burning effects, from the selected pack;
+lifted tiles and Shovel children advance in the shared reserved-item pass.
+Shovel's terrain transaction and independently colliding child also belong to
+the common player world. These paths use the same
+room, inventory and runtime owners. Game bindings supply additional interactions
+and event notifications; they do not allocate another copy of these parents.
+Room reset and interruption release them through the shared player-world contract.
+Parent clearing preserves physical children until their native item lifetime
+ends; explicit physical-item clearing retires them through the entity owner.
+Normal Link movement uses the common native `$81` object-disable gate.
+Freezing interactions, enemies or parts alone preserves Link's movement;
+native event bindings can supply additional movement ownership.
+
+Ground-treasure dialogue and heart-container completion are composed once by
+the shared gameplay session against its selected inventory, room, dialogue and
+transition owners. The native interaction slot retains the inventory grant,
+held-item updates, mask release and deletion. NPC hosts borrow this reward
+owner; they do not install another ground-treasure completion path. Room or
+session retirement releases the active reward and its subscriptions.
+
 Choosing Seasons preloads a detached `scenes/seasons/opening.tscn`, then shows
 the Seasons title and file menu. File selection binds the retained scene to
-the selected standard pre-intro save. The application retains its fixed-update, input, RNG and audio owners;
-the Seasons session composes shared player, collision, dialogue, script runner,
-HUD, room session and entity manager with its native opening controllers. The
-pregame presentation is shared by both games. Native interaction and part pools
+the selected standard file. Existing overworld files use the common checkpoint
+initializer; new files enter the native opening. The application retains its
+fixed-update, input, RNG and audio owners. Seasons supplies room content,
+collision and native opening controllers to the shared session. Both pregame
+introductions use the application's common controller, clock, graphics-wait and
+dialogue path, with their selected records and completion callbacks. Native interaction and part pools
 advance in original slot order; source signals and disabled-object masks retain
 their lifetime across controller, player, part and interaction phases.
 
@@ -41,6 +94,11 @@ the shared manager owns allocation, native slot walks, freezes, outgoing sets
 and retirement. Neither owner constructs Ages content implicitly. Ages creation
 helpers select their content explicitly, and both owners reject mismatched
 content, save and runtime packs before binding live state.
+Shared species bodies retain their physical slot and presenter when a native
+state dispatches into a game binding. Game-specific handlers consume the live
+state bytes and shared movement primitives. Dispatch does not reinitialize the
+object or restart its animation; native animation commands keep their source
+boundaries. Handler catalogs load when that native state is visited.
 
 The shared scroll controller owns setup, fractional movement and cleanup
 counters. Game composition supplies the source graphics schedule and handles
@@ -72,11 +130,26 @@ replacement still creates fresh saves, inventory, RNG, worlds, mutable room
 layouts, entity managers and event controllers; source tables never bind to
 those live owners.
 
-Game-specific boot recipes and gameplay composition belong to the corresponding
-`GameRoot` partial under `src/Games/`. The shared root owns scheduling, loading
-progress, input and file-store dispatch. Ages story selectors, world content and
-debug savestate serialization remain Ages-owned; a shared input decoder does
-not imply that another game's session supports the same savestate format.
+Game-specific boot recipes and content/controller construction belong to the
+corresponding `GameRoot` partial under `src/Games/`. The shared root owns scheduling,
+loading progress, input, pregame and file-store dispatch; `GameplaySession` owns
+common runtime composition and foreground advancement. Native story selectors
+and world construction remain game-owned. Debug savestate input, status,
+serialization and storage are shared; selected-session bindings supply stable
+capture eligibility and native reconstruction. Restore rejects a foreign game
+or unavailable room before releasing the active session.
+
+Replacing a bound session or exiting its scene disposes its previous owner.
+Disposal cancels pending object continuation, releases modal leases without
+executing menu completion callbacks, disconnects player game-over, inventory and
+room observers, and releases status/entity subscriptions. A disposed session cannot advance its
+clock, objects or presentation; application audio continues independently.
+The gameplay menu facade ignores late game-over, update and input calls after
+retirement, and the disposed pause owner rejects new leases. Replacing a session
+creates fresh menu and pause owners; a retained game-over callback cannot restart
+audio or change either session's save.
+Application menu/development accessors resolve that session directly instead of
+retaining separate controller references in a game binding.
 
 Boot resource steps share a soft 3 ms work budget per host frame. Small steps
 can finish together; asset count must not impose one rendered frame per asset.
@@ -151,11 +224,20 @@ Gameplay
     `-- development overlays
 ```
 
-`AgesGameSceneGraph` binds required unique nodes and rejects an incomplete scene.
+`GameplaySceneGraph` binds required unique nodes and rejects an incomplete scene.
+It selects every common presenter's content pack before child preparation or
+tree entry and rejects changing that selection afterward. Native scene variants
+add story presenters, such as the Ages ending and Seasons opening. Camera
+projection applies the gameplay-field origin without moving world coordinates;
+HUD placement changes interface positions and the projection together.
 Room entities, cutscene actors, drops, and effects are dynamic and are created
 by their runtime owners. Dispose gameplay-scoped event subscriptions before
 replacing a scene; freeing a Godot node does not detach managed handlers from a
 longer-lived publisher.
+The shared session retires its transition owner and entity pools when it closes.
+Retirement abandons unfinished scroll and palette work, detaches room callbacks,
+and clears allocations without completing a transition or advancing native object handlers.
+A retired transition rejects new transfer requests and cannot advance its old scene.
 
 ## Source organization
 
@@ -211,6 +293,32 @@ transition, or modal state in feature controllers.
 
 ## Fixed-update order
 
+The shared main-thread clock increments the active save's four-byte playtime
+counter and publishes its low byte as `wFrameCounter` before gameplay dispatch,
+including ordinary menus and native cutscenes. Room entities consume that byte;
+object updates and scrolling do not advance another clock. Explicit native
+scratch writes to the frame byte survive the current update, then the next main
+thread publication replaces them from playtime. Game Over stops this thread;
+its interface and the application audio clock continue independently.
+
+Both production games enter the same object dispatcher. It owns Link's death
+prelude, companion-before-Link dispatch, post-Link signal clearing, the shared
+entity walk, held-object positioning, tile-push publication and queued tile
+graphics. Native caller hooks retain transition and script phases around that
+walk. A yielding interaction suspends this pass: resuming finishes interactions
+and its tail without updating Link or entities again. Native event cancellation
+discards the continuation before a fresh object pass. Foreground cutscene/menu
+selection and game-specific service composition remain separate bindings.
+
+The ordinary foreground caller consumes pending `wCutsceneTrigger` after the
+status bar and before warp selection or collision dispatch. The shared operation
+masks bit 7 into `wCutsceneIndex`, clears the request and resets
+`wCutsceneState`; the selected game's native handler begins on the next update.
+Reduced native callers leave an ordinary request pending, including the update
+that returns to normal gameplay. A source controller can publish another
+request while its first cutscene runs. Do not replace this byte with direct
+event activation or clear it when that cutscene finishes.
+
 All sessions use `ApplicationFixedUpdateScheduler` to advance complete 60 Hz
 updates from host time. Gameplay counter deltas remain `1/60`; resource-loading
 time never becomes a larger gameplay delta. CPU instruction costs, LCD scanout
@@ -239,10 +347,13 @@ snapshot. Catch-up updates retain held state but do not receive the consumed
 edge. Timing and opening-frame suppression use original-update serials, not
 rendered-frame counters.
 
-Native simulated input replaces the gameplay key sample after menu dispatch
-and before special objects. The shared input facade derives fresh-key edges
-from consecutive gameplay samples without changing the physical snapshot.
-Its replacement lasts through the remaining object phases of that update.
+The shared special-object pass publishes physical, reversed or simulated game
+keys after menu dispatch and before companion/Link. The active session's WRAM
+owns held keys, fresh keys and the native angle; fresh keys compare with the
+previous object pass, including across menus which leave these bytes intact.
+Raw writes and runtime restoration use that same history. A yielded interaction
+resumes with the existing sample instead of polling again. The shared input
+facade borrows these bytes only for the remainder of the owning update.
 The text thread continues to read the physical snapshot, including choices
 opened while Link retains a terminal simulated-input stream.
 The script input owner retains native WRAM counters, palette gates and the

@@ -15,32 +15,61 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         ISeedBurnTarget, IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
         IObjectCollisionHeightRoomEntity, IDimitriMouthTarget, IGaleSeedTarget, ISwitchHookHittableRoomEntity,
-        IBiggoronSwordCollisionRoomEntity, IBombchuTargetRoomEntity, IBombCollisionRoomEntity
+        IBiggoronSwordCollisionRoomEntity, IBombchuTargetRoomEntity, IBombCollisionRoomEntity,
+        IThrownObjectCollisionRoomEntity, INativeShovelCollisionRoomEntity, IMinecartCollisionRoomEntity
     where T : EnemyCharacter
 {
     public virtual BombchuTarget BombchuTarget => new(combatDescriptor.Source?.Id ??
         throw new NotSupportedException($"{Entity.GetType().Name}: bombchuTargets requires the original ENEMY ID."),
         Entity.Visible, Entity.Position, Entity.CollisionBounds, Entity.Health);
     private bool _seedBurning;
+    // bank0.enemyStandardUpdate initializes var3e to $01.
+    protected virtual int NativeItemReactionFlags => 1;
+    public virtual bool ApplyMinecartCollision(MinecartCollisionRoomEntity item, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!item.CollisionEnabled || !Entity.CollisionEnabled || Entity.NativeHitPending || Entity.InvincibilityCounter != 0 ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.Z, 7) ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, item.Bounds)) return false;
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        int collision = item.CollisionType;
+        if (DimitriCollisionType < 0)
+            throw new NotSupportedException($"ITEM $1d versus {Entity.GetType().Name}: missing native ENEMY identity.");
+        if (!data.EnemyEnabled(DimitriCollisionType, collision)) return false;
+        int effect = data.Effect(DimitriCollisionMode, collision);
+        if (effect == CollisionEffect.None) return true;
+        if (effect == CollisionEffect.SwordNoKnockback)
+        {
+            bool hit = ApplyNoKnockbackItemHit(item.Position, item.Damage);
+            if (hit) item.NotifyTargetFlags(NativeItemReactionFlags);
+            return hit;
+        }
+        var strength = CollisionKnockback(collision, effect);
+        // The item owns its fixed damage, independently of Link's sword/rings.
+        bool accepted = combatDescriptor.Combat.ApplyDamageAfterCollision(item.Position, item.Damage,
+            strength, spawns, combatDescriptor.CountsAsEnemy);
+        if (accepted) { item.NotifyTargetFlags(NativeItemReactionFlags); Entity.DeferNativeHitStatus(); }
+        return accepted;
+    }
     public bool HasBombCollisionIdentity => DimitriCollisionType >= 0;
     public virtual bool ApplyBombCollision(IBombExplosionRoomEntity bomb, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = BombCollisionDatabase.Shared;
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        int collision = data.ItemType(ItemId.Bomb);
         if (!bomb.CollisionEnabled || !Entity.CollisionEnabled || Entity.NativeHitPending || Entity.InvincibilityCounter != 0 ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, bomb.CollisionZ, bomb.CollisionZRadius) ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bomb.CollisionBounds)) return false;
         if (!HasBombCollisionIdentity)
-            throw new NotSupportedException($"{Entity.GetType().Name}: ITEMCOLLISION_BOMB $18 requires its original ENEMY collision identity (collisionEffects.s:enemyCheckCollisions).");
-        if (!data.EnemyEnabled(DimitriCollisionType)) return false;
-        int effect = data.Effect(DimitriCollisionMode);
+            throw new NotSupportedException($"{AssetRoot}: {Entity.GetType().Name}: Bomb collision ${collision:x2} requires its original ENEMY collision identity (collisionEffects.s:enemyCheckCollisions).");
+        if (!data.EnemyEnabled(DimitriCollisionType, collision)) return false;
+        int effect = data.Effect(DimitriCollisionMode, collision);
         if (effect == CollisionEffect.None) return true;
         // Explicit species item handlers already own their non-sword Bomb row.
         if (this is IItemCollisionHittableRoomEntity native)
-            return native.ApplyItemCollision(RoomEntityItemCollision.Bomb, bomb.CollisionBounds,
+            return native.ApplyItemCollision((RoomEntityItemCollision)collision, bomb.CollisionBounds,
                 bomb.CollisionBounds.GetCenter(), bomb.Damage, spawns);
         if (effect == CollisionEffect.SwordNoKnockback)
             return ApplyNoKnockbackItemHit(bomb.CollisionBounds.GetCenter(), bomb.Damage);
-        var strength = CollisionKnockback(ItemCollisionType.Bomb, effect);
+        var strength = CollisionKnockback(collision, effect);
         if (combatDescriptor.Source is null)
             throw new NotSupportedException($"ENEMY ${DimitriCollisionType:x2} mode ${DimitriCollisionMode:x2}: Bomb effect ${effect:x2} has no source-backed damage owner.");
         bool accepted = combatDescriptor.Combat.ApplyDamageAfterCollision(bomb.CollisionBounds.GetCenter(), bomb.Damage,
@@ -49,6 +78,51 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         return accepted;
     }
     private bool _completedOutcomeTaken;
+    public bool HasShovelCollisionIdentity => DimitriCollisionType >= 0;
+    public bool ApplyNativeShovelCollision(Rect2 bounds, Vector2 origin)
+    {
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        int collision = data.ItemType(ItemId.Shovel);
+        if (!Entity.CollisionEnabled || Entity.NativeHitPending || Entity.InvincibilityCounter != 0 ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, 0, 7) ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds)) return false;
+        if (!HasShovelCollisionIdentity)
+            throw new NotSupportedException($"{AssetRoot}: {Entity.GetType().Name}: Shovel collision ${collision:x2} requires its original ENEMY identity.");
+        if (!data.EnemyEnabled(DimitriCollisionType, collision)) return false;
+        int effect = data.Effect(DimitriCollisionMode, collision);
+        if (effect == CollisionEffect.None) return true;
+        if (this is IShovelHittableRoomEntity specialized) return specialized.ApplyShovelHit(bounds, origin);
+        if (effect == CollisionEffect.SwordNoKnockback) return ApplyNoKnockbackItemHit(origin, 1);
+        if (effect != CollisionEffect.Bump)
+            throw new NotSupportedException($"{combatDescriptor.Source?.Source}: Shovel collision ${collision:x2}, mode ${DimitriCollisionMode:x2}, effect ${effect:x2} requires its native response.");
+        if (!Entity.TryApplyCollisionBump(bounds, origin, EnemyKnockbackStrength.Normal)) return false;
+        Entity.DeferNativeHitStatus();
+        return true;
+    }
+    public bool HasThrownObjectCollisionIdentity => DimitriCollisionType >= 0;
+    public bool ApplyThrownObjectCollision(ReservedBraceletCollision thrown, ICollection<RoomEntitySpawn> spawns)
+    {
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        int collision = data.ItemType(ItemId.Bracelet);
+        if (!Entity.CollisionEnabled || Entity.NativeHitPending || Entity.InvincibilityCounter != 0 ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, thrown.Z, thrown.Radius) ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, thrown.Bounds)) return false;
+        if (!HasThrownObjectCollisionIdentity)
+            throw new NotSupportedException($"{AssetRoot}: {Entity.GetType().Name}: thrown collision ${collision:x2} requires its original ENEMY identity.");
+        if (!data.EnemyEnabled(DimitriCollisionType, collision)) return false;
+        int effect = data.Effect(DimitriCollisionMode, collision);
+        if (effect == CollisionEffect.None) return true;
+        if (this is IItemCollisionHittableRoomEntity native)
+            return native.ApplyItemCollision((RoomEntityItemCollision)collision, thrown.Bounds,
+                thrown.Bounds.GetCenter(), thrown.Damage, spawns);
+        if (effect == CollisionEffect.SwordNoKnockback)
+            return ApplyNoKnockbackItemHit(thrown.Bounds.GetCenter(), thrown.Damage);
+        var strength = CollisionKnockback(collision, effect);
+        bool accepted = combatDescriptor.Combat.ApplyDamageAfterCollision(thrown.Bounds.GetCenter(), thrown.Damage,
+            strength, spawns, combatDescriptor.CountsAsEnemy);
+        if (accepted) Entity.DeferNativeHitStatus();
+        return accepted;
+    }
     private readonly GaleSeedEnemyMotion _gale = new(entity);
     private bool _nativeGaleHitPending;
     public virtual bool GaleCaught => _gale.Active;
@@ -68,12 +142,12 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     }
     public virtual BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = BoomerangCollisionDatabase.For(AssetRoot);
-        if (!item.CollisionEnabled || !data.EnemyEnabled(DimitriCollisionType) || GaleCaught ||
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        if (!item.CollisionEnabled || !data.EnemyEnabled(DimitriCollisionType, item.CollisionType) || GaleCaught ||
             !Entity.CollisionEnabled || BoomerangHitPending || Entity.InvincibilityCounter != 0 ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7) ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, item.CollisionBounds)) return default;
-        int effect = data.Effect(DimitriCollisionMode);
+        int effect = data.Effect(DimitriCollisionMode, item.CollisionType);
         switch (effect)
         {
             case CollisionEffect.None: return new(true, false);
@@ -81,15 +155,15 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
                 DamageByBoomerang(item, effect, spawns);
                 break;
             case CollisionEffect.Effect1b:
-                Entity.InvincibilityCounter = data.DeflectionInvincibility;
+                Entity.InvincibilityCounter = BoomerangStatusDatabase.Shared.DeflectionInvincibility;
                 MarkBoomerangHit();
                 return new(true, true, BoomerangCollisionResponse.Midpoint(Entity.Position, item.Position));
             case CollisionEffect.Effect1c:
                 MarkBoomerangHit();
                 break;
             case CollisionEffect.Stun:
-                Entity.ApplyBoomerangStun(data.StunCounter);
-                Entity.InvincibilityCounter = data.StunInvincibility;
+                Entity.ApplyBoomerangStun(BoomerangStatusDatabase.Shared.StunCounter);
+                Entity.InvincibilityCounter = BoomerangStatusDatabase.Shared.StunInvincibility;
                 combatDescriptor.RequestSound(SoundId.SndDamageEnemy);
                 break;
             case CollisionEffect.Effect35:
@@ -106,7 +180,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         if (GaleCaught || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
             !combatDescriptor.Combat.Intersects(hitbox) ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, seedZ, 7)) return false;
-        int effect = GaleSeedCollisionDatabase.For(AssetRoot).Effect(GaleCollisionMode);
+        int effect = ObjectCollisionDatabase.For(AssetRoot).Effect(GaleCollisionMode, ItemCollisionType.GaleSeed);
         if (effect == CollisionEffect.Effect20) return true;
         if (effect != CollisionEffect.GaleSeed) return false;
         _seedBurning = false;
@@ -130,12 +204,12 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     public bool Finished => combatDescriptor.Combat.Finished;
     public virtual bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
     {
-        var collisions = SwitchHookCollisionDatabase.Shared;
-        if (!collisions.EnemyEnabled(DimitriCollisionType)) return false;
+        var collisions = ObjectCollisionDatabase.For(AssetRoot);
+        if (!collisions.EnemyEnabled(DimitriCollisionType, ItemCollisionType.SwitchHook)) return false;
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, 0, 7) ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds,hook.CollisionBounds)) return false;
-        int effect = collisions.Effect(DimitriCollisionMode);
+        int effect = collisions.Effect(DimitriCollisionMode, ItemCollisionType.SwitchHook);
         // Even a no-op collision returns out of this enemy's collision scan,
         // so Link contact is skipped for this enemy while later enemies run.
         if (effect == CollisionEffect.None) return true;
@@ -256,12 +330,14 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         bool pendingHit, ICollection<RoomEntitySpawn> spawns, bool deferNativeStatus = true)
     {
         int type = DimitriCollisionType;
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        int collision = data.ItemType(0x18); // ITEM_18: the native Somaria block child.
         if (type < 0 || !block.CollisionEnabled || !Entity.CollisionEnabled ||
             pendingHit || Entity.InvincibilityCounter != 0 ||
-            !SomariaCollisionDatabase.Shared.Enemy((byte)type).Block ||
+            !data.EnemyEnabled(type, collision) ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, block.ZHigh, 7) ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, block.CollisionBounds)) return false;
-        int effect = SomariaCollisionDatabase.Shared.Effects((byte)DimitriCollisionMode).Block;
+        int effect = data.Effect(DimitriCollisionMode, collision);
         switch (effect)
         {
             case CollisionEffect.None: return true;
@@ -335,12 +411,12 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
 
         if (player.IsUsingShield &&
             combatDescriptor.Source is { } source &&
-            source.ShieldBumpResponse(player.Inventory.ShieldLevel) is
+            source.ShieldBumpResponse(player.Inventory.ShieldLevel,DimitriCollisionMode,DimitriCollisionType) is
                 { } response &&
             combatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
         {
             if (player.CanAcceptShieldCollision &&
-                Entity.TryApplyShieldBump(
+                Entity.TryApplyCollisionBump(
                 player.ShieldCollisionBounds,
                 player.ShieldCollisionBounds.GetCenter(),
                 response.EnemyStrength))
@@ -370,10 +446,10 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
 
     public virtual bool ApplyBiggoronSwordCollision(Rect2 bounds,Vector2 origin,int damage,ICollection<RoomEntitySpawn> spawns)
     {
-        var data=BiggoronSwordCollisionDatabase.For(AssetRoot);
+        var data=ObjectCollisionDatabase.For(AssetRoot);
         if(!Entity.CollisionEnabled || Entity.InvincibilityCounter!=0 || Entity.NativeHitPending ||
-            !data.EnemyEnabled(DimitriCollisionType) || !combatDescriptor.Combat.Intersects(bounds)) return false;
-        int effect=data.Effect(DimitriCollisionMode);
+            !data.EnemyEnabled(DimitriCollisionType, ItemCollisionType.BiggoronSword) || !combatDescriptor.Combat.Intersects(bounds)) return false;
+        int effect=data.Effect(DimitriCollisionMode, ItemCollisionType.BiggoronSword);
         // Even effect$00 ends this target's scan before its Link contact.
         if(effect==CollisionEffect.None) return true;
         if (effect == CollisionEffect.SwordNoKnockback)

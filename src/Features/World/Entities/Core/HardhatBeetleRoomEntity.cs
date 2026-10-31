@@ -24,7 +24,6 @@ internal sealed class HardhatBeetleRoomEntity
                 beetle.TakeBurnHit,
                 beetle.ApplySwordBump,
                 soundRequested,
-                EnemySwordResponse.Bump,
                 acceptedHitSound: 0))
     { _fellInHole = fellInHole; }
 

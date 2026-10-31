@@ -15,9 +15,9 @@ internal sealed class VeranChildBeeRoomEntity : CombatEnemyRoomEntityAdapter<Ver
     internal VeranChildBeeCharacter Actor=>Entity;
     internal VeranChildBeeRoomEntity(VeranChildBeeCharacter actor,RoomEntityManager owner,VeranFinalDatabase data)
         :base(actor,actor.SetTransitionDrawOffset,EnemyCombatDescriptor.WithContactDamage(
-            new(0x1f,actor.SubId,0x9f,0,0,EnemyHandlerKind.Keese,"veranFinalForm.s:veranFinal_beeForm_stateA",0x10,0x0f,0x0f),
+            new(actor.AssetRoot,0x1f,actor.SubId,0x9f,0,0,"veranFinalForm.s:veranFinal_beeForm_stateA"),
             actor,data.Actor(0x1f).DamageQuarters,actor.TakeSwordHit,actor.TakeBurnHit,actor.ApplySwordKnockback,
-            owner.OnSoundRequested,EnemySwordResponse.Knockback,deathPuffAllowed:()=>!actor.FlewOut,
+            owner.OnSoundRequested,deathPuffAllowed:()=>!actor.FlewOut,
             completedOutcome:()=>actor.FlewOut?RoomEnemyOutcome.RoomCountDecrement():RoomEnemyOutcome.EnemyDie(0),
             deathPuffZHigh:()=>actor.GaleCollisionDisabled?actor.GaleDrawZ:actor.BurnZFixed>>8),collisionZ:()=>actor.BurnZFixed>>8)
     {_data=data;_owner=owner;}

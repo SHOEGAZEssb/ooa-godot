@@ -26,14 +26,14 @@ public sealed partial class ValidationRoot
             _saveData.SetGlobalFlag(AgesGlobalFlag.FinishedGame, false);
             LoadValidationRoom(0, 0x70);
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            NpcCharacter fairy = _entities.Entities<NpcCharacter>().Single();
-            FailIf(fairy.Active || fairy.Visible || fairy.CanTalkTo(_player),
-                "Room 0:70 $49:$0b appeared before GLOBALFLAG_FINISHEDGAME.");
+            FailIf(_entities.EntityAdapters<ForestNpcRoomEntity>().Any() ||
+                _roomEvents.Get<ForestFairySecretEvent>().HasState,
+                "Room 0:70 $49:$0b retained its native allocation or secret script before GLOBALFLAG_FINISHEDGAME.");
 
             _saveData.SetGlobalFlag(AgesGlobalFlag.FinishedGame);
             LoadValidationRoom(0, 0x70);
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            fairy = _entities.Entities<NpcCharacter>().Single();
+            NpcCharacter fairy = _entities.Entities<NpcCharacter>().Single();
             ForestFairySecretEvent secret = _roomEvents.Get<ForestFairySecretEvent>();
             FailIf(!fairy.Active || !fairy.Visible || !secret.HasState ||
                 fairy.Position != new Vector2(0x48, 0x48) ||
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
                     !PlainWords(_dialogue.CurrentMessage).Contains(repeat
                         ? "Here's the secret to being happy"
                         : "Are you looking for me?", StringComparison.Ordinal) ||
-                    !_player.CutsceneControlled,
+                    _player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                     $"Room 0:70 $49:$0b A did not open TX_{(repeat ? 0x114d : 0x1148):x4} or disable input.");
             }
             void FinishText()

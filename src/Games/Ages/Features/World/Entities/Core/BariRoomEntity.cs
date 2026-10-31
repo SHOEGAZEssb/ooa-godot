@@ -21,7 +21,7 @@ internal sealed class BariRoomEntity : CombatEnemyRoomEntityAdapter<BariCharacte
     internal BariRoomEntity(BariCharacter enemy, EnemyCombatSourceDescriptor source, Action<int> sound, Func<byte> random)
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
-                enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback, sound, EnemySwordResponse.Knockback,
+                enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback, sound,
                 deathPuffAllowed: () => !enemy.SplitCompleted,
                 completedOutcome: () => enemy.SplitCompleted ? RoomEnemyOutcome.ReplacementDeletion(source.CountsAsEnemy) :
                     RoomEnemyOutcome.EnemyDie(source.KillableEnemyIndex)), collisionZ: () => enemy.ZFixed >> 8)

@@ -184,8 +184,9 @@ internal sealed class LedgeJumpDatabase
 
     private void Validate()
     {
-        if (_cliffTiles.Count != 38 ||
-            _landableSolidTiles.Count != 6 ||
+        bool ages = OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages;
+        if (_cliffTiles.Count != (ages ? 38 : 30) ||
+            _landableSolidTiles.Count != (ages ? 6 : 2) ||
             Array.Exists(_directions, record => record == default) ||
             Array.Exists(_speedRawByLength, speed => speed == 0) ||
             _directions[0] != new LedgeJumpDirectionRecord(
@@ -214,7 +215,7 @@ internal sealed class LedgeJumpDatabase
             !AnimationPhaseDurations.AsSpan().SequenceEqual([9, 9, 6]))
         {
             throw new InvalidOperationException(
-                "Imported Ages ledge-jump tables are incomplete or inconsistent.");
+                $"{AssetRoot}: imported native ledge-jump tables are incomplete or inconsistent.");
         }
     }
 }

@@ -132,7 +132,6 @@ internal sealed class EnemyCombatDescriptor
         Func<int, bool> takeBurnHit,
         Action<Vector2, EnemyKnockbackStrength> acceptedSwordHit,
         Action<int> soundRequested,
-        EnemySwordResponse swordResponse,
         Func<Vector2>? deathPuffPosition = null,
         Func<bool>? deathPuffAllowed = null,
         Func<RoomEnemyOutcome>? completedOutcome = null,
@@ -140,6 +139,8 @@ internal sealed class EnemyCombatDescriptor
         bool dropsItem = true,
         Func<int>? deathPuffZHigh = null)
     {
+        if (source.AssetRoot != enemy.AssetRoot)
+            throw new InvalidOperationException($"{source.Source}: ENEMY ${source.Id:x2}:${source.SubId:x2} combat pack '{source.AssetRoot}' does not match actor pack '{enemy.AssetRoot}'.");
         var combat = EnemyCombatComponent.WithContactDamage(
             () => enemy.IsDead,
             () => enemy.CollisionBounds,
@@ -166,17 +167,16 @@ internal sealed class EnemyCombatDescriptor
                     soundRequested(acceptedHitSound);
             });
         return FromSource(
-            source, combat, swordResponse, completedOutcome, soundRequested);
+            source, combat, completedOutcome, soundRequested);
     }
 
     internal static EnemyCombatDescriptor FromSource(
         EnemyCombatSourceDescriptor source,
         EnemyCombatComponent combat,
-        EnemySwordResponse swordResponse,
         Func<RoomEnemyOutcome>? completedOutcome = null,
         Action<int>? soundRequested = null)
     {
-        source.ValidateSwordResponse(swordResponse);
+        source.ValidateNativeCollisionData();
         return new EnemyCombatDescriptor(
             combat,
             source.CountsAsEnemy,
@@ -212,30 +212,23 @@ internal sealed class EnemyCombatDescriptor
 }
 
 internal readonly record struct EnemyCombatSourceDescriptor(
+    string AssetRoot,
     int Id,
     int SubId,
     int CollisionMode,
     int ObjectFlags,
     int KillableEnemyIndex,
-    EnemyHandlerKind Handler,
-    string Source,
-    int ShieldLevel1Effect = 0,
-    int ShieldLevel2Effect = 0,
-    int ShieldLevel3Effect = 0,
-    string ShieldSource = "unavailable")
+    string Source)
 {
     internal bool CountsAsEnemy => (ObjectFlags & 0x02) == 0;
     internal bool CollisionInitiallyEnabled => (CollisionMode & 0x80) != 0;
 
-    internal EnemyShieldBumpResponse? ShieldBumpResponse(int shieldLevel)
+    internal EnemyShieldBumpResponse? ShieldBumpResponse(int shieldLevel, int? liveMode = null, int? liveType = null)
     {
-        int effect = shieldLevel switch
-        {
-            1 => ShieldLevel1Effect,
-            2 => ShieldLevel2Effect,
-            3 => ShieldLevel3Effect,
-            _ => 0
-        };
+        if (shieldLevel is < 1 or > 3) return null;
+        var data = ObjectCollisionDatabase.For(AssetRoot);
+        if (!data.EnemyEnabled(liveType ?? Id,shieldLevel)) return null;
+        int effect = data.Effect(liveMode ?? CollisionMode,shieldLevel);
         return effect switch
         {
             // collisionEffect0f applies LINKDMG_$10 / ENEMYDMG_$10.
@@ -257,57 +250,12 @@ internal readonly record struct EnemyCombatSourceDescriptor(
         };
     }
 
-    internal void ValidateSwordResponse(EnemySwordResponse response)
+    internal void ValidateNativeCollisionData()
     {
-        int collisionMode = CollisionMode & 0x7f;
-        EnemySwordResponse expected =
-            (Handler, collisionMode) switch
+        try { _ = ObjectCollisionDatabase.For(AssetRoot).Effect(CollisionMode,ItemCollisionType.L1Sword); }
+        catch (NotSupportedException error)
         {
-            (EnemyHandlerKind.VeranFinal, 0x6a) => EnemySwordResponse.None,
-            (EnemyHandlerKind.AmbiGuard, 0x5a) => EnemySwordResponse.NoKnockback,
-            (EnemyHandlerKind.KingMoblin, 0x50) => EnemySwordResponse.None,
-            (EnemyHandlerKind.RiverZora, 0x0f) => EnemySwordResponse.NoKnockback,
-            (EnemyHandlerKind.PodobooTower, 0x0f) => EnemySwordResponse.NoKnockback,
-            (EnemyHandlerKind.ArrowDarknut, 0x20) => EnemySwordResponse.Knockback,
-            (EnemyHandlerKind.Lynel, 0x12) => EnemySwordResponse.Knockback,
-            (EnemyHandlerKind.SwordEnemy, 0x20) => EnemySwordResponse.Knockback,
-            (EnemyHandlerKind.GopongaFlower, 0x23) => EnemySwordResponse.NoKnockback,
-            (EnemyHandlerKind.BuzzBlob, 0x1b) => EnemySwordResponse.ElectricShock,
-            (EnemyHandlerKind.FlyingTile, 0x3c) =>
-                EnemySwordResponse.NoKnockback,
-            (EnemyHandlerKind.Thwomp, 0x28) =>
-                EnemySwordResponse.Armored,
-            (EnemyHandlerKind.BladeTrap, 0x13) => EnemySwordResponse.Armored,
-            (EnemyHandlerKind.GiantBladeTrap, 0x26) => EnemySwordResponse.Armored,
-            (EnemyHandlerKind.Bubble, 0x19) => EnemySwordResponse.None,
-              (EnemyHandlerKind.Bari, 0x2d) => EnemySwordResponse.Knockback,
-              (EnemyHandlerKind.Wizzrobe, 0x30) => EnemySwordResponse.Knockback,
-            (EnemyHandlerKind.Candle, 0x3e) => EnemySwordResponse.Bump,
-            (EnemyHandlerKind.Gibdo, 0x16) => EnemySwordResponse.NoKnockback,
-            (EnemyHandlerKind.IronMask, 0x1d or 0x53) => EnemySwordResponse.Knockback,
-            (EnemyHandlerKind.Pincer,0x34) => EnemySwordResponse.NoKnockback,
-            (EnemyHandlerKind.LikeLike, 0x22) => EnemySwordResponse.Knockback,
-            (EnemyHandlerKind.BallChainSoldier, 0x37) => EnemySwordResponse.NoKnockback,
-            (EnemyHandlerKind.FireKeese, 0x2b) => EnemySwordResponse.Knockback,
-            (EnemyHandlerKind.ArmMimic, 0x39) =>
-                EnemySwordResponse.Knockback,
-            (_, 0x10 or 0x11 or 0x14 or 0x1a or 0x1f or 0x25 or 0x31 or 0x3a or 0x3b or 0x7d) =>
-                EnemySwordResponse.Knockback,
-            (_, 0x18) => EnemySwordResponse.Armored,
-            (_, 0x17 or 0x1c or 0x28 or 0x29 or 0x33 or 0x58 or 0x6e) =>
-                EnemySwordResponse.NoKnockback,
-            (_, 0x36 or 0x7e) => EnemySwordResponse.Knockback,
-            (_, 0x21 or 0x38 or 0x42) => EnemySwordResponse.Bump,
-            _ => throw new InvalidOperationException(
-                $"{Source} resolves {Handler} ${Id:x2}:${SubId:x2} to " +
-                $"unsupported enemy collision mode ${CollisionMode:x2}.")
-        };
-        if (response != expected)
-        {
-            throw new InvalidOperationException(
-                $"{Source} resolves {Handler} ${Id:x2}:${SubId:x2} through " +
-                $"enemy collision mode ${CollisionMode:x2}, which requires " +
-                $"{expected} instead of {response}.");
+            throw new InvalidOperationException($"{Source}: ENEMY ${Id:x2}:${SubId:x2} has no native combat row: {error.Message}",error);
         }
     }
 }
@@ -316,13 +264,3 @@ internal readonly record struct EnemyShieldBumpResponse(
     EnemyKnockbackStrength EnemyStrength,
     int LinkInvincibilityFrames,
     int LinkKnockbackFrames);
-
-internal enum EnemySwordResponse
-{
-    None,
-    ElectricShock,
-    Knockback,
-    Armored,
-    NoKnockback,
-    Bump
-}

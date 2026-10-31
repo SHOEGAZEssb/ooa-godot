@@ -13,7 +13,9 @@ public sealed partial class ValidationRoot
         RaftBehavior behavior = new RaftDatabase().Behavior;
         _saveData.SetGlobalFlag(behavior.ChangedRoomsFlag);
         LoadValidationRoom(1, 0xa7);
-        RaftRoomEntity raft = _entities.Entities<RaftRoomEntity>().Single();
+        _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
+        var waiting = _entities.Entities<RaftInteractionRoomEntity>().Single();
+        RaftRoomEntity raft = null!;
         OracleRoomData room = _rooms.CurrentRoom;
         for (int y = 8; y < room.Height; y += 16)
         for (int x = 8; x < room.Width; x += 16)
@@ -23,7 +25,7 @@ public sealed partial class ValidationRoot
         {
             _entities.UpdateSpecialObjectsBeforePlayer(_player);
             _player.AdvanceApplicationUpdate();
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player, specialObjectsUpdated: true);
         }
         void InputStep(params string[] actions)
         {
@@ -33,22 +35,20 @@ public sealed partial class ValidationRoot
         }
         void PlaceRaft(Vector2 position)
         {
-            typeof(RaftRoomEntity).GetField("_precisePosition",
-                BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(raft, position);
+            ((INativeSpecialObjectRoomEntity)raft).NativeSpecialObjectPosition = position;
             raft.Position = OracleObjectMath.ToPixelPosition(position);
             raft.UpdatePlayerForcedMovement(_player);
         }
-        int InstrumentLock() => (int)typeof(Player).GetField("_instrumentsDisabledCounter",
-            BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(_player)!;
+        int InstrumentLock() => _runtimeState.ReadField("wInstrumentsDisabledCounter");
 
         // interactionCodee6: the $09 box supplies support, but only the $05
         // box allocates w1Companion. Equality lies outside either radius.
-        Vector2 origin = raft.PrecisePosition;
+        Vector2 origin = waiting.PrecisePosition;
         foreach (int dx in new[] { 9, 8, 5 })
         {
             _player.WarpTo(origin + new Vector2(dx, -5), recordSafe: false);
-            _entities.Update(1.0 / 60.0, _player);
-            FailIf(raft.LinkRiding || raft.UsesSpecialObjectSlot ||
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+            FailIf(_entities.RaftSpecialObjectPresent ||
                 _entities.PlayerRidingObject != (dx < 9),
                 $"INTERAC_RAFT $e6 approach boundary dx=${dx:x2} confused support and mounting.");
         }
@@ -56,7 +56,8 @@ public sealed partial class ValidationRoot
         FailIf(_player.IsUsingHarp || InstrumentLock() != 5,
             "INTERAC_RAFT $e6 did not publish its five-update instrument lock.");
         _player.WarpTo(origin + new Vector2(4.75f, -4.75f), recordSafe: false);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+        raft = _entities.Entities<RaftRoomEntity>().Single();
         FailIf(raft.LinkRiding || !raft.UsesSpecialObjectSlot ||
             CompanionRuntimeState.ReadRemembered(_entities.RuntimeState).Id != 0,
             "INTERAC_RAFT $e6 performed SPECIALOBJECT_RAFT $13 initialization before its next pass.");
@@ -99,7 +100,7 @@ public sealed partial class ValidationRoot
         FailIf(raft.PrecisePosition != opposedStart,
             "SPECIALOBJECT_RAFT $13 ignored the aiming Seed Shooter's immobilization.");
         Input.ActionRelease("attack");
-        _seedSatchel.InterruptShooter();
+        _seedShooter.InterruptShooter();
 
         // wLinkObjectIndex points at the raft: collision is six pixels on each
         // axis around its ground center, with the original half-open byte edges.
@@ -174,8 +175,7 @@ public sealed partial class ValidationRoot
         // actual dock data that calculateAdjacentWallsBitset consumes.
         MethodInfo dismount = typeof(RaftRoomEntity).GetMethod("TryDismount",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
-        typeof(RaftRoomEntity).GetField("_dismountAngle", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .SetValue(raft, 4);
+        _runtimeState.SetWramByte(0xd13e, 4);
         FailIf(!(bool)dismount.Invoke(raft, [_player])!,
             "SPECIALOBJECT_RAFT $13 incorrectly rejected a diagonal dismount request.");
         for (int update = 0; update < 11; update++)
@@ -187,14 +187,16 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(raft.DisablesMenus || raft.UsesSpecialObjectSlot ||
             CompanionRuntimeState.IsActive(_entities.RuntimeState, SpecialObjectId.Raft) ||
-            raft.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex,
+            _entities.Entities<RaftInteractionRoomEntity>().Single().ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex,
             "SPECIALOBJECT_RAFT $13 state $02 did not recreate INTERAC_RAFT $e6:$02 on its zero update.");
 
         Step();
         Step(); // Complete Link's separate 14-update forced walk.
-        _player.WarpTo(raft.PrecisePosition + new Vector2(0.75f, -4.75f), recordSafe: false);
-        _entities.Update(1.0 / 60.0, _player);
+        waiting = _entities.Entities<RaftInteractionRoomEntity>().Single();
+        _player.WarpTo(waiting.PrecisePosition + new Vector2(0.75f, -4.75f), recordSafe: false);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         Step();
+        raft = _entities.Entities<RaftRoomEntity>().Single();
         FailIf(!raft.LinkRiding, "INTERAC_RAFT $e6:$02 could not remount for scroll validation.");
         remembered = CompanionRuntimeState.ReadRemembered(_entities.RuntimeState);
         raft.BeginScreenTransition(_world.LoadRoom(1, 0xa8));
@@ -207,10 +209,10 @@ public sealed partial class ValidationRoot
             "SPECIALOBJECT_RAFT $13 boundary clamp discarded the source fractional byte.");
         raft.FinishScreenTransition(new Vector2(8.5f, 85.25f), _player);
         FailIf(CompanionRuntimeState.ReadRemembered(_entities.RuntimeState) != remembered ||
-            CompanionRuntimeState.Read(_entities.RuntimeState).Room != 0xa8 ||
+            SomariaPrivate<OracleRoomData>(raft, "_room").Id != 0xa8 ||
             _player.LocalRespawnPosition != new Vector2(8, 85) ||
             CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData) != new Vector2(8, 85),
-            "SPECIALOBJECT_RAFT $13 scroll finisher lost the active room/local checkpoint or rewrote remembered state.");
+            "SPECIALOBJECT_RAFT $13 scroll finisher lost its destination terrain/local checkpoint or rewrote remembered state.");
 
         _player.RequestForcedRespawn();
         Step();
@@ -237,7 +239,8 @@ public sealed partial class ValidationRoot
         _saveData.SetGlobalFlag(behavior.ChangedRoomsFlag, false);
         _saveData.WriteWramByte(behavior.DimitriStateAddress, (byte)behavior.DimitriMask);
         LoadValidationRoom(1, 0xa9);
-        FailIf(_entities.Entities<RaftRoomEntity>().Count != 0,
+        _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
+        FailIf(_entities.Entities<RaftInteractionRoomEntity>().Count != 0,
             "Room 1:a9 INTERAC_RAFT $e6:$00 skipped GLOBALFLAG_RAFTON_CHANGED_ROOMS.");
         GD.Print("Validated INTERAC_RAFT $e6 radii, delayed mount, instrument lock, " +
             "fractional Link coordinates, source-priority $03, diagonal direction, " +

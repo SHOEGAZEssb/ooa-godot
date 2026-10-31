@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         var enemies = new EnemyDatabase(AgesGameContent.AssetRoot);
         var npcs = new NpcDatabase(AgesGameContent.AssetRoot);
         var visibility = new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot);
-        var runtime = AgesGameContent.CreateRuntimeState();
+        var runtime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         var predicateSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         NpcRecord ghini = npcs.GetRoomNpcs(0, 0x5d).Single(npc =>
             npc.Id == 0xcb && npc.SubId == 0x00);
@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
                 Npcs = npcs,
                 Enemies = enemies,
                 SaveData = save,
-                RuntimeState = AgesGameContent.CreateRuntimeState(),
+                RuntimeState = OracleRuntimeState.CreateInitialized(OracleGame.Ages),
                 Inventory = inventory,
                 Treasures = treasures
             });
@@ -81,18 +81,18 @@ public sealed partial class ValidationRoot
             "Room 0:5d did not create the fixed perched Crow and hidden Bomb producer.");
 
         _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !bombProducer.Initialized || crow.State != CrowState.Perched,
             "Crow/drop-producer state 0 did not capture the source initial state.");
 
         _player.WarpTo(crow.Position + Vector2.Down * 0x30, recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             crow.State != CrowState.Rising || crow.Counter1 != 25,
             "The perched Crow lost its inclusive $30/$18 approach rectangle.");
         for (int frame = 0; frame < 25; frame++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         int aimDelta = (crow.Angle - 0x10) & 0x1f;
         if (aimDelta > 0x10)
             aimDelta -= 0x20;
@@ -102,7 +102,7 @@ public sealed partial class ValidationRoot
             Math.Abs(aimDelta) != 4,
             "The Crow did not rise six pixels for 25 updates and begin its randomized charge.");
         Vector2 chargeStart = crow.PrecisePosition;
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             crow.Counter2 != 89 ||
             !Mathf.IsEqualApprox(
@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
         byte bombTile = room05d.GetMetatile(bombProducer.Position);
         room05d.SetPositionTileAndCollision(
             bombProducer.Position, (byte)(bombTile ^ 1), null, 0);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         ItemDropEffect bombDrop = manager.Entities<ItemDropEffect>().Single();
         FailIf(
             manager.Entities<ItemDropProducer>().Count != 0 ||
@@ -126,7 +126,7 @@ public sealed partial class ValidationRoot
             frame < 180 && manager.Entities<CrowCharacter>().Count != 0;
             frame++)
         {
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             !crow.DeletedOutOfBounds ||
@@ -219,7 +219,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(liveGhini.Position + Vector2.Down * 12.0f, recordSafe: false);
         _player.Face(Vector2I.Up);
         var ghiniTrace = new ValidationCutsceneTrace();
-        _interactions.NpcScriptsForValidation.TraceSink = ghiniTrace;
+        _interactions.AgesScripts().TraceSink = ghiniTrace;
         void CompleteLinkedChoiceWait()
         {
             for (int update = 0; update <= 20; update++)
@@ -302,7 +302,7 @@ public sealed partial class ValidationRoot
             "linkedGameNpcScript's typed trace lost a refusal/repeat/accept " +
             "branch, loaded-text boundary, secret generation, or exact " +
             "20-update wait.");
-        _interactions.NpcScriptsForValidation.TraceSink = null;
+        _interactions.AgesScripts().TraceSink = null;
 
         _saveData.SetLinkedGame(linkedBefore);
         _saveData.WriteWramByte(AgesWramAddress.wEssencesObtained, essencesBefore);

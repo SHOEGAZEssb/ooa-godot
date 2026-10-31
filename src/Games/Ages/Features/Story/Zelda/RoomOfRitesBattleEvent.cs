@@ -91,7 +91,7 @@ internal sealed partial class RoomOfRitesBattleEvent(RoomEventContext context) :
                 context.Sound.PlayNativeSound(SoundId.SndOpening); State = 4; return;
             case 4:
                 context.Entities.BeginScreenShake(255);
-                if (((context.Entities.FrameCounter + 1) & 63) == 0) context.Sound.PlayNativeSound(SoundId.SndOpening);
+                if ((context.Entities.FrameCounter & 63) == 0) context.Sound.PlayNativeSound(SoundId.SndOpening);
                 Write(0xcbb4, Read(0xcbb4) - 1); if (Read(0xcbb4) != 0) return;
                 Fade(true, 4); State = 5; return;
             case 5:

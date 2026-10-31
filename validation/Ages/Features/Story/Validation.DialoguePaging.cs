@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
         using Image expected = Image.CreateEmpty(160, 40, false, Image.Format.Rgba8);
         expected.Fill(Colors.Transparent);
         expected.FillRect(new Rect2I(8, 0, 144, 40), Colors.Black);
-        Color ink = _rooms.World.BackgroundPalettes.Resolve(0, 2);
+        Color ink = _rooms.BackgroundPalettes.Resolve(0, 2);
         for (int row = 0; row < 2; row++)
         for (int column = 0; column < 16; column++)
         for (int y = 0; y < 16; y++)

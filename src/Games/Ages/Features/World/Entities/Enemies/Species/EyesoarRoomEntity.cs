@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Oracles;
 
 internal sealed class EyesoarRoomEntity : CombatEnemyRoomEntityAdapter<EyesoarActor>, IFixedRoomEntity,
-    IPlayerRestriction, IPlayerForcedMovement, IScreenTransitionPreloadRoomEntity,
+    IPlayerRestriction, IScreenTransitionPreloadRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     ILinkSwordStateAwareRoomEntity, IItemCollisionHittableRoomEntity, IPostObjectMeleeCollisionRoomEntity,
     IExpertPunchHittableRoomEntity, ISeedCollisionTarget
@@ -30,20 +30,15 @@ internal sealed class EyesoarRoomEntity : CombatEnemyRoomEntityAdapter<EyesoarAc
     public bool DisablesItems => DisablesSword;
     public bool DisablesMovement => DisablesSword;
     public bool DisablesMenus => DisablesSword;
-    public void UpdatePlayerForcedMovement(Player player)
-    { if (!Entity.IsChild && !Finished) Entity.Entry.Update(player); }
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        bool starts = Entity.Initializing && Entity.IsSpawner;
         Entity.UpdateFrame(frame.Player, frame.Counter, spawns);
-        if (starts) Entity.Entry.Arm();
     }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.Initializing)
         {
             Entity.InitializeState(spawns);
-            if (Entity.IsSpawner) Entity.Entry.Arm();
         }
         return ScreenTransitionPresentation.Hidden;
     }

@@ -29,7 +29,7 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
         Action<int> sound, Func<int, bool> enemySlots, SpikedBallDatabase weapon)
         : base(soldier, soldier.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, soldier, soldier.Record.DamageQuarters,
-                soldier.TakeSwordHit, _ => false, (_, _) => { }, sound, EnemySwordResponse.NoKnockback),
+                soldier.TakeSwordHit, _ => false, (_, _) => { }, sound),
             collisionZ: () => soldier.ZFixed >> 8)
     { _enemySlots = enemySlots; _weapon = weapon; }
     private void Advance(Vector2 link, ICollection<RoomEntitySpawn> spawns)

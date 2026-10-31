@@ -17,9 +17,9 @@ internal sealed class VeranSpiderRoomEntity : CombatEnemyRoomEntityAdapter<Veran
     protected override bool Stunned=>Entity.StunCounter!=0;
     internal VeranSpiderRoomEntity(VeranSpiderCharacter actor,PalacePossessionDatabase data,RoomEntityManager owner)
         : base(actor,actor.SetTransitionDrawOffset,EnemyCombatDescriptor.WithContactDamage(
-            new(0x0f,1,0x10,0,0,EnemyHandlerKind.None,"veranPossessionBoss.s:veranPossessionBoss_ambi_stateD",0x10,0x0f,0x0f),
+            new(actor.AssetRoot,0x0f,1,0x10,0,0,"veranPossessionBoss.s:veranPossessionBoss_ambi_stateD"),
             actor,data.Spider.DamageQuarters,actor.TakeSwordHit,actor.TakeBurnHit,actor.ApplySwordKnockback,
-            owner.OnSoundRequested,EnemySwordResponse.Knockback,
+            owner.OnSoundRequested,
             deathPuffZHigh:()=>actor.GaleCollisionDisabled?actor.GaleDrawZ:actor.ZFixed>>8),collisionZ:()=>actor.ZFixed>>8)
     { _damage=data.Spider.DamageQuarters; _data=data; _owner=owner; }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)

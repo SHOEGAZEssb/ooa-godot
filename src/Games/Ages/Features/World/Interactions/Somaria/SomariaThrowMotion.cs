@@ -8,7 +8,7 @@ namespace Oracles;
 internal sealed class SomariaThrowMotion(OracleRoomData room, SomariaPlacementDatabase hazards, OracleRuntimeState? memory = null)
 {
     private readonly BraceletWeight _weight = new BraceletWeightDatabase(AgesGameContent.AssetRoot).Weight(0);
-    private readonly BombRecord _common = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+    private readonly BombRecord _common = new BombDatabase(AgesGameContent.AssetRoot).Data;
     private readonly ItemTilePassage _passage = new(room.AssetRoot);
     private Vector2 _position;
     private int _z, _speedZ, _flags;

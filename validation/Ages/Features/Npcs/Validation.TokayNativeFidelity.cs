@@ -113,21 +113,21 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(0, 0xbd);
             NpcCharacter npc = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x48);
             _player.WarpTo(npc.Position + delta, recordSafe: false);
-            _entities.Update(1.0 / 60.0, _player);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             Vector2I expected = delta.X > 0 ? Vector2I.Right : Vector2I.Left;
             FailIf(npc.FacingVector != expected,
                 "Ordinary Tokay did not choose horizontal facing on equal native X/Y distances.");
             _player.WarpTo(npc.Position - delta, recordSafe: false);
             for (int update = 0; update < 29; update++)
-                _entities.Update(1.0 / 60.0, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(npc.FacingVector != expected, "Tokay facing cooldown expired before 30 updates.");
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(npc.FacingVector != -expected, "Tokay facing cooldown did not expire on update 30.");
         }
 
         LoadValidationRoom(2, 0xe5);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         TokayCharacter[] statues = _entities.Entities<TokayCharacter>()
             .Where(npc => npc.Record.SubId is >= 0x1a and <= 0x1c).ToArray();
         FailIf(statues.Length != 3 || statues.Single(npc => npc.Record.SubId == 0x1a).Record.Palette != 2 ||
@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
             "Wild Tokay museum lost its red statue or held-meat accessory.");
         var poses = statues.Select(npc => (npc.CurrentAnimationFrame, npc.CurrentAnimationPixelHash)).ToArray();
         for (int update = 0; update < 120; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(!statues.Select(npc => (npc.CurrentAnimationFrame, npc.CurrentAnimationPixelHash)).SequenceEqual(poses),
             "Wild Tokay museum statues animated autonomously.");
 
@@ -145,14 +145,14 @@ public sealed partial class ValidationRoot
         TokayEyeballSlotRoomEntity slot = _entities.Entities<TokayEyeballSlotRoomEntity>().Single();
         _player.WarpTo(slot.Position + new Vector2(5, 11), recordSafe: false);
         _player.Face(Vector2I.Up);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         for (int update = 0; update < 12; update++)
         {
             Input.BeginOriginalUpdate(new ApplicationInputSnapshot(["item"], [], Vector2.Up));
             try
             {
                 slot.UpdatePushAttempt(_player.Position, Vector2I.Up, Vector2I.Up);
-                _entities.Update(1.0 / 60.0, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             }
             finally { Input.EndOriginalUpdate(); }
         }
@@ -161,18 +161,18 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 8; update++)
         {
             slot.UpdatePushAttempt(_player.Position, Vector2I.Up, Vector2I.Up);
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(slot.PushCounter != 1, "Eyeball centering excluded the source +$05 endpoint.");
         _player.BeginCutsceneControl();
         slot.UpdatePushAttempt(_player.Position, Vector2I.Up, Vector2I.Up);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(slot.State != TokayEyeballSlotState.Waiting || slot.PushCounter != 10,
             "Eyeball insertion ignored disabled Link collisions on counter zero.");
         _player.EndCutsceneControl();
         _player.WarpTo(slot.Position + Vector2.Down * 11, recordSafe: false);
         FailIf(!slot.TryInteract(_player), "Eyeball socket omitted pirateSubid4Script's A-button path.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(slot.State != TokayEyeballSlotState.EyeWait ||
             !_saveData.HasRoomFlag(1, 0xba, OracleSaveData.RoomFlag80),
             "Eyeball A-button path did not start the common insertion script.");

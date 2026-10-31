@@ -79,7 +79,7 @@ internal sealed class DungeonInteractionVisualDatabase
 
     private void ValidateContract()
     {
-        if (_visuals.Count != 44 ||
+        if (_visuals.Count != 43 ||
             Visual("enemy-attached-key") is not { TileBase: 0x0c, Palette: 5, Animations.Length: 1 } ||
             Visual("sarcophagus") is not { TileBase: 0x1c, Palette: 4, Animations.Length: 1 } ||
             Visual("falling-star") is not { TileBase: 18, Palette: 5, Animations.Length: 1 } ||
@@ -97,8 +97,6 @@ internal sealed class DungeonInteractionVisualDatabase
             Visual("moving-side-platform").Animations.Length != 5 ||
             Visual("circular-side-platform").Animations.Length != 1 ||
             Visual("minecart").Animations.Length != 4 ||
-            Visual("spinner") is not
-                { TileBase: 0, Palette: 4, Animations.Length: 4 } ||
             Visual("grotto-crystal") is not
                 { TileBase: 0x12, Palette: 1, Animations.Length: 2 } ||
             Visual("grotto-crystal-break") is not

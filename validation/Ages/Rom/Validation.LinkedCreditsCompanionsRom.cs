@@ -80,7 +80,7 @@ public sealed partial class ValidationRoot
                 FailIf(_entities.EntityAdapters<CreditsBananaRoomEntity>().Count()!=Enumerable.Range(2,14).Count(slot=>rom[0xd040+slot*256]!=0&&rom[0xd041+slot*256]==0xc0),"Banana must delete on Moosh's replacement in the same interaction pass.");
                 if(!checkedBackground&&!_transitions.NativePaletteFadeActive)
                 {
-                    checkedBackground=true;using var image=_scene.EndingScreen.BackgroundTexture!.GetImage();
+                    checkedBackground=true;using var image=_endingScreen.BackgroundTexture!.GetImage();
                     for(int y=0;y<144;y++)for(int x=0;x<160;x++)
                     {
                         int map=0x9800+(y/8)*32+x/8,tile=rom.VramByte(0,map),flags=rom.VramByte(1,map),at=0x9000+unchecked((sbyte)tile)*16;

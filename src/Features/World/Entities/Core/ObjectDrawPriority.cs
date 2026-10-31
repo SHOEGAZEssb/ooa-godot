@@ -40,4 +40,8 @@ internal static class ObjectDrawPriority
         return (Mathf.FloorToInt(objectY) & 0xff) > threshold
             ? InFrontOfLinkZIndex : BehindLinkZIndex;
     }
+
+    // commonCode.s: companionSetPriorityRelativeToLink decrements the native bucket.
+    internal static int CompanionRelativeToLink(float objectY, float linkY, int zHigh = 0) =>
+        FromVisible(ToVisibleBucket(RelativeToLink(objectY, linkY, zHigh)) - 1);
 }

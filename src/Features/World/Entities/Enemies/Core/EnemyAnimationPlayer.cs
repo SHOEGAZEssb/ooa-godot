@@ -321,6 +321,15 @@ internal sealed class EnemyAnimationPlayer
             throw new ArgumentOutOfRangeException(nameof(remaining));
         _frameCounter = remaining;
     }
+
+    internal void RestoreFrame(int frameIndex, int remaining)
+    {
+        if ((uint)frameIndex >= (uint)_animations[_animationIndex].Count)
+            throw new ArgumentOutOfRangeException(nameof(frameIndex));
+        SetFrameCounter(remaining);
+        _frameIndex = frameIndex;
+        _entity.QueueRedraw();
+    }
 }
 
 internal sealed record EnemyAnimationPlayerAnimationFrame(

@@ -21,10 +21,10 @@ public sealed partial class ValidationRoot
                 SomariaPrivate<Action<int>>(template,"_playSound"),SomariaPrivate<Func<bool>>(template,"_shuttersClosed"),
                 SomariaPrivate<Action>(template,"_disableLink"),SomariaPrivate<Action>(template,"_enableLink"),
                 SomariaPrivate<Action>(template,"_restoreRoomMusic"),SomariaPrivate<Action<int,string,Vector2>>(template,"_showDialogue"),
-                SomariaPrivate<Func<bool>>(template,"_dialogueOpen"),SomariaPrivate<string>(template,"_introMessage"));_entities.Clear();
+                SomariaPrivate<Func<bool>>(template,"_dialogueOpen"),SomariaPrivate<string>(template,"_introMessage"),_entities.InitializeBossRoom);_entities.Clear();
             F1Set(parent,"_initialized",true);F1Set(parent,"_introActive",false);F1Set(parent,"_state",ShadowHagState.ShadowsConverging);
             F1Set(parent,"_counter1",255);F1Set(parent,"_counter2",1);F1Set(parent,"_bugsAlive",ownerCount);
-            var parentAdapter=new ShadowHagBossRoomEntity(parent,Vector2I.Zero);F1Set(parentAdapter,"_initialized",true);
+            var parentAdapter=new ShadowHagBossRoomEntity(parent);
             _entities.RegisterEnemySlot(parentAdapter,5);_entities.AddEntity(parentAdapter);
             int angle=variant&31,gate=form==0?angle&3:0;bool late=form==1&&variant>=32;
             if(form==0)

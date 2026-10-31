@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
                 "Loading a checksum-valid save must preserve every byte, including zero vine positions.");
             for (int address = 0xc5b0; address < 0xcb00; address++) rom[address] = loaded!.ReadWramByte(address);
             rom.InitializeSavedGame();
-            AgesDeathRespawnInitialization.Apply(loaded!);
+            DeathRespawnInitialization.Apply(loaded!);
             foreach (int address in Enumerable.Range(0xc62b, 13).Concat(Enumerable.Range(0xc8f0, 6)))
                 FailIf(loaded!.ReadWramByte(address) != rom[address],
                     $"Saved-state preservation at {group:x1}:{room:x2}, X=${position.X:x2}/Y=${position.Y:x2}: byte ${address:x4} differs from native initializeGame.");

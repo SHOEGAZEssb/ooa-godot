@@ -20,6 +20,11 @@ internal sealed class MenuRom
         return _rom.BankByte(2, address) | _rom.BankByte(2, address + 1) << 8;
     }
     internal void LoadHudGraphics() => _rom.LoadHudGraphics();
+    internal void LoadCommonGraphics(int frame)
+    {
+        this[0xcc00] = (byte)frame;
+        _rom.Call(0x515c, 2);
+    }
     internal int DisplayedObjectColor(int palette,int shade)
     {
         return _rom.DisplayedObjectColor(palette,shade);

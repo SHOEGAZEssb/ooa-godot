@@ -62,11 +62,14 @@ public partial class ValidationRoot
                 }
                 finally { _entities.TextActiveSource = text; }
                 Step(2);
-                // ecom sideview probes find only the upper X wall; add $0060
-                // to Y each update. These stored speeds keep hFF8D nonzero.
-                FailIf(actor.Position != corner.Value + new Vector2(0,0.75f) ||
-                    actor.KnockbackCounter != 14 || actor.InvincibilityCounter != 30 || State() != state,
-                    $"Enemy${id:x2} must slide at a corner and retain recoil without running route AI: position={actor.Position}, start={corner.Value}, knock={actor.KnockbackCounter}, inv={actor.InvincibilityCounter}, state={State()}/{state}.");
+                // The $0060 corner slide sets hFF8D only below SPEED_140.
+                // Resting Keese retains state0's $45 and ends recoil early.
+                bool stopsEarly = actor is KeeseCharacter;
+                FailIf(stopsEarly && ((KeeseCharacter)actor).Speed != 0x45,
+                    "Ages Keese must retain the native state-zero speed $45 while resting.");
+                FailIf(actor.Position != corner.Value + new Vector2(0,stopsEarly ? 0.375f : 0.75f) ||
+                    actor.KnockbackCounter != (stopsEarly ? 0 : 14) || actor.InvincibilityCounter != 30 || State() != state,
+                    $"Enemy${id:x2} corner slide must use its stored speed for the recoil return flag: position={actor.Position}, start={corner.Value}, knock={actor.KnockbackCounter}, inv={actor.InvincibilityCounter}, state={State()}/{state}.");
             }
             if (actor is ZolCharacter { Record.SubId: 1 } red)
             {

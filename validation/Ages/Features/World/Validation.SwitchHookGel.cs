@@ -7,8 +7,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookSplitGels()
     {
-        FailIf(!SwitchHookCollisionDatabase.Shared.EnemyEnabled(0x43) ||
-            SwitchHookCollisionDatabase.Shared.Effect(0x33) != 0x0b,
+        FailIf(!ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyEnabled(0x43, ItemCollisionType.SwitchHook) ||
+            ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(0x33, ItemCollisionType.SwitchHook) != 0x0b,
             "ENEMY_GEL $43 mode $33 must enable hook column $0d and damage effect $0b.");
         foreach (bool batched in new[] { false, true })
         foreach (int level in new[] { 1, 2 })

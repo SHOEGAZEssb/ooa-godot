@@ -44,11 +44,11 @@ public sealed partial class ValidationRoot
                 for (int distance = 2; distance <= 3; distance++)
                     _currentRoom.SetPositionTileAndCollision(center + (Vector2)directions[direction] * (16 * distance),
                         (byte)(direction % 2 == 0 ? 0x5e : 0x5d), 0, 0);
-            MinecartRuntimeState.Reset(_runtimeState, []);
-            MinecartRuntimeState.BeginRide(_runtimeState, 0, _currentRoom.Id, rideStart, direction);
+            ResetMinecartsForValidation(_runtimeState, []);
+            MinecartValidationView.PrepareMountedBody(_runtimeState, rideStart, direction);
             var cart = new MinecartRoomEntity(new ActiveMinecart(-1, _currentRoom.Id, (int)rideStart.Y, (int)rideStart.X, direction, true),
-                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
-                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
+                _currentRoom, _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound, _entities);
             _entities.AddEntity(cart);
             _player.WarpTo(rideStart + new Vector2(0.25f, 0.5f)); _player.Face(directions[direction]);
             _player.FinishMinecartMount(rideStart, direction, 0);
@@ -62,6 +62,7 @@ public sealed partial class ValidationRoot
             rom[0xd108] = (byte)direction; rom[0xd109] = (byte)(direction * 8);
             rom[0xd10b] = (byte)rideStart.Y; rom[0xd10d] = (byte)rideStart.X;
             rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
+            MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
             MinecartShutterRoomEntity? controller = null;
             if (persistent)
             {
@@ -82,7 +83,7 @@ public sealed partial class ValidationRoot
             {
                 StepGameplayUpdates(count, Vector2.Zero, [], [], batched, () =>
                 {
-                    rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter - 1); update++;
+                    rom.UpdateGameplay(0, 0, 0xff, _saveData.ReadField("wPlaytimeCounter")); update++;
                     sawRespawn |= rom[0xd004] == 2;
                     sawHidden |= (rom[0xd01a] & 0x80) == 0;
                     string context = $"Minecart door=${door:x2}, direction={direction}, persistent={persistent}, delayed={delayed}, cramped={cramped}, update={update}, batch={batched}";

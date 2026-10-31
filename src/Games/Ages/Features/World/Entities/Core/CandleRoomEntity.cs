@@ -18,7 +18,7 @@ internal sealed class CandleRoomEntity : CombatEnemyRoomEntityAdapter<CandleChar
     internal CandleRoomEntity(CandleCharacter candle, EnemyCombatSourceDescriptor source, Action<int> sound)
         : base(candle, candle.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, candle, candle.Record.DamageQuarters,
-                candle.TakeSwordHit, candle.TakeBurnHit, (_, _) => { }, sound, EnemySwordResponse.Bump,
+                candle.TakeSwordHit, candle.TakeBurnHit, (_, _) => { }, sound,
                 deathPuffAllowed: () => false, completedOutcome: () => candle.ExplosionCompleted
                     ? RoomEnemyOutcome.SilentDefeat(source.KillableEnemyIndex, source.CountsAsEnemy)
                     : RoomEnemyOutcome.HazardDeletion(source.CountsAsEnemy), acceptedHitSound: 0)) { }

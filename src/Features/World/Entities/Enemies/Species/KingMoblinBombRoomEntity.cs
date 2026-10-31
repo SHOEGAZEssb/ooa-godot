@@ -11,6 +11,6 @@ internal sealed class KingMoblinBombRoomEntity(KingMoblinBomb actor)
     public bool Finished => Entity.IsDead;
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(frame);
     public bool TryUseBracelet(Player player,Vector2I direction) => Entity.TryUseBracelet(player,direction);
-    public void UpdateBraceletChild(Player player) => Entity.UpdateBraceletChild(player);
+    public void UpdateBraceletChild(Player player, bool frozen = false) => Entity.UpdateBraceletChild(player, frozen);
     public void HandleLinkContact(Player player) => Entity.HandleLinkContact(player);
 }

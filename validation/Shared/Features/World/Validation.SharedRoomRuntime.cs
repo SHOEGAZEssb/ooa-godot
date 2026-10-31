@@ -8,18 +8,41 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSharedRoomRuntime()
     {
-        int frame = _entities.FrameCounter;
-        _runtimeState.SetWramByte(0xcc00, 0xff);
-        _entities.AdvanceFrozenRoomFrame();
-        FailIf(_entities.FrameCounter != 0 || _runtimeState.ReadWramByte(0xcc00) != 0,
-            "mainThread's native frame byte must have one owner and wrap $ff to $00, including frozen object updates.");
-        _runtimeState.SetWramByte(0xcc00, checked((byte)frame));
-        var data = new SeasonsOpeningData();
+        foreach (OracleGame game in new[] { OracleGame.Ages, OracleGame.Seasons })
+        {
+            var clockSave = OracleSaveData.CreateStandardGame(game);
+            var clockState = OracleRuntimeState.CreateInitialized(game);
+            // bank0.s:mainThreadStart increments the four little-endian bytes,
+            // then publishes the low byte before runGameLogic.
+            for (int index = 0; index < 4; index++) clockSave.WriteField("wPlaytimeCounter", 0xff, index);
+            clockState.FrameCounter = 0x37;
+            MainThreadClock.Advance(clockSave, clockState);
+            FailIf(clockState.FrameCounter != 0 || clockState.ReadWramByte(0xcc00) != 0 ||
+                Enumerable.Range(0, 4).Any(index => clockSave.ReadField("wPlaytimeCounter", index) != 0),
+                $"{game}: mainThread must wrap the 32-bit playtime counter and publish $00 before gameplay.");
+            clockState.FrameCounter = 0x91;
+            MainThreadClock.Advance(clockSave, clockState);
+            FailIf(clockState.FrameCounter != 1 || clockSave.ReadField("wPlaytimeCounter") != 1,
+                $"{game}: the next mainThread update must derive its frame byte from playtime, not a previous native scratch modification.");
+        }
+        var data = new SeasonsWorldData();
         var save = OracleSaveData.CreateStandardGame(OracleGame.Seasons);
         var memory = OracleRuntimeState.CreateInitialized(OracleGame.Seasons);
         long tick = 0;
         var content = new SeasonsRoomContent(data);
         var rooms = new RoomSession(content, 0, 0xa7, () => tick, () => tick = 0, save, memory, countAsRoomEntry: false);
+        FailIf(!ReferenceEquals(rooms.BackgroundPalettes, data.Palettes),
+            "The shared room session must expose its selected content's authoritative palette owner.");
+        FailIf(!rooms.HasRoom(0, 0x00) || !rooms.HasRoom(0, 0xff) || !rooms.HasRoom(1, 0x00) || rooms.HasRoom(2, 0x00) ||
+            rooms.HasRoom(0, -1) || rooms.HasRoom(0, 0x100) || rooms.GetDungeonIndex(0, 0xb6) != -1 || rooms.GetDungeonIndex(1, 0x00) != -1,
+            "Room availability and dungeon queries must use the selected content's imported room boundary.");
+        // Native roomPacks: $b6/$a6=$10; $c6=$00. Seasons compares all
+        // eight bits and fades even though these records have no high bit.
+        FailIf(!rooms.RequiresRoomPackFade(0, 0xb6, 0xc6) ||
+            !rooms.RequiresRoomPackFade(0, 0xc6, 0xb6) ||
+            rooms.RequiresRoomPackFade(0, 0xb6, 0xa6) ||
+            rooms.RequiresRoomPackFade(1, 0xb6, 0xc6),
+            "Room-pack policy must retain Seasons' group-zero/full-byte gate independently of Ages' fade bit.");
         FailIf(save.GetRoomFlags(0, 0xa7) != 0 || save.GashaMaturity != 0 || memory.ReadField("wScrollMode") != 0,
             "Preparing a shared Seasons room session must not enter the room or advance native maturity.");
         rooms.Load(0, 0xb6);
@@ -36,6 +59,31 @@ public sealed partial class ValidationRoot
         rooms.LoadCutsceneBackground(0, 0xc8);
         FailIf(save.MinimapRoom != 0x98 || save.GetRoomFlags(0, 0xc8) != 0 || save.GashaMaturity != 10,
             "A cutscene background load must preserve admission counters and the visited/minimap state.");
+        Texture2D texture = rooms.CurrentRoom.Texture;
+        Color[,] originalPalette = rooms.BackgroundPalettes.Capture();
+        Color[,] replacement = (Color[,])originalPalette.Clone();
+        for (int palette = 2; palette < 8; palette++)
+        for (int shade = 0; shade < 4; shade++) replacement[palette, shade] = Colors.Magenta;
+        int redraws = 0;
+        void CountRedraw() => redraws++;
+        texture.Changed += CountRedraw;
+        try
+        {
+            using (rooms.DeferTexturePublication())
+            {
+                rooms.BackgroundPalettes.Restore(replacement);
+                using (rooms.DeferTexturePublication()) rooms.CurrentRoom.RedrawForPaletteChange();
+                FailIf(redraws != 0 || rooms.BackgroundPalettes.Resolve(2, 0) != Colors.Magenta,
+                    "A room publication scope must defer textures while native palette bytes change synchronously.");
+            }
+            FailIf(redraws != 1 || !ReferenceEquals(texture, rooms.CurrentRoom.Texture),
+                "Nested room publication must flush once through the selected content without replacing texture identity.");
+        }
+        finally
+        {
+            texture.Changed -= CountRedraw;
+            rooms.BackgroundPalettes.Restore(originalPalette);
+        }
         byte[] original = memory.CaptureState().Wram;
         bool rejected = false;
         try { _ = new RoomSession(content, 0, 0xa7, () => 0, () => { }, OracleSaveData.CreateStandardGame(OracleGame.Ages), memory); }

@@ -13,7 +13,7 @@ internal sealed partial class BlackTowerEndingEvent
         // pickaxeWorker.s: forceLoadRoom retains every live object/script.
         var room=context.Rooms.LoadCutsceneBackground(1,0x38);context.Entities.RebindCutsceneBackground(room);
         context.RoomView.SetRoom(room.Texture);context.Sound.SelectRoomMusic(1,0x38,context.Rooms.SaveData);
-        Screens.ApplyPalette(0x30,context.Rooms.World.BackgroundPalettes,context.Entities);
+        Screens.ApplyPalette(0x30,context.Rooms.BackgroundPalettes,context.Entities);
         Screen.Load("credits-maku-past",room,context.RoomView);Write(AgesWramAddress.wTilesetAnimation,255);
     }
     private void SetCreditsScrollY(int value)
@@ -53,7 +53,7 @@ internal sealed partial class BlackTowerEndingEvent
             case 1:
                 if(!DecrementWord(0xcbb3))return;
                 State=2;Write(0xcbb3,0x48);Write(0xcbb4,3);
-                Screens.ApplyPalette(4,context.Rooms.World.BackgroundPalettes,context.Entities);
+                Screens.ApplyPalette(4,context.Rooms.BackgroundPalettes,context.Entities);
                 context.Transitions.BeginNativeBlackFade(false,delay:6);return;
             case 2:
                 // This counter runs concurrently with the fade, unlike the
@@ -103,8 +103,8 @@ internal sealed partial class BlackTowerEndingEvent
                 // forceLoadRoom calls loadTilesetGraphics/initializeAnimations
                 // even if the preceding screen used the same animation group.
                 Load(row.Group,row.Room,restartAnimations:true);
-                Screens.ApplyPalette(0x0f,context.Rooms.World.BackgroundPalettes,context.Entities);
-                Screens.ApplyPalette(row.Palette,context.Rooms.World.BackgroundPalettes,context.Entities);
+                Screens.ApplyPalette(0x0f,context.Rooms.BackgroundPalettes,context.Entities);
+                Screens.ApplyPalette(row.Palette,context.Rooms.BackgroundPalettes,context.Entities);
                 Screen.Load(index switch {0=>"credits-maku",1=>"credits-performance",2=>"credits-sword",_=>"credits-construction"},context.Rooms.CurrentRoom,context.RoomView,row.Uncmp);
                 Write(AgesWramAddress.wTilesetAnimation,index==0?255:1);
                 if(index!=0)Screen.BeginNativeAnimation(context.AnimationTick());
@@ -126,12 +126,12 @@ internal sealed partial class BlackTowerEndingEvent
                             if(actor.SubId==0x10)
                             {
                                 context.Entities.AddEntity(new MakuStatueConstructionRoomEntity(context,Data,actor.Position,
-                                    ()=>Screens.ApplyPalette(0xc8,context.Rooms.World.BackgroundPalettes,context.Entities),SetCreditsScrollY));break;
+                                    ()=>Screens.ApplyPalette(0xc8,context.Rooms.BackgroundPalettes,context.Entities),SetCreditsScrollY));break;
                             }
                             context.Entities.AddEntity(new MakuLinkStatueRoomEntity(Data.Actor(actor.Id,actor.SubId,actor.Position),new MakuSproutRoomDatabase(),
                                 context.Rooms.CurrentRoom,context.AnimationTick,()=>
                                 {
-                                    Screens.ApplyPalette((context.Rooms.CurrentRoom.TilesetFlags&(int)TilesetFlags.Past)!=0?0xc7:0xc6,context.Rooms.World.BackgroundPalettes,context.Entities);
+                                    Screens.ApplyPalette((context.Rooms.CurrentRoom.TilesetFlags&(int)TilesetFlags.Past)!=0?0xc7:0xc6,context.Rooms.BackgroundPalettes,context.Entities);
                                     return context.Entities.NativeObjectPalettes![6];
                                 }));break;
                         case 0x39:context.Entities.AddEntity(new NayruRescueActorRoomEntity(context,_companions??=new(),actor.Id,actor.SubId,actor.Position));break;

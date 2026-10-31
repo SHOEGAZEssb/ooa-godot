@@ -72,6 +72,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         _memory = memory;
         _pushCounter = record.PushDelay;
         Position = position;
+        Visible = false;
         Name = $"VineSprout_{record.SubId:x2}";
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
@@ -88,7 +89,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         ICollection<RoomEntitySpawn> spawns)
     {
         _ = spawns;
-        Visible = true;
+        InitializeStateZero();
         return ScreenTransitionPresentation.Visible;
     }
 
@@ -101,9 +102,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         _pendingPushInput = null;
         if (!_initialized)
         {
-            _random.Next(); // bank0.s: enemyStandardUpdate initializes var3d before enemyCode62.
-            _initialized = true;
-            OccupyTile();
+            InitializeStateZero();
             return;
         }
         if (!_moving)
@@ -131,6 +130,16 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         Position = CenterOnTile(Position);
         _moving = false;
         _pushCounter = _record.PushDelay;
+        OccupyTile();
+    }
+
+    private void InitializeStateZero()
+    {
+        if (_initialized) return;
+        _random.Next(); // enemyStandardUpdate's var3d precedes enemyCode62.
+        _initialized = true;
+        Position = _database.ResolvePosition(_record.SubId,_room,_save);
+        Visible = true;
         OccupyTile();
     }
 

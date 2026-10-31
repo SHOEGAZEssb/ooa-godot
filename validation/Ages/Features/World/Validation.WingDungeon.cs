@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
         {
             for (int frame = 0; frame < count; frame++)
             {
-                _entities.Update(update, _player);
+                _entities.AdvanceEntityFrames(update, _player);
                 _rooms.UpdateChangedTileGraphics(1);
             }
         }
@@ -104,7 +104,7 @@ public sealed partial class ValidationRoot
         }
 
         SetAllRoomFlags(value: false);
-        MinecartRuntimeState.Reset(
+        ResetMinecartsForValidation(
             _entities.RuntimeState, data.Minecarts);
 
         // func_5933 does not snap shallow turns directly to the input angle.
@@ -296,7 +296,7 @@ public sealed partial class ValidationRoot
         foreach ((int room, int position, string treasure) in expectedChests)
         {
             FailIf(
-                !chests.TryGet(4, room, position, out ChestRecord chest) ||
+                !chests.TryGetRecord(4, room, position, out ChestRecord chest) ||
                 chest.TreasureObject != treasure,
                 $"Wing Dungeon chest 4:{room:x2}/${position:x2} is not " +
                 $"{treasure}.");
@@ -366,7 +366,7 @@ public sealed partial class ValidationRoot
                 case 0x35:
                 case 0x40:
                     FailIf(
-                        _entities.Entities<MinecartRoomEntity>().Count != 1,
+                        _entities.Entities<MinecartInteractionRoomEntity>().Count != 1,
                         $"Room 4:{room:x2} did not restore its static minecart.");
                     break;
                 case 0x34:
@@ -483,8 +483,9 @@ public sealed partial class ValidationRoot
         Step();
         Step();
         UpdateAnimatedTiles(1.0 / 60.0);
+        StepGameplayUpdates(3, Vector2.Zero);
         _dialogue.Close();
-        _interactions.Update(1.0 / 60.0, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         _inventoryMenu.OpenImmediatelyForValidation();
         _inventory.EquipB(TreasureId.Feather);
         _inventoryMenu.CloseImmediatelyForValidation();
@@ -644,7 +645,7 @@ public sealed partial class ValidationRoot
             "Room 4:2f did not reconstruct its closed bit-$10 minecart gate " +
             "before the scroll-persistence check.");
 
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x30);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x30);
         CompleteTransition();
         FailIf(
             _currentRoom.Id != 0x30 ||
@@ -652,7 +653,7 @@ public sealed partial class ValidationRoot
                 AgesGameContent.SwitchStateAddress) != 0x10,
             "The 4:2f -> 4:30 screen scroll did not retain wSwitchState bit $10.");
 
-        _transitions.BeginScroll(_player, Vector2I.Left, 0x2f);
+        _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x2f);
         CompleteTransition();
         minecartGate = _entities.Entities<MinecartGateRoomEntity>().Single();
         FailIf(
@@ -703,7 +704,7 @@ public sealed partial class ValidationRoot
         _currentRoom.SetUnderlyingMetatile(floorSwitchPoint, 0xae);
         Step();
 
-        _transitions.BeginScroll(_player, Vector2I.Up, 0x35);
+        _transitions.BeginValidationScroll(_player, Vector2I.Up, 0x35);
         CompleteTransition();
         FailIf(
             _currentRoom.Id != 0x35 ||
@@ -716,7 +717,7 @@ public sealed partial class ValidationRoot
         // $21:$07 is authoritative for its own bit and precedes the gate.
         _entities.RuntimeState.SetWramByte(
             AgesGameContent.SwitchStateAddress, 0x20);
-        _transitions.BeginScroll(_player, Vector2I.Down, 0x3b);
+        _transitions.BeginValidationScroll(_player, Vector2I.Down, 0x3b);
         CompleteTransition();
         minecartGate = _entities.Entities<MinecartGateRoomEntity>().Single();
         FailIf(
@@ -870,13 +871,12 @@ public sealed partial class ValidationRoot
             $"changed (hash={_player.MinecartAttackAtlasPixelHash:x16}).");
 
         PrepareRoom(0x33);
-        MinecartRoomEntity minecart =
-            _entities.Entities<MinecartRoomEntity>().Single();
+        var minecart = new MinecartValidationView(_entities, _player);
         _player.WarpTo(
             minecart.Position + new Vector2(-8, 8),
             recordSafe: false);
         _player.Face(Vector2I.Right);
-        _player.UpdatePushingState(Vector2I.Right);
+        UpdatePushingStateForValidation(_player,Vector2I.Right);
         Step();
         FailIf(
             minecart.PushCounter != 4 || minecart.Mounting,
@@ -887,7 +887,7 @@ public sealed partial class ValidationRoot
             minecart.Position + Vector2.Left * 12,
             recordSafe: false);
         _player.Face(Vector2I.Right);
-        _player.UpdatePushingState(Vector2I.Right);
+        UpdatePushingStateForValidation(_player,Vector2I.Right);
         _sound.ClearPlayRequestAudit();
         Step(3);
         FailIf(
@@ -1049,13 +1049,13 @@ public sealed partial class ValidationRoot
                     (sourceRoom != 0x2f || _currentRoom.Id != 0x33) ||
                 _entities.Entities<MinecartRoomEntity>() is not
                     [var retainedMinecart] ||
-                !ReferenceEquals(retainedMinecart, minecart) ||
+                !ReferenceEquals(retainedMinecart, minecart.Body) ||
                 !minecart.Riding,
                 "SPECIALOBJECT_MINECART did not persist as the single active " +
                 "cart across its dungeon room scroll " +
                 $"(source=4:{sourceRoom:x2}, destination=4:{_currentRoom.Id:x2}, " +
                 $"carts={_entities.Entities<MinecartRoomEntity>().Count}, " +
-                $"same={_entities.Entities<MinecartRoomEntity>().Contains(minecart)}, " +
+                $"same={_entities.Entities<MinecartRoomEntity>().Contains(minecart.Body!)}, " +
                 $"riding={minecart.Riding}).");
         }
         FailIf(
@@ -1121,7 +1121,7 @@ public sealed partial class ValidationRoot
             "SPECIALOBJECT_MINECART did not finish Link's 32-update exit " +
             "jump with movement away from the restored cart blocker.");
 
-        MinecartRuntimeState.Reset(
+        ResetMinecartsForValidation(
             _entities.RuntimeState, data.Minecarts);
 
         // Direct development launches of D2's aliased side-view layouts must
@@ -2247,7 +2247,7 @@ public sealed partial class ValidationRoot
         BombEffect mouthBomb = _entities.Spawn<BombEffect>(
             new BombSpawn(
                 _player,
-                new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,
+                new BombDatabase(AgesGameContent.AssetRoot).Data,
                 4,
                 static _ => { }));
         mouthBomb.Throw(

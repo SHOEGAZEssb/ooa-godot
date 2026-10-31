@@ -20,8 +20,7 @@ internal sealed class SandCrabRoomEntity
                 sandCrab.TakeSwordHit,
                 sandCrab.TakeBurnHit,
                 sandCrab.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback), collisionZ: () => sandCrab.ZFixed >> 8)
+                soundRequested), collisionZ: () => sandCrab.ZFixed >> 8)
     { }
 
     public void UpdateFrame(

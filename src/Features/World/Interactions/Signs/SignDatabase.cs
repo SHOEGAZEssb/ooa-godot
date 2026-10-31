@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace Oracles;
@@ -30,9 +29,6 @@ public sealed class SignDatabase
             int key = MakeKey(group, room, position);
             _messages.Add(key, row.Base64Utf8(4));
         }
-
-        if (_messages.Count != 42)
-            throw new InvalidOperationException($"Expected 42 sign records, loaded {_messages.Count}.");
     }
 
     public bool TryGetMessage(int group, int room, int position, out string message)

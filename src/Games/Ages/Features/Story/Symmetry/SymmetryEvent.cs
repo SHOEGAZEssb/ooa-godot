@@ -5,7 +5,7 @@ using System.Linq;
 namespace Oracles;
 
 /// <summary>Independent INTERAC_SYMMETRY_NPC slots; script initialization runs on room entry.</summary>
-internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent,
+internal sealed class SymmetryEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
     public override RoomEventContext Context { get; }
@@ -18,6 +18,12 @@ internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntry
     public bool HasState => _actors.Count != 0;
     public bool BlocksGameplay => InputControlHeld;
 
+    internal void BeginNutPlacement()
+    {
+        SetDisabledObjects(0x01);
+        SetNativeMenuDisabled(0x01);
+    }
+
     public SymmetryEvent(RoomEventContext context) => Context = context;
     public bool Matches(int group, OracleRoomData room) => Context.Entities.EntityAdapters<SymmetryRoomEntity>().Any();
     public void Start(OracleRoomData room)
@@ -26,6 +32,7 @@ internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntry
         // objectLoading.s:parseObjectData clears $cfc0 before the room's object stream.
         Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 0);
         _nut = Context.Entities.EntityAdapters<TuniNutRoomEntity>().SingleOrDefault();
+        _nut?.Bind(this);
         foreach (var entity in Context.Entities.EntityAdapters<SymmetryRoomEntity>())
         {
             entity.Bind(this);
@@ -34,9 +41,9 @@ internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntry
     }
     public void UpdateFrame()
     {
-        _nut?.AdvanceFrame(this);
         foreach (var actor in _actors) actor.AdvanceFrame();
     }
+    internal void AdvanceBeforeObjects() => _nut?.AdvancePalette();
     public void UpdateDuringDialogueFrame() => UpdateFrame();
     internal bool TryInteractNpc(NpcCharacter npc)
     {
@@ -48,6 +55,7 @@ internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntry
     }
     public void Cancel()
     {
+        Context.Player.CancelNativeForcedMovement(this);
         _nut?.Cancel(Context.Rooms.CurrentRoom);
         _nut = null;
         foreach (var actor in _actors) actor.Cancel();

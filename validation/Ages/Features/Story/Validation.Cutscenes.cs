@@ -17,15 +17,15 @@ public sealed partial class ValidationRoot
             screen, () => completionRequests++, _sound);
         NewGameIntroRecord record = intro.Record;
         var introDatabase = new NewGameIntroDatabase(AgesGameContent.AssetRoot);
-        IntroSpriteFrame[] linkSpin =
+        ObjectSpriteFrame[] linkSpin =
             introDatabase.SpriteFrames("link-spin");
-        IntroSpriteFrame[] linkVanish =
+        ObjectSpriteFrame[] linkVanish =
             introDatabase.SpriteFrames("link-vanish");
-        IntroSpriteFrame[] linkArrival =
-            introDatabase.SpriteFrames("link-arrival");
-        IntroSpriteFrame[] orbDescend =
+        ObjectSpriteFrame[] linkArrival =
+            LinkItemDatabase.For(AgesGameContent.AssetRoot).FallFrames;
+        ObjectSpriteFrame[] orbDescend =
             introDatabase.SpriteFrames("orb-descend");
-        IntroSpriteFrame[] orbVanish =
+        ObjectSpriteFrame[] orbVanish =
             introDatabase.SpriteFrames("orb-vanish");
         int descendFrames = record.InitialWaitFrames + record.VoiceWaitFrames;
         int fairySoundRequests =
@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
             linkSpin.Any(frame => frame.Duration != 4 || frame.BasePalette != 0) ||
             linkSpin[0].Parts.Length != 2 || linkVanish[1].Parts.Length != 1 ||
             !linkArrival.Select(frame => frame.Duration).SequenceEqual(new[] { 4, 4, 4 }) ||
-            !linkArrival.Select(frame => frame.SourceOffset)
+            !linkArrival.Select(frame => frame.SourceOffset + frame.Parts[0].Tile * 16)
                 .SequenceEqual(new[] { 0x0c40, 0x0c00, 0x0c20 }) ||
             !linkArrival.Select(frame => frame.Parts.Length)
                 .SequenceEqual(new[] { 2, 2, 2 }) ||
@@ -235,11 +235,11 @@ public sealed partial class ValidationRoot
         FailIf(
             TryDisplayEraInfoAfterInitialRoomLoad(
                 InitialRoomLoadKind.LinkSummonedCutscene) ||
-            _entities.Entities<EraInfoDisplay>().Count != 0,
+            _entities.Entities<EraOrSeasonInfoDisplay>().Count != 0,
             "The specialized linkSummonedCutscene room load displayed present-era info.");
         FailIf(
             !TryDisplayEraInfoAfterInitialRoomLoad(InitialRoomLoadKind.Ordinary) ||
-            _entities.Entities<EraInfoDisplay>().Count != 1,
+            _entities.Entities<EraOrSeasonInfoDisplay>().Count != 1,
             "The new-game exception suppressed an ordinary outdoor initial room load.");
         LoadDebugRoom(previousGroup, previousRoom);
         _player.WarpTo(previousPosition);
@@ -352,13 +352,13 @@ public sealed partial class ValidationRoot
             !_currentRoom.ReplaceMetatile(portal.Position, 0x3a, 0xd7, (long)_animationTicks),
             "Could not reveal portal-spot metatile `$d7 for validation.");
         _roomView.QueueRedraw();
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(!portal.Active, "The `$e1 portal did not initialize after its `$d7 spot was revealed.");
         for (int frame = 0; frame < 6; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(portal.CurrentFrame != 3, "The portal did not finish its three 2-update intro frames.");
         for (int frame = 0; frame < 6; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(portal.CurrentFrame != 3, "The portal's three-frame animation loop restarted incorrectly.");
 
         _player.WarpTo(portal.Position, recordSafe: false);
@@ -366,10 +366,10 @@ public sealed partial class ValidationRoot
         // Enter from a composite non-neutral pose. The sword previously hid a
         // stale pushing flag which became visible as soon as portal entry
         // cancelled the sword.
-        _player.SetCutscenePushing(true);
+        _player.SetNativePushAnimationOverride(1);
         _player.StartSwordAttackForValidation(Vector2.Left);
         _sound.ClearPlayRequestAudit();
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !IsTransitioning || portal.Visible || _player.Position != portal.Position ||
             _player.FacingVector != Vector2I.Down || _player.Walking || _player.IsPushing ||
@@ -390,7 +390,7 @@ public sealed partial class ValidationRoot
             !_player.Visible ||
             !Mathf.IsEqualApprox(
                 _roomView.BackgroundFadeAlpha,
-                1.0f / AgesRoomTransitionController.FastPaletteFadeFrames),
+                1.0f / RoomTransitionController.FastPaletteFadeFrames),
             "CUTSCENE_TIMEWARP state 0 did not hide the HUD, start the BG-only fast black " +
             "fade, preserve a long rendered frame, and prepare the still-unmasked " +
             "six-buffer dissolve pass.");
@@ -492,22 +492,22 @@ public sealed partial class ValidationRoot
             sourceEffect.BeamVisible || sourceEffect.PrimaryVisible || _player.Visible,
             "The source trail did not hold for exactly 60 updates after both portal " +
             "components had collapsed and vanished.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.FastPaletteFadeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.FastPaletteFadeFrames / 60.0);
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
             _transitions.TimeWarpPhaseFrame != 1 ||
             !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f) ||
-            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f / AgesRoomTransitionController.WarpFadeFrames) ||
+            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f / RoomTransitionController.WarpFadeFrames) ||
             _player.Visible,
             "The source tilemap was not kept black-covered while the palette handoff " +
             "started the first fadeoutToWhite step.");
-        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpFadeFrames - 2.0f) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeFrames - 2.0f) / 60.0);
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
-            _transitions.TimeWarpPhaseFrame != AgesRoomTransitionController.WarpFadeFrames - 1 ||
+            _transitions.TimeWarpPhaseFrame != RoomTransitionController.WarpFadeFrames - 1 ||
             !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f) ||
             !Mathf.IsEqualApprox(
-                _warpFade.Color.A, (AgesRoomTransitionController.WarpFadeFrames - 1.0f) / AgesRoomTransitionController.WarpFadeFrames) ||
+                _warpFade.Color.A, (RoomTransitionController.WarpFadeFrames - 1.0f) / RoomTransitionController.WarpFadeFrames) ||
             _activeGroup != 0,
             "The source tilemap became visible before the white overlay reached opacity.");
         UpdateRoomWarpTransition(1.0 / 60.0);
@@ -520,7 +520,7 @@ public sealed partial class ValidationRoot
             $"Time portal 0:39/`$22 landed at {_activeGroup:x1}:{_currentRoom.Id:x2}/" +
             $"`${_currentRoom.GetPackedPosition(_player.Position):x2} instead of 1:39/`$22.");
 
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpArrivalWait",
             "The destination did not fade in from white for 32 updates.");
@@ -575,7 +575,8 @@ public sealed partial class ValidationRoot
         FailIf(
             IsTransitioning || !_player.Visible ||
             _sound.PlayRequestsFor(SoundId.SndTimewarpCompleted) != 1 ||
-            !_player.CutsceneControlled || !_roomEvents.Get<EnterPastEvent>().HasState ||
+            _player.NativeCutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x80 || !_roomEvents.Get<EnterPastEvent>().HasState ||
             ValidationEnterPastState.Stage(_roomEvents.Get<EnterPastEvent>()) != EnterPastEventStage.PreJumpWait ||
             _roomEvents.Get<EnterPastEvent>().Counter !=
                 33,
@@ -916,10 +917,10 @@ public sealed partial class ValidationRoot
             !_currentRoom.ReplaceMetatile(
                 portal.Position, 0x3a, 0xd7, (long)_animationTicks),
             "Could not reveal the first-past validation portal at 0:39/$22.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(!portal.Active, "The first-past validation portal did not activate.");
         _player.WarpTo(portal.Position, recordSafe: false);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         int transitionFrames = 0;
         while (IsTransitioning && transitionFrames++ < 600)
             UpdateRoomWarpTransition(1.0 / 60.0);
@@ -947,9 +948,10 @@ public sealed partial class ValidationRoot
             ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.PreJumpWait ||
             enterPast.Counter != 33 ||
             villager.Position != new Vector2(0x18, 0x28) || !villager.Active ||
-            !_player.CutsceneControlled,
+            _player.NativeCutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+            _runtimeState.ReadField("wMenuDisabled") != 0x80,
             "The portal handoff did not preserve the imported first-arrival actor, " +
-            "script values, initial position, or wait overlap.");
+            $"script values, initial position, or wait overlap (counter={enterPast.Counter}, XY={villager.Position}, objects=${_runtimeState.ReadField("wDisabledObjects"):x2}, menu=${_runtimeState.ReadField("wMenuDisabled"):x2}, control={_player.NativeCutsceneControlled}).");
 
         _sound.ClearPlayRequestAudit();
         StepRoomEventFrames(33 - 1);
@@ -1105,7 +1107,8 @@ public sealed partial class ValidationRoot
         FailIf(
             !enterPast.HasState || enterPast.Completed || !villager.Active ||
             enterPast.CurrentCommandIndex != 16 || enterPast.CurrentCommandUpdates != 0 ||
-            enterPast.Counter != 0 || !_player.CutsceneControlled,
+            enterPast.Counter != 0 || _player.NativeCutsceneControlled ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
             "applyspeed $39's counter2-zero update incorrectly completed the script.");
         StepRoomEventFrames(1);
         FailIf(
@@ -1419,7 +1422,7 @@ public sealed partial class ValidationRoot
             impa.Position != _player.Position + Vector2.Left * 16,
             "Impa's path was not primed at the right screen edge before scrolling.");
 
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x6b);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x6b);
         NpcCharacter? incomingImpa = impaEvent.Actor;
         FailIf(
             incomingImpa is null || incomingImpa == impa ||
@@ -1473,19 +1476,19 @@ public sealed partial class ValidationRoot
         FailIf(incomingImpa.FacingVector != Vector2I.Left,
             "Impa did not turn left on the next interaction pass.");
 
-        _transitions.BeginScroll(_player, Vector2I.Left, 0x6a);
+        _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x6a);
         List<NpcCharacter> returningImpas = _npcNodes.Where(npc =>
             npc.Record.Id == 0x31 && npc.Record.SubId == 0x00).ToList();
         NpcCharacter? returningFollower = impaEvent.Actor;
         FailIf(
-            returningImpas.Count != 2 || returningFollower is null ||
+            returningImpas.Count != 1 || returningFollower is null ||
             !returningFollower.Visible || returningFollower.CurrentAnimationCounter != incomingImpa.CurrentAnimationCounter ||
             returningFollower.CurrentAnimationPixelHash != incomingImpa.CurrentAnimationPixelHash ||
             returningFollower.Position + returningFollower.TransitionDrawOffset != incomingImpa.Position + incomingImpa.TransitionDrawOffset ||
             incomingImpa.Active ||
             !returningFollower.Active || returningImpas.Count(npc => npc.Active) != 1 ||
             !impaEvent.Following,
-            "Returning to room 0:6a retained both the completed placed Impa and her follower.");
+            "Returning to room 0:6a must delete completed placed Impa in state0 and retain one follower.");
         for (int frame = 0; frame < 49; frame++)
         {
             UpdateScrollingTransition(1.0 / 60.0);
@@ -1517,7 +1520,7 @@ public sealed partial class ValidationRoot
         _saveData.SetGlobalFlag(GlobalFlag.IntroDone, value: false);
         _saveData.SetRoomFlag(0, 0x39, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(0, 0x39, OracleSaveData.RoomFlag80, value: false);
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x39);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x39);
         NpcCharacter? gatheringFollower = impaEvent.Actor;
         FailIf(
             gatheringFollower is null || !impaEvent.Following ||
@@ -1530,7 +1533,7 @@ public sealed partial class ValidationRoot
             nayruIntro.ActorRegistry.Values.Any(actor => !actor.Active),
             "The complete Nayru gathering or following Impa did not survive the incoming room scroll.");
 
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x3a);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x3a);
         List<NpcCharacter> outgoingGathering = _entities.OutgoingEntities<NpcCharacter>()
             .Where(actor => actor.Name.ToString().StartsWith(
                 "NayruIntro_", StringComparison.Ordinal))
@@ -1544,7 +1547,7 @@ public sealed partial class ValidationRoot
             outgoingGathering.Any(actor => actor.TransitionDrawOffset != Vector2.Left * 4),
             "Room 0:39's dynamic audience did not move with the outgoing room texture.");
         FinishActiveScrollingTransitionForValidation();
-        _transitions.BeginScroll(_player, Vector2I.Left, 0x39);
+        _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x39);
         NpcCharacter? returningGatheringFollower = impaEvent.Actor;
         FailIf(
             returningGatheringFollower is null || !impaEvent.Following ||
@@ -1684,7 +1687,7 @@ public sealed partial class ValidationRoot
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80, value: false);
 
-        _transitions.BeginScroll(_player, Vector2I.Right, room);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, room);
         NpcCharacter? follower = impaEvent.Actor;
         NpcCharacter? stoneActor = impaEvent.StoneActor;
         Color stoneMidtone = new(0x0c / 31.0f, 0x12 / 31.0f, 0x11 / 31.0f);
@@ -1983,7 +1986,7 @@ public sealed partial class ValidationRoot
         // Dynamic actors are not room-tile walls, so Link's generic wall-push
         // detector is deliberately false here. Drive the actual room-event
         // input path to ensure the interaction observes the held direction.
-        _player.UpdatePushingState(Vector2.Right);
+        UpdatePushingStateForValidation(_player,Vector2.Right);
         FailIf(
             _player.IsPushing,
             "The Triforce stone was incorrectly treated as static room-tile collision.");
@@ -2390,7 +2393,7 @@ public sealed partial class ValidationRoot
             $"The delayed $83 fade replaced room 0:38 or restored its corrupt base palette " +
             $"before beginning its transition to white (gate={fadeStartGate}).");
 
-        for (int frame = 0; frame < AgesRoomTransitionController.DelayedWarpFadeFrames - 1; frame++)
+        for (int frame = 0; frame < RoomTransitionController.DelayedWarpFadeFrames - 1; frame++)
             UpdateRoomWarpTransition(1.0 / 60.0);
         Color nearWhiteGate = unswappedRoom.GetRenderedPixelForValidation(gatePixelPosition);
         FailIf(
@@ -2413,7 +2416,7 @@ public sealed partial class ValidationRoot
             $"tileset={_currentRoom.TilesetId:x2}, " +
             $"tile24={_currentRoom.GetMetatile(new Vector2(0x48, 0x28)):x2}).");
 
-        for (int frame = 0; frame < AgesRoomTransitionController.WarpFadeInFrames; frame++)
+        for (int frame = 0; frame < RoomTransitionController.WarpFadeInFrames; frame++)
             UpdateRoomWarpTransition(1.0 / 60.0);
         FailIf(
             IsTransitioning || _player.Position != new Vector2(0x58, 0x48),
@@ -2498,11 +2501,14 @@ public sealed partial class ValidationRoot
             if (_roomEvents.ObjectUpdateSuspended)
             {
                 _roomEvents.ResumeObjectUpdate();
+                _player.PublishNativeWalkAnimation();
                 _sound.Tick();
                 continue;
             }
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
+            // This isolated event fixture explicitly supplies the graphics tail.
+            _player.PublishNativeWalkAnimation();
             _sound.Tick();
         }
     }
@@ -2564,7 +2570,7 @@ public sealed partial class ValidationRoot
             initialRight.CurrentScriptAnimationSource != rightActor.RightAnimation ||
             !_player.CutsceneControlled || !rescue.ScreenTransitionsDisabled ||
             rescue.CutsceneState != 0 ||
-            _entities.Entities<MaskedMoblinCharacter>().Count != 0,
+            _entities.Entities<ArrowMoblinCharacter>().Any(enemy => enemy.Record.Id == EnemyId.MaskedMoblin),
             "Room 1:38 exposed its ordinary sprout frame before the rescue's " +
             "state-0 sprout/controller/Moblin initialization completed.");
 
@@ -2578,8 +2584,10 @@ public sealed partial class ValidationRoot
         var textIds = new HashSet<int>();
         for (int frame = 0; frame < 5000 && rescue.HasState; frame++)
         {
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
+            // This isolated event fixture explicitly supplies the graphics tail.
+            _player.PublishNativeWalkAnimation();
             _sound.Tick();
 
             if (!movedToTrigger && rescue.CutsceneState == 5)
@@ -2588,19 +2596,17 @@ public sealed partial class ValidationRoot
                 movedToTrigger = true;
             }
 
-            List<MaskedMoblinCharacter> moblins =
-                _entities.Entities<MaskedMoblinCharacter>();
-            if (!killedFirst && moblins.Count == 2)
+            List<ArrowMoblinCharacter> moblins =
+                _entities.Entities<ArrowMoblinCharacter>().Where(enemy => enemy.Record.Id == EnemyId.MaskedMoblin).ToList();
+            if (!killedFirst && moblins.Count == 2 && !moblins[0].InitializationPending)
             {
-                MaskedMoblinCharacter moblin = moblins[0];
-                _entities.ApplySwordHit(moblin.CollisionBounds.Grow(1), moblin.Position);
-                killedFirst = true;
+                ArrowMoblinCharacter moblin = moblins[0];
+                killedFirst = _entities.ApplySwordHit(moblin.CollisionBounds.Grow(1), moblin.Position);
             }
             if (sawOneEnemyText && !killedSecond && moblins.Count == 1)
             {
-                MaskedMoblinCharacter moblin = moblins[0];
-                _entities.ApplySwordHit(moblin.CollisionBounds.Grow(1), moblin.Position);
-                killedSecond = true;
+                ArrowMoblinCharacter moblin = moblins[0];
+                killedSecond = _entities.ApplySwordHit(moblin.CollisionBounds.Grow(1), moblin.Position);
             }
 
             if (_dialogue.IsOpen)
@@ -2677,21 +2683,24 @@ public sealed partial class ValidationRoot
             _roomCamera.Offset != Vector2.Zero,
             "Room 1:38 did not complete its Moblin fight, dialogue, four gate phases, " +
             "up-facing Link handoff, lower exit textbox, music/flag/layout mutations, " +
-            "or final screen-edge release.");
+            "or final screen-edge release. " +
+            $"state={rescue.CutsceneState}, stage={rescue.Stage}, killed={killedFirst}/{killedSecond}, " +
+            $"enemies={string.Join(';', _entities.Entities<ArrowMoblinCharacter>().Select(enemy => $"{enemy.Record.Id:x2}:{enemy.State}:{enemy.Health}:{enemy.KnockbackCounter}:{enemy.NativeHitPending}"))}, " +
+            $"texts={string.Join(',', textIds.Select(id => id.ToString("x4")))}.");
 
         CheckRoomExit(_player);
         FailIf(
             !IsTransitioning || _transitions.ScrollActive ||
             _activeGroup != group || _currentRoom.Id != roomId,
             "Room 1:38's unlocked bottom edge did not start its $03 exit warp.");
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != group || _currentRoom.Id != 0x48,
             "Room 1:38's bottom exit did not load past room 1:48.");
         UpdateRoomWarpTransition(
-            AgesRoomTransitionController.RoomLoadRevealCompletionFrame / 60.0);
-        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
-        _entities.Update(1.0 / 60.0, _player);
+            RoomTransitionController.RoomLoadRevealCompletionFrame / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         TimePortal? returnPortal = _entities.Entities<TimePortal>().SingleOrDefault();
         FailIf(
             IsTransitioning || _activeGroup != group || _currentRoom.Id != 0x48 ||
@@ -2729,19 +2738,22 @@ public sealed partial class ValidationRoot
             "Room 1:38 saved re-entry retriggered or lost TX_05d5/the cleared gate.");
 
         var enemyDatabase = new EnemyDatabase(AgesGameContent.AssetRoot);
-        MaskedMoblinRecord masked = enemyDatabase.MaskedMoblin;
-        EnemyArrowRecord arrowRecord = enemyDatabase.EnemyArrow;
+        ImportedEnemyDefinition masked = EnemyDefinitionDatabase.For(AgesGameContent.AssetRoot).Get(EnemyId.MaskedMoblin);
+        ArrowMoblinBehaviorProfile route = ArrowMoblinBehaviorProfile.For(AgesGameContent.AssetRoot);
+        EnemyArrowRecord arrowRecord = EnemyArrowDatabase.For(AgesGameContent.AssetRoot).Record;
         FailIf(
             masked is not
-            { Id: EnemyId.MaskedMoblin, SubId: 0, CollisionRadiusY: 6, CollisionRadiusX: 6,
-              DamageQuarters: 2, Health: 2, SpeedRaw: ObjectSpeed.Speed80,
-              MoveCounterBase: 0x30, MoveCounterMask: 0x3f, TurnWait: 8 } ||
+            { Id: EnemyId.MaskedMoblin, SubId: 0, RadiusY: 6, RadiusX: 6,
+              DamageQuarters: 2, Health: 2, Animations.Length: 4 } ||
+            route is not { SpeedRaw: ObjectSpeed.Speed80, MoveCounterBase: 0x30,
+                MoveCounterMask: 0x3f, TurnWait: 8 } ||
             arrowRecord is not
             { DamageQuarters: 2, SpeedRaw: ObjectSpeed.Speed200 },
             "The dynamically-created masked Moblin/enemy-arrow records diverged from source.");
         var deflectedArrow = new EnemyArrowProjectile();
         deflectedArrow.Initialize(
             arrowRecord, _currentRoom, new Vector2(0x50, 0x40), ObjectAngle.Right);
+        deflectedArrow.InitializeFlight();
         FailIf(
             !deflectedArrow.DeflectWithSword() ||
             deflectedArrow.State != HostileProjectileState.Bouncing ||
@@ -2818,7 +2830,7 @@ public sealed partial class ValidationRoot
             roomRecord.SproutAnimation1,
             "Room 1:38 state $03 Maku Sprout skipped its one-update " +
             "post-text happy-animation wait.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             adviceSprout.CurrentScriptAnimationSource !=
             roomRecord.SproutAnimation0,
@@ -3143,22 +3155,22 @@ public sealed partial class ValidationRoot
         int emberSeedsBefore = _inventory.EmberSeeds;
         _sound.ClearPlayRequestAudit();
         _player.WarpTo(respawned.Position);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
-            _interactions.GroundTreasureForValidation != respawned ||
+            _interactions.GroundTreasures.Active != respawned ||
             !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem) ||
             _inventory.SeedSatchelLevel != 1 ||
             _inventory.EmberSeeds != Math.Max(emberSeedsBefore, 0x20) ||
             !_dialogue.IsOpen ||
             _sound.PlayRequestsFor(SoundId.SndGetItem) != 1,
             "Touching the respawned Satchel did not grant its level, 20 Ember Seeds, " +
-            $"$20, text, and sound (tracked={ReferenceEquals(_interactions.GroundTreasureForValidation, respawned)}, " +
+            $"$20, text, and sound (tracked={ReferenceEquals(_interactions.GroundTreasures.Active, respawned)}, " +
             $"flag={_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem)}, " +
             $"level={_inventory.SeedSatchelLevel}, seeds={_inventory.EmberSeeds}/" +
             $"{emberSeedsBefore}, dialogue={_dialogue.IsOpen}, " +
             $"sounds={_sound.PlayRequestsFor(SoundId.SndGetItem)}).");
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !respawned.Held || _player.IsHoldingItemOneHand ||
             respawned.Position != _player.Position + new Vector2(-4, -14) ||
@@ -3169,7 +3181,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _player.IsHoldingItemOneHand ||
             _entities.Entities<GroundTreasurePickup>().Count != 0,
@@ -3419,7 +3431,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _player.IsHoldingItemTwoHands ||
             _entities.Entities<GroundTreasurePickup>().Count != 0,
@@ -3488,8 +3500,9 @@ public sealed partial class ValidationRoot
     {
         ((ICutsceneCommandHost)script).SetInputEnabled(enabled: false);
         FailIf(
-            !script.BlocksGameplay || !_player.CutsceneControlled,
-            $"{label} shared infinite-script host did not acquire its input lease.");
+            !script.BlocksGameplay || _player.CutsceneControlled ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
+            $"{label} shared infinite-script host did not write its native $81/$80 control bytes.");
 
         script.Cancel();
         FailIf(
@@ -3497,9 +3510,10 @@ public sealed partial class ValidationRoot
             script.ButtonSensitive ||
             script.BlocksGameplay ||
             _player.CutsceneControlled ||
+            _runtimeState.ReadField("wDisabledObjects") != 0 || _runtimeState.ReadField("wMenuDisabled") != 0 ||
             actor.AnimationRate != 1.0f,
             $"{label} shared infinite-script cancellation did not clear its " +
-            "runner, A-button state, input lease, and actor animation rate.");
+            "runner, A-button state, native control bytes, and actor animation rate.");
     }
 
     private void ValidateNayruIntroCutscene()
@@ -3521,7 +3535,7 @@ public sealed partial class ValidationRoot
         _sound.PlayMusicIfChanged(SoundId.MusFairyFountain);
         _sound.SetMusicVolume(3);
         LoadValidationRoom(group, 0x59);
-        _transitions.BeginScroll(_player, Vector2I.Up, 0x49);
+        _transitions.BeginValidationScroll(_player, Vector2I.Up, 0x49);
         FailIf(
             _sound.ActiveMusic != SoundId.MusFairyFountain ||
             _sound.MusicVolume != 3,
@@ -3531,7 +3545,7 @@ public sealed partial class ValidationRoot
             _sound.ActiveMusic != SoundId.MusNayru ||
             _sound.MusicVolume != 2,
             "Room 0:49 did not start MUS_NAYRU with volume 2 after its incoming scroll.");
-        _transitions.BeginScroll(_player, Vector2I.Up, roomId);
+        _transitions.BeginValidationScroll(_player, Vector2I.Up, roomId);
         FailIf(
             _sound.ActiveMusic != SoundId.MusNayru ||
             _sound.MusicVolume != 2,
@@ -4247,13 +4261,13 @@ public sealed partial class ValidationRoot
             $"music={sawSideviewMusic}/{sawRoomOfRitesMusic}/" +
             $"{sawVignetteRestartSilence}/{sawDisasterMusic}/{sawSadnessMusic}/" +
             $"{_sound.ActiveMusic:x2}:{_sound.MusicVolume}).");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         TimePortal? portal = _entities.Entities<TimePortal>().SingleOrDefault();
         FailIf(portal is null || !portal.Active, "Lightning tile $22=$d7 did not activate portal $e1:$01.");
 
         _currentRoom.ReplaceMetatile(portalPoint, 0xd7, 0x3a, (long)_animationTicks);
         LoadValidationRoom(group, roomId);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         portal = _entities.Entities<TimePortal>().SingleOrDefault();
         FailIf(
             _currentRoom.GetMetatile(portalPoint) != 0xd7 || portal is null || !portal.Active ||
@@ -4328,7 +4342,7 @@ public sealed partial class ValidationRoot
             "INTERAC_RALPH $37:$0d ignored its DIR_RIGHT room-entry guard.");
 
         LoadValidationRoom(0, 0x38);
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x39);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x39);
         FailIf(!_transitions.IsTransitioning || _transitions.ScrollActive,
             "Room 0:38 -> 0:39 must use checkRoomPack's white fade, not scrolling.");
         UpdateRoomWarpTransition(32.0 / 60.0);
@@ -4348,7 +4362,8 @@ public sealed partial class ValidationRoot
             "Ralph advanced his script before the room-pack fade completed.");
         UpdateRoomWarpTransition(1.0 / 60.0);
         FailIf(
-            !_player.CutsceneControlled || ralphEvent.Counter != 40,
+            _player.NativeCutsceneControlled || ralphEvent.Counter != 40 ||
+            _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
             "Ralph's destination event fast-forwarded instead of installing its full " +
             "40-update wait after the room-pack fade.");
         StepRoomEventFrames(39);

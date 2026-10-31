@@ -5,7 +5,7 @@ namespace Oracles;
 
 /// <summary>Spawner form of ENEMY_ARMOS $1d with bit 7 of subid clear.</summary>
 internal sealed partial class ArmosSpawnerRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
+    INativeEnemyRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly OracleRoomData _room;

@@ -22,6 +22,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private OracleRuntimeState? _nativeMemory;
     internal void BindNativeMemory(OracleRuntimeState memory) => _nativeMemory = memory;
     private OracleRoomData _room = null!;
+    internal void RebindRoom(OracleRoomData room) => _room = room;
     private OracleRandom _random = null!;
     private OracleSaveData _save = null!;
     private InventoryState _inventory = null!;
@@ -81,6 +82,9 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     internal int LinkScore => _encounter.LinkScore;
     internal bool MainFlight => _mainFlight;
     internal Vector2 BookTargetPosition => _precisePosition;
+    internal Vector2 BirthPosition => new(_database.Constant("birth-x"), _database.Constant("birth-y"));
+    internal void SetNativePosition(Vector2 position)
+    { _precisePosition = position; Position = OracleObjectMath.ToPixelPosition(position); }
     internal bool BookTradeAccepted => (_save.MapleState & 0x20) != 0;
     internal bool BookTextActive => _dialogueOpen();
     internal int BookDirection { get => _bookDirection; set => _bookDirection = value & 0xff; }
@@ -200,6 +204,13 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         }
 
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        if (!Finished && _nativeMemory is { } memory)
+        {
+            CompanionRuntimeState.UpdatePosition(memory, SpecialObjectId.Maple, _precisePosition);
+            memory.SetWramByte(0xd104, (byte)Stage);
+            memory.SetWramByte(0xd10e, unchecked((byte)_zFixed));
+            memory.SetWramByte(0xd10f, unchecked((byte)(_zFixed >> 8)));
+        }
         QueueRedraw();
     }
 
@@ -223,13 +234,15 @@ public partial class MapleEncounter : TransitionOffsetNode2D
 
     private void InitializeState()
     {
+        _nativeMemory?.SetField("wcc85", 0);
         int meetings = _save.MapleState & 0x0f;
         _variation = meetings == 0x0f ? 2 : meetings >= 8 ? 1 : 0;
         _vehicle = _variation == 0 ? 0 : _save.IsLinkedGame ? 2 : 1;
         _precisePosition = new Vector2(
             _database.Constant("initial-x"),
-            _database.Constant("initial-y"));
-        _zFixed = _database.Constant("initial-z") << 8;
+            _database.Constant("initial-y")) +
+            _precisePosition - OracleObjectMath.ToPixelPosition(_precisePosition);
+        _zFixed = (_database.Constant("initial-z") << 8) + (_nativeMemory?.ReadWramByte(0xd10e) ?? 0);
         _speedRaw = ObjectSpeed.Speed140;
         _counter = _database.Constant("entry-delay");
         _dropPattern = (_random.Next().Value & 7) == 0 ? 0 : 1;
@@ -978,6 +991,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
 
     private void FinishCommon()
     {
+        _nativeMemory?.SetField("wIsMaplePresent", 0);
         _roomMusicRequested(Group, _room.Id);
         Finished = true;
         Visible = false;

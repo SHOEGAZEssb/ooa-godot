@@ -36,8 +36,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         spawns.Add(spawn);
         return true;
     }
-    private EnemyBehaviorTables? _behaviorSourceCache;
-    private EnemyBehaviorTables _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
+    private static CommonEnemyBehavior _behavior => CommonEnemyBehavior.Shared;
     private EnemyAnimationPlayer _animation = null!;
     private int _animationCount;
     private int _collisionRadiusX;
@@ -73,8 +72,10 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     internal Func<Vector2, int, bool>? TryCreateKnockbackDust { private get; set; }
     internal int KnockbackAngle { get; private protected set; }
     internal bool PendingKnockbackDeath => _pendingKnockbackDeath;
-    internal bool NativeHitPending { get; private set; }
-    internal void DeferNativeHitStatus() => NativeHitPending = true;
+    private bool _nativeHitPending;
+    internal virtual bool NativeHitPending => _nativeHitPending;
+    internal virtual void DeferNativeHitStatus() => _nativeHitPending = true;
+    private protected virtual void ClearNativeHitStatus() => _nativeHitPending = false;
     internal virtual void ApplyBoomerangStun(int updates) => throw new NotSupportedException(
         $"{GetType().Name}: collisionEffect22 requires a native stun-counter owner.");
     internal bool IsFallingIntoHole =>
@@ -114,7 +115,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         DiedInHazard = false;
         DeathHazard = HazardType.None;
         InvincibilityCounter = 0;
-        NativeHitPending = false;
+        ClearNativeHitStatus();
         KnockbackCounter = 0;
         KnockbackAngle = 0;
         _globalFrameCounter = 0;
@@ -373,7 +374,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         {
             // enemyStandardUpdate dispatches JUST_HIT before decrementing
             // knockbackCounter or checking health. Post-update clears bit7.
-            NativeHitPending = false;
+            ClearNativeHitStatus();
             return !continueDuringHitAndKnockback;
         }
         if (_pendingKnockbackDeath && !HasActiveKnockback)
@@ -456,13 +457,13 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             profile.Second);
     }
 
-    internal virtual bool TryApplyShieldBump(
+    internal virtual bool TryApplyCollisionBump(
         Rect2 hitbox,
         Vector2 sourcePosition,
         EnemyKnockbackStrength strength)
     {
         if (IsDead || !CollisionEnabled || InvincibilityCounter != 0 ||
-            !hitbox.Intersects(CollisionBounds))
+            !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds, hitbox))
         {
             return false;
         }

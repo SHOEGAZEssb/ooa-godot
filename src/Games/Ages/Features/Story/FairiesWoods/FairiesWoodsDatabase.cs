@@ -12,8 +12,10 @@ internal sealed class FairiesWoodsDatabase
     private const string Root = AgesGameContent.AssetRoot + "cutscenes/";
     private readonly Dictionary<int, FairiesWoodsTextRecord> _texts = new();
     private readonly Dictionary<int, FairiesWoodsHiddenSpotRecord> _hiddenSpots = new();
+    private readonly Dictionary<(int Group, int Room), FairyHidingControllerRecord> _controllers = new();
 
     internal FairiesWoodsEventRecord Event { get; }
+    internal Warp ReturnWarp { get; }
     internal IReadOnlyList<FairiesWoodsMovementRecord> Movements { get; }
     internal IReadOnlyList<FairiesWoodsHidingRoomRecord> HidingRooms { get; }
     internal IReadOnlyList<FairiesWoodsDiscoveredRecord> DiscoveredFairies { get; }
@@ -24,6 +26,25 @@ internal sealed class FairiesWoodsDatabase
     internal FairiesWoodsDatabase()
     {
         Event = LoadEvent();
+        var warp = GeneratedTable.Load(Root + "fairies_woods_return_warp.tsv",
+            new("Fairy return warp", GeneratedTableKeySemantics.Ordered,
+                ["group", "room", "transition", "position", "request", "source"], headerRequired: true)).SingleRow();
+        if (warp.HexByte(0) != 0x80 || warp.HexByte(1) != 0x82 || warp.HexByte(2) != 0 || warp.HexByte(4) != 3)
+            throw new InvalidOperationException($"{warp.RequiredString(5)}: unsupported hardcoded warp bytes.");
+        // m_HardcodedWarpA's last byte selects CUTSCENE $03; the preceding
+        // transition byte, not that request, selects Link's destination state.
+        ReturnWarp = new(0, 0, -1, 0, 0, warp.HexByte(0) & 7, warp.HexByte(1), warp.HexByte(3),
+            warp.HexByte(2) >> 4, warp.HexByte(2) & 15, DirectFadeOut: true, NativeSource: warp.RequiredString(5));
+        foreach (var row in GeneratedTable.Load(Root + "fairies_woods_controllers.tsv",
+            new("Fairy hiding controllers", GeneratedTableKeySemantics.Unique,
+                ["group", "room", "order", "id", "subid", "y", "x", "source"], ["group", "room"], headerRequired: true)).Rows)
+        {
+            var controller = new FairyHidingControllerRecord(row.Decimal(0, 0, 7), row.HexByte(1),
+                row.UnsignedDecimal(2), row.HexByte(3), row.HexByte(4), row.HexByte(5), row.HexByte(6), row.RequiredString(7));
+            if (controller.Id != 0x6c || controller.SubId > 2 || controller.Order != 0)
+                throw new InvalidOperationException($"{controller.Source}: unsupported fairy controller ${controller.Id:x2}:${controller.SubId:x2} at order {controller.Order}.");
+            _controllers.Add((controller.Group, controller.Room), controller);
+        }
         Movements = LoadMovements();
         HidingRooms = LoadHidingRooms();
         DiscoveredFairies = LoadDiscoveredFairies();
@@ -48,6 +69,9 @@ internal sealed class FairiesWoodsDatabase
         int room,
         out FairiesWoodsHiddenSpotRecord record) =>
         _hiddenSpots.TryGetValue(room, out record);
+
+    internal bool TryController(int group, int room, out FairyHidingControllerRecord record) =>
+        _controllers.TryGetValue((group, room), out record);
 
     private static FairiesWoodsEventRecord LoadEvent()
     {
@@ -282,10 +306,10 @@ internal sealed class FairiesWoodsDatabase
             IntroCommands.Count != 17 ||
             RevealCommands.Count != 6 ||
             ExitCommands.Count != 9 ||
-            IntroCommands[0] is not CutsceneNativeYieldCommand
+            IntroCommands[0] is not CutsceneNativeCommand
                 { Handler: "SpawnForestFairy:0" } ||
             IntroCommands[16] is not CutsceneEndCommand ||
-            RevealCommands[2] is not CutsceneNativeYieldCommand
+            RevealCommands[2] is not CutsceneNativeCommand
                 { Handler: "ShowFairyFoundText" } ||
             ExitCommands[2] is not CutsceneNativeBlockingCommand
                 { Handler: "WaitForExitCollision" } ||
@@ -296,6 +320,8 @@ internal sealed class FairiesWoodsDatabase
         }
     }
 }
+
+internal readonly record struct FairyHidingControllerRecord(int Group, int Room, int Order, int Id, int SubId, int Y, int X, string Source);
 
 internal readonly record struct FairiesWoodsEventRecord(
     int Group,

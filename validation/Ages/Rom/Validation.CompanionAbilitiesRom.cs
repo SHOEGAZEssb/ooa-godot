@@ -8,7 +8,9 @@ namespace Oracles;
 public sealed partial class ValidationRoot
 {
     private static T CompanionField<T>(object actor, string name) =>
-        (T)actor.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(actor)!;
+        (T)(actor.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(actor) ??
+            actor.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(actor) ??
+            throw new InvalidOperationException($"Missing companion observation {actor.GetType().Name}.{name}."));
 
     private (IRoomEntity Actor, CompanionRom Rom) PrepareMountedCompanionRom(int id, int direction = 2)
     {
@@ -20,7 +22,9 @@ public sealed partial class ValidationRoot
             0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(p, direction, 0, 0x2a, Riding: true)),
             _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(p, direction, 0, 0x2a, Riding: true))
         };
-        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, id, 0x2a, p, direction);
+        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, id, p, direction);
+        // The mounted fixture starts after rickyState0 initialized its native hop countdown.
+        if(id==0x0b)_runtimeState.SetWramByte(0xd139,0x10);
         var rom = new CompanionRom(id, p, direction, _currentRoom);
         rom[0xcc21] = 40; rom[0xcc22] = 40; rom[0xcc23] = (byte)direction;
         rom[0xc6aa] = (byte)_player.HealthQuarters;
@@ -30,53 +34,46 @@ public sealed partial class ValidationRoot
 
     private void CompareCompanionMotion(IRoomEntity actor, CompanionRom rom, string context)
     {
-        Vector2 p = CompanionField<Vector2>(actor, "_precisePosition");
-        int z = actor switch { RickyCompanionRoomEntity r => r.ZFixed, MooshCompanionRoomEntity m => m.ZFixed,
+        var current=_entities.EntityAdapters<IRoomEntity>().SingleOrDefault(candidate=>
+            candidate is INativeSpecialObjectRoomEntity native && _entities.IsSpecialObjectOwner(native));
+        if(rom[0xd100]==0)
+        {
+            FailIf(current is not null || CompanionRuntimeState.AnyActive(_runtimeState),context+": native companion retirement differs.");
+            return;
+        }
+        actor=current??throw new InvalidOperationException(context+": the live native companion has no presentation owner.");
+        var scripted = actor as ScriptedCompanionRoomEntity;
+        Vector2 p = scripted?.NativeSpecialObjectPosition ?? CompanionField<Vector2>(actor, "_precisePosition");
+        int z = actor switch { ScriptedCompanionRoomEntity => unchecked((short)(_runtimeState.ReadWramByte(0xd10e) | _runtimeState.ReadWramByte(0xd10f) << 8)),
+            RickyCompanionRoomEntity r => r.ZFixed, MooshCompanionRoomEntity m => m.ZFixed,
             DimitriCompanionRoomEntity d => d.ZFixed, _ => throw new InvalidOperationException() };
-        var animation = CompanionField<EnemyAnimationPlayer>(actor, "_animation");
+        var animation = scripted is null ? CompanionField<EnemyAnimationPlayer>(actor, "_animation") : null;
         (int state, int substate) = actor switch
         {
-            RickyCompanionRoomEntity r => r.Phase switch
-            {
-                RickyCompanionPhase.Riding => (5, 0), RickyCompanionPhase.Hopping => (5, 1),
-                RickyCompanionPhase.JumpingOverHole => (5, 2), RickyCompanionPhase.Landing => (5, 3),
-                RickyCompanionPhase.JumpingUpCliff => (2, 0), RickyCompanionPhase.JumpingDownCliff => (7, 0),
-                RickyCompanionPhase.Punching => (8, 0), RickyCompanionPhase.Charging => (8, 1),
-                RickyCompanionPhase.HazardFalling => (4, 0), RickyCompanionPhase.Waiting => (1, 0),
-                _ => (-1, -1)
-            },
-            MooshCompanionRoomEntity m => m.Phase switch
-            {
-                MooshCompanionPhase.Riding => (5, 0),
-                MooshCompanionPhase.Airborne => (8, CompanionField<bool>(m, "_airborneInitialized") ? 1 : 0),
-                MooshCompanionPhase.Charging => (8, 2), MooshCompanionPhase.Falling => (8, 3),
-                MooshCompanionPhase.StompRecovery => (8, 4), MooshCompanionPhase.HoveringOverWater => (8, 5),
-                MooshCompanionPhase.CliffJump => (7, 0), MooshCompanionPhase.HazardFalling => (4, 0),
-                MooshCompanionPhase.Waiting => (1, 0), _ => (-1, -1)
-            },
-            DimitriCompanionRoomEntity d => d.Phase switch
-            {
-                DimitriPhase.Riding => (5, 0), DimitriPhase.Eating => (8, CompanionField<int>(d, "_bitePhase")),
-                DimitriPhase.CliffJump => (7, 0), DimitriPhase.Waiting => (1, 0),
-                DimitriPhase.Hazard => (4, 0), DimitriPhase.ReturningToLand => (0x0b, 0),
-                DimitriPhase.Carried => (2, 1), DimitriPhase.Thrown => (2, 2), DimitriPhase.ThrownLanding => (2, 3),
-                _ => (-1, -1)
-            },
+            RickyCompanionRoomEntity => (_runtimeState.ReadWramByte(0xd104),_runtimeState.ReadWramByte(0xd105)),
+            MooshCompanionRoomEntity => (_runtimeState.ReadWramByte(0xd104), _runtimeState.ReadWramByte(0xd105)),
+            DimitriCompanionRoomEntity => (_runtimeState.ReadWramByte(0xd104), _runtimeState.ReadWramByte(0xd105)),
+            ScriptedCompanionRoomEntity => (_runtimeState.ReadWramByte(0xd104), _runtimeState.ReadWramByte(0xd105)),
             _ => (-1, -1)
         };
-        if (actor is RickyCompanionRoomEntity && CompanionField<bool>(actor, "_fluteEntrance") ||
-            actor is MooshCompanionRoomEntity && CompanionField<bool>(actor, "_fluteEntrance") ||
-            actor is DimitriCompanionRoomEntity { Phase: DimitriPhase.FlutePending or DimitriPhase.FluteEntering })
-            (state, substate) = (0x0c, 0);
         // Substate bytes can survive a state change in the original. Only
         // compare them where the handler actually dispatches on the byte.
         FailIf(state >= 0 && (state != rom[0xd104] ||
-            (state == 8 || state == 5 && actor is RickyCompanionRoomEntity || state == 2 && actor is DimitriCompanionRoomEntity) && substate != rom[0xd105]),
+            (actor is RickyCompanionRoomEntity || state == 8 || state == 2 && actor is DimitriCompanionRoomEntity) && substate != rom[0xd105]),
             $"{context}: state native=${rom[0xd104]:x2}:${rom[0xd105]:x2}, runtime=${state:x2}:${substate:x2}, XY={rom.Position}/{p}, dir={rom[0xd108]}.");
         FailIf(p != rom.Position || z != rom.SignedWord(0xd10e),
             $"{context}: position/Z native={rom.Position}/{rom.SignedWord(0xd10e)}, runtime={p}/{z}; native state=${rom[0xd104]:x2}:${rom[0xd105]:x2}.");
-        FailIf(animation.CurrentParameter != rom[0xd121] || animation.AnimationIndex != rom[0xd130],
-            $"{context}: animation parameter native=${rom[0xd121]:x2}, runtime=${animation.CurrentParameter:x2}, animation native=${rom[0xd130]:x2}/runtime=${animation.AnimationIndex:x2}, counters={rom[0xd120]}/{CompanionField<int>(animation, "_frameCounter")}.");
+        int parameter = animation?.CurrentParameter ?? scripted!.Npc.CurrentAnimationParameter;
+        int index = animation?.AnimationIndex ?? _runtimeState.ReadWramByte(0xd130);
+        FailIf(parameter != rom[0xd121] || index != rom[0xd130],
+            $"{context}: animation parameter native=${rom[0xd121]:x2}, runtime=${parameter:x2}, animation native=${rom[0xd130]:x2}/runtime=${index:x2}.");
+        if(actor is RickyCompanionRoomEntity)
+            foreach(int address in rom[0xd104]==0x0a?Enumerable.Range(0xd100,64):new[]{0xd103,0xd106,0xd107,0xd108,0xd109,0xd120,0xd122,0xd123,0xd131,0xd133,0xd135,0xd139})
+                FailIf(_runtimeState.ReadWramByte(address)!=rom[address],
+                    $"{context}: Ricky native alias${address:x4} runtime${_runtimeState.ReadWramByte(address):x2}/ROM${rom[address]:x2} differs.");
+        if (scripted is not null)
+            foreach (int address in new[] { 0xd103, 0xd108, 0xd109, 0xd110, 0xd114, 0xd115, 0xd120 })
+                FailIf(_runtimeState.ReadWramByte(address) != rom[address], $"{context}: scripted native byte${address:x4} differs.");
         var rng = _random.CaptureState();
         FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95], $"{context}: shared RNG differs.");
         FailIf(_entities.ScreenShakeCounter != rom[0xcd18] || _entities.HorizontalScreenShakeCounter != rom[0xcd19],
@@ -117,7 +114,7 @@ public sealed partial class ValidationRoot
                 rom.Update(CompanionMovement.AngleForInput(movement), edge && frame == 0 ? (byte)1 : (byte)0,
                     attack ? (byte)1 : (byte)0, afterLink: beforeNativeItems);
                 frame++;
-                CompareCompanionMotion(actor, rom, $"Companion ${rom[0xd101]:x2} update {frame}, batch={batched}");
+                CompareCompanionMotion(actor, rom, $"Companion ${rom[0xd101]:x2} update {frame}, start={start}, batch={batched}");
                 FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
                     $"Companion ${rom[0xd101]:x2} update {frame}, start={start}: sounds native=[{string.Join(',', rom.Sounds.Select(s => s.ToString("x2")))}], runtime=[{string.Join(',', sounds.Requests.Select(s => s.ToString("x2")))}].");
                 sounds.Clear();
@@ -129,6 +126,17 @@ public sealed partial class ValidationRoot
     {
         foreach (bool batched in new[] { false, true })
         {
+            foreach(var (state,substate) in new[]{(9,0xe7),(5,3),(8,1)})
+            {
+                var (rawActor,rawRom)=PrepareMountedCompanionRom(0x0b);
+                _runtimeState.SetWramByte(0xd104,(byte)state);rawRom[0xd104]=(byte)state;
+                _runtimeState.SetWramByte(0xd105,(byte)substate);rawRom[0xd105]=(byte)substate;
+                StepCompanionRom(rawActor,rawRom,3,Vector2.Zero,batched);
+                // state9 is a native ret; its unused substate survives until an external writer resumes state5.
+                _runtimeState.SetWramByte(0xd104,5);rawRom[0xd104]=5;
+                _runtimeState.SetWramByte(0xd105,0);rawRom[0xd105]=0;
+                StepCompanionRom(rawActor,rawRom,8,Vector2.Right,batched);
+            }
             var (actor, rom) = PrepareMountedCompanionRom(0x0b);
             // Repeated periodic hops, including input changes and idle airborne drift.
             foreach (Vector2 movement in new[] { Vector2.Right, Vector2.Left, Vector2.Up, Vector2.Down })
@@ -139,6 +147,38 @@ public sealed partial class ValidationRoot
                 (actor, rom) = PrepareMountedCompanionRom(0x0b);
                 StepCompanionRom(actor, rom, held, Vector2.Zero, batched, attack: true, edge: true);
                 StepCompanionRom(actor, rom, 45, Vector2.Zero, batched);
+            }
+            (actor,rom)=PrepareMountedCompanionRom(0x0b,1);
+            StepCompanionRom(actor,rom,3,Vector2.Right,batched);
+            // Script/raw writes must affect the next native direction/animation visit.
+            _runtimeState.SetWramByte(0xd108,0);rom[0xd108]=0;
+            StepCompanionRom(actor,rom,3,Vector2.Right,batched);
+            _runtimeState.SetWramByte(0xd139,0);rom[0xd139]=0;
+            StepCompanionRom(actor,rom,1,Vector2.Right,batched);
+            _runtimeState.SetWramByte(0xd108,2);rom[0xd108]=2;
+            _runtimeState.SetWramByte(0xd109,0);rom[0xd109]=0;
+            _runtimeState.SetWramByte(0xd106,1);rom[0xd106]=1;
+            StepCompanionRom(actor,rom,35,Vector2.Zero,batched);
+
+            (actor,rom)=PrepareMountedCompanionRom(0x0b);
+            StepCompanionRom(actor,rom,70,Vector2.Zero,batched,attack:true,edge:true);
+            _runtimeState.SetWramByte(0xd135,0x1d);rom[0xd135]=0x1d;
+            StepCompanionRom(actor,rom,1,Vector2.Zero,batched,attack:true);
+            foreach(int charge in Enumerable.Range(0,256))
+            {
+                _runtimeState.SetWramByte(0xd135,(byte)charge);rom[0xd135]=(byte)charge;
+                StepCompanionRom(actor,rom,1,Vector2.Zero,batched,attack:true);
+            }
+            _runtimeState.SetWramByte(0xd135,2);rom[0xd135]=2;
+            _runtimeState.SetWramByte(0xd139,3);rom[0xd139]=3;
+            StepCompanionRom(actor,rom,1,Vector2.Zero,batched);
+            StepCompanionRom(actor,rom,35,Vector2.Right,batched);
+            foreach(int charge in new[]{0x1f,0xff})
+            {
+                (actor,rom)=PrepareMountedCompanionRom(0x0b);
+                StepCompanionRom(actor,rom,70,Vector2.Zero,batched,attack:true,edge:true);
+                _runtimeState.SetWramByte(0xd135,(byte)charge);rom[0xd135]=(byte)charge;
+                StepCompanionRom(actor,rom,45,Vector2.Zero,batched);
             }
         }
     }
@@ -216,19 +256,35 @@ public sealed partial class ValidationRoot
             if (!mounted)
             {
                 _entities.Clear();
+                // Clear() retains enabled-$03 across room presentation teardown;
+                // this independent case instead replaces the mounted native actor.
+                CompanionRuntimeState.Clear(_runtimeState, id);
+                _runtimeState.SetField("wLinkObjectIndex",0xd0);
                 actor = SpawnFidelityCompanion(id, new(72, 64));
                 _player.WarpTo(new(8, 8), recordSafe: false);
-                rom.WaitForMount(new(8, 8));
+                rom.InitializeRemembered(new(8, 8), new(40, 40), occupied: false);
+                rom.Update(0xff);
+                rom.Update(0xff);
             }
             Vector2 expectedRespawn = fallback ? new(112, 88) : new(40, 40);
             CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, new(112, 88));
             rom[0xc638] = 88; rom[0xc639] = 112;
             if (fallback) SetCompanionRomTile(rom, 2, 2, 0, 15);
             SetCompanionRomTile(rom, 4, 4, tile);
+            bool restarted=false;int hazardVisits=0;
             StepCompanionRom(actor, rom, 150, Vector2.Zero, batched, compare: () =>
-                FailIf(_player.HealthQuarters != rom[0xc6aa], $"Companion ${id:x2} hazard damage differs: native={rom[0xc6aa]}, runtime={_player.HealthQuarters}."));
+            {
+                FailIf(_player.HealthQuarters != rom[0xc6aa] || _runtimeState.ReadWramByte(0xd106)!=rom[0xd106],
+                    $"Companion ${id:x2} hazard health/counter1 differs: health native={rom[0xc6aa]}/runtime={_player.HealthQuarters}, "+
+                    $"counter native=${rom[0xd106]:x2}/runtime=${_runtimeState.ReadWramByte(0xd106):x2}.");
+                if(!restarted && rom[0xd104]==4 && rom[0xd106]!=0 && (rom[0xd121]&0x80)==0 && ++hazardVisits==3)
+                {
+                    _runtimeState.SetWramByte(0xd106,0);rom[0xd106]=0;restarted=true;
+                }
+            });
+            FailIf(!restarted,"Hazard proof must repeat native animation initialization through a live counter1 reset.");
             FailIf(rom[0xd104] != (mounted ? 5 : 1) || actor.Node.Position != expectedRespawn,
-                "Companion did not recover from hazard at the native respawn point.");
+                $"Companion ${id:x2}/tile${tile:x2}/mounted{mounted}/fallback{fallback} did not recover from hazard at the native respawn point.");
         }
     }
 

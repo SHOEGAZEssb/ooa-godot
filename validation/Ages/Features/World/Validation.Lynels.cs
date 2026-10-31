@@ -32,10 +32,10 @@ public sealed partial class ValidationRoot
         FailIf(incoming.InitializationPending || !incoming.Visible || incoming.State != 9,
             "Scrolling preload must dispatch Lynel state zero with the live Link target.");
         var before = (incoming.Position,incoming.Counter,_entities.RandomCalls);
-        for (int i=0;i<8;i++) _entities.Update(1.0/60,_player);
+        for (int i=0;i<8;i++) _entities.AdvanceEntityFrames(1.0/60,_player);
         FailIf(before != (incoming.Position,incoming.Counter,_entities.RandomCalls), "Destination Lynel advanced during scrolling.");
         _entities.FinishScreenTransition();
-        _entities.Update(1.0/60,_player);
+        _entities.AdvanceEntityFrames(1.0/60,_player);
         FailIf(incoming.Counter != before.Counter-1, "Destination Lynel did not resume after scrolling.");
 
         foreach (int shield in new[] { 1,2,3 })

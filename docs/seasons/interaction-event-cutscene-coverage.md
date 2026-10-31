@@ -20,9 +20,12 @@ to be simultaneous or all reachable in a clean playthrough. Literal extra rows
 include dormant data. Coordinates and var03 retain source inputs before native
 rewriting; no-value placements initialize their other fields in native code.
 
-The full source has not been imported into Seasons runtime assets. Existing
-production routes are bounded by the standard opening. The native cutscene,
-Link, title and file-menu table below records the existing supported boundary;
+Room object declarations are imported as shared native control programs.
+Native story bindings remain bounded by the standard opening; shared effect
+and treasure services also operate through their explicitly bound producers.
+Shared dungeon spinners use their native placed room streams.
+Handler scripts and native cutscenes are imported only for implemented routes.
+The native cutscene, Link, title and file-menu table below records the existing supported boundary;
 it is not a source-wide inventory of those separate dispatch systems.
 Enemies, items and parts are dependencies rather than additional interaction IDs.
 
@@ -39,8 +42,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 4 | 7 | 214 | 7 | 232 |
-| Expanded placed interaction contexts | 4 | 1 | 1030 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 5 | 24 | 196 | 7 | 232 |
+| Expanded placed interaction contexts | 7 | 1 | 1027 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -70,10 +73,17 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Missing character rows and family variants in the NPC ledger | Missing |
 | Other room placements listed as **M** below | Missing |
 | Additional native/script variants of **P** dispatch families | Missing beyond the explicit runtime boundary |
+| Shared tile-break effect producers | Partial; native Shovel and Bracelet routes are bound; additional producer contexts remain open |
+| Shared ground-treasure graphics, text and held-item completion | Partial; dynamically constructed native treasure records use the shared session; placed and additional native producers remain unbound |
+| Shared dungeon spinner parent, arrow and Link handoff | Runtime route through the three native placed room streams and shared Link state dispatch |
+| Shared push, dungeon-key and Subrosia key-door tile contacts | Partial; reserved normal/sliding blocks, key opener/sprite, live-dungeon grants and ordered room-flag reload are bound; Subrosia doors use the native date flag; placed mechanisms and Rosa's NPC/date scripts remain unbound |
+| Named overworld keyhole contacts | Partial; contact timing, named-key checks and hints are bound; Gnarled, Floodgate and Dragon entrance scripts and their key-sprite production remain unbound |
+| Grave-triggered Ghini | Partial; native grave contact and counted spawning use shared normal, slow and targeted Ghini handlers; graveyard story and progression scripts remain unbound |
 | Remaining **M** interaction dispatch entries | No production route; retained/unreachable variants still require reachability tracing |
 | Linked-game introduction and linked troupe/Impa dialogue | Missing |
 | Seasons attract cinematic and title-timeout replay | Missing |
-| Seasons gameplay saving and resuming after the opening | Missing |
+| Seasons gameplay saving and resuming after the opening | Runtime route through the shared save/checkpoint flow for supported standard overworld files |
+| Overworld layout navigation after the opening | Runtime route; room `$00:$98` retains its after-event Octorok stream; other later NPC, enemy, event and warp contexts remain unsupported |
 | Progression beyond control returning in room `0:b6` | Missing |
 | Exhaustive executed clean-US-ROM comparison | Unproven |
 
@@ -90,37 +100,37 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 
 | ID | Source handler | Placed subids | Other object-list subids | Script-created subids | Symbol sites | Status and runtime boundary |
 | --- | --- | --- | --- | --- | ---: | --- |
-| `$00` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 3 | **M** — No Seasons production route. |
-| `$01` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 0 | **M** — No Seasons production route. |
+| `$00` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 3 | **P** ? Common grass debris; native break producers remain incomplete. |
+| `$01` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 0 | **P** ? Common red-grass debris; native break producers remain incomplete. |
 | `$02` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 2 | **M** — No Seasons production route. |
-| `$03` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 13 | **M** — No Seasons production route. |
-| `$04` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 6 | **M** — No Seasons production route. |
-| `$05` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | `$00` | 31 | **P** — Standard-opening `$00` puff only; other producers are unavailable. |
-| `$06` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 3 | **M** — No Seasons production route. |
-| `$07` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 5 | **M** — No Seasons production route. |
-| `$08` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 2 | **P** — Standard-opening `$00` destruction debris only; other producers are unavailable. |
-| `$09` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 2 | **M** — No Seasons production route. |
-| `$0a` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 2 | **M** — No Seasons production route. |
+| `$03` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 13 | **P** ? Common water splash for player and drop hazards; other native producers remain incomplete. |
+| `$04` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 6 | **P** ? Common lava splash for player and drop hazards; other native producers remain incomplete. |
+| `$05` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | `$00` | 31 | **P** — Standard opening and Bracelet `$d7` puff `$00`; additional producer contexts remain unbound. |
+| `$06` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 3 | **P** ? Common rock debris; native break producers remain incomplete. |
+| `$07` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 5 | **P** ? Common projectile, sword and enemy clinks; native combat producers remain incomplete. |
+| `$08` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 2 | **P** — Shared `$00` destruction puff for the standard opening; additional producers remain unbound. |
+| `$09` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 2 | **P** — Hero Shovel snow-pile `$01` debris; additional producer contexts remain unbound. |
+| `$0a` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 2 | **P** — Hero Shovel directional `$00` debris; additional producer contexts remain unbound. |
 | `$0b` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 1 | **M** — No Seasons production route. |
-| `$0c` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 0 | **M** — No Seasons production route. |
+| `$0c` | [breakTileDebris](../../external/oracles-disasm/object_code/common/interactions/breakTileDebris.s) | — | — | — | 0 | **P** ? Common second rock-debris variant; native break producers remain incomplete. |
 | `$0d` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
 | `$0e` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
-| `$0f` | [fallDownHole](../../external/oracles-disasm/object_code/common/interactions/fallDownHole.s) | — | — | — | 6 | **M** — No Seasons production route. |
+| `$0f` | [fallDownHole](../../external/oracles-disasm/object_code/common/interactions/fallDownHole.s) | — | — | — | 6 | **P** ? Common falling-hole effect `$00`; dust and other native producers remain incomplete. |
 | `$10` | [farore](../../external/oracles-disasm/object_code/common/interactions/farore.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$11` | [farore](../../external/oracles-disasm/object_code/common/interactions/farore.s) | — | `$01, $11, $21, $31, $41, $51, $61, $71` | — | 1 | **M** — No Seasons production route. |
 | `$12` | [dungeonStuff](../../external/oracles-disasm/object_code/common/interactions/dungeonStuff.s) | `$00-$02, $04` | — | — | 0 | **M** — No Seasons production route. |
 | `$13` | [pushblockTrigger](../../external/oracles-disasm/object_code/common/interactions/pushblockTrigger.s) | `$01` | — | — | 0 | **M** — No Seasons production route. |
-| `$14` | [pushblock](../../external/oracles-disasm/object_code/common/interactions/pushblock.s) | — | — | — | 2 | **M** — No Seasons production route. |
+| `$14` | [pushblock](../../external/oracles-disasm/object_code/common/interactions/pushblock.s) | — | — | — | 2 | **P** — Shared tile contact constructs reserved normal/sliding blocks; additional scripted producers remain unbound. |
 | `$15` | [usedRodOfSeasons](../../external/oracles-disasm/object_code/seasons/interactions/usedRodOfSeasons.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$16` | [minecart](../../external/oracles-disasm/object_code/common/interactions/minecart.s) | — | — | — | 1 | **M** — No Seasons production route. |
-| `$17` | [dungeonKeySprite](../../external/oracles-disasm/object_code/common/interactions/dungeonKeySprite.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$17` | [dungeonKeySprite](../../external/oracles-disasm/object_code/common/interactions/dungeonKeySprite.s) | — | — | — | 1 | **P** — Dungeon-key and Subrosia-door tile contacts construct checked shared key sprites; placed contexts remain unbound. |
 | `$18` | [overworldKeySprite](../../external/oracles-disasm/object_code/common/interactions/overworldKeySprite.s) | — | — | — | 0 | **M** — No Seasons production route. |
 | `$19` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
 | `$1a` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
 | `$1b` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
 | `$1c` | [faroresMemory](../../external/oracles-disasm/object_code/common/interactions/faroresMemory.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$1d` | [rupeeRoomRupees](../../external/oracles-disasm/object_code/seasons/interactions/rupeeRoomRupees.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
-| `$1e` | [doorController](../../external/oracles-disasm/object_code/common/interactions/doorController.s) | `$04-$0b, $10, $12, $14-$15` | `$14` | `$13` | 5 | **M** — No Seasons production route. |
+| `$1e` | [doorController](../../external/oracles-disasm/object_code/common/interactions/doorController.s) | `$04-$0b, $10, $12, $14-$15` | `$14` | `$13` | 5 | **P** — Shared dungeon-key contacts construct the reserved opener; placed door scripts and other variants remain unbound. |
 | `$1f` | [specialWarp](../../external/oracles-disasm/object_code/seasons/interactions/specialWarp.s) | `$00, $02-$0d` | — | — | 0 | **M** — No Seasons production route. |
 | `$20` | [dungeonScript](../../external/oracles-disasm/object_code/seasons/interactions/dungeonScript.s) | `$00-$0e` | — | — | 0 | **M** — No Seasons production route. |
 | `$21` | [gnarledKeyhole](../../external/oracles-disasm/object_code/seasons/interactions/gnarledKeyhole.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
@@ -185,8 +195,8 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$5c` | [lavaSoupSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/lavaSoupSubrosian.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$5d` | [tradeItem](../../external/oracles-disasm/object_code/seasons/interactions/tradeItem.s) | — | — | `$06-$08` | 3 | **M** — No Seasons production route. |
 | `$5e` | [quicksand](../../external/oracles-disasm/object_code/seasons/interactions/quicksand.s) | `$00-$05` | — | — | 1 | **M** — No Seasons production route. |
-| `$5f` | [companionSpawner](../../external/oracles-disasm/object_code/common/interactions/companionSpawner.s) | `$01-$06` | — | — | 1 | **M** — No Seasons production route. |
-| `$60` | [treasure](../../external/oracles-disasm/object_code/common/interactions/treasure.s) | — | — | — | 17 | **M** — No Seasons production route. |
+| `$5f` | [companionSpawner](../../external/oracles-disasm/object_code/common/interactions/companionSpawner.s) | `$01-$06` | — | — | 1 | **P** — Flute `$80` native caller with Ricky/Dimitri/Moosh construction and arrival bindings; placed subids remain unbound. |
+| `$60` | [treasure](../../external/oracles-disasm/object_code/common/interactions/treasure.s) | — | — | — | 17 | **P** — Shared dynamically constructed treasure graphics, text and held-item completion; placed and additional native producers remain unbound. |
 | `$61` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
 | `$62` | [unicornsCave4ChestPuzzle](../../external/oracles-disasm/object_code/seasons/interactions/unicornsCave4ChestPuzzle.s) | `$00` | — | — | 1 | **M** — No Seasons production route. |
 | `$63` | [unicornsCaveReverseMovingArmos](../../external/oracles-disasm/object_code/seasons/interactions/unicornsCaveReverseMovingArmos.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
@@ -215,7 +225,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$7a` | [roller](../../external/oracles-disasm/object_code/common/interactions/roller.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
 | `$7b` | [magnetSpinner](../../external/oracles-disasm/object_code/seasons/interactions/magnetSpinner.s) | `$00, $84` | — | — | 0 | **M** — No Seasons production route. |
 | `$7c` | [trampoline](../../external/oracles-disasm/object_code/seasons/interactions/trampoline.s) | `$00-$01` | — | — | 1 | **M** — No Seasons production route. |
-| `$7d` | [spinner](../../external/oracles-disasm/object_code/common/interactions/spinner.s) | `$00` | — | — | 1 | **M** — No Seasons production route. |
+| `$7d` | [spinner](../../external/oracles-disasm/object_code/common/interactions/spinner.s) | `$00` | — | — | 1 | **R** — Native placed parent/arrow handler in `$04:$26`, `$04:$b1`, `$05:$6f`; shared Link state `$08/$0b` handoff. |
 | `$7e` | [minibossPortal](../../external/oracles-disasm/object_code/common/interactions/minibossPortal.s) | `$00-$02` | — | `$00` | 3 | **M** — No Seasons production route. |
 | `$7f` | [essence](../../external/oracles-disasm/object_code/common/interactions/essence.s) | `$00` | — | — | 2 | **M** — No Seasons production route. |
 | `$80` | [fickleOldMan](../../external/oracles-disasm/object_code/seasons/interactions/fickleOldMan.s) | `$00-$03` | — | — | 0 | **M** — No Seasons production route. |
@@ -249,8 +259,8 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$9c` | [springBloomFlower](../../external/oracles-disasm/object_code/seasons/interactions/springBloomFlower.s) | `$00` | `$00` | — | 0 | **M** — No Seasons production route. |
 | `$9d` | [impa](../../external/oracles-disasm/object_code/seasons/interactions/impa.s) | `$00-$01, $03-$05` | — | — | 1 | **P** — Standard opening `$00`, its `$01` handoff and the standard-file `$04` deletion guard; other placed contexts and linked activation are missing. |
 | `$9e` | [samasaDesertGate](../../external/oracles-disasm/object_code/seasons/interactions/samasaDesertGate.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
-| `$9f` | [exclamationMark](../../external/oracles-disasm/object_code/common/interactions/exclamationMark.s) | — | — | — | 2 | **R** — Opening exclamation effect `$00`. |
-| `$a0` | [floatingImage](../../external/oracles-disasm/object_code/common/interactions/floatingImage.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$9f` | [exclamationMark](../../external/oracles-disasm/object_code/common/interactions/exclamationMark.s) | — | — | — | 2 | **R** — Shared `$00` body with native pack graphics for opening, helper and silent companion-hover allocations. |
+| `$a0` | [floatingImage](../../external/oracles-disasm/object_code/common/interactions/floatingImage.s) | — | — | — | 1 | **P** — Native music-note `$01` allocation, motion and lifetime; snore `$00` and other producers remain unbound. |
 | `$a1` | [movingSidescrollPlatform](../../external/oracles-disasm/object_code/common/interactions/movingSidescrollPlatform.s) | `$00-$09, $0b-$0f, $13-$14` | — | — | 0 | **M** — No Seasons production route. |
 | `$a2` | [movingSidescrollConveyor](../../external/oracles-disasm/object_code/common/interactions/movingSidescrollConveyor.s) | `$00-$04` | — | — | 0 | **M** — No Seasons production route. |
 | `$a3` | [disappearingSidescrollPlatform](../../external/oracles-disasm/object_code/seasons/interactions/disappearingSidescrollPlatform.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
@@ -314,7 +324,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$dd` | [goldenBeastOldMan](../../external/oracles-disasm/object_code/seasons/interactions/goldenBeastOldMan.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$de` | [makuSeedAndEssences](../../external/oracles-disasm/object_code/seasons/interactions/makuSeedAndEssences.s) | — | — | — | 2 | **M** — No Seasons production route. |
 | `$df` | [nayruRalphCredits](../../external/oracles-disasm/object_code/common/interactions/nayruRalphCredits.s) | — | `$00-$01` | — | 0 | **M** — No Seasons production route. |
-| `$e0` | [eraOrSeasonInfo](../../external/oracles-disasm/object_code/common/interactions/eraOrSeasonInfo.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$e0` | [eraOrSeasonInfo](../../external/oracles-disasm/object_code/common/interactions/eraOrSeasonInfo.s) | — | — | — | 1 | **P** — Shared banner after bound ordinary full-room loads; placed contexts and unsupported room/event producers missing. |
 | `$e1` | [portalSpawner](../../external/oracles-disasm/object_code/seasons/interactions/portalSpawner.s) | `$00-$01` | — | — | 1 | **M** — No Seasons production route. |
 | `$e2` | [statueEyeball](../../external/oracles-disasm/object_code/common/interactions/statueEyeball.s) | `$00-$01, $03` | — | — | 1 | **M** — No Seasons production route. |
 | `$e3` | [vire](../../external/oracles-disasm/object_code/seasons/interactions/vire.s) | — | — | — | 0 | **M** — No Seasons production route. |
@@ -610,7 +620,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `4:20` | [M] `$7a:$02/v$00` roller<br>[M] `$7a:$01/v$00` roller |
 | `4:21` | [M] `$7e:$00/v$00` minibossPortal<br>[M] `$20:$01/v$00` dungeonScript<br>[M] `$1e:$08/v$00` doorController<br>[M] `$1e:$09/v$00` doorController |
 | `4:25` | [M] `$1e:$09/v$00` doorController<br>[M] `$c7:$04/v$00` createObjectAtEachTileindex |
-| `4:26` | [M] `$7d:$00/v$00` spinner |
+| `4:26` | [R] `$7d:$00/v$00` spinner |
 | `4:27` | [M] `$79:$05/v$00` movingPlatform<br>[M] `$79:$09/v$00` movingPlatform<br>[M] `$79:$15/v$00` movingPlatform<br>[M] `$79:$1b/v$00` movingPlatform |
 | `4:28` | [M] `$79:$24/v$00` movingPlatform<br>[M] `$79:$2c/v$00` movingPlatform<br>[M] `$79:$34/v$00` movingPlatform |
 | `4:29` | [M] `$20:$02/v$00` dungeonScript<br>[M] `$1e:$0b/v$00` doorController<br>[M] `$1e:$0a/v$00` doorController<br>[M] `$c7:$04/v$00` createObjectAtEachTileindex |
@@ -697,7 +707,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `4:ad` | [M] `$79:$00/v$00` movingPlatform<br>[M] `$79:$08/v$00` movingPlatform<br>[M] `$79:$18/v$00` movingPlatform<br>[M] `$79:$20/v$00` movingPlatform<br>[M] `$79:$28/v$00` movingPlatform<br>[M] `$79:$30/v$00` movingPlatform<br>[M] `$79:$38/v$00` movingPlatform |
 | `4:ae` | [M] `$20:$0c/v$00` dungeonScript |
 | `4:af` | [M] `$1e:$04/v$00` doorController |
-| `4:b1` | [M] `$7d:$00/v$00` spinner |
+| `4:b1` | [R] `$7d:$00/v$00` spinner |
 | `4:b4` | [M] `$79:$40/v$00` movingPlatform<br>[M] `$79:$48/v$00` movingPlatform<br>[M] `$20:$04/v$00` dungeonScript<br>[M] `$7c:$00/v$00` trampoline<br>[M] `$c7:$08/v$00` createObjectAtEachTileindex |
 | `4:b5` | [M] `$13:$01/v$00` pushblockTrigger<br>[M] `$1e:$09/v$00` doorController |
 | `4:b6` | [M] `$1e:$07/v$00` doorController |
@@ -810,7 +820,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `5:6b` | [M] `$69:$00/v$00` swordShieldMazeFreezingLavaEvent |
 | `5:6c` | [M] `$20:$04/v$00` dungeonScript |
 | `5:6d` | [M] `$1e:$05/v$00` doorController |
-| `5:6f` | [M] `$7d:$00/v$00` spinner |
+| `5:6f` | [R] `$7d:$00/v$00` spinner |
 | `5:71` | [M] `$20:$0a/v$00` dungeonScript |
 | `5:72` | [M] `$1e:$0b/v$00` doorController<br>[M] `$1e:$08/v$00` doorController<br>[M] `$7e:$00/v$00` minibossPortal<br>[M] `$20:$07/v$00` dungeonScript<br>[M] `$c7:$04/v$00` createObjectAtEachTileindex |
 | `5:73` | [M] `$20:$02/v$00` dungeonScript |
@@ -969,8 +979,11 @@ Coordinates are `(Y, X)`. The default var03 is `$00` for this command.
 | Interaction `$88:$00-$01` | Castle lightning | Runtime route |
 | Interaction `$77:$00-$01` | Temple scenery | Runtime route |
 | Interaction `$86:$00-$04` | Temple explosions | Runtime route |
-| Interaction `$9f:$00` | Exclamation effect | Runtime route |
+| Interaction `$9f:$00` | Exclamation effect | Opening and shared helper/hover runtime routes |
 | Interaction `$05:$00` | Puff effect | Runtime route |
 | Interaction `$08:$00` | Destruction debris | Runtime route |
+| Special object `$0b` | Native state0/stateA waiting/force-mount presenter, common live body/punch/tornado, remembered admission and Flute stateC hops; quest controllers, scripted departure and remaining riding/hazard aliases incomplete | Partial |
+| Special object `$0c` | Seasons state0/stateA presenter, common live body/mouth, remembered admission and Flute stateC arrival; remaining carry/hazard aliases and transient paths incomplete | Partial |
+| Special object `$0d` | Seasons state0 and stateA waiting/force-mount presenter, common live body/stomp, remembered admission and Flute stateC arrival; scripted movement/departure states and transient aliases incomplete | Partial |
 
 Implementation guidance is in [NPCs and room events](../npcs-and-events.md).

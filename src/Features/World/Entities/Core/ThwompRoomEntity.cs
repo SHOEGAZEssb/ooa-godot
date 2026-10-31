@@ -30,7 +30,6 @@ internal sealed class ThwompRoomEntity
                 thwomp.TakeBurnHit,
                 (_, _) => { },
                 soundRequested,
-                EnemySwordResponse.Armored,
                 acceptedHitSound: 0))
     {
         _soundRequested = soundRequested;

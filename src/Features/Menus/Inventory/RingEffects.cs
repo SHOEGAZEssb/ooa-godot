@@ -168,9 +168,6 @@ internal static class RingEffects
     internal static bool BombsExplode(InventoryState inventory) =>
         !Active(inventory, RingId.Peace);
 
-    internal static int MapleKillThreshold(InventoryState inventory) =>
-        Active(inventory, RingId.Maples) ? 15 : 30;
-
     internal static int PegasusSeedTimerDecrement(InventoryState inventory) =>
         Active(inventory, RingId.Pegasus) ? 1 : 2;
 
@@ -205,17 +202,6 @@ internal static class RingEffects
 
     internal static bool DetectsSoftSoil(InventoryState inventory) =>
         Active(inventory, RingId.Discovery);
-
-    internal static int LinkTransformation(InventoryState inventory) =>
-        inventory.ActiveRing switch
-        {
-            (int)RingId.Octo => 5,
-            (int)RingId.Moblin => 6,
-            (int)RingId.LikeLike => 7,
-            (int)RingId.Subrosian => 3,
-            (int)RingId.FirstGen => 4,
-            _ => 0
-        };
 
     internal static bool PreventsJinx(InventoryState inventory) =>
         Active(inventory, RingId.Whisp);

@@ -17,7 +17,7 @@ internal sealed class SeasonsOpeningSequence(SeasonsOpeningSession session, Seas
     private bool Tick() { _counter--; return _counter == 0; }
     private void PaletteTo(int address)
     {
-        _paletteFrom = session.Data.Palettes.Capture();
+        _paletteFrom = session.Data.World.Palettes.Capture();
         _paletteTo = OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + $"opening/palette-{address:x4}.bin", 6, 2);
         _paletteFrame = 32;
     }
@@ -31,7 +31,7 @@ internal sealed class SeasonsOpeningSequence(SeasonsOpeningSession session, Seas
     private void MixPalette(int remaining)
     {
         int from = (remaining >> 1) & 15, to = 16 - from;
-        var colors = session.Data.Palettes.Capture();
+        var colors = session.Data.World.Palettes.Capture();
         int first = (remaining & 1) == 0 ? 5 : 2;
         for (int palette = first; palette < first + 3; palette++)
         for (int shade = 0; shade < 4; shade++)
@@ -40,7 +40,7 @@ internal sealed class SeasonsOpeningSequence(SeasonsOpeningSession session, Seas
             float Mix(float x, float y) => ((Mathf.RoundToInt(x * 31) * from + Mathf.RoundToInt(y * 31) * to) >> 4) / 31f;
             colors[palette, shade] = new(Mix(a.R, b.R), Mix(a.G, b.G), Mix(a.B, b.B));
         }
-        session.Data.Palettes.Restore(colors);
+        session.Data.World.Palettes.Restore(colors);
     }
     internal void AdvanceShake()
     {
@@ -129,8 +129,9 @@ internal sealed class SeasonsOpeningSequence(SeasonsOpeningSession session, Seas
             session.Signal(2, session.Signal(2) & ~(1 << bit));
             foreach (int position in positions[bit])
             {
-                byte tile = session.Memory.ReadWramByte(0xcf00 + position);
-                session.Room.SetTilesAndCollisions([new(new((position & 15) * 16 + 8, (position >> 4) * 16 + 8), tile, null)], _animationTicks);
+                // cutsceneDinDancing_loadListOfTiles redraws the current room's wRoomLayout.
+                byte tile = session.Room.GetPackedStorageMetatile((byte)position);
+                session.Rooms.TrySetTile((byte)position, tile);
             }
         }
     }
@@ -250,14 +251,14 @@ internal sealed class SeasonsOpeningSequence(SeasonsOpeningSession session, Seas
         {
             int[] rooms = [0xb8,0xc6,0xc8], seasons = [1,2,2];
             session.LoadRoom(rooms[_templeScene - 3], seasons[_templeScene - 3], spawn: false, preserveActors: true);
-            Image graphics = session.Data.NativeRoomGraphics(rooms[_templeScene - 3], seasons[_templeScene - 3]);
+            Image graphics = session.Data.World.NativeRoomGraphics(rooms[_templeScene - 3], seasons[_templeScene - 3]);
             screen.UploadRoom(session.Room, graphics, _templeScene == 5 ? 0 : 0x60);
             _paletteCycle = new[] { 2,3,1 }[_templeScene - 3];
         }
         string palette = _templeScene < 3 ? "PALH_TILESET_SUBROSIA_TEMPLE_VARIANT_UNUSED" :
             new[] { "PALH_TILESET_OVERWORLD_SUMMER_A", "PALH_TILESET_OVERWORLD_WINTER_A", "PALH_TILESET_OVERWORLD_AUTUMN_A" }[_templeScene - 3];
         screen.Load($"GFXH_TEMPLEFALL_SCENE{_templeScene + 2}", palette, 4, preserveCamera: true);
-        _basePalette = session.Data.Palettes.Capture();
+        _basePalette = session.Data.World.Palettes.Capture();
         _counter = 90;
     }
     private void CycleSeasons()

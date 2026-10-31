@@ -262,9 +262,10 @@ internal sealed class TingleEvent : IRoomEvent
             _record.Group,
             _record.Room,
             _record.SatchelTreasure,
-            0,
+            0x04,
             _record.SatchelUpgradeObject,
-            "scripts/ages/scripts.s:tingleScript giveitem TREASURE_OBJECT_SEED_SATCHEL_UPGRADE");
+            "scripts/ages/scripts.s:tingleScript giveitem TREASURE_OBJECT_SEED_SATCHEL_UPGRADE",
+            objectParameter: 0x00);
         _stage = TingleEventStage.UpgradeReward;
     }
 
@@ -347,9 +348,11 @@ internal sealed class TingleEvent : IRoomEvent
 
     private void BeginRickyDeparture()
     {
-        RickyCompanionRoomEntity? ricky =
-            _context.Entities.Entities<RickyCompanionRoomEntity>().SingleOrDefault();
-        ricky?.BeginTingleDeparture(_database.Text(0x2006));
+        var memory=_context.Entities.RuntimeState;
+        // tingleScript writes these bytes even if the physical companion slot is inactive.
+        memory.SetWramByte(0xd103,2);
+        memory.SetField("wDisabledObjects",1);memory.SetField("wMenuDisabled",1);
+        memory.SetWramByte(0xd104,0x0a);
         Finish();
     }
 

@@ -34,7 +34,22 @@ public sealed partial class ValidationRoot
                 entry.Counter == counter;
         }
         int clinks = _sound.PlayRequestsFor(SoundId.SndClink);
+        _runtimeState.SetField("wcc05", 0xff);
+        bool initializedBeforeStream = false;
+        void ObserveInitialization(int incomingGroup, OracleRoomData incomingRoom)
+        {
+            if (incomingGroup != group || incomingRoom.Id != room) return;
+            initializedBeforeStream = roomEvent.HasState &&
+                _runtimeState.ReadField("wcc05") == 0xfd &&
+                _runtimeState.ReadField("wDiggingUpEnemiesForbidden") == 1 &&
+                _entities.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x40 && npc.Record.SubId == 0x0a);
+        }
+        _entities.RoomInitializing += ObserveInitialization;
         LoadValidationRoom(group, room);
+        _entities.RoomInitializing -= ObserveInitialization;
+        FailIf(!initializedBeforeStream || _runtimeState.ReadField("wcc05") != 0xfd ||
+            _runtimeState.ReadField("wDiggingUpEnemiesForbidden") != 1,
+            "roomSpecificCode3 must allocate soldier $40:$0a and clear wcc05 bit 1 before the placed stream; parsing must retain its digging prohibition.");
 
         NpcCharacter soldier = _entities.Entities<NpcCharacter>().Single(npc =>
             npc.Record.Id == record.InteractionId &&
@@ -258,7 +273,8 @@ public sealed partial class ValidationRoot
             _player.Position != new Vector2(0x48, 0x38) ||
             _player.FacingVector != Vector2I.Up ||
             _dialogue.IsOpen ||
-            roomEvent.HasState,
+            roomEvent.HasState ||
+            _runtimeState.ReadField("wcc05") != 0xff,
             "soldierSubid0a did not install its hardcoded transition " +
             "$00 to room 1:46 position $34 with transition $03.");
 
@@ -276,7 +292,7 @@ public sealed partial class ValidationRoot
             "The room 1:81 typed command trace lost source lines or command order.");
 
         UpdateRoomWarpTransition(
-            AgesRoomTransitionController.WarpFadeFrames / 60.0);
+            RoomTransitionController.WarpFadeFrames / 60.0);
         LoadValidationRoom(group, room);
         FailIf(
             _entities.Entities<NpcCharacter>().Any(npc =>

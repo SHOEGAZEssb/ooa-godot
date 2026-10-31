@@ -100,14 +100,19 @@ public sealed partial class ValidationRoot
             // the surrounding sword fight exercises actual player input.
             Vector2 beforeShield = target.Position;
             int shieldHealth = target.Health;
-            FailIf(!target.TryApplyShieldBump(target.CollisionBounds, _player.Position, EnemyKnockbackStrength.Low) ||
+            FailIf(!target.TryApplyCollisionBump(target.CollisionBounds, _player.Position, EnemyKnockbackStrength.Low) ||
                 target.InvincibilityCounter != -16 || target.KnockbackCounter != 8,
                 "Moldorm shield bump must publish ENEMYDMG_10's negative invincibility and recoil bytes.");
+            target.DeferNativeHitStatus();
+            FailIf(!target.NativeHitPending, "Moldorm's shared and species collision writers must expose the same pending JUST_HIT signal.");
             Step();
-            FailIf(target.Position != beforeShield || target.Health != shieldHealth || target.KnockbackCounter != 8 ||
+            FailIf(target.NativeHitPending || target.Position != beforeShield || target.Health != shieldHealth || target.KnockbackCounter != 8 ||
                 target.InvincibilityCounter != -15 || target.Tail1!.InvincibilityCounter != -15 || target.Tail2!.InvincibilityCounter != -15,
                 "Shield JUST_HIT must copy signed invincibility into both tails before their post-update ticks, without damage or immediate recoil movement.");
-            Step(16);
+            Step();
+            FailIf(target.KnockbackCounter != 7 || target.InvincibilityCounter != -14,
+                "Moldorm must start recoil on the next visit after consuming its single JUST_HIT signal, without a second queued skip.");
+            Step(15);
             _sound.ClearPlayRequestAudit();
             for (int i = 0; _entities.Entities<MoldormCharacter>().Count != 0 && i < 480; i++) ApproachAndSwing(i);
             FailIf(_entities.Entities<MoldormCharacter>().Count != 0 || _entities.Entities<MoldormTailCharacter>().Count != 0 ||

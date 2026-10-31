@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         try
         {
             if (!interactions.TryInteract(player)) return false;
-            entities.Update(1.0 / 60.0, player);
+            entities.AdvanceEntityFrames(1.0 / 60.0, player);
             return true;
         }
         finally

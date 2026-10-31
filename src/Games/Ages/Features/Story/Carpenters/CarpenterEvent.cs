@@ -6,7 +6,7 @@ using System.Linq;
 namespace Oracles;
 
 /// <summary>Room $0:$25's independently scheduled INTERAC_CARPENTER scripts.</summary>
-internal sealed class CarpenterEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost,
+internal sealed class CarpenterEvent : RoomCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent
 {
     public override RoomEventContext Context { get; }
@@ -20,7 +20,7 @@ internal sealed class CarpenterEvent : InteractiveCutsceneCommandHost, IRoomEntr
     public bool ScreenTransitionsDisabled => BlocksGameplay;
     public bool HasState { get; private set; }
     public bool BlocksGameplay => InputControlHeld;
-    public bool MenusDisabled { get; private set; }
+    public bool MenusDisabled => Context.Entities.RuntimeState.ReadField("wMenuDisabled") != 0;
 
     public CarpenterEvent(RoomEventContext context)
     {
@@ -89,8 +89,7 @@ internal sealed class CarpenterEvent : InteractiveCutsceneCommandHost, IRoomEntr
 
     public void Cancel()
     {
-        SetInputEnabled(true);
-        MenusDisabled = false;
+        ReleaseInputControl();
         _lanes.Clear();
         // Outgoing actors retain their exact last picture during scrolling.
         _actors.Clear();
@@ -101,14 +100,6 @@ internal sealed class CarpenterEvent : InteractiveCutsceneCommandHost, IRoomEntr
         _mountLock = 0;
         CompanionRuntimeState.SetMountingLock(Context.Entities.RuntimeState, 0);
     }
-
-    public override void SetInputEnabled(bool enabled)
-    {
-        if (InputControlHeld == !enabled) return;
-        base.SetInputEnabled(enabled);
-        if (!enabled) MenusDisabled = true;
-    }
-    public override void SetMenuEnabled(bool enabled) => MenusDisabled = !enabled;
 
     internal int SearchState
     {

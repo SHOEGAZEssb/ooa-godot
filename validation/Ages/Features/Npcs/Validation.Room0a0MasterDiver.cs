@@ -45,7 +45,8 @@ public sealed partial class ValidationRoot
                 "Room 0:a0 linked $cd:$00 did not publish its solid source pose without an essence gate.");
             ApproachLibraryActor(npc, batched);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-            FailIf(!_dialogue.ChoiceActive || !_player.CutsceneControlled ||
+            FailIf(!_dialogue.ChoiceActive || _player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 !PlainWords(_dialogue.CurrentMessage).Contains("master diver", StringComparison.Ordinal),
                 "Room 0:a0 $cd:$00 was unreachable or did not present TX_4d0f.");
             _dialogue.SubmitChoiceForValidation(1);
@@ -87,7 +88,8 @@ public sealed partial class ValidationRoot
                 "Room 0:a0 Yes did not show TX_4d13.");
             _dialogue.Close();
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x53),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x53),
                 "Room 0:a0 final text did not release Link or retain flag $53.");
 
             ApproachLibraryActor(npc, batched);
@@ -97,7 +99,8 @@ public sealed partial class ValidationRoot
                 "Room 0:a0 second A press did not return to TX_4d0f's offer loop.");
             LoadValidationRoom(0, 0xa1);
             _dialogue.Close();
-            FailIf(_player.CutsceneControlled || !_saveData.HasGlobalFlag(0x53),
+            FailIf(_player.CutsceneControlled || _runtimeState.ReadField("wDisabledObjects") != 0 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0 || !_saveData.HasGlobalFlag(0x53),
                 "Room 0:a0 cancellation did not release input or retain flag $53.");
         }
         GD.Print("Validated room 0:a0 $cd:$00 linked admission, solid collision approach, TX_4d0f-TX_4d13 waits, Diver secret $23, repeat and cancellation in split/batched updates.");

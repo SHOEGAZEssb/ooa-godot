@@ -24,6 +24,10 @@ public static class ItemCollisionType
     public const int Shovel = 0x0c;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_SWITCH_HOOK
     public const int SwitchHook = 0x0d;
+    // constants/common/itemCollisionTypes.s: ITEMCOLLISION_DIMITRI_MOUTH
+    public const int DimitriMouth = 0x0f;
+    // constants/common/itemCollisionTypes.s: ITEMCOLLISION_HARMLESS
+    public const int Harmless = 0x12;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_SOMARIA_BLOCK
     public const int SomariaBlock = 0x15;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_THROWN_OBJECT

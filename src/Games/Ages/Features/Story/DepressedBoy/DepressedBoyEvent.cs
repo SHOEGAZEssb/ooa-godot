@@ -209,6 +209,9 @@ internal sealed class DepressedBoyEvent :
                 BeginDarkening();
                 break;
             case "MoveLinkToFunnyJokePosition":
+                // moveLinkToPosition selects LINK_CUTSCENE $05; disableinput
+                // itself leaves the ordinary Link handler selected.
+                EventResources.LockInput();
                 _linkApproachActive = true;
                 break;
             case "SetLinkNormalDown":
@@ -279,12 +282,13 @@ internal sealed class DepressedBoyEvent :
         if (currentY == _record.ApproachY)
         {
             _linkApproachActive = false;
+            Context.Player.Face(Vector2I.Up);
+            Context.Player.EndCutsceneControl(this);
             return;
         }
-        Vector2I direction = currentY < _record.ApproachY
-            ? Vector2I.Down
-            : Vector2I.Up;
-        Context.Player.AdvanceCutsceneMovement((Vector2)direction, direction);
+        Context.Player.Face(currentY < _record.ApproachY ? Vector2I.Down : Vector2I.Up);
+        Context.Player.AdvanceNativeCutsceneMovement(0x28,
+            currentY < _record.ApproachY ? ObjectAngle.Down : ObjectAngle.Up);
     }
 
     private void AdvanceFunnyJokeDance()

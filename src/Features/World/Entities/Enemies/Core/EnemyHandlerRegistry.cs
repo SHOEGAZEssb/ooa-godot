@@ -10,14 +10,15 @@ namespace Oracles;
 /// </summary>
 internal sealed class EnemyHandlerRegistry
 {
+    internal string AssetRoot { get; }
     private readonly Dictionary<(int Id, int SubId), EnemyHandlerDescriptor>
         _handlers = new();
 
     internal IEnumerable<EnemyHandlerDescriptor> Handlers => _handlers.Values;
 
-    internal EnemyHandlerRegistry(
-        string assetRoot, IEnumerable<IReadOnlyList<RoomObjectRecord>> roomObjectGroups)
+    internal EnemyHandlerRegistry(string assetRoot)
     {
+        AssetRoot = assetRoot;
         GeneratedTable table = GeneratedTable.Load(
             assetRoot + "objects/enemy_handler_registry.tsv",
             new GeneratedTableSchema(
@@ -25,25 +26,21 @@ internal sealed class EnemyHandlerRegistry
                 GeneratedTableKeySemantics.Unique,
                 [
                     "id", "subid", "collision-mode", "classification",
-                    "handler", "enemy-name", "source", "shield-l1-effect",
-                    "shield-l2-effect", "shield-l3-effect", "shield-source"
+                    "handler", "enemy-name", "source"
                 ],
                 ["id", "subid"],
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
             var descriptor = new EnemyHandlerDescriptor(
+                AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.HexByte(2),
                 ParseClassification(row, 3),
                 ParseHandler(row, 4),
                 row.RequiredString(5),
-                row.RequiredString(6),
-                row.HexByte(7),
-                row.HexByte(8),
-                row.HexByte(9),
-                row.RequiredString(10));
+                row.RequiredString(6));
             ValidateDescriptor(row, descriptor);
             if (!_handlers.TryAdd(
                 (descriptor.Id, descriptor.SubId), descriptor))
@@ -54,6 +51,11 @@ internal sealed class EnemyHandlerRegistry
             }
         }
 
+    }
+
+    internal EnemyHandlerRegistry(string assetRoot, IEnumerable<IReadOnlyList<RoomObjectRecord>> roomObjectGroups)
+        : this(assetRoot)
+    {
         var usedKeys = new HashSet<(int Id, int SubId)>();
         foreach (IReadOnlyList<RoomObjectRecord> roomObjects in roomObjectGroups)
         {
@@ -151,9 +153,10 @@ internal sealed class EnemyHandlerRegistry
             EnemyHandlerClassification.DynamicSpecial,
         "deliberately-unsupported" =>
             EnemyHandlerClassification.DeliberatelyUnsupported,
+        "unimplemented" => EnemyHandlerClassification.Unimplemented,
         _ => throw row.Invalid(
             column,
-            "ordered-implemented, dynamic-special, or deliberately-unsupported")
+            "ordered-implemented, dynamic-special, deliberately-unsupported, or unimplemented")
     };
 
     private static EnemyHandlerKind ParseHandler(
@@ -169,12 +172,12 @@ internal sealed class EnemyHandlerRegistry
         "buzzblob" => EnemyHandlerKind.BuzzBlob,
         "boomerang-moblin" => EnemyHandlerKind.BoomerangMoblin,
         "leever" => EnemyHandlerKind.Leever,
-        "arrow-moblin" => EnemyHandlerKind.ArrowMoblin,
+        "arrow-moblin" or "masked-moblin" => EnemyHandlerKind.ArrowMoblin,
         "arrow-darknut" => EnemyHandlerKind.ArrowDarknut,
         "lynel" => EnemyHandlerKind.Lynel,
         "podoboo-tower" => EnemyHandlerKind.PodobooTower,
-        "masked-moblin" => EnemyHandlerKind.MaskedMoblin,
         "rope" => EnemyHandlerKind.Rope,
+        "beetle" => EnemyHandlerKind.Beetle,
         "blade-trap" => EnemyHandlerKind.BladeTrap,
         "iron-mask" => EnemyHandlerKind.IronMask,
         "pincer" => EnemyHandlerKind.Pincer,
@@ -238,7 +241,7 @@ internal sealed class EnemyHandlerRegistry
                     EnemyHandlerKind.MakuSproutMaskedMoblin),
             EnemyHandlerClassification.DynamicSpecial =>
                 descriptor.Handler == EnemyHandlerKind.MakuSproutMaskedMoblin,
-            EnemyHandlerClassification.DeliberatelyUnsupported =>
+            EnemyHandlerClassification.DeliberatelyUnsupported or EnemyHandlerClassification.Unimplemented =>
                 descriptor.Handler == EnemyHandlerKind.None,
             _ => false
         };
@@ -252,27 +255,26 @@ internal sealed class EnemyHandlerRegistry
 }
 
 internal sealed record EnemyHandlerDescriptor(
+    string AssetRoot,
     int Id,
     int SubId,
     int CollisionMode,
     EnemyHandlerClassification Classification,
     EnemyHandlerKind Handler,
     string EnemyName,
-    string Source,
-    int ShieldLevel1Effect,
-    int ShieldLevel2Effect,
-    int ShieldLevel3Effect,
-    string ShieldSource)
+    string Source)
 {
     internal bool SupportsOrderedConstruction =>
         Classification == EnemyHandlerClassification.OrderedImplemented;
 
     internal bool SupportsCombatSource =>
-        Classification != EnemyHandlerClassification.DeliberatelyUnsupported &&
+        Classification is (EnemyHandlerClassification.OrderedImplemented or EnemyHandlerClassification.DynamicSpecial) &&
         Handler is not (EnemyHandlerKind.FireballShooter or EnemyHandlerKind.Beamos or EnemyHandlerKind.VineSprout or EnemyHandlerKind.GreatFairy or EnemyHandlerKind.TargetCartCrystal or
             EnemyHandlerKind.BabyCucco or EnemyHandlerKind.Cucco);
 
     internal bool CompletesDungeonEnemyCount => SupportsOrderedConstruction;
+    internal bool SupportsStandaloneConstruction => SupportsOrderedConstruction &&
+        (SupportsCombatSource || Handler is EnemyHandlerKind.TargetCartCrystal or EnemyHandlerKind.GreatFairy or EnemyHandlerKind.Beamos);
 
     internal EnemyCombatSourceDescriptor CombatSource(
         RoomObjectRecord source,
@@ -305,17 +307,13 @@ internal sealed record EnemyHandlerDescriptor(
             throw new ArgumentOutOfRangeException(nameof(killableEnemyIndex));
 
         return new EnemyCombatSourceDescriptor(
+            AssetRoot,
             Id,
             SubId,
             CollisionMode,
             objectFlags,
             killableEnemyIndex,
-            Handler,
-            source,
-            ShieldLevel1Effect,
-            ShieldLevel2Effect,
-            ShieldLevel3Effect,
-            ShieldSource);
+            source);
     }
 }
 
@@ -333,7 +331,8 @@ internal enum EnemyHandlerClassification
 {
     OrderedImplemented,
     DynamicSpecial,
-    DeliberatelyUnsupported
+    DeliberatelyUnsupported,
+    Unimplemented
 }
 
 internal enum EnemyHandlerKind
@@ -354,7 +353,6 @@ internal enum EnemyHandlerKind
     ArrowDarknut,
     Lynel,
     PodobooTower,
-    MaskedMoblin,
     Rope,
     BladeTrap,
     IronMask,

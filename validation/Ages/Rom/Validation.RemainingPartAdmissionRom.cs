@@ -12,6 +12,18 @@ public sealed partial class ValidationRoot
     private static void F1Set(object owner, string field, object value) =>
         owner.GetType().GetField(field, F1Hidden)!.SetValue(owner, value);
     private Dictionary<IRoomEntity, int> F1Parts => SomariaPrivate<Dictionary<IRoomEntity, int>>(_entities, "_partSlots");
+    private void F1StageBeforeEnemyProbe(IRoomEntity owner,IRoomEntity probe)
+    {
+        // Keep the observer after target sampling and before the composite's
+        // handler. The native fixture uses its beforeEnemies hook for this
+        // no-op observer; it does not claim the full composite slot footprint.
+        FailIf(!F8Enemies.TryGetValue(owner,out int slot) || slot!=0,"Scratch fixture requires its declared controller slot0.");
+        F8Enemies.Remove(owner);
+        SomariaPrivate<System.Collections.Generic.HashSet<int>>(_entities,"_reservedEnemySlots").Remove(slot);
+        _entities.RegisterEnemySlot(owner,1);
+        _entities.RegisterEnemySlot(probe,0);
+        _entities.AddEntity(probe);
+    }
     private void F1Retain(IRoomEntity parent)
     {
         foreach (var actor in _entities.EntityAdapters<IRoomEntity>().Where(actor => !ReferenceEquals(actor, parent)).ToArray())
@@ -83,8 +95,9 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(16, 160)); _player.BeginCutsceneControl();
             var parent = _entities.EntityAdapters<HeadThwompBossRoomEntity>().Single();
             var boss = (HeadThwompBoss)parent.Node; F1Retain(parent);
-            F1Set(boss, "_initialized", true); F1Set(parent, "_initialized", true); boss.Position = new(80, 72);
+            F1Set(boss, "_initialized", true); boss.Position = new(80, 72);
             _runtimeState.SetWramByte(0xcc00, 1);
+            _saveData.WriteField("wPlaytimeCounter", 1);
             int state = mode switch { "bomb" => 9, "fireball" => 0x0d, "circular" => 0x0e, _ => 0x0f };
             F1Set(boss, "_state", mode switch { "bomb" => HeadThwompState.Spinning, "fireball" => HeadThwompState.Green,
                 "circular" => HeadThwompState.Blue, _ => HeadThwompState.Purple });
@@ -151,7 +164,7 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, 0x13);
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(16, 112)); _player.BeginCutsceneControl();
             var parent = _entities.EntityAdapters<PumpkinHeadBossRoomEntity>().Single(); var boss = (PumpkinHeadBoss)parent.Node;
-            F1Retain(parent); F1Set(boss, "_initialized", true); F1Set(parent, "_initialized", true);
+            F1Retain(parent); F1Set(boss, "_initialized", true);
             F1Set(boss, "_state", BossState.Firing); F1Set(boss, "_counter", 37); F1Set(boss, "_angle", 8);
             F1Set(boss, "_headPosition", new Vector2(80, 72)); F1Set(boss, "_headZ", 0); F1Set(boss, "_bodyZFixed", 0);
             var native = F1Native(0x78, 3, 0x0c, new(80, 72)); native[0xd086] = 1;

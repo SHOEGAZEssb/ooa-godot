@@ -21,8 +21,7 @@ internal sealed class PeahatRoomEntity
                 peahat.TakeSwordHit,
                 peahat.TakeBurnHit,
                 peahat.ApplySwordNoKnockback,
-                soundRequested,
-                EnemySwordResponse.NoKnockback),
+                soundRequested),
             collisionZ: () => peahat.ZHigh)
     { }
 

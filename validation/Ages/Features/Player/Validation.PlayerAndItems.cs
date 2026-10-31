@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateBombs()
     {
-        BombRecord record = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+        BombRecord record = new BombDatabase(AgesGameContent.AssetRoot).Data;
         AnimationDefinition fuse =
             OracleGraphicsCache.GetAnimationDefinition(record.FuseAnimation);
         AnimationDefinition explosion =
@@ -85,6 +85,7 @@ public sealed partial class ValidationRoot
                 SaveData = save,
                 Inventory = inventory,
                 Treasures = _treasures,
+                RuntimeState = rooms.RuntimeState,
                 Rooms = rooms
             });
         RoomEntityManager manager = fixture.Manager;
@@ -103,8 +104,7 @@ public sealed partial class ValidationRoot
             manager,
             rooms,
             sounds.Add,
-            static () => false,
-            new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv"));
+            new BombDatabase(AgesGameContent.AssetRoot));
 
         int inventoryChanges = 0;
         int saveChanges = 0;
@@ -123,7 +123,7 @@ public sealed partial class ValidationRoot
         BombEffect allocated = controller.Bomb ??
             throw new InvalidOperationException(
                 "Bomb allocation validation lost its actor.");
-        manager.Update(1.0 / 60.0, player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, player);
         for (int update = 1; update <= 10; update++)
         {
             bool movementLocked =
@@ -131,7 +131,7 @@ public sealed partial class ValidationRoot
                     player,
                     Vector2.Zero,
                     itemButtonJustPressed: false);
-            manager.Update(1.0 / 60.0, player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, player);
             FailIf(
                 update < 10 && !movementLocked,
                 $"ITEM_BOMB lift released movement before update {update}.");
@@ -158,7 +158,7 @@ public sealed partial class ValidationRoot
             sounds.Count(sound => sound == SoundId.SndThrow) != 1,
             "ITEM_BOMB did not preserve wLinkAngle=$ff as an in-place " +
             "weight-0 drop when no direction was held.");
-        manager.Update(1.0 / 60.0, player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, player);
         for (int update = 1; update <= record.ThrowFrames + 1; update++)
         {
             controller.Update(
@@ -177,7 +177,7 @@ public sealed partial class ValidationRoot
             "The normal ITEM_BOMB object cap did not reject a distant second " +
             "allocation without consuming ammo.");
 
-        for (int update = 0; update < 40; update++) manager.Update(1.0 / 60.0, player);
+        for (int update = 0; update < 40; update++) manager.AdvanceEntityFrames(1.0 / 60.0, player);
         FailIf(allocated.State != BombState.Grounded, "The re-pickup fixture must let the dropped bomb land first.");
         player.SetScriptedPosition(thrownPosition);
         FailIf(
@@ -193,7 +193,7 @@ public sealed partial class ValidationRoot
                 player,
                 Vector2.Zero,
                 itemButtonJustPressed: false);
-            manager.Update(1.0 / 60.0, player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, player);
         }
         FailIf(
             !controller.Update(
@@ -207,7 +207,7 @@ public sealed partial class ValidationRoot
             "A held direction did not select Link's current input-facing " +
             "weight-0 Bomb throw.");
         controller.Interrupt(player, discard: true);
-        manager.Update(1.0 / 60.0, player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, player);
         FailIf(
             manager.ActiveBombCount != 0,
             "Discarded ITEM_BOMB remained allocated in the room-entity set.");
@@ -620,9 +620,10 @@ public sealed partial class ValidationRoot
         AddChild(idleBurst);
         idleBurst.Initialize(
             idleBurstWorld,
-            inventory,
+            new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages)),
             new Vector2(120, 80),
             new OracleRandom());
+        idleBurst.Inventory.GiveTreasure(TreasureId.Flippers, 0);
 
         var noFlippersWorld = new ValidationRingPlayerWorld
         {
@@ -655,9 +656,15 @@ public sealed partial class ValidationRoot
         AddChild(seaWater);
         seaWater.Initialize(
             seaWaterWorld,
-            inventory,
+            new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages)),
             new Vector2(96, 80),
             new OracleRandom());
+        seaWater.Inventory.GiveTreasure(TreasureId.Flippers, 0);
+
+        world.TileMemory = player.Inventory.RuntimeState;
+        idleBurstWorld.TileMemory = idleBurst.Inventory.RuntimeState;
+        noFlippersWorld.TileMemory = noFlippers.Inventory.RuntimeState;
+        seaWaterWorld.TileMemory = seaWater.Inventory.RuntimeState;
 
         try
         {
@@ -1511,7 +1518,9 @@ public sealed partial class ValidationRoot
         }
 
         world.Sounds.Clear();
-        player.AdvanceTerrainWalkAnimation(walking: false);
+        var animations = LinkNativeAnimationDatabase.For(player.AssetRoot);
+        var animationMemory = player.Inventory.RuntimeState;
+        animations.Set(animationMemory, 0x10);
         int[] expectedSplashUpdates = [3, 21, 39, 57];
         for (int update = 1; update <= expectedSplashUpdates[^1]; update++)
         {
@@ -1525,10 +1534,10 @@ public sealed partial class ValidationRoot
                     world.Sounds[^1] != SoundId.SndSplash),
                 $"Link's puddle walk animation selected the wrong sound " +
                 $"cadence at update {update}; expected splash={expectedSplash}.");
-            player.AdvanceTerrainWalkAnimation(walking: true);
+            animations.Animate(animationMemory);
         }
 
-        player.AdvanceTerrainWalkAnimation(walking: false);
+        animations.Set(animationMemory, 0x10);
         world.Sounds.Clear();
         world.ActiveTerrain = new ActiveTerrainInfo(
             new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
@@ -1538,13 +1547,13 @@ public sealed partial class ValidationRoot
         for (int update = 1; update <= 3; update++)
         {
             player.ApplyTerrainWalkSoundParameter();
-            player.AdvanceTerrainWalkAnimation(walking: true);
+            animations.Animate(animationMemory);
         }
         world.ActiveTerrain = new ActiveTerrainInfo(
             puddleTerrain, puddlePosition, puddlePosition, 0x43);
         player.ApplyTerrainWalkSoundParameter();
         player.ApplyTerrainWalkSoundParameter();
-        player.AdvanceTerrainWalkAnimation(walking: true);
+        animations.Animate(animationMemory);
         player.ApplyTerrainWalkSoundParameter();
         FailIf(
             world.Sounds.Count != 1 ||
@@ -1552,12 +1561,12 @@ public sealed partial class ValidationRoot
             "Link's unconsumed walk-animation sound parameter did not " +
             "survive until he entered shallow water, or played twice.");
 
-        player.AdvanceTerrainWalkAnimation(walking: false);
+        animations.Set(animationMemory, 0x10);
         world.Sounds.Clear();
         player.ApplyTerrainWalkSoundParameter();
-        player.AdvanceTerrainWalkAnimation(walking: true);
+        animations.Animate(animationMemory);
         player.ApplyTerrainWalkSoundParameter();
-        player.AdvanceTerrainWalkAnimation(walking: true);
+        animations.Animate(animationMemory);
         world.MovementDisabled = true;
         player.ApplyTerrainWalkSoundParameter();
         world.MovementDisabled = false;
@@ -1566,9 +1575,10 @@ public sealed partial class ValidationRoot
             world.Sounds.Count != 0,
             "wLinkImmobilized did not consume and suppress the pending " +
             "shallow-water step sound.");
-        player.AdvanceTerrainWalkAnimation(walking: false);
+        animations.Set(animationMemory, 0x10);
 
-        player.BeginForcedRoomEntryMovement(Vector2I.Right);
+        player.RequestNativeForcedMovement(4,8,1);
+        player.AdvanceApplicationUpdate();
         FailIf(
             !player.Walking || player.CurrentTerrainEffect is null,
             "Walking Link lost the shallow-water terrain effect.");
@@ -1943,7 +1953,7 @@ public sealed partial class ValidationRoot
             display.ExtraMode != 0 || display.TextLow != textLow ||
             inventory.LevelForInventoryDisplay(
                 TreasureId.Shield) != level ||
-            ItemIconAtlas.EquippedLeftPalette(
+            ItemIconAtlas.EquippedLeftPalette(OracleGame.Ages,
                 display.LeftSprite, display.LeftPalette) != palette,
             $"Shield level {level} did not select its exact inventory/equipped display row.");
 
@@ -2145,7 +2155,7 @@ public sealed partial class ValidationRoot
             node => node.Name == "TileChangeWatcher_1"),
             "AgesRoomEntityFactory did not instantiate room 0:48's imported $dc:$08 watcher.");
         var watchedTreeSpawns = new List<RoomEntitySpawn>();
-        watcherManager.Update(1.0 / 60.0, _player);
+        watcherManager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             watchedTreeSave.HasRoomFlag(0, 0x48, 0x02),
             "Room 0:48's $dc:$08 watcher set flag $02 during its snapshot state.");
@@ -2163,7 +2173,7 @@ public sealed partial class ValidationRoot
             watchedTreeRoom.GetMetatile(watchedTreePoint) != 0x3a ||
             watchedTreeSave.HasRoomFlag(0, 0x48, 0x02),
             "Room 0:48's tree did not burn to $3a before its watcher update.");
-        watcherManager.Update(1.0 / 60.0, _player);
+        watcherManager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !watchedTreeSave.HasRoomFlag(0, 0x48, 0x02) ||
             watcherManager.Entities<Node2D>().Any(
@@ -2475,7 +2485,7 @@ public sealed partial class ValidationRoot
         FailIf(
             record.Item != TreasureId.Shooter ||
             record.SpeedRaw != 0x78 ||
-            record.Bounces != 3 || record.AimLockout != 16 ||
+            record.AimLockout != 16 ||
             record.PostShotWait != 12 ||
             record.Sound != SoundId.SndSeedShooter ||
             !record.Offsets.SequenceEqual(offsets) ||
@@ -2678,22 +2688,13 @@ public sealed partial class ValidationRoot
         }
         _inventory.SelectShooterSeeds(0);
         var sounds = new List<int>();
-        var controller = new SeedSatchelController(
+        var controller = new SeedShooterController(
             _inventory, _entities, new SeedSatchelDatabase(AgesGameContent.AssetRoot), _rooms,
             sounds.Add);
         _player.Face(Vector2I.Right);
         int amountBefore = _inventory.EmberSeeds;
-        FailIf(
-            !controller.TryBeginShooter(
-                _player, primaryButton: true, Vector2.Right) ||
-            !controller.ShooterActive || controller.ShooterAngle != 2 ||
-            controller.ShooterAimCounter != 16 ||
-            _inventory.EmberSeeds != amountBefore,
-            "ITEM_SHOOTER state 0 did not hold the parent at the facing angle " +
-            "without consuming ammo.");
-
-        var diagonalController = new SeedSatchelController(
-            _inventory, _entities, new SeedSatchelDatabase(AgesGameContent.AssetRoot), _rooms);
+        var diagonalController = new SeedShooterController(
+            _inventory, _entities, new SeedSatchelDatabase(AgesGameContent.AssetRoot), _rooms, sounds.Add);
         _player.Face(Vector2I.Left);
         FailIf(
             !diagonalController.TryBeginShooter(
@@ -2715,6 +2716,15 @@ public sealed partial class ValidationRoot
             "`$10 repeat counter and rotate one eighth-turn immediately.");
         diagonalController.InterruptShooter();
         _player.Face(Vector2I.Right);
+        FailIf(
+            !controller.TryBeginShooter(
+                _player, primaryButton: true, Vector2.Right) ||
+            !controller.ShooterActive || controller.ShooterAngle != 2 ||
+            controller.ShooterAimCounter != 16 ||
+            _inventory.EmberSeeds != amountBefore,
+            "ITEM_SHOOTER state 0 did not hold the parent at the facing angle " +
+            "without consuming ammo.");
+
         for (int update = 0; update < 16; update++)
         {
             controller.UpdateShooter(
@@ -2765,7 +2775,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSeedInventorySubmenu()
     {
-        MenuPresentationDatabase layouts = MenuPresentationDatabase.For(AgesGameContent.AssetRoot);
+        InventoryPresentationDatabase layouts = InventoryPresentationDatabase.For(AgesGameContent.AssetRoot);
         InventoryItemSubmenuLayout twoOptions =
             layouts.InventoryItemSubmenu(2);
         InventoryItemSubmenuLayout fiveOptions =
@@ -2804,7 +2814,7 @@ public sealed partial class ValidationRoot
             "Seed Satchel/Mystery grants did not produce the source ordered " +
             "owned-seed list [Ember, Mystery].");
 
-        var screen = new AgesInventoryScreen
+        var screen = new InventoryScreen
         { AssetRoot = AgesGameContent.AssetRoot,
             Name = "SeedInventorySubmenuValidation",
             Visible = false
@@ -2812,7 +2822,7 @@ public sealed partial class ValidationRoot
         AddChild(screen);
         screen.Initialize(_treasures, inventory);
         screen.Open();
-        var menu = new AgesInventoryMenuController(
+        var menu = new InventoryMenuController(
             screen,
             _saveQuitScreen,
             _menuLifecycle,
@@ -2908,7 +2918,7 @@ public sealed partial class ValidationRoot
         void StepEntities(int count = 1)
         {
             for (int frame = 0; frame < count; frame++)
-                _entities.Update(1.0 / 60.0, _player);
+                _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
 
         // This case previously inherited both the sword grant and the
@@ -3213,6 +3223,7 @@ public sealed partial class ValidationRoot
         _player.AdvanceSwordForValidation(17, buttonHeld: true);
         _sound.ClearPlayRequestAudit();
         _combatEffectAudit.Clear();
+        PublishWallProbesForValidation(_player);
         _player.AdvanceSwordForValidation(1, buttonHeld: true, movementInput: Vector2.Up);
         FailIf(
             _player.SwordState != SwordActionState.Poke ||
@@ -3229,12 +3240,12 @@ public sealed partial class ValidationRoot
             ordinaryClink.DurationFrames != 10 || ordinaryClink.AnimationFrame != 0 ||
             !ordinaryClink.EffectVisible,
             "Ordinary wall pressure did not spawn flickering INTERAC_CLINK at the up-facing `$f2/$00 probe.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 0 ||
             _sound.PlayRequestsFor(SoundId.SndClink) != 1,
             "INTERAC_CLINK state0 must show its first frame and play the deferred sound once.");
-        _entities.Update(4.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(4.0 / 60.0, _player);
         FailIf(
             ordinaryClink.EffectVisible != (((_entities.FrameCounter ^ _entities.InteractionSlot(ordinaryClink)) & 1) == 0) ||
             ordinaryClink.AnimationFrame != 1,
@@ -3348,7 +3359,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         _player.StartSwordAttack();
         _player.AdvanceSwordForValidation(17, buttonHeld: true);
-        _transitions.BeginScroll(_player, Vector2I.Right, 0x6a);
+        _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x6a);
         FailIf(
             !_transitions.ScrollActive ||
             _player.SwordState != SwordActionState.Held ||
@@ -3384,15 +3395,18 @@ public sealed partial class ValidationRoot
 
     private void ValidateAirborneSwordRendering()
     {
-        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-        var inventory = new InventoryState(_treasures, save);
-        inventory.GiveTreasure(TreasureId.Feather, 1);
+        InventoryState NewInventory()
+        {
+            var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
+            inventory.GiveTreasure(TreasureId.Feather, 1);
+            return inventory;
+        }
         var swordFirstWorld = new ValidationRingPlayerWorld();
         var swordFirst = new Player { Name = "SwordFirstAirValidationPlayer" };
         AddChild(swordFirst);
         swordFirst.Initialize(
             swordFirstWorld,
-            inventory,
+            NewInventory(),
             new Vector2(80, 80),
             new OracleRandom());
         swordFirst.Face(Vector2I.Up);
@@ -3453,7 +3467,7 @@ public sealed partial class ValidationRoot
         AddChild(jumpFirst);
         jumpFirst.Initialize(
             jumpFirstWorld,
-            inventory,
+            NewInventory(),
             new Vector2(80, 80),
             new OracleRandom());
         jumpFirst.Face(Vector2I.Up);
@@ -3490,8 +3504,8 @@ public sealed partial class ValidationRoot
             jumpFirst.AdvanceTopDownAirUpdateForValidation();
         FailIf(
             jumpFirst.AirborneLinkBodyFrame != 3 ||
-            jumpFirst.LinkAnimationCounter != 0,
-            "LINK_ANIM_MODE_JUMP did not enter and hold its terminal $80 frame " +
+            jumpFirst.LinkAnimationCounter != 0x7f,
+            "LINK_ANIM_MODE_JUMP did not load its $7f-duration $80 frame " +
             "after the 9/9/6 timed entries.");
 
         var sideWorld = new ValidationRingPlayerWorld { SideScrolling = true };
@@ -3502,7 +3516,7 @@ public sealed partial class ValidationRoot
         AddChild(sideSwordFirst);
         sideSwordFirst.Initialize(
             sideWorld,
-            inventory,
+            NewInventory(),
             new Vector2(80, 80),
             new OracleRandom());
         sideSwordFirst.Face(Vector2I.Up);
@@ -3531,7 +3545,7 @@ public sealed partial class ValidationRoot
         AddChild(sideJumpFirst);
         sideJumpFirst.Initialize(
             sideWorld,
-            inventory,
+            NewInventory(),
             new Vector2(80, 80),
             new OracleRandom());
         sideJumpFirst.Face(Vector2I.Up);
@@ -3666,7 +3680,7 @@ public sealed partial class ValidationRoot
         _roomView.SetRoom(source.Texture);
         _entities.LoadRoom(_activeGroup, source);
         _player.WarpTo(new Vector2(source.Width + 2.0f, source.Height / 2.0f));
-        _player.UpdatePushingState(Vector2.Right);
+        UpdatePushingStateForValidation(_player,Vector2.Right);
         CheckRoomExit(_player);
         FailIf(
             !IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x56,

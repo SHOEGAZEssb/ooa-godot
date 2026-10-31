@@ -48,12 +48,12 @@ public sealed partial class ValidationRoot
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:Compare);
             BeginReference(giver);
             Step(4);FailIf(_player.CutsceneControlled,"Zora scale triggered before Link reached Y $18.");
-            for(int i=0;i<8&&!_player.CutsceneControlled;i++)
+            for(int i=0;i<8&&_runtimeState.ReadField("wDisabledObjects")==0;i++)
             {
                 Step(1);StepGameplayUpdates(1,Vector2.Down,["move_down"],["move_down"],batched,Compare);
                 StepGameplayUpdates(7,Vector2.Down,["move_down"],batched:batched,afterUpdate:Compare);
             }
-            FailIf(!_player.CutsceneControlled||_player.FacingVector!=Vector2I.Down,"Zora scale failed to acquire Link at the source Y gate.");
+            FailIf(_runtimeState.ReadField("wDisabledObjects")!=0x81||_runtimeState.ReadField("wMenuDisabled")!=0x80||_player.FacingVector!=Vector2I.Down,"Zora scale failed to acquire Link at the source Y gate.");
             for(int i=0;i<400&&!_dialogue.IsOpen;i++)Step(1);
             FailIf(!_dialogue.IsOpen||!_dialogue.CurrentMessage.Contains("Zora"),"Scale giver did not reach TX_3430.");
             _dialogue.Close();
@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
                 FailIf(!guard.CanTalkTo(_player)||_rooms.CurrentRoom.GetTerrainInfo(_player.Position).Collision!=0||_player.Position.DistanceTo(guard.Position)<12,
                     $"Sea guard {group:x}:{room:x2} unreachable through the room geometry: {_player.Position}.");
                 StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"],batched,Compare);rom![nativeSlot+0x31]=1;Step(1);
-                FailIf(!_dialogue.IsOpen||!_player.CutsceneControlled,"Sea guard lost scale conversation/input handoff.");
+                FailIf(!_dialogue.IsOpen||_runtimeState.ReadField("wDisabledObjects")!=0x81||_runtimeState.ReadField("wMenuDisabled")!=0x80,"Sea guard lost scale conversation/input handoff.");
                 for(int i=0;i<400&&guard.Active;i++){if(_dialogue.IsOpen)_dialogue.Close();Step(1);}
                 FailIf(guard.Active||!_saveData.HasRoomFlag(group,room,0x40)||_player.CutsceneControlled,
                     $"Sea guard {group:x}:{room:x2} failed its linked/unlinked exit.");

@@ -1,523 +1,287 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Oracles;
 
-/// <summary>
-/// INTERAC_FAIRY_HIDING_MINIGAME $6c, its three $49 forest fairies, and
-/// CUTSCENE_FAIRIES_HIDE. Transient cfd0-cfdf state deliberately survives
-/// ordinary forest room changes and is reset only by room $0:$93 or quitting.
-/// </summary>
-internal sealed class FairiesWoodsEvent :
-    RoomCutsceneCommandHost,
-    IRoomEntryEvent,
-    ICutsceneCommandHost,
-    IUpdatesDuringDialogueRoomEvent
+// CUTSCENE_FAIRIES_HIDE owns the main-thread state. Placed $6c controllers,
+// $49 actors and $84 sparkles retain their own native slots and dispatch.
+internal sealed class FairiesWoodsEvent : RoomCutsceneCommandHost, IRoomEvent
 {
-    private static readonly HashSet<int> ForestRooms =
-        [0x70, 0x71, 0x72, 0x80, 0x81, 0x82, 0x90, 0x91, 0x92];
-
     private readonly RoomEventContext _context;
-    private readonly FairiesWoodsDatabase _database = new();
+    private readonly FairiesWoodsDatabase _database;
     private readonly FairiesWoodsEventRecord _record;
     private readonly OracleRuntimeState _runtime;
-    private readonly CutsceneCommandRunner _runner;
+    private readonly List<FairyHidingMinigameRoomEntity> _controllers = new();
     private readonly List<ForestFairyFlight> _flights = new();
-    private readonly Dictionary<NpcCharacter, int> _discovered = new();
-    private FairiesWoodsStage _stage;
-    private FairyScriptKind _scriptKind;
-    private FairiesWoodsSparkleLayer? _sparkles;
-    private FairiesWoodsHiddenSpotRecord _hiddenSpot;
-    private byte _hiddenOriginalTile;
-    private int _hiddenCounter;
-    private int _fadeCounter;
-    private int _hideRoomIndex;
-    private int _completionCounter;
-    private int _forcedLeftCounter;
-    private readonly object _forcedMovementOwner = new();
-    private bool _screenTransitionsDisabled;
-    private Vector2 _savedLinkPosition;
-    private Vector2I _savedLinkFacing;
-    private bool _ownsPlayerVisibility;
-    private bool _originalPlayerVisible;
+    private readonly List<NpcCharacter> _discovered = new();
+    private NativeScriptInputControl? _inputControl;
+    private bool _ownsPlayerVisibility, _originalPlayerVisible;
 
     internal FairiesWoodsEvent(RoomEventContext context)
     {
         _context = context;
+        _database = context.Entities.FairiesWoodsData;
         _record = _database.Event;
         _runtime = context.Entities.RuntimeState;
-        _runner = new CutsceneCommandRunner(this);
     }
 
-    public bool HasState =>
-        _stage != FairiesWoodsStage.Inactive ||
-        _forcedLeftCounter != 0 ||
-        (_sparkles?.Count ?? 0) != 0;
-    public bool BlocksGameplay => EventResources.InputLocked || _forcedLeftCounter != 0;
-    public bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
-    internal FairiesWoodsStage Stage => _stage;
+    public override RoomEventContext Context => _context;
+    public bool HasState => NativeActive || _runtime.ReadField("wCutsceneTrigger") == 0x13 || _controllers.Any(controller => !controller.Finished) ||
+        _flights.Any(flight => flight.Active) || _discovered.Any(IsLive);
+    public bool RequiresRoomEventUpdate => false;
+    public bool BlocksGameplay => _inputControl?.LinkDisabled == true ||
+        _controllers.Any(controller => !controller.Finished && controller.BlocksGameplay);
+    internal bool NativeActive => _runtime.ReadWramByte(NativeCutsceneRequest.IndexAddress) == 0x13;
+    private int NativeState
+    {
+        get => _runtime.ReadField("wCutsceneState");
+        set => _runtime.SetField("wCutsceneState", unchecked((byte)value));
+    }
+    internal int CompletionCounter
+    {
+        get => _runtime.ReadField("wTmpcbb6");
+        private set => _runtime.SetField("wTmpcbb6", unchecked((byte)value));
+    }
+    public bool OwnsGameLogic => NativeActive;
+    public bool SuppressesStatusBar => NativeActive;
+    public bool SuppressesNormalMenuDispatch => NativeActive;
+    public bool DisablesLink => NativeActive && _context.Rooms.CurrentRoom.Id != _record.StartRoom;
+    internal FairiesWoodsStage Stage => NativeActive ? NativeStage :
+        _controllers.LastOrDefault(controller => !controller.Finished)?.Stage ??
+        (Active != 0 && _context.Rooms.CurrentRoom.Id == _record.StartRoom
+            ? FairiesWoodsStage.SearchRoom : FairiesWoodsStage.Inactive);
     internal int FoundFairies => Found;
     internal int SignalValue => Signal;
-    internal int HiddenCounter => _hiddenCounter;
-    internal IReadOnlyList<ForestFairyFlight> Flights => _flights;
+    internal int HiddenCounter => _controllers.LastOrDefault(controller => !controller.Finished)?.Counter ?? 0;
+    private FairiesWoodsStage NativeStage => Found == 7 ? NativeState switch
+    {
+        0 => FairiesWoodsStage.CompletionShowInitial,
+        1 => FairiesWoodsStage.CompletionWaitInitial,
+        2 => _context.Transitions.NativePaletteFadeActive ? FairiesWoodsStage.CompletionFastFade1 : FairiesWoodsStage.CompletionHold1,
+        3 => _context.Transitions.NativePaletteFadeActive ? FairiesWoodsStage.CompletionFastFade2 : FairiesWoodsStage.CompletionHold2,
+        4 => FairiesWoodsStage.CompletionSlowFade,
+        5 => FairiesWoodsStage.CompletionFinalize,
+        _ => throw new NotSupportedException($"miscCutscenes.s: fairy completion state ${NativeState:x2}.")
+    } : NativeState switch
+    {
+        0 => FairiesWoodsStage.HidingBegin,
+        1 => FairiesWoodsStage.HidingFadeOut,
+        2 or 5 or 8 => FairiesWoodsStage.HidingFadeIn,
+        3 or 6 or 9 => FairiesWoodsStage.HidingFlight,
+        4 or 7 or 10 => FairiesWoodsStage.HidingRoomFadeOut,
+        11 => FairiesWoodsStage.HidingReturnFadeIn,
+        _ => throw new NotSupportedException($"miscCutscenes.s: fairy hiding state ${NativeState:x2}.")
+    };
+    internal IReadOnlyList<ForestFairyFlight> Flights
+    {
+        get { _flights.RemoveAll(flight => !flight.Active); return _flights; }
+    }
     internal FairiesWoodsDatabase Database => _database;
+    private static bool IsLive(NpcCharacter actor) => GodotObject.IsInstanceValid(actor) && actor.Active;
 
-    public bool Matches(int group, OracleRoomData room) =>
-        group == _record.Group &&
-        (room.Id == _record.StartRoom ||
-         room.Id == _record.ExitRoom ||
-         _database.TryHiddenSpot(room.Id, out _));
+    internal void RegisterController(FairyHidingMinigameRoomEntity controller)
+    {
+        if (!_controllers.Contains(controller)) _controllers.Add(controller);
+    }
 
-    /// <summary>
-    /// Applies roomCode0 and the state-zero deletion gates of forest fairy
-    /// variants before the controller selects a room-entry event.
-    /// </summary>
     internal void OnRoomLoaded(int group, OracleRoomData room)
     {
-        if (group != _record.Group)
-            return;
-        if (room.Id == _record.ResetRoom && !Completed)
-            ClearTransientState();
-        if (!ForestRooms.Contains(room.Id))
-            return;
-        // Only the hide-and-seek slots belong to this owner. Ordinary later
-        // phases retain their state-zero predicates and native actor slots.
-        for (int subId = 0; subId < 5; subId++)
-            _context.DeactivateNpcs(AgesInteractionId.ForestFairy, subId);
+        if (group == _record.Group && room.Id == _record.ResetRoom &&
+            !_context.Rooms.SaveData.HasGlobalFlag(_record.CompletionFlag))
+            for (int offset = 0; offset < 0x10; offset++)
+                _runtime.SetWramByte(_record.ActiveAddress + offset, 0);
     }
 
     public void ReleaseOutgoingActors(int group, OracleRoomData room)
     {
-        // Dynamic $49:$01 actors remain visible in the outgoing scroll set.
-        // RoomEntityManager retires them after the camera handoff.
         if (HasState && _context.Entities.ScreenTransitionActive)
             Cancel(deactivateDiscoveredActors: false);
     }
 
-    public void Start(OracleRoomData room)
+    internal void RequestNativeCutscene(NativeScriptInputControl input)
     {
-        Cancel();
-        if (Completed)
-            return;
-        EnsureSparkleLayer();
-
-        if (room.Id == _record.StartRoom)
-        {
-            StartMainRoom();
-            return;
-        }
-        if (Active == 0)
-            return;
-        if (_database.TryHiddenSpot(room.Id, out _hiddenSpot))
-        {
-            int bit = 1 << (_hiddenSpot.FairyIndex - 3);
-            if ((Found & bit) != 0)
-                return;
-            Signal = 0;
-            _hiddenOriginalTile = room.GetMetatile(
-                PointForPackedPosition(_hiddenSpot.PackedPosition));
-            _hiddenCounter = _record.HiddenDelay;
-            _stage = FairiesWoodsStage.HiddenWatch;
-            return;
-        }
-        if (room.Id == _record.ExitRoom)
-        {
-            _scriptKind = FairyScriptKind.Exit;
-            _runner.Start(_database.ExitCommands);
-            _stage = FairiesWoodsStage.ExitScript;
-        }
+        // The departing interaction and main-thread handler share one writer.
+        _inputControl = input;
+        _runtime.SetField("wCutsceneTrigger", 0x13);
     }
 
-    internal void InitializeDuringTransition()
+    internal void AdvanceBeforeObjects()
     {
-        foreach (ForestFairyFlight flight in _flights) flight.InitializeState();
-    }
-
-    public void UpdateFrame()
-    {
-        _sparkles?.UpdateFrame();
-        UpdateForcedLeft();
-
-        switch (_stage)
+        if (!NativeActive) return;
+        _context.Transitions.AdvanceNativeWhiteFade();
+        if (Found == 7) { AdvanceCompletion(); return; }
+        switch (NativeState)
         {
-            case FairiesWoodsStage.StartPending:
-                if (LinkIsVulnerable())
-                {
-                    Vector2I entryDirection =
-                        _context.Transitions.ScrollDirection;
-                    if (entryDirection == Vector2I.Up ||
-                        entryDirection == Vector2I.Right ||
-                        entryDirection == Vector2I.Down ||
-                        entryDirection == Vector2I.Left)
-                    {
-                        _context.Player.Face(entryDirection);
-                    }
-                    EventResources.LockInput(onlyIfUnlocked: true);
-                    Active = 1;
-                    _scriptKind = FairyScriptKind.Intro;
-                    _runner.Start(_database.IntroCommands);
-                    _stage = FairiesWoodsStage.IntroScript;
-                    _runner.AdvanceFrame();
-                }
+            case 0:
+                _runtime.SetField("wTmpcbb3", (byte)Mathf.FloorToInt(_context.Player.Position.Y));
+                _runtime.SetField("wTmpcbb4", (byte)Mathf.FloorToInt(_context.Player.Position.X));
+                Vector2I facing = _context.Player.FacingVector;
+                _runtime.SetField("wTmpcbb5", (byte)(facing == Vector2I.Up ? 0 : facing == Vector2I.Right ? 1 : facing == Vector2I.Down ? 2 : 3));
+                CapturePlayerVisibility();
+                EventResources.CaptureFullScreenFade(zIndex: ScreenDrawPriority.DialogueBackdropZIndex);
+                _context.Transitions.BeginNativeWhiteFade(true);
+                NativeState++;
                 break;
-
-            case FairiesWoodsStage.IntroScript:
-            case FairiesWoodsStage.RevealScript:
-            case FairiesWoodsStage.ExitScript:
-                _runner.AdvanceFrame();
+            case 1:
+            case 4:
+            case 7:
+                if (_context.Transitions.NativePaletteFadeActive) break;
+                Signal = 0;
+                LoadCutsceneRoom(_database.HidingRooms[(NativeState - 1) / 3].Room);
+                NativeState++;
+                _context.Transitions.BeginNativeWhiteFade(false);
                 break;
-
-            case FairiesWoodsStage.HiddenWatch:
-                UpdateHiddenSpot();
+            case 2:
+            case 5:
+            case 8:
+                if (_context.Transitions.NativePaletteFadeActive) break;
+                if (SpawnFlight(_database.HidingRooms[(NativeState - 2) / 3].Preset) is not null) NativeState++;
                 break;
-
-            case FairiesWoodsStage.HiddenSpawn:
-                SpawnRevealedFairy();
-                break;
-
-            case FairiesWoodsStage.HidingFadeOut:
-                UpdateHidingFadeOut();
-                break;
-
-            case FairiesWoodsStage.HidingFadeIn:
-                UpdateHidingFadeIn();
-                break;
-
-            case FairiesWoodsStage.HidingFlight:
+            case 3:
+            case 6:
+            case 9:
                 if (Signal != 0)
                 {
                     Signal = 0;
-                    _fadeCounter = 0;
-                    _stage = FairiesWoodsStage.HidingRoomFadeOut;
+                    _context.Transitions.BeginNativeWhiteFade(true);
+                    NativeState++;
                     SetFadeAlpha(0.0f);
                 }
                 break;
 
-            case FairiesWoodsStage.HidingRoomFadeOut:
-                UpdateHidingRoomFadeOut();
+            case 10:
+                if (_context.Transitions.NativePaletteFadeActive) break;
+                Signal = 0;
+                LoadCutsceneRoom(_record.StartRoom);
+                NativeState++;
+                _context.Player.SetScriptedPosition(new(_runtime.ReadField("wTmpcbb4"), _runtime.ReadField("wTmpcbb3")));
+                _context.Player.Face((Vector2I)OracleObjectMath.StrictCardinalVector(_runtime.ReadField("wTmpcbb5") * 8));
+                RestorePlayerVisibility();
+                _context.Player.RequestNativeLinkInitialization();
+                _context.Transitions.BeginNativeWhiteFade(false);
                 break;
-
-            case FairiesWoodsStage.HidingReturnFadeIn:
-                UpdateHidingReturnFadeIn();
+            case 11:
+                if (_context.Transitions.NativePaletteFadeActive) break;
+                ReleaseNativeControl();
+                ShowText(0x1104);
                 break;
+            default:
+                throw new NotSupportedException($"miscCutscenes.s: fairy hiding state ${NativeState:x2}.");
+        }
+    }
 
-            case FairiesWoodsStage.CompletionShowInitial:
+    private void AdvanceCompletion()
+    {
+        switch (NativeState)
+        {
+            case 0:
+                if (_context.Transitions.PaletteFadeActive) break;
                 EventResources.CaptureFullScreenFade(zIndex: ScreenDrawPriority.DialogueBackdropZIndex);
                 SetFadeAlpha(0.0f);
                 ShowText(0x110a);
-                _stage = FairiesWoodsStage.CompletionWaitInitial;
+                NativeState++;
                 break;
 
-            case FairiesWoodsStage.CompletionWaitInitial:
-                if (!_context.DialogueOpen)
-                    BeginCompletionFastFade(FairiesWoodsStage.CompletionFastFade1);
+            case 1:
+                if (!_context.Entities.TextActiveSource())
+                    BeginCompletionFastFade();
                 break;
 
-            case FairiesWoodsStage.CompletionFastFade1:
-                if (UpdateFadeIn(
-                        _record.FastFadeSpeed,
-                        refill: 1,
-                        _record.FastFadeIn))
+            case 2:
+                if (_context.Transitions.NativePaletteFadeActive) break;
+                if (--CompletionCounter == 0) BeginCompletionFastFade();
+                break;
+            case 3:
+                if (_context.Transitions.NativePaletteFadeActive) break;
+                if (--CompletionCounter == 0)
                 {
-                    _completionCounter = _record.CompletionHold;
-                    _stage = FairiesWoodsStage.CompletionHold1;
-                }
-                break;
-
-            case FairiesWoodsStage.CompletionHold1:
-                if (--_completionCounter == 0)
-                    BeginCompletionFastFade(FairiesWoodsStage.CompletionFastFade2);
-                break;
-
-            case FairiesWoodsStage.CompletionFastFade2:
-                if (UpdateFadeIn(
-                        _record.FastFadeSpeed,
-                        refill: 1,
-                        _record.FastFadeIn))
-                {
-                    _completionCounter = _record.CompletionHold;
-                    _stage = FairiesWoodsStage.CompletionHold2;
-                }
-                break;
-
-            case FairiesWoodsStage.CompletionHold2:
-                if (--_completionCounter == 0)
-                {
+                    NativeState++;
                     Active = 0;
                     _context.Sound.PlaySound(_record.MysterySound);
-                    _fadeCounter = 0;
-                    SetFadeAlpha(1.0f);
-                    _stage = FairiesWoodsStage.CompletionSlowFade;
+                    _context.Transitions.BeginNativeWhiteFade(false, _record.DelayedFadeRefill, _record.NormalFadeSpeed);
                 }
                 break;
 
-            case FairiesWoodsStage.CompletionSlowFade:
-                if (UpdateFadeIn(
-                        _record.NormalFadeSpeed,
-                        _record.DelayedFadeRefill,
-                        _record.DelayedFadeIn))
+            case 4:
+                if (!_context.Transitions.NativePaletteFadeActive)
                 {
                     ShowText(0x110b);
-                    _stage = FairiesWoodsStage.CompletionFinalize;
+                    NativeState++;
                 }
                 break;
 
-            case FairiesWoodsStage.CompletionFinalize:
+            case 5:
                 FinishCompletion();
                 break;
+            default:
+                throw new NotSupportedException($"miscCutscenes.s: fairy completion state ${NativeState:x2}.");
         }
-
-        UpdateFlights();
     }
 
-    public void UpdateDuringDialogueFrame()
-    {
-        _sparkles?.UpdateFrame();
-        // CUTSCENE_FAIRIES_HIDE state 5 is a bank-3 cutscene handler outside
-        // updateInteractions. It commits both flags on the update after state
-        // 4 opens TX_110b, even though wTextIsActive is still nonzero.
-        if (_stage == FairiesWoodsStage.CompletionFinalize)
-            FinishCompletion();
-    }
+    public void UpdateFrame() =>
+        throw new InvalidOperationException("CUTSCENE $13 must run before objects; $6c/$49 use their native interaction slots.");
 
     internal bool TryInteractNpc(NpcCharacter npc)
     {
-        if (!_discovered.ContainsKey(npc))
-            return false;
-        int count = CountBits(Found);
-        if (count == 1)
-            ShowText(0x1108);
-        else if (count == 2)
-            ShowText(0x1109);
-        return true;
+        if (!_discovered.Contains(npc) || !IsLive(npc) || npc.Record.TextId == 0) return false;
+        return _context.Entities.EntityAdapters<DiscoveredForestFairyRoomEntity>().FirstOrDefault(actor =>
+            ReferenceEquals(actor.Actor, npc))?.TryQueueAButton() == true;
     }
 
     public void Cancel() => Cancel(deactivateDiscoveredActors: true);
-
     internal void Cancel(bool deactivateDiscoveredActors)
     {
-        _runner.Clear();
-        _scriptKind = FairyScriptKind.None;
-        foreach (ForestFairyFlight flight in _flights)
-            flight.Deactivate();
+        if (NativeActive)
+        {
+            _context.Transitions.CancelNativeWhiteFade();
+            _runtime.SetWramByte(NativeCutsceneRequest.IndexAddress, 1);
+        }
+        if (_runtime.ReadField("wCutsceneTrigger") == 0x13) _runtime.SetField("wCutsceneTrigger", 0);
+        foreach (var controller in _controllers) controller.Cancel();
+        _controllers.Clear();
+        foreach (var flight in _flights) flight.Deactivate();
         _flights.Clear();
-        foreach (NpcCharacter actor in _discovered.Keys)
-        {
-            if (deactivateDiscoveredActors &&
-                GodotObject.IsInstanceValid(actor))
-            {
-                actor.SetActive(false);
-            }
-        }
+        if (deactivateDiscoveredActors)
+            foreach (var actor in _discovered) if (IsLive(actor)) actor.SetActive(false);
         _discovered.Clear();
-        EventResources.UnlockInput();
-        _context.Player.EndCutsceneControl(_forcedMovementOwner);
-        _screenTransitionsDisabled = false;
-        _forcedLeftCounter = 0;
-        _stage = FairiesWoodsStage.Inactive;
+        _inputControl?.Cancel(); _inputControl = null;
         RestorePlayerVisibility();
         EventResources.ReleaseFullScreenFade();
-        if (_sparkles is not null)
-        {
-            _sparkles.QueueFree();
-            _sparkles = null;
-        }
-        _context.Player.EndCutsceneControl(this);
     }
 
-    private void StartMainRoom()
+    internal bool TrySpawnDiscoveredFairy(int index)
     {
-        if (!_context.Rooms.SaveData.HasTreasure(_record.EssenceTreasure))
-            return;
-        if (Active == 0)
-        {
-            _stage = FairiesWoodsStage.StartPending;
-            return;
-        }
-        if (Found == 7)
-        {
-            BeginCompletion();
-            return;
-        }
-
-        SpawnDiscoveredFairies();
-        _stage = FairiesWoodsStage.SearchRoom;
+        var entity = _context.Entities.TryAllocateInteraction(() =>
+            new DiscoveredForestFairyRoomEntity(_context, _database, index));
+        if (entity is null) return false;
+        _discovered.Add(entity.Actor);
+        return true;
     }
 
-    private void SpawnDiscoveredFairies()
+    private ForestFairyFlight? SpawnFlight(int preset) => TrySpawnFlight(preset);
+    internal ForestFairyFlight? TrySpawnFlight(int preset)
     {
-        int found = Found;
-        int count = CountBits(found);
-        for (int index = 2; index >= 0; index--)
-        {
-            if ((found & (1 << index)) == 0)
-                continue;
-            FairiesWoodsDiscoveredRecord discovered =
-                _database.DiscoveredFairies[index];
-            FairiesWoodsTextRecord text = count == 1
-                ? _database.Text(0x1108)
-                : count == 2
-                    ? _database.Text(0x1109)
-                    : new FairiesWoodsTextRecord(0, string.Empty);
-            NpcCharacter actor = SpawnFairyNpc(
-                subId: 1,
-                var03: index,
-                discovered.Y,
-                discovered.X,
-                text.TextId,
-                text.Message,
-                talkable: true,
-                solid: true);
-            actor.SetBasePalette(discovered.Palette);
-            actor.SetScriptAnimation(discovered.Animation);
-            actor.SetScriptDrawOffset(new Vector2(0, -4));
-            actor.SetCollisionRadii(4, 4);
-            actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // forestFairy_subid01State0: objectSetVisiblec1
-            _discovered.Add(actor, index);
-        }
+        var flight = ForestFairyFlight.TryCreate(_context, _database, preset, 0,
+            $"FairiesWoods_00_{preset:x2}");
+        if (flight is not null) _flights.Add(flight);
+        return flight;
     }
 
-    private void UpdateHiddenSpot()
-    {
-        byte tile = _context.Rooms.CurrentRoom.GetMetatile(
-            PointForPackedPosition(_hiddenSpot.PackedPosition));
-        if (tile == _hiddenOriginalTile)
-            return;
-        _hiddenCounter = unchecked((byte)(_hiddenCounter - 1));
-        if (_hiddenCounter != 0 || !LinkIsVulnerable())
-            return;
-        EventResources.LockInput(onlyIfUnlocked: true);
-        _screenTransitionsDisabled = true;
-        _stage = FairiesWoodsStage.HiddenSpawn;
-    }
-
-    private void SpawnRevealedFairy()
-    {
-        Signal = 0;
-        ForestFairyFlight flight = SpawnFlight(_hiddenSpot.FairyIndex);
-        SpawnPuff(flight.Actor.Position);
-        _scriptKind = FairyScriptKind.Reveal;
-        _runner.Start(_database.RevealCommands);
-        _stage = FairiesWoodsStage.RevealScript;
-    }
-
-    private void FinishReveal()
-    {
-        int bit = 1 << (_hiddenSpot.FairyIndex - 3);
-        Found = (byte)(Found | bit);
-        _screenTransitionsDisabled = false;
-        if (Found != 7)
-        {
-            EventResources.UnlockInput();
-            _stage = FairiesWoodsStage.Inactive;
-            return;
-        }
-
-        _stage = FairiesWoodsStage.AwaitLastFairyWarp;
-        Warp warp = new(
-            _context.Rooms.ActiveGroup,
-            _context.Rooms.CurrentRoom.Id,
-            -1,
-            0,
-            0,
-            _record.Group,
-            _record.StartRoom,
-            0x64,
-            0,
-            WarpDestinationTransition.EnterScreen);
-        _context.Transitions.ApplyWarp(_context.Player, warp);
-    }
-
-    private void BeginHidingCutscene()
-    {
-        _savedLinkPosition = _context.Player.Position;
-        _savedLinkFacing = _context.Player.FacingVector;
-        EventResources.LockInput(onlyIfUnlocked: true);
-        CapturePlayerVisibility();
-        EventResources.CaptureFullScreenFade(zIndex: ScreenDrawPriority.DialogueBackdropZIndex);
-        _fadeCounter = 0;
-        _hideRoomIndex = 0;
-        _stage = FairiesWoodsStage.HidingFadeOut;
-        SetFadeAlpha(0.0f);
-    }
-
-    private void UpdateHidingFadeOut()
-    {
-        if (!UpdateFadeOut(
-                _record.NormalFadeSpeed,
-                _record.NormalFadeOut))
-            return;
-        _context.Player.Visible = false;
-        LoadHidingRoom(0);
-        _fadeCounter = 0;
-        _stage = FairiesWoodsStage.HidingFadeIn;
-    }
-
-    private void UpdateHidingFadeIn()
-    {
-        if (!UpdateFadeIn(
-                _record.NormalFadeSpeed,
-                refill: 1,
-                _record.NormalFadeIn))
-            return;
-        SpawnFlight(_database.HidingRooms[_hideRoomIndex].Preset);
-        _stage = FairiesWoodsStage.HidingFlight;
-    }
-
-    private void UpdateHidingRoomFadeOut()
-    {
-        if (!UpdateFadeOut(
-                _record.NormalFadeSpeed,
-                _record.NormalFadeOut))
-            return;
-        _hideRoomIndex++;
-        if (_hideRoomIndex < _database.HidingRooms.Count)
-        {
-            LoadHidingRoom(_hideRoomIndex);
-            _fadeCounter = 0;
-            _stage = FairiesWoodsStage.HidingFadeIn;
-            return;
-        }
-
-        LoadCutsceneRoom(_record.StartRoom);
-        _context.Player.SetScriptedPosition(_savedLinkPosition);
-        _context.Player.Face(_savedLinkFacing);
-        RestorePlayerVisibility();
-        _fadeCounter = 0;
-        _stage = FairiesWoodsStage.HidingReturnFadeIn;
-    }
-
-    private void UpdateHidingReturnFadeIn()
-    {
-        if (!UpdateFadeIn(
-                _record.NormalFadeSpeed,
-                refill: 1,
-                _record.NormalFadeIn))
-            return;
-        EventResources.UnlockInput();
-        EventResources.ReleaseFullScreenFade();
-        ShowText(0x1104);
-        _stage = FairiesWoodsStage.SearchRoom;
-    }
-
-    private void LoadHidingRoom(int index)
-    {
-        if (index < 0 || index >= _database.HidingRooms.Count)
-            throw new ArgumentOutOfRangeException(nameof(index));
-        Signal = 0;
-        LoadCutsceneRoom(_database.HidingRooms[index].Room);
-    }
+    internal void ShowSourceText(int textId) => ShowText(textId);
 
     private void LoadCutsceneRoom(int room)
     {
         foreach (ForestFairyFlight flight in _flights)
             flight.Deactivate();
         _flights.Clear();
-        _discovered.Clear();
-        _sparkles?.Clear();
-        OracleRoomData loaded = _context.Rooms.LoadCutsceneRoom(
+        _context.Rooms.ClearScreenVariables();
+        OracleRoomData loaded = _context.Rooms.LoadCutsceneBackground(
             _record.Group, room);
+        _runtime.SetField("wScrollMode", 1);
+        _context.Player.WarpTo(Vector2.Zero, recordSafe: false);
+        _context.Player.Visible = false;
         _context.RoomView.SetRoom(loaded.Texture);
         _context.Entities.LoadCutsceneRoom(
             _record.Group, loaded, includeTimePortals: false);
@@ -525,189 +289,30 @@ internal sealed class FairiesWoodsEvent :
         SetFadeAlpha(1.0f);
     }
 
-    private void BeginCompletion()
-    {
-        EventResources.LockInput(onlyIfUnlocked: true);
-        _context.Player.Face(Vector2I.Up);
-        _stage = FairiesWoodsStage.CompletionShowInitial;
-    }
 
-    private void BeginCompletionFastFade(FairiesWoodsStage stage)
+    private void BeginCompletionFastFade()
     {
-        _completionCounter = _record.CompletionHold;
+        NativeState++;
+        CompletionCounter = _record.CompletionHold;
         _context.Sound.PlaySound(_record.MysterySound);
-        _fadeCounter = 0;
-        SetFadeAlpha(1.0f);
-        _stage = stage;
+        _context.Transitions.BeginNativeWhiteFade(false, speed: _record.FastFadeSpeed);
     }
 
     private void FinishCompletion()
     {
         _context.Rooms.SaveData.SetGlobalFlag(_record.CompletionFlag);
         _context.Rooms.SaveData.SetGlobalFlag(_record.UnscrambledFlag);
-        EventResources.UnlockInput();
+        ReleaseNativeControl();
+    }
+
+    private void ReleaseNativeControl()
+    {
+        (_inputControl ??= new(_runtime)).SetMenuDisabled(0);
+        _inputControl.SetDisabledObjects(0);
+        _runtime.SetWramByte(NativeCutsceneRequest.IndexAddress, 1);
         EventResources.ReleaseFullScreenFade();
-        _stage = FairiesWoodsStage.Inactive;
     }
 
-    private void UpdateFlights()
-    {
-        for (int index = 0; index < _flights.Count; index++)
-        {
-            ForestFairyFlight flight = _flights[index];
-            flight.UpdateFrame(_context.Entities.FrameCounter);
-            if (!flight.Active)
-                _flights.RemoveAt(index--);
-        }
-    }
-
-    private ForestFairyFlight SpawnFlight(int preset)
-    {
-        FairiesWoodsMovementRecord movement = _database.Movements[preset];
-        NpcCharacter actor = SpawnFairyNpc(
-            subId: 0,
-            var03: preset,
-            movement.InitialY,
-            movement.InitialX,
-            0,
-            string.Empty,
-            talkable: false,
-            solid: false);
-        actor.SetAnimationRate(0.0f);
-        actor.SetBlocksLink(false);
-        actor.SetCollisionRadii(4, 4);
-        var flight = new ForestFairyFlight(
-            _database,
-            _runtime,
-            _context.Sound,
-            EnsureSparkleLayer(),
-            actor,
-            preset,
-            SpawnPuff);
-        _flights.Add(flight);
-        return flight;
-    }
-
-    private void SpawnPuff(Vector2 position)
-    {
-        PuzzlePuffEffect puff = _context.Entities.Spawn<PuzzlePuffEffect>(
-            new PuzzlePuffSpawn(position, _record.PuffSound));
-        // The outgoing $49 slot precedes its newly allocated $05 puff slot, so
-        // the puff receives state 0 in this same original interaction pass.
-        puff.UpdateFrame();
-    }
-
-    private NpcCharacter SpawnFairyNpc(
-        int subId,
-        int var03,
-        int y,
-        int x,
-        int textId,
-        string message,
-        bool talkable,
-        bool solid)
-    {
-        var record = new NpcRecord(
-            _record.Group,
-            _context.Rooms.CurrentRoom.Id,
-            AgesInteractionId.ForestFairy,
-            subId,
-            y,
-            x,
-            var03,
-            textId,
-            _record.FairySprite,
-            _record.FairyTileBase,
-            0,
-            0,
-            false,
-            _record.Animation0,
-            _record.Animation0,
-            _record.Animation0,
-            _record.Animation0,
-            message,
-            NpcImplementationClassification.EventOwned);
-        return _context.Entities.Spawn<NpcCharacter>(
-            new CutsceneNpcSpawn(
-                record,
-                $"FairiesWoods_{subId:x2}_{var03:x2}",
-                Talkable: talkable,
-                Solid: solid));
-    }
-
-    private FairiesWoodsSparkleLayer EnsureSparkleLayer()
-    {
-        if (_sparkles is not null &&
-            GodotObject.IsInstanceValid(_sparkles))
-        {
-            return _sparkles;
-        }
-        _sparkles = new FairiesWoodsSparkleLayer
-        {
-            Name = "FairiesWoodsSparkles"
-        };
-        _sparkles.Initialize(_record);
-        _context.RoomView.GetParent().AddChild(_sparkles);
-        return _sparkles;
-    }
-
-    private void UpdateForcedLeft()
-    {
-        if (_forcedLeftCounter == 0)
-            return;
-        _context.Player.AdvanceCutsceneInput(Vector2I.Left);
-        _forcedLeftCounter--;
-        if (_forcedLeftCounter == 0)
-            _context.Player.EndCutsceneControl(_forcedMovementOwner);
-    }
-
-    private bool ExitCollision()
-    {
-        Vector2 delta = _context.Player.Position -
-            new Vector2(_record.ExitX, _record.ExitY);
-        return Mathf.Abs(delta.Y) <
-                _record.ExitRadiusY + NpcCharacter.LinkCollisionRadius &&
-            Mathf.Abs(delta.X) <
-                _record.ExitRadiusX + NpcCharacter.LinkCollisionRadius;
-    }
-
-    private bool LinkIsVulnerable() =>
-        _context.Player.InvincibilityFrames <= 0.0f &&
-        _context.Player.KnockbackFrames <= 0.0f &&
-        !_context.Player.IsDying &&
-        !_context.Player.IsDrowning &&
-        !_context.Player.IsFallingInHole &&
-        !_context.DialogueOpen &&
-        !_context.Player.CutsceneControlled;
-
-    private bool UpdateFadeOut(int speed, int expectedUpdates)
-    {
-        _fadeCounter++;
-        int offset = _fadeCounter * speed;
-        bool complete = offset >= 0x20;
-        SetFadeAlpha(complete ? 1.0f : offset / 31.0f);
-        if (complete != (_fadeCounter >= expectedUpdates))
-        {
-            throw new InvalidOperationException(
-                "Imported Fairies' Woods fade-out duration is inconsistent.");
-        }
-        return complete;
-    }
-
-    private bool UpdateFadeIn(int speed, int refill, int expectedUpdates)
-    {
-        _fadeCounter++;
-        int paletteUpdates = 1 + ((_fadeCounter - 1) / refill);
-        int offset = 0x20 - paletteUpdates * speed;
-        bool complete = offset < 0;
-        SetFadeAlpha(complete ? 0.0f : offset / 31.0f);
-        if (complete != (_fadeCounter >= expectedUpdates))
-        {
-            throw new InvalidOperationException(
-                "Imported Fairies' Woods fade-in duration is inconsistent.");
-        }
-        return complete;
-    }
 
     private void SetFadeAlpha(float alpha)
     {
@@ -731,15 +336,6 @@ internal sealed class FairiesWoodsEvent :
         _ownsPlayerVisibility = false;
     }
 
-    private void ClearTransientState()
-    {
-        for (int address = _record.ActiveAddress;
-             address < _record.ActiveAddress + 0x10;
-             address++)
-        {
-            _runtime.SetWramByte(address, 0);
-        }
-    }
 
     private void ShowText(int textId)
     {
@@ -768,157 +364,13 @@ internal sealed class FairiesWoodsEvent :
         set => _runtime.SetWramByte(_record.SignalAddress, value);
     }
 
-    private bool Completed =>
-        _context.Rooms.SaveData.HasGlobalFlag(_record.CompletionFlag);
-
-    private static int CountBits(int value)
-    {
-        int count = 0;
-        while (value != 0)
-        {
-            count += value & 1;
-            value >>= 1;
-        }
-        return count;
-    }
-
-    private static Vector2 PointForPackedPosition(int packed) => new(
-        (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
-        (packed >> 4) * OracleRoomData.MetatileSize + 8);
-
-    public override RoomEventContext Context => _context;
-
-    bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
-        actor.Value == "FairyExit";
-
-    void ICutsceneCommandHost.SetInputEnabled(bool enabled)
-    {
-        if (enabled)
-            EventResources.UnlockInput();
-        else
-            EventResources.LockInput(onlyIfUnlocked: true);
-    }
-
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        ReadScriptMemory(binding) == value;
-
-    int ICutsceneCommandHost.ReadMemory(string binding) =>
-        ReadScriptMemory(binding);
-
-    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        EventResources.RequireDialogueChoice("Fairies' Woods exit choice has no completed result.") == value;
-
-    void ICutsceneCommandHost.ShowText(int textId, string message)
-    {
-        FairiesWoodsTextRecord imported = _database.Text(textId);
-        if (message != imported.Message)
-        {
-            throw new InvalidOperationException(
-                $"Fairies' Woods TX_{textId:x4} command payload diverged.");
-        }
-        ShowText(textId);
-    }
-
-    void ICutsceneCommandHost.SetActorCollisionRadii(
-        string actor,
-        int radiusY,
-        int radiusX)
-    {
-        if (actor != "FairyExit" ||
-            radiusY != _record.ExitRadiusY ||
-            radiusX != _record.ExitRadiusX)
-        {
-            throw UnsupportedCommand(
-                $"set actor '{actor}' collision ${radiusY:x2}/${radiusX:x2}");
-        }
-    }
-
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor)
-    {
-        if (actor != "FairyExit")
-            throw UnsupportedCommand($"make actor '{actor}' button sensitive");
-    }
-
-    void ICutsceneCommandHost.WriteMemory(string binding, int value)
-    {
-        if (binding != "FairySignal")
-            throw UnsupportedCommand($"write '{binding}'=${value:x2}");
-        Signal = (byte)value;
-    }
-
-    void ICutsceneCommandHost.RunNativeHandler(string handler)
-    {
-        if (handler.StartsWith("SpawnForestFairy:", StringComparison.Ordinal))
-        {
-            int preset = int.Parse(handler.AsSpan(handler.IndexOf(':') + 1));
-            SpawnFlight(preset);
-            return;
-        }
-        switch (handler)
-        {
-            case "ShowFairyFoundText":
-                ShowText(0x1105 + CountBits(Found));
-                break;
-            case "MoveLinkBackLeft":
-                if (!_context.Player.CutsceneControlled)
-                    _context.Player.BeginCutsceneControl(owner: _forcedMovementOwner);
-                _context.Player.Face(Vector2I.Left);
-                _forcedLeftCounter = 8;
-                break;
-            default:
-                throw UnsupportedCommand($"run native handler '{handler}'");
-        }
-    }
-
-    bool ICutsceneCommandHost.UpdateNativeHandler(
-        string handler,
-        CutsceneActorId? actor,
-        int commandUpdate,
-        int frames,
-        string payload)
-    {
-        if (handler != "WaitForExitCollision" ||
-            actor is not { Value: "FairyExit" } ||
-            frames != 1 ||
-            !string.IsNullOrEmpty(payload))
-        {
-            throw UnsupportedCommand($"update native handler '{handler}'");
-        }
-        _ = commandUpdate;
-        return ExitCollision();
-    }
-
-    void ICutsceneCommandHost.ScriptEnded()
-    {
-        FairyScriptKind completed = _scriptKind;
-        _scriptKind = FairyScriptKind.None;
-        switch (completed)
-        {
-            case FairyScriptKind.Intro:
-                BeginHidingCutscene();
-                break;
-            case FairyScriptKind.Reveal:
-                FinishReveal();
-                break;
-            case FairyScriptKind.Exit:
-                ClearTransientState();
-                _stage = FairiesWoodsStage.Inactive;
-                break;
-            default:
-                throw UnsupportedCommand("end an unowned script");
-        }
-    }
-
-    private int ReadScriptMemory(string binding) =>
-        binding == "FairySignal"
-            ? Signal
-            : throw UnsupportedCommand($"read '{binding}'");
 
 }
 
 internal enum FairiesWoodsStage
 {
     Inactive,
+    ControllerInitialize,
     StartPending,
     IntroScript,
     SearchRoom,
@@ -927,6 +379,8 @@ internal enum FairiesWoodsStage
     RevealScript,
     AwaitLastFairyWarp,
     ExitScript,
+    CompletionPending,
+    HidingBegin,
     HidingFadeOut,
     HidingFadeIn,
     HidingFlight,
@@ -940,12 +394,4 @@ internal enum FairiesWoodsStage
     CompletionHold2,
     CompletionSlowFade,
     CompletionFinalize
-}
-
-internal enum FairyScriptKind
-{
-    None,
-    Intro,
-    Reveal,
-    Exit
 }

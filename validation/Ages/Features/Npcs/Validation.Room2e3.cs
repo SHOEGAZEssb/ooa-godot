@@ -105,13 +105,13 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(record.Group, record.Room);
         pickup = _entities.Entities<GroundTreasurePickup>().Single();
         _player.WarpTo(new Vector2(0x36, 0x28), recordSafe: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             pickup.State != PickupState.Waiting ||
             _inventory.Bombs != 0x02,
             "Room 2:e3's Bombs collected at the excluded Manhattan-$0e boundary.");
         _player.WarpTo(new Vector2(0x35, 0x28), recordSafe: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             pickup.State != PickupState.Collected ||
             _inventory.Bombs != _inventory.MaxBombs ||
@@ -128,15 +128,19 @@ public sealed partial class ValidationRoot
             "Room 2:e3 did not refill wNumBombs before the $03:$04 grant, " +
             "set ROOMFLAG_ITEM, show TX_0076, and retain the input lease.");
 
+        StepGameplayUpdates(3, Vector2.Zero);
         _dialogue.Close();
-        _interactions.Update(frame, _player);
-        _entities.Update(frame, _player);
-        for (int update = 1;
-            update < record.PostGrantWait;
+        StepGameplayUpdates(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero); // Resume producer and install wait30.
+        for (int update = 0;
+            update < record.PostGrantWait - 1;
             update++)
         {
-            _entities.Update(frame, _player);
+            StepGameplayUpdates(1, Vector2.Zero);
         }
+        FailIf(_entities.Entities<GroundTreasurePickup>().Count != 1 || !_entities.PlayerMovementDisabled,
+            "Room 2:e3's $6b:$0a released its source wait before the 30th decrement.");
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
             _entities.PlayerMovementDisabled ||
@@ -152,7 +156,7 @@ public sealed partial class ValidationRoot
         cuccos = _entities.Entities<BabyCuccoCharacter>().ToArray();
         _player.WarpTo(new Vector2(0x90, 0x20), recordSafe: false);
         int callsBeforeInitialization = _random.Calls;
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             _random.Calls != callsBeforeInitialization + 3 ||
             cuccos.Any(cucco =>
@@ -167,7 +171,7 @@ public sealed partial class ValidationRoot
         OracleRandomState randomState = _random.CaptureState();
         _random.RestoreState(randomState with { Rng1 = 0x40, Rng2 = 0x00 });
         int callsBeforeHops = _random.Calls;
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             _random.Calls != callsBeforeHops + 3 ||
             cuccos.Any(cucco =>
@@ -178,13 +182,13 @@ public sealed partial class ValidationRoot
             "each and enter the 1-in-64 hop in source order.");
 
         for (int update = 0; update < 22; update++)
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         FailIf(cuccos.Any(cucco =>
                 cucco.State != BabyCuccoState.Hopping ||
                 cucco.ZFixed != -66 ||
                 cucco.SpeedZ != 204),
             "Baby Cucco hopping lost the $ff40 speedZ / $12 gravity boundary.");
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(cuccos.Any(cucco =>
                 cucco.State != BabyCuccoState.Following ||
                 cucco.ZFixed != 0),
@@ -202,12 +206,12 @@ public sealed partial class ValidationRoot
             !_player.IsCarryingObject,
             "The first source-order Baby Cucco was not grabbable from state 8.");
         for (int update = 0; update < 3; update++)
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             carried.CurrentAnimationFrame != 0,
             "Held Baby Cucco advanced before its source four-update " +
             "animation boundary.");
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             carried.CurrentAnimationFrame != 1,
             "Held Baby Cucco did not run enemyAnimate on its source " +
@@ -226,7 +230,7 @@ public sealed partial class ValidationRoot
             update < 180 && carried.State == BabyCuccoState.Thrown;
             update++)
         {
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         }
         FailIf(
             carried.State != BabyCuccoState.Following ||

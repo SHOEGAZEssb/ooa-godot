@@ -1973,89 +1973,7 @@ if ($interactableTilesSource -notmatch '(?ms)^nextToOverworldKeyhole:.*?getThisR
     throw 'Overworld keyhole table, room 0:5c controller, tile mapping, or key-sprite contract changed.'
 }
 
-$overworldKeyholeLocations = @(
-    @{ Group = 0; Room = 0x5c; Treasure = 0x42; Source = 'interactableTiles.s:@group0/ROOM_AGES_05c' },
-    @{ Group = 0; Room = 0x0a; Treasure = 0x43; Source = 'interactableTiles.s:@group0/ROOM_AGES_00a' },
-    @{ Group = 0; Room = 0xa5; Treasure = 0x46; Source = 'interactableTiles.s:@group0/ROOM_AGES_0a5' },
-    @{ Group = 1; Room = 0x0e; Treasure = 0x45; Source = 'interactableTiles.s:@group1/ROOM_AGES_10e' },
-    @{ Group = 1; Room = 0xa5; Treasure = 0x46; Source = 'interactableTiles.s:@group1/ROOM_AGES_1a5' },
-    @{ Group = 3; Room = 0x0f; Treasure = 0x44; Source = 'interactableTiles.s:@group3/ROOM_AGES_30f' }
-)
-$overworldKeyholeTileRows = @(
-    "# active-collisions`ttile`tparameter`tsource"
-    "0`tec`t06`tinteractableTiles.s:@overworld"
-    "1`tae`t06`tinteractableTiles.s:@indoors"
-    "4`tec`t06`tinteractableTiles.s:@underwater"
-)
 
-$puzzlePuffGraphic = $interactionGraphics['5:0']
-$puzzlePuffAnimation = Resolve-NpcAnimation 0x05 0
-if (-not $puzzlePuffGraphic -or
-    $puzzlePuffGraphic.TileBase -ne 0x16 -or
-    $puzzlePuffGraphic.Palette -ne 3 -or
-    [string]::IsNullOrWhiteSpace($puzzlePuffAnimation)) {
-    throw 'INTERAC_PUFF $05 no longer resolves to tile base $16, palette 3, animation 0.'
-}
-$puzzlePuffRows = @(
-    "# tile-base`tpalette`tanimation"
-    "$($puzzlePuffGraphic.TileBase)`t$($puzzlePuffGraphic.Palette)`t$puzzlePuffAnimation"
-)
-
-$grassDebrisGraphic = $interactionGraphics['0:0']
-$redGrassDebrisGraphic = $interactionGraphics['1:0']
-$grassDebrisAnimation = Resolve-NpcAnimation 0x00 0
-$redGrassDebrisAnimation = Resolve-NpcAnimation 0x01 0
-if (-not $grassDebrisGraphic -or
-    $grassDebrisGraphic.Gfx -ne 0 -or
-    $grassDebrisGraphic.TileBase -ne 0x00 -or
-    $grassDebrisGraphic.Palette -ne 0 -or
-    $grassDebrisGraphic.DefaultAnimation -ne 0 -or
-    [string]::IsNullOrWhiteSpace($grassDebrisAnimation) -or
-    -not $redGrassDebrisGraphic -or
-    $redGrassDebrisGraphic.Gfx -ne 0 -or
-    $redGrassDebrisGraphic.TileBase -ne 0x00 -or
-    $redGrassDebrisGraphic.Palette -ne 0 -or
-    $redGrassDebrisGraphic.DefaultAnimation -ne 0 -or
-    [string]::IsNullOrWhiteSpace($redGrassDebrisAnimation) -or
-    $soundIds['SND_CUTGRASS'] -ne 0x6d -or
-    $breakTileDebrisSource -notmatch '(?ms)^@state0:.*?interactionInitGraphics.*?^@soundAndPriorityTable:.*?\.db SND_CUTGRASS\s+\$03\s*;\s*0x00.*?\.db SND_CUTGRASS\s+\$03\s*;\s*0x01' -or
-    $breakTileDebrisSource -notmatch '(?ms)^@state1:.*?Interaction\.animParameter\s+bit 7,\(hl\)\s+jp nz,interactionDelete.*?jp interactionAnimate' -or
-    $breakTileDebrisSource -notmatch '(?ms)^@interac00:.*?wTilesetFlags.*?TILESETFLAG_UNDERWATER.*?ld a,\$0e.*?wGrassAnimationModifier.*?and \$03\s+or \$08.*?Interaction\.oamFlagsBackup') {
-    throw 'INTERAC_GRASSDEBRIS $00/$01 graphics, palette, terminal animation, or SND_CUTGRASS changed.'
-}
-$grassDebrisRows = @(
-    "# interaction-id`tsprite`ttile-base`tpalette`tunderwater-palette`tsound`tanimation"
-    "00`tspr_common_sprites`t$($grassDebrisGraphic.TileBase)`t$($grassDebrisGraphic.Palette)`t6`t$($soundIds['SND_CUTGRASS'].ToString('x2'))`t$grassDebrisAnimation"
-    "01`tspr_common_sprites`t$($redGrassDebrisGraphic.TileBase)`t$($redGrassDebrisGraphic.Palette)`t$($redGrassDebrisGraphic.Palette)`t$($soundIds['SND_CUTGRASS'].ToString('x2'))`t$redGrassDebrisAnimation"
-)
-
-$rockDebrisGraphic = $interactionGraphics['6:0']
-$rockDebrisAnimation = Resolve-NpcAnimation 0x06 0
-$rockDebris2Graphic = $interactionGraphics['12:0']
-$rockDebris2Animation = Resolve-NpcAnimation 0x0c 0
-if (-not $rockDebrisGraphic -or
-    $rockDebrisGraphic.Gfx -ne 0 -or
-    $rockDebrisGraphic.TileBase -ne 0x02 -or
-    $rockDebrisGraphic.Palette -ne 3 -or
-    $rockDebrisGraphic.DefaultAnimation -ne 0 -or
-    [string]::IsNullOrWhiteSpace($rockDebrisAnimation) -or
-    -not $rockDebris2Graphic -or
-    $rockDebris2Graphic.Gfx -ne 0 -or
-    $rockDebris2Graphic.TileBase -ne 0x40 -or
-    $rockDebris2Graphic.Palette -ne 5 -or
-    $rockDebris2Graphic.DefaultAnimation -ne 0 -or
-    [string]::IsNullOrWhiteSpace($rockDebris2Animation) -or
-    $rockDebris2Animation -ne $rockDebrisAnimation -or
-    $soundIds['SND_BREAK_ROCK'] -ne 0xa5 -or
-    $breakTileDebrisSource -notmatch '(?ms)^@state0:.*?interactionInitGraphics.*?^@soundAndPriorityTable:.*?\.db SND_BREAK_ROCK\s+\$00\s*;\s*0x06.*?\.db SND_BREAK_ROCK\s+\$00\s*;\s*0x0c' -or
-    $breakTileDebrisSource -notmatch '(?ms)^@state1:.*?Interaction\.animParameter\s+bit 7,\(hl\)\s+jp nz,interactionDelete.*?jp interactionAnimate') {
-    throw 'INTERAC_ROCKDEBRIS $06/$0c graphics, terminal animation, or SND_BREAK_ROCK changed.'
-}
-$rockDebrisRows = @(
-    "# interaction-id`tsprite`ttile-base`tpalette`tsound`tanimation"
-    "06`tspr_common_sprites`t$($rockDebrisGraphic.TileBase)`t$($rockDebrisGraphic.Palette)`t$($soundIds['SND_BREAK_ROCK'].ToString('x2'))`t$rockDebrisAnimation"
-    "0c`tspr_common_sprites`t$($rockDebris2Graphic.TileBase)`t$($rockDebris2Graphic.Palette)`t$($soundIds['SND_BREAK_ROCK'].ToString('x2'))`t$rockDebris2Animation"
-)
 
 $fallDownHoleGraphic = $interactionGraphics['15:0']
 $fallDownHoleAnimation = Resolve-NpcAnimation 0x0f 0
@@ -2068,205 +1986,8 @@ if (-not $fallDownHoleGraphic -or
     $fallDownHoleSource -notmatch '(?ms)^@interac0f_state1:.*?bit 7,\(hl\).*?add \$05\s+and \$f0\s+add \$08.*?ld \(de\),a\s+call objectApplySpeed.*?jp interactionAnimate') {
     throw 'INTERAC_FALLDOWNHOLE `$0f no longer resolves to common graphics tile base `$16, palette 3, SPEED_60, animation 0.'
 }
-$fallDownHoleRows = @(
-    "# tile-base`tpalette`tspeed-raw`tanimation"
-    "$($fallDownHoleGraphic.TileBase)`t$($fallDownHoleGraphic.Palette)`t15`t$fallDownHoleAnimation"
-)
 
-$knockbackDustAnimation = Resolve-NpcAnimation 0x0f 1
-if ([string]::IsNullOrWhiteSpace($knockbackDustAnimation) -or
-    $fallDownHoleSource -notmatch '(?ms)^@dust:\s+call interactionSetAnimation\s+jp objectSetVisible80' -or
-    $fallDownHoleSource -notmatch '(?ms)^@interac0f_state2:.*?xor \$80.*?bit 7,\(hl\).*?jr z,@animate') {
-    throw 'INTERAC_FALLDOWNHOLE $0f:$01 dust animation or flicker contract changed.'
-}
-$knockbackDustRows = @(
-    "# tile-base`tpalette`tanimation"
-    "$($fallDownHoleGraphic.TileBase)`t$($fallDownHoleGraphic.Palette)`t$knockbackDustAnimation"
-)
 
-# Link's side-view swimming counter creates INTERAC_BUBBLE $91:$00.
-# Its state-0 RNG draw belongs to the later interaction pass, not Link.
-$swimBubbleSource = Read-ImportText (
-    Join-Path $Disassembly 'object_code\common\interactions\bubble.s')
-$swimBubbleGraphic = $interactionGraphics['145:0']
-$swimBubbleAnimation = Resolve-NpcAnimation 0x91 0
-if (-not $swimBubbleGraphic -or
-    $swimBubbleGraphic.Gfx -ne 0 -or
-    $swimBubbleGraphic.TileBase -ne 0x16 -or
-    $swimBubbleGraphic.Palette -ne 1 -or
-    $swimBubbleSource -notmatch '(?ms)^@@state0:.*?call @checkDelete.*?call interactionInitGraphics.*?ld \(hl\),SPEED_80.*?ld a,\$04.*?inc a.*?call getRandomNumber\s+and \$01.*?and TILESETFLAG_SIDESCROLL\s+jp nz,objectSetVisible83' -or
-    $swimBubbleSource -notmatch '(?ms)^@@state1:.*?call @checkDelete.*?call objectApplySpeed.*?cp \$f0.*?call interactionDecCounter1.*?ld \(hl\),\$04.*?ld \(hl\),\$08.*?cpl\s+inc a.*?and \$1f' -or
-    $swimBubbleSource -notmatch '(?ms)^@@sidescrolling:\s*;[^\r\n]*\s*call objectGetTileAtPosition\s+ld hl,hazardCollisionTable\s+call lookupCollisionTable\s+ccf\s+ret') {
-    throw 'INTERAC_BUBBLE $91:$00 side-view graphics, water gate, RNG, or 4/5/8 turning contract changed.'
-}
-Write-GeneratedTable((Join-Path $destination 'effects\side_scroll_bubble.tsv'), @(
-    "# tile-base`tpalette`tspeed-raw`tturn-counter`tinitial-turns`tturns`tanimation`tsource"
-    "$($swimBubbleGraphic.TileBase)`t$($swimBubbleGraphic.Palette)`t20`t4`t5`t8`t$swimBubbleAnimation`tobject_code/common/interactions/bubble.s:interactionCode91@subid00"
-))
-
-$keyDoorOpenTiles = @{}
-foreach ($entry in [regex]::Matches(
-    $standardTileSubstitutionSource,
-    '(?m)^\s*\.db \$(?<open>[0-9a-f]{2}) \$(?<closed>7[0-7])(?:\s|;)')) {
-    $closedTile = $entry.Groups['closed'].Value
-    if ($keyDoorOpenTiles.ContainsKey($closedTile)) {
-        throw "Duplicate standard dungeon-key door substitution for `$$closedTile."
-    }
-    $keyDoorOpenTiles[$closedTile] = $entry.Groups['open'].Value
-}
-$keyDoorFlags = @{}
-foreach ($entry in [regex]::Matches(
-    $bank0Source,
-    '(?m)^\s*\.db \$(?<room>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<opposite>[0-9a-f]{2}) \$00 ; Key door going (?<direction>up|right|down|left)\s*$')) {
-    $directionName = $entry.Groups['direction'].Value
-    if ($keyDoorFlags.ContainsKey($directionName)) {
-        throw "Duplicate _adjacentRoomsData key-door direction $directionName."
-    }
-    $keyDoorFlags[$directionName] = @(
-        $entry.Groups['room'].Value,
-        $entry.Groups['opposite'].Value)
-}
-$keyDoorRows = [Collections.Generic.List[string]]::new()
-$dungeonKeyActiveCollisions = '1,2,5'
-$keyDoorRows.Add(
-    "# closed-tile`tdirection`tkey-kind`tkey-graphic`topen-tile`troom-flag`topposite-room-flag`tpush-counter`tdoor-frame-wait`tdoor-sound`tkey-sound`tno-key-text-id`tno-key-utf8-base64`tactive-collisions")
-$noKeyTexts = @{
-    small = [Convert]::ToBase64String(
-        [Text.Encoding]::UTF8.GetBytes($allTexts[0x5100]))
-    boss = [Convert]::ToBase64String(
-        [Text.Encoding]::UTF8.GetBytes($allTexts[0x5101]))
-}
-foreach ($entry in [regex]::Matches(
-    $interactableTileDataSource,
-    '(?m)^\s*\.db \$(?<tile>7[0-7]) \$(?<parameter>[0-7])2\s*$')) {
-    $tile = $entry.Groups['tile'].Value
-    $parameter = [Convert]::ToInt32($entry.Groups['parameter'].Value, 16)
-    $direction = $parameter -band 3
-    $keyKind = if ($parameter -ge 4) { 'boss' } else { 'small' }
-    $keyGraphic = if ($keyKind -eq 'boss') { '43' } else { '42' }
-    $noKeyTextId = if ($keyKind -eq 'boss') { '5101' } else { '5100' }
-    if (-not $keyDoorOpenTiles.ContainsKey($tile)) {
-        throw "Dungeon-key door `$$tile has no standard opened-tile substitution."
-    }
-    $directionName = @('up', 'right', 'down', 'left')[$direction]
-    if (-not $keyDoorFlags.ContainsKey($directionName)) {
-        throw "Small-key door `$$tile has no _adjacentRoomsData flags for $directionName."
-    }
-    $roomFlag, $oppositeFlag = $keyDoorFlags[$directionName]
-    $keyDoorRows.Add(
-        "$tile`t$directionName`t$keyKind`t$keyGraphic`t$($keyDoorOpenTiles[$tile])`t$roomFlag`t$oppositeFlag`t20`t6`t112`t94`t$noKeyTextId`t$($noKeyTexts[$keyKind])`t$dungeonKeyActiveCollisions")
-}
-if ($keyDoorRows.Count -ne 9 -or
-    -not ($keyDoorRows -contains "73`tleft`tsmall`t42`ta0`t08`t02`t20`t6`t112`t94`t5100`t$($noKeyTexts.small)`t$dungeonKeyActiveCollisions") -or
-    -not ($keyDoorRows -contains "75`tright`tboss`t43`ta0`t02`t08`t20`t6`t112`t94`t5101`t$($noKeyTexts.boss)`t$dungeonKeyActiveCollisions")) {
-    throw "Expected eight imported dungeon-key doors `$70-`$77, parsed $($keyDoorRows.Count - 1)."
-}
-
-$keyBlockText = [Convert]::ToBase64String(
-    [Text.Encoding]::UTF8.GetBytes($allTexts[0x5102]))
-$keyBlockRows = @(
-    "# closed-tile`tkey-graphic`topen-tile`troom-flag`tpush-counter`topen-sound`tkey-sound`tno-key-text-id`tno-key-utf8-base64`tpuff-sound`tactive-collisions`tsource"
-    "1e`t42`ta0`t80`t20`t$($soundIds['SND_OPENCHEST'])`t$($soundIds['SND_GETSEED'])`t5102`t$keyBlockText`t$($soundIds['SND_POOF'])`t$dungeonKeyActiveCollisions`tinteractableTiles.s:nextToKeyBlock"
-)
-
-# Shared showInfoTextForTile masks are intentionally shared between distinct
-# tile kinds. Preserve source order and formatting through the text resolver.
-function Resolve-TileInfoText([int]$textId,[Collections.Generic.HashSet[int]]$visited) {
-    if (-not $allTexts.ContainsKey($textId) -or -not $visited.Add($textId)) {
-        throw "showInfoTextForTile: missing/recursive TX_$($textId.ToString('x4'))."
-    }
-    $message = [string]$allTexts[$textId]
-    while ($true) {
-        $call = [regex]::Match($message,'\\call\(TX_(?<id>[0-9a-f]{4})\)')
-        if (-not $call.Success) { break }
-        $target = [Convert]::ToInt32($call.Groups['id'].Value,16)
-        $message = $message.Substring(0,$call.Index) + (Resolve-TileInfoText $target $visited) +
-            $message.Substring($call.Index + $call.Length)
-    }
-    $jump = [regex]::Match($message,'\\jump\(TX_(?<id>[0-9a-f]{4})\)')
-    if ($jump.Success) {
-        $target = [Convert]::ToInt32($jump.Groups['id'].Value,16)
-        $message = $message.Substring(0,$jump.Index) + (Resolve-TileInfoText $target $visited)
-    } elseif ($allTextFallthroughIds.ContainsKey($textId)) {
-        if ($message.EndsWith('\n',[StringComparison]::Ordinal)) {
-            $message = $message.Substring(0,$message.Length - 2) + "`n"
-        }
-        $message += Resolve-TileInfoText ([int]$allTextFallthroughIds[$textId]) $visited
-    }
-    [void]$visited.Remove($textId)
-    return $message
-}
-$tileInfoRows = [Collections.Generic.List[string]]::new()
-$tileInfoRows.Add("# index`tmask`ttext-id`tmessage-utf8-base64`tsource")
-$tileInfoNodes = @(Read-AssemblyNodes (Join-Path $Disassembly 'code/interactableTiles.s') |
-    Where-Object { $_.EnclosingGlobalLabel -eq 'showInfoTextForTile' -and $_.Kind -eq 'Data' })
-$tileInfoIndex = 0
-foreach ($node in $tileInfoNodes) {
-    if ($node.Name -ne '.db' -or $node.Operands.Count -ne 2 -or
-        $node.Operands[0] -notmatch '^\$(?<mask>[0-9a-f]{2})$') {
-        throw "showInfoTextForTile@data: unsupported row at $($node.Path):$($node.Line)."
-    }
-    $mask = $Matches['mask']
-    if ($node.Operands[1] -notmatch '^<TX_(?<id>[0-9a-f]{4})$') {
-        throw "showInfoTextForTile@data: unsupported text operand $($node.Operands[1])."
-    }
-    $textId = [Convert]::ToInt32($Matches['id'],16)
-    if (-not $allTexts.ContainsKey($textId)) { throw "showInfoTextForTile: unresolved TX_$($textId.ToString('x4'))." }
-    $resolved = Resolve-TileInfoText $textId ([Collections.Generic.HashSet[int]]::new())
-    $message = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($resolved))
-    $tileInfoRows.Add("$tileInfoIndex`t$mask`t$($textId.ToString('x4'))`t$message`tcode/interactableTiles.s:showInfoTextForTile@data+$tileInfoIndex")
-    $tileInfoIndex++
-}
-if ($tileInfoIndex -ne 10) { throw "showInfoTextForTile@data: expected10 rows, got$tileInfoIndex." }
-Write-GeneratedTable((Join-Path $destination 'metadata/tile_info_texts.tsv'),$tileInfoRows)
-
-# applyStandardTileSubstitutions selects one replacement list for each set room
-# flag bit and wActiveCollisions value. Preserve the complete Ages table so
-# persistent broken overworld tiles and the existing door paths share the same
-# load-time mechanism.
-$standardCollisionModes = @{
-    Overworld = 0
-    Indoors = 1
-    Dungeons = 2
-    Sidescrolling = 3
-    Underwater = 4
-    Five = 5
-}
-$standardTileRows = [Collections.Generic.List[string]]::new()
-$standardTileRows.Add('# room-flag`tactive-collisions`treplacement`toriginal`tsource')
-$activeStandardLabels = [Collections.Generic.List[hashtable]]::new()
-foreach ($line in $standardTileSubstitutionSource -split "`r?`n") {
-    if ($line -match '^\s*@bit(?<bit>[01237])(?<mode>Overworld|Indoors|Dungeons|Sidescrolling|Underwater|Five):') {
-        $activeStandardLabels.Add(@{
-            Flag = 1 -shl [Convert]::ToInt32($Matches['bit'], 10)
-            Collisions = $standardCollisionModes[$Matches['mode']]
-            Label = "bit$($Matches['bit'])$($Matches['mode'])"
-        })
-        continue
-    }
-    if ($activeStandardLabels.Count -eq 0 -or
-        $line -notmatch '^\s*\.db\s+\$(?<replacement>[0-9a-f]{2})(?:\s+\$(?<original>[0-9a-f]{2}))?') {
-        continue
-    }
-    $replacement = [Convert]::ToInt32($Matches['replacement'], 16)
-    if (-not $Matches.ContainsKey('original') -or $Matches['original'] -eq '') {
-        if ($replacement -ne 0) {
-            throw "Unexpected standard tile-substitution terminator `$$($replacement.ToString('x2'))."
-        }
-        $activeStandardLabels.Clear()
-        continue
-    }
-    $original = [Convert]::ToInt32($Matches['original'], 16)
-    foreach ($active in $activeStandardLabels) {
-        $standardTileRows.Add(
-            "$($active.Flag.ToString('x2'))`t$($active.Collisions)`t$($replacement.ToString('x2'))`t$($original.ToString('x2'))`tstandardTileSubstitutions@$($active.Label)")
-    }
-}
-if ($standardTileRows.Count -ne 51 -or
-    -not ($standardTileRows -contains "80`t0`tdc`tc6`tstandardTileSubstitutions@bit7Overworld") -or
-    -not ($standardTileRows -contains "01`t2`ta0`t70`tstandardTileSubstitutions@bit0Dungeons")) {
-    throw "Expected 50 standard tile substitutions including bit-7 tree and bit-0 key-door rows, parsed $($standardTileRows.Count - 1)."
-}
 
 $conditionalDungeonEnemyRooms = [Collections.Generic.HashSet[string]]::new()
 foreach ($block in [regex]::Matches(
@@ -3002,82 +2723,7 @@ $currentRoom = -1
 $npcSpriteNames = [Collections.Generic.HashSet[string]]::new()
 [void]$npcSpriteNames.Add($tingleSparkleSprite)
 
-$overworldKeyholeRows = [Collections.Generic.List[string]]::new()
-$overworldKeyholeRows.Add(
-    "# group`troom`ttreasure`tsubid`tsprite`ttile-base`tpalette`tanimation`tsource")
-foreach ($location in $overworldKeyholeLocations) {
-    $subid = [int]$location.Treasure - 0x42
-    $graphic = $interactionGraphics["24`:$subid"]
-    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
-        throw "Could not resolve INTERAC_OVERWORLD_KEY_SPRITE `$18 subid `$$($subid.ToString('x2'))."
-    }
-    $animation = Resolve-NpcAnimation 0x18 $graphic.DefaultAnimation
-    if ([string]::IsNullOrWhiteSpace($animation)) {
-        throw "Could not resolve INTERAC_OVERWORLD_KEY_SPRITE `$18 subid `$$($subid.ToString('x2')) animation."
-    }
-    $spriteName = $gfxNames[$graphic.Gfx]
-    [void]$npcSpriteNames.Add($spriteName)
-    $overworldKeyholeRows.Add((@(
-        ([int]$location.Group).ToString(),
-        ([int]$location.Room).ToString('x2'),
-        ([int]$location.Treasure).ToString('x2'),
-        $subid.ToString('x2'),
-        $spriteName,
-        ([int]$graphic.TileBase).ToString('x2'),
-        ([int]$graphic.Palette).ToString('x2'),
-        $animation,
-        [string]$location.Source
-    ) -join "`t"))
-}
-$graveyardKeyholeRow = @($overworldKeyholeRows | Where-Object {
-    $_ -match '^0\t5c\t42\t00\t'
-})
-if ($overworldKeyholeRows.Count -ne 7 -or $graveyardKeyholeRow.Count -ne 1 -or
-    $graveyardKeyholeRow[0] -notmatch '^0\t5c\t42\t00\tspr_map_compass_keys_bookofseals\t0e\t05\t') {
-    throw "Expected six named Ages keyholes with Graveyard Key visual `$7a/`$0e/`$05."
-}
-$keyholeText = [Convert]::ToBase64String(
-    [Text.Encoding]::UTF8.GetBytes($allTexts[0x5109]))
-$overworldKeyholeConstantRows = @(
-    "# room-flag`tinformative-mask`tpush-counter`topen-sound`tno-key-text-id`tno-key-utf8-base64`tinteraction-id`tfirst-key`tinitial-speed-z`tgravity`thold-frames`tsource"
-    "80`t20`t20`t108`t5109`t$keyholeText`t18`t42`t-512`t40`t60`tinteractableTiles.s:nextToOverworldKeyhole;overworldKeySprite.s"
-)
 
-# INTERAC_TREASURE $60 overwrites its subid with the treasure object's graphic
-# byte, then initializes that interaction's graphics. Export the corresponding
-# sprite header and first animation so chest rewards do not incorrectly reuse
-# the unrelated inventory-button display tables.
-$treasureObjectVisualRows = [Collections.Generic.List[string]]::new()
-$treasureObjectVisualRows.Add(
-    "# graphic`tsprite`ttile-base`tpalette`tdefault-animation`tanimation`tsource-grayscale-inverted")
-$treasureObjectGraphics = @(
-    $treasureObjectRecords.Values |
-        ForEach-Object { [int]$_.Graphic } |
-        Sort-Object -Unique)
-foreach ($graphicIndex in $treasureObjectGraphics) {
-    $graphic = $interactionGraphics["96`:$graphicIndex"]
-    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
-        throw "Could not resolve INTERAC_TREASURE `$60 graphic `$$($graphicIndex.ToString('x2'))."
-    }
-    $animation = Resolve-TreasureAnimation $graphic.DefaultAnimation
-    if ([string]::IsNullOrWhiteSpace($animation)) {
-        throw "Could not resolve INTERAC_TREASURE `$60 graphic `$$($graphicIndex.ToString('x2')) animation `$$($graphic.DefaultAnimation.ToString('x2'))."
-    }
-    $spriteName = $gfxNames[$graphic.Gfx]
-    [void]$npcSpriteNames.Add($spriteName)
-    $treasureSourceInverted = [int](Get-ImportSpriteSourceGrayscaleInverted $spriteName)
-    $treasureObjectVisualRows.Add(
-        "$($graphicIndex.ToString('x2'))`t$spriteName`t$($graphic.TileBase.ToString('x2'))`t$($graphic.Palette.ToString('x2'))`t$($graphic.DefaultAnimation.ToString('x2'))`t$animation`t$treasureSourceInverted")
-}
-$smallKeyVisual = $interactionGraphics['96:66']
-if ($treasureObjectVisualRows.Count -ne 85 -or
-    $null -eq $smallKeyVisual -or
-    $gfxNames[$smallKeyVisual.Gfx] -ne 'spr_map_compass_keys_bookofseals' -or
-    $smallKeyVisual.TileBase -ne 0x0c -or
-    $smallKeyVisual.Palette -ne 5 -or
-    $smallKeyVisual.DefaultAnimation -ne 0) {
-    throw "Expected 84 vanilla INTERAC_TREASURE visuals including the small-key graphic `$42."
-}
 # miscellaneous1.s: the two Goron bomb statues initialize graphics once,
 # replace only the logical layout byte with $00, make the tile solid ($0f),
 # then push Link and update priority without advancing animation.
@@ -4582,56 +4228,6 @@ for ($direction = 0; $direction -lt 8; $direction++) {
 $dungeonSharedVisualRows.Add(
     "portal`t0`tspr_common_sprites`t$($portalGraphic.TileBase)`t$($portalGraphic.Palette)`t$portalAnimation`t-1`t-1")
 
-$eraInfoSource = Read-ImportText (
-    Join-Path $Disassembly 'object_code\common\interactions\eraOrSeasonInfo.s')
-$tilesetFlagSource = Read-ImportText (
-    Join-Path $Disassembly 'constants\common\tilesetFlags.s')
-$globalFlagSource = Read-ImportText (
-    Join-Path $Disassembly 'constants\common\globalFlags.s')
-$wramSource = Read-ImportText (Join-Path $Disassembly 'include\wram.s')
-$eraPresentGraphic = $interactionGraphics['224:0']
-$eraPastGraphic = $interactionGraphics['224:1']
-$eraAnimation = Resolve-NpcAnimation 0xe0 0
-if ($null -eq $eraPresentGraphic -or
-    $eraPresentGraphic.Gfx -ne 0x70 -or
-    $eraPresentGraphic.TileBase -ne 0x00 -or
-    $eraPresentGraphic.Palette -ne 1 -or
-    $eraPresentGraphic.DefaultAnimation -ne 0 -or
-    $null -eq $eraPastGraphic -or
-    $eraPastGraphic.Gfx -ne 0x70 -or
-    $eraPastGraphic.TileBase -ne 0x08 -or
-    $eraPastGraphic.Palette -ne 3 -or
-    $eraPastGraphic.DefaultAnimation -ne 0 -or
-    -not $gfxNames.ContainsKey(0x70) -or
-    $eraAnimation -ne
-        '127@8,248,0,0;8,0,2,0;8,8,4,0;8,16,6,0' -or
-    $eraInfoSource -notmatch
-        '(?ms)@state0:.*?interactionSetAlwaysUpdateBit.*?ld \(hl\),\$0a.*?ld \(hl\),\$b0.*?objectSetVisible80.*?@state1:.*?sub \$04.*?cp \$10.*?ld \(hl\),40.*?@state2:.*?ld \(hl\),\$06.*?@state3:.*?sub \$06.*?dec \(hl\)' -or
-    $tilesetFlagSource -notmatch
-        '(?m)^\.define TILESETFLAG_PAST \$80' -or
-    $tilesetFlagSource -notmatch
-        '(?m)^\.define TILESETFLAG_LARGE_INDOORS \$10' -or
-    $tilesetFlagSource -notmatch
-        '(?m)^\.define TILESETFLAG_OUTDOORS \$01' -or
-    $globalFlagSource -notmatch
-        '(?m)^\s*GLOBALFLAG_16\s+db\s*;\s*\$16:' -or
-    $wramSource -notmatch
-        '(?m)^wSentBackByStrangeForce:\s*;\s*\$cdde') {
-    throw 'Could not resolve INTERAC_ERA_OR_SEASON_INFO $e0 visuals, timing, or display predicates.'
-}
-$eraSpriteName = $gfxNames[0x70]
-[void]$npcSpriteNames.Add($eraSpriteName)
-$eraInfoRows = [Collections.Generic.List[string]]::new()
-$eraInfoRows.Add(
-    "# subid`tsprite`ttile-base`tpalette`tanimation`tstart-y`tstart-x`tenter-step`ttarget-x`thold-updates`texit-step`texit-updates`toutdoors-mask`tlarge-indoors-mask`tpast-mask`tsuppress-global-flag`tsent-back-address`tsent-back-value`tsource")
-foreach ($eraSpec in @(
-    @{ SubId = 0; Graphic = $eraPresentGraphic },
-    @{ SubId = 1; Graphic = $eraPastGraphic }
-)) {
-    $eraInfoRows.Add(
-        "$($eraSpec.SubId.ToString('x2'))`t$eraSpriteName`t$($eraSpec.Graphic.TileBase.ToString('x2'))`t$($eraSpec.Graphic.Palette)`t$eraAnimation`t0a`tb0`t4`t10`t40`t6`t6`t01`t10`t80`t16`tcdde`t1`tinteractionData.s:interactione0SubidData/eraOrSeasonInfo.s")
-}
-
 $dungeonSharedConstantRows = @(
     "# key`tvalue"
     "entry-min-y`t120"
@@ -5923,7 +5519,7 @@ $heartPieceSourceInverted = [int](Get-ImportSpriteSourceGrayscaleInverted $heart
 [void]$npcSpriteNames.Add($heartPieceSprite)
 $groundTreasureRows = [Collections.Generic.List[string]]::new()
 $groundTreasureRows.Add(
-    "# group`troom`torder`ty`tx`ttreasure-object`tsprite`ttile-base`tpalette`tanimation`tcompletion-text-id`tcompletion-text-base64`trequire-room-item-clear`tset-room-item`tstate-address`tstate-mask`tstate-value`trequire-treasure-clear`tspawn-mode`tgrab-mode`tinitial-speed-z`tgravity`tmove-speed`tsource`tsource-grayscale-inverted")
+    "# group`troom`torder`ty`tx`ttreasure-object`tsprite`ttile-base`tpalette`tanimation`tcompletion-text-id`tcompletion-text-base64`trequire-room-item-clear`tset-room-item`tstate-address`tstate-mask`tstate-value`trequire-treasure-clear`tspawn-mode`tgrab-mode`tinitial-speed-z`tgravity`tmove-speed`tsource`tsource-grayscale-inverted`tnative-spawner")
 $currentGroup = -1
 $currentRoom = -1
 $objectOrder = 0
@@ -5937,7 +5533,7 @@ foreach ($line in $mainObjectLines) {
     if ($currentGroup -lt 0 -or $line -notmatch '^\s+obj_(?!End)') { continue }
     if ($line -match 'obj_Interaction\s+\$dc\s+\$07\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})') {
         $groundTreasureRows.Add(
-            "$currentGroup`t$($currentRoom.ToString('x2'))`t$objectOrder`t$($Matches['y'])`t$($Matches['x'])`tTREASURE_OBJECT_HEART_PIECE_00`t$heartPieceSprite`t$($heartPieceGraphic.TileBase)`t$($heartPieceGraphic.Palette)`t$heartPieceAnimation`t$($heartContainerFollowupText.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$heartContainerFollowupText])))`t1`t1`t0000`t00`t00`t00`t0`t2`t0`t0`t0`tmiscellaneous2.s:interactiondc_subid07`t$heartPieceSourceInverted")
+            "$currentGroup`t$($currentRoom.ToString('x2'))`t$objectOrder`t$($Matches['y'])`t$($Matches['x'])`tTREASURE_OBJECT_HEART_PIECE_00`t$heartPieceSprite`t$($heartPieceGraphic.TileBase)`t$($heartPieceGraphic.Palette)`t$heartPieceAnimation`t$($heartContainerFollowupText.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$heartContainerFollowupText])))`t1`t1`t0000`t00`t00`t00`t0`t2`t0`t0`t0`tmiscellaneous2.s:interactiondc_subid07`t$heartPieceSourceInverted`t-")
     }
     $objectOrder++
 }
@@ -5991,7 +5587,7 @@ $rickyGloveSprite = $gfxNames[$rickyGloveGraphic.Gfx]
 $rickyGloveSourceInverted = [int](Get-ImportSpriteSourceGrayscaleInverted $rickyGloveSprite)
 [void]$npcSpriteNames.Add($rickyGloveSprite)
 $groundTreasureRows.Add(
-    "0`t98`t0`t28`t48`tTREASURE_OBJECT_RICKY_GLOVES_00`t$rickyGloveSprite`t$($rickyGloveGraphic.TileBase)`t$($rickyGloveGraphic.Palette)`t$rickyGloveAnimation`t0000`t`t0`t0`tc646`t21`t01`t48`t5`t1`t-256`t16`t14`trickysGloveSpawner.s:interactionCode74;treasure.s:@spawnMode5`t$rickyGloveSourceInverted")
+    "0`t98`t0`t28`t48`tTREASURE_OBJECT_RICKY_GLOVES_00`t$rickyGloveSprite`t$($rickyGloveGraphic.TileBase)`t$($rickyGloveGraphic.Palette)`t$rickyGloveAnimation`t0000`t`t0`t0`tc646`t21`t01`t48`t5`t1`t-256`t16`t14`trickysGloveSpawner.s:interactionCode74;treasure.s:@spawnMode5`t$rickyGloveSourceInverted`t74")
 if ($groundTreasureRows.Count -ne 10) {
     throw "Expected eight Heart Pieces and room 0:98 Ricky's Gloves, got $($groundTreasureRows.Count - 1)."
 }
@@ -7545,60 +7141,6 @@ $dungeonMechanicTextPath = Join-Path $destination "objects\dungeon_mechanic_text
 Write-GeneratedTable(
     $dungeonMechanicTextPath,
     $dungeonMechanicTextRows)
-$puzzlePuffPath = Join-Path $destination "effects\puzzle_puff.tsv"
-Write-GeneratedTable(
-    $puzzlePuffPath,
-    $puzzlePuffRows)
-$grassDebrisPath = Join-Path $destination "effects\grass_debris.tsv"
-Write-GeneratedTable(
-    $grassDebrisPath,
-    $grassDebrisRows)
-$rockDebrisPath = Join-Path $destination "effects\rock_debris.tsv"
-Write-GeneratedTable(
-    $rockDebrisPath,
-    $rockDebrisRows)
-$fallDownHolePath = Join-Path $destination "effects\fall_down_hole.tsv"
-Write-GeneratedTable(
-    $fallDownHolePath,
-    $fallDownHoleRows)
-$knockbackDustPath = Join-Path $destination 'effects\knockback_dust.tsv'
-Write-GeneratedTable(
-    $knockbackDustPath,
-    $knockbackDustRows)
-# This dot-sourced stage shares Windows PowerShell's bounded variable scope.
-Remove-Variable knockbackDustAnimation, knockbackDustRows, knockbackDustPath
-$eraInfoPath = Join-Path $destination "effects\era_info.tsv"
-Write-GeneratedTable(
-    $eraInfoPath,
-    $eraInfoRows)
-$keyDoorPath = Join-Path $destination "objects\dungeon_key_doors.tsv"
-Write-GeneratedTable(
-    $keyDoorPath,
-    $keyDoorRows)
-$keyBlockPath = Join-Path $destination "objects\dungeon_key_blocks.tsv"
-Write-GeneratedTable(
-    $keyBlockPath,
-    $keyBlockRows)
-$overworldKeyholePath = Join-Path $destination "objects\overworld_keyholes.tsv"
-Write-GeneratedTable(
-    $overworldKeyholePath,
-    $overworldKeyholeRows)
-$overworldKeyholeTilePath = Join-Path $destination "metadata\overworld_keyhole_tiles.tsv"
-Write-GeneratedTable(
-    $overworldKeyholeTilePath,
-    $overworldKeyholeTileRows)
-$overworldKeyholeConstantPath = Join-Path $destination "objects\overworld_keyhole_constants.tsv"
-Write-GeneratedTable(
-    $overworldKeyholeConstantPath,
-    $overworldKeyholeConstantRows)
-$standardTilePath = Join-Path $destination "metadata\standard_tile_substitutions.tsv"
-Write-GeneratedTable(
-    $standardTilePath,
-    $standardTileRows)
-$treasureObjectVisualPath = Join-Path $destination "metadata\treasure_object_visuals.tsv"
-Write-GeneratedTable(
-    $treasureObjectVisualPath,
-    $treasureObjectVisualRows)
 $familyNpcPath = Join-Path $destination "objects\bipin_blossom_family.tsv"
 Write-GeneratedTable(
     $familyNpcPath,

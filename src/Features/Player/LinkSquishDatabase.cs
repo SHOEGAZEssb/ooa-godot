@@ -9,6 +9,7 @@ internal sealed class LinkSquishDatabase
     public string AssetRoot { get; }
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<LinkSquishDatabase>> Packs = new(StringComparer.Ordinal);
+    static LinkSquishDatabase() => OracleGraphicsCache.RegisterApplicationCache(Packs.Clear);
     internal static LinkSquishDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
         static root => new Lazy<LinkSquishDatabase>(() => new LinkSquishDatabase(root))).Value;
 

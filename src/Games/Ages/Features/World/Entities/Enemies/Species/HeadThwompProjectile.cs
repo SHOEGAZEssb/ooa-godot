@@ -290,7 +290,7 @@ internal sealed partial class HeadThwompProjectile
     private bool IsCircularOutOfBounds()
     {
         return !NativePartBoundary.IsInside(_room,Position,_angle,
-            EnemyBehaviorTables.For(AgesGameContent.AssetRoot).WallArrowShooter.BoundaryOffsets);
+            CommonEnemyBehavior.Shared.ProjectileBoundaryOffsets);
     }
 
     private void Finish()

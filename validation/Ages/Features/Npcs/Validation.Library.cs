@@ -192,7 +192,7 @@ public sealed partial class ValidationRoot
                 }
                 Step();FailIf(current.Host!.State!=3,"Book path completed before the separate terminator interval.");
                 Step();FailIf(current.Host!.State!=4,$"Book ${sub:x2} missed its zero terminator.");
-                for(int i=0;_player.CutsceneControlled&&i<40;i++)Step();
+                for(int i=0;_runtimeState.ReadField("wDisabledObjects")!=0&&i<40;i++)Step();
                 FailIf(_player.CutsceneControlled||_entities.RuntimeState.ReadWramByte(AgesWramAddress.wDisabledObjects)!=0,
                     "Completed book paths leaked their input/object mask.");
                 if(sub!=0) FailIf(paths[sub-1].Any(p=>_currentRoom.GetPackedStorageMetatile(p)!=0xf4),"Previous book failed to remove its whole path after another book activated.");
@@ -237,7 +237,8 @@ public sealed partial class ValidationRoot
                 FailIf(host.Counter != 30, "Old man $52:$02 must freeze when wDisabledObjects bit $02 is set.");
                 _entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0x81);
                 StepGameplayUpdates(flagWritten ? 32 : 11, Vector2.Zero, batched: batched);
-                FailIf(_saveData.HasRoomFlag(5, 0xe4, 0x20) != flagWritten || !_player.CutsceneControlled,
+                FailIf(_saveData.HasRoomFlag(5, 0xe4, 0x20) != flagWritten || _player.CutsceneControlled ||
+                    _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
                     "Powder cancellation fixture missed its source flag $20 boundary or input hold.");
                 LoadValidationRoom(5, 0xec);
                 StepGameplayUpdates(80, Vector2.Zero, batched: batched);
@@ -310,7 +311,7 @@ public sealed partial class ValidationRoot
             _entities.BeginScreenTransition(5, _world.LoadRoom(5, 0xe4), new(240, 0), _player);
             var book = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0xb4);
             FailIf(book.Visible, "Podium state zero must remain hidden even after book placement.");
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(!book.Visible || _entities.Entities<NpcCharacter>().Count(n => n.Record.Id == 0xb4) != 1,
                 $"The podium always bit must publish its state-one pose during scrolling without allocating children: visible={book.Visible}, count={_entities.Entities<NpcCharacter>().Count(n => n.Record.Id == 0xb4)}.");
         }

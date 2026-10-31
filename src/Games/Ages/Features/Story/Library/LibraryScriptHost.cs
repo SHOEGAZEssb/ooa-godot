@@ -143,16 +143,14 @@ internal sealed class LibraryScriptHost : RoomCutsceneCommandHost
         Context.Entities.RuntimeState.SetWramByte(0xcfd0, (byte)SubId);
         var p = Data.Path(SubId);
         Context.ShowDialogue(p.Message, sourceTextId: p.TextId);
-        SetInputEnabled(false);
-        Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 0x81);
+        _owner.BeginBookPathControl();
         _pathTile = 0xd3; _pathIndex = 0; _counter = 2; State = 3;
     }
     // The counter decrements as a byte. A queue-full setTile retains the
     // pointer, and the terminator takes its own two-update interval.
     private bool ReplacePath()
     {
-        _owner.SetInputEnabled(false);
-        Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0x81);
+        _owner.SetDisabledObjects(0x81);
         _counter = (_counter - 1) & 0xff;
         if (_counter != 0) return false;
         _counter = 2;
@@ -176,13 +174,8 @@ internal sealed class LibraryScriptHost : RoomCutsceneCommandHost
         if (pressed) Context.Player.ApplyObjectInteractionGrace();
         return pressed;
     }
-    public override void SetInputEnabled(bool enabled)
-    {
-        _owner.SetInputEnabled(enabled);
-        Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, (byte)(enabled ? 0 : 0x81));
-        SetMenuEnabled(enabled);
-    }
-    public override void SetMenuEnabled(bool enabled) => Context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, (byte)(enabled ? 0 : 0x80));
+    public override void SetInputEnabled(bool enabled) => _owner.SetInputEnabled(enabled);
+    public override void SetMenuEnabled(bool enabled) => _owner.SetMenuEnabled(enabled);
     public override bool RoomFlagSet(int flag) => Context.Rooms.SaveData.HasRoomFlag(Npc.Record.Group, Npc.Record.Room, (byte)flag);
     public override void OrRoomFlag(int flag) => Context.Rooms.SaveData.SetRoomFlag(Npc.Record.Group, Npc.Record.Room, (byte)flag);
     public override bool MemoryEquals(string binding, int value) => binding switch

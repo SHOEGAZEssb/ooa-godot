@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
             native[at+11]=(byte)actor.Position.Y;native[at+13]=(byte)actor.Position.X;
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
+                var puff=new StationaryDebrisEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
                 _entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int occupied=0xd040+_entities.InteractionSlot(puff)*256;
                 // A state-one museum statue is inert while inPresent=$00.

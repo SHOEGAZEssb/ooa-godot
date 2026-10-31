@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
 
         // The handler's state-0 scan runs in the ordinary entity update and
         // creates both child parts in packed-address order.
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         List<LightableTorchRoomEntity> torches =
             _entities.Entities<LightableTorchRoomEntity>();
         FailIf(
@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
             new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember,ItemCollisionType.EmberSeed,noSpawns);
         FailIf(!hit.Contact || !hit.DisableCollision || hit.Effect != SeedHitResult.Activate,
             "Dark-room palette input requires the native pending Ember collision.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !left.HitPending || handler.State.LitCount != 1 ||
             room.Layout[0x33] != 0x09 ||
@@ -100,18 +100,18 @@ public sealed partial class ValidationRoot
             $"tile=${room.Layout[0x33]:x2}, sounds=" +
             $"{_sound.PlayRequestsFor(SoundId.SndLightTorch)}, " +
             $"fade={handler.State.FadeActive}).");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !handler.State.FadeActive || handler.State.Parameter != 0xf7 ||
             handler.State.RenderedOffset != -16,
             "The first lit torch did not begin the $f0->$f7 partial brighten on the following handler update.");
         for (int update = 0; update < 6; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !handler.State.FadeActive || handler.State.RenderedOffset != -10 ||
             room.TemporaryBackgroundPaletteOffset != -10,
             "The partial dark-room palette did not render offsets $f1-$f6 at one component step per update.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             handler.State.FadeActive || handler.State.RenderedOffset != -10,
             "The partial brighten did not stop before rendering target offset $f7.");
@@ -123,12 +123,12 @@ public sealed partial class ValidationRoot
             right.CollisionBounds, right.Position, ItemId.EmberSeed, noSpawns) !=
             SeedHitResult.Consume,
             "The second 5:ed torch rejected an Ember Seed collision.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             handler.State.LitCount != 2 || room.Layout[0x3b] != 0x09 ||
             _entities.Entities<GroundTreasurePickup>().Count != 1 || handler.State.FadeActive,
             "PART$06 must publish the second lit torch before INTERAC$dc:$00 in the same update; the earlier PART$08 observes it next update.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         GroundTreasurePickup key =
             _entities.Entities<GroundTreasurePickup>().Single();
         FailIf(
@@ -152,16 +152,16 @@ public sealed partial class ValidationRoot
             !handler.State.FadeActive || handler.State.Parameter != 0,
             "Exactly two torches did not create the falling one-hand Graveyard Key before full brightening.");
 
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             key.State != PickupState.Spawning ||
             key.SpawnCounter != 40 ||
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
             "The Graveyard Key did not begin its 40-update SND_SOLVEPUZZLE delay.");
         for (int update = 0; update < 39; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(key.SpawnCounter != 1 || key.Visible, "The falling key appeared before delay update 40.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             key.ZFixed != -48 << 8 || !key.Visible,
             $"objectGetZAboveScreen for 5:ed expected Z -48 and ground-coordinate visibility, " +
@@ -171,7 +171,7 @@ public sealed partial class ValidationRoot
              update < 240 && key.State != PickupState.Waiting;
              update++)
         {
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             key.State != PickupState.Waiting ||
@@ -182,7 +182,7 @@ public sealed partial class ValidationRoot
 
         _sound.ClearPlayRequestAudit();
         _player.WarpTo(key.Position);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !_inventory.HasTreasure(TreasureId.GraveyardKey) ||
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlagItem) ||
@@ -191,7 +191,7 @@ public sealed partial class ValidationRoot
             !_dialogue.IsOpen,
             "Collecting the Graveyard Key did not grant treasure $42, set only ROOMFLAG_ITEM, and open TX_0023.");
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         InitializeGetItemStateForValidation();
         FailIf(
             !key.Held || !_player.IsHoldingItemOneHand ||
@@ -201,13 +201,13 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
 
         // ROOMFLAG_ITEM suppresses only the reward spawner. The dark-room
         // handler and its two permanent torch children still initialize on
         // re-entry; unrelated room flag $40 never suppressed the reward.
         LoadValidationRoom(group, roomId);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<DarkRoomRewardRoomEntity>().Count != 0 ||
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
@@ -217,7 +217,7 @@ public sealed partial class ValidationRoot
             "Room 5:ed re-entry did not reset its torches/darkness while ROOMFLAG_ITEM suppressed only the key.");
 
         LoadValidationRoom(5, 0xa8);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         DarkRoomHandlerRoomEntity roomA8 =
             _entities.Entities<DarkRoomHandlerRoomEntity>().Single();
         FailIf(

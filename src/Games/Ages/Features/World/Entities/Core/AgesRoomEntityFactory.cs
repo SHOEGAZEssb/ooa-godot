@@ -10,6 +10,14 @@ namespace Oracles;
 // providers assigned after this factory and those actors were constructed.
 internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 {
+    internal MooshRescueEvent? MooshRescue { get; set; }
+    internal RickyGlovesEvent? RickyGloves { get; set; }
+    internal MooshGoodbyeEvent? MooshGoodbye { get; set; }
+    internal AgesCompanionScriptController? NativeCompanions { get; set; }
+    private AgesCompanionScriptController CompanionScripts => NativeCompanions ??
+        throw new InvalidOperationException("Ages native animals require their script services.");
+    public IRoomEntity? CreateStandaloneEnemy(int id, int subId, OracleRoomData room, Vector2 position,
+        string source, out string error) => EnemyFactory.CreateStandaloneEnemy(id,subId,room,position,source,out error);
     internal static RoomEntityManager CreateManager(
         Node worldRoot,
         NpcDatabase npcs,
@@ -49,13 +57,41 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
     }
 
     public string AssetRoot => enemies.AssetRoot;
+    public bool CanReconstructDebugSpecialObject(OracleRuntimeState memory, int group, int room) =>
+        memory.ReadWramByte(0xd101) switch
+        {
+            SpecialObjectId.Minecart => memory.ReadField("wLinkObjectIndex") == 0xd1 &&
+                (group >= 4 || rooms?.GetDungeonIndex(group, room) >= 0) &&
+                MinecartRoomEntity.CanReconstruct(memory, MinecartData.For(AssetRoot)),
+            SpecialObjectId.Ricky or SpecialObjectId.Dimitri or SpecialObjectId.Moosh =>
+                _common.CanReconstructCompanion(memory),
+            SpecialObjectId.Raft => RaftRoomEntity.CanReconstruct(memory, Resources.Raft.Behavior),
+            _ => false
+        };
+    public void ValidateDebugNativeInteractions(OracleRuntimeState memory)
+    {
+        for (int slot = 2; slot < 16; slot++)
+        {
+            int at = 0xd040 + slot * 0x100;
+            if (memory.ReadWramByte(at) != 0 && memory.ReadWramByte(at + 1) == 0x7c)
+                throw new NotSupportedException($"screenDistortion.s: INTERAC $7c slot${at:x4} has no transient debug reconstruction.");
+            if (memory.ReadWramByte(at) != 0 && memory.ReadWramByte(at + 1) == 0x16 &&
+                !MinecartInteractionRoomEntity.CanReconstruct(memory, slot, MinecartData.For(AssetRoot)))
+                throw new NotSupportedException($"INTERAC $16 slot${at:x4} state${memory.ReadWramByte(at + 4):x2}: native debug reconstruction is unsupported.");
+            if (memory.ReadWramByte(at) == 0 || memory.ReadWramByte(at + 1) != 0xe6) continue;
+            if (!RaftInteractionRoomEntity.CanReconstruct(memory, slot, Resources.Raft.Behavior))
+                throw new NotSupportedException($"INTERAC $e6:${memory.ReadWramByte(at + 2):x2} slot${at:x4} state${memory.ReadWramByte(at + 4):x2}: native debug reconstruction is unsupported.");
+        }
+    }
     public int OpenShutterTile => Resources.DungeonMechanics.OpenTile;
     private readonly RoomEntityManager owner;
     private readonly EnemyDatabase enemies;
     private readonly TimePortalDatabase timePortals;
     private readonly RoomSession? rooms;
     internal AgesRoomEntityResources Resources { get; }
-    internal RoomEnemyFactory EnemyFactory { get; }
+    internal FairiesWoodsEvent? FairiesWoods { get; set; }
+    internal CompanionForestEvent? CompanionForest { get; set; }
+    internal AgesRoomEnemyFactory EnemyFactory { get; }
 
     private readonly BipinBlossomFamilyStateResolver _familyState;
     private FamilyChildMotionDatabase? _childMotion;
@@ -67,6 +103,14 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
     private readonly TreasureDatabase _treasures;
     private readonly Func<long> _animationTick;
     private readonly MovingPlatformRidingState _platformRiding;
+    private readonly CommonRoomEntityFactory _common;
+    private AgesRickyStateAController? _rickyStateA;
+    private AgesDimitriStateAController? _dimitriStateA;
+    private void UpdateDimitriStateA(DimitriCompanionRoomEntity body,RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)=>
+        (_dimitriStateA??=new(_runtimeState,owner.OnSoundRequested)).Update(body,frame,spawns);
+    private void UpdateRickyStateA(RickyCompanionRoomEntity body,RoomEntityFrame frame)=>
+        (_rickyStateA??=new(_runtimeState,rooms??throw new InvalidOperationException("Ages rickyStateA requires its live room owner."),
+            Resources.RickyBody,Resources.RickyDeparture,owner.IsTextActive,owner.OnRoomEntityDialogueRequested,owner.OnSoundRequested)).Update(body,frame);
 
     internal AgesRoomEntityFactory(RoomEntityManager owner, EnemyDatabase enemies,
         TimePortalDatabase timePortals, RoomSession? rooms)
@@ -85,10 +129,19 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         _animationTick = owner.AnimationTick;
         _platformRiding = owner.PlatformRiding;
         Resources = AgesRoomEntityResources.CreateSession(rooms);
+        _common = new CommonRoomEntityFactory(owner,() => Resources.SwordBeam,rooms,UpdateRickyStateA,UpdateDimitriStateA);
         EnemyFactory = new(owner, enemies, Resources, rooms);
     }
 
     public IEnumerable<bool> PrepareResources() => Resources.PrepareResources();
+    public bool TryCreateRoomInitializationOverride(int group, OracleRoomData room, out IRoomEntity? entity)
+    {
+        entity = null;
+        // initializeRoom tail-jumps to checked INTERAC_SCREEN_DISTORTION creation.
+        if (_runtimeState.ReadField("wSentBackByStrangeForce") != 1) return false;
+        if (owner.InteractionSlotAvailable) entity = new ScreenDistortionRoomEntity(owner);
+        return true;
+    }
     public void RefreshState(IEnumerable<IRoomEntity> entities) => owner.RefreshAgesNpcState(entities);
     public void BindEntity(IRoomEntity entity) => owner.BindAgesEntity(entity);
 
@@ -100,39 +153,30 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             Resources.SeedTrees.UpdateRefillState(_runtimeState, activeGroup, activeRoom);
     }
 
-    public IEnumerable<IRoomEntity> CreateRoomEntities(
-        int group,
-        OracleRoomData room,
-        EnemyPlacementContext placementContext)
+    public IEnumerable<IRoomEntity> CreateRoomInitializationEntities(int group, OracleRoomData room)
     {
-        using var diagnostics = OracleRoomLoadDiagnostics.Begin("factory", group, room.Id);
-        EnemyPlacementReservations.BeginRoomParse(_runtimeState);
-        bool hasKeyholeController = Resources.KeyholeControllers.TryGet(group, room.Id, out var keyholeController)
-            && _saveData is not null;
-        // A leading controller allocates immediately; later controllers are
-        // merged with their actual preceding companion placements below.
-        if (hasKeyholeController && keyholeController.Order == 0)
-            yield return new KeyholeControllerRoomEntity(keyholeController, _saveData!, rooms);
-        // addRoomToEnemiesKilledList snapshots the room's current byte. Later
-        // defeats update the history, not this parser scratch byte.
-        _runtimeState.SetWramByte(EnemyPlacementMemory.KilledEnemies, owner.ActiveRoomDefeatBitset);
-        var reservations = new EnemyPlacementReservations(_runtimeState);
-        var deferredMermaidEnemies = new List<DungeonObjectRecord>();
-        IEnumerable<IRoomEntity> InsertMermaidEnemies(int sourceOrder)
-        {
-            foreach (var record in deferredMermaidEnemies)
+        if (owner.ReconstructingDebugObjects && _saveData is not null)
+            for (int slot = 2; slot < 16; slot++)
             {
-                if (Resources.MermaidDungeon.EnemyStreamOrder(record) != sourceOrder || !owner.EnemySlotAvailable) continue;
-                if (record.Kind == DungeonObjectKind.Vire)
-                    yield return CreateVire(record,room,placementContext);
-                else if (TryChooseRandomEnemyPosition(room,0x20,reservations,placementContext,out var position))
-                    yield return CreateOctogon(record,position,placementContext);
+                int at = 0xd040 + slot * 0x100;
+                if (_runtimeState.ReadWramByte(at) != 0 && _runtimeState.ReadWramByte(at + 1) == 0x16)
+                {
+                    Vector2 cartPosition = new(_runtimeState.ReadWramByte(at + 0x0d), _runtimeState.ReadWramByte(at + 0x0b));
+                    yield return new MinecartInteractionRoomEntity(new MinecartInteractionSpawn(cartPosition,
+                        NativeReconstructionSlot: slot), room, _runtimeState,
+                        Resources.DungeonVisuals.Visual("minecart"), owner);
+                    continue;
+                }
+                if (_runtimeState.ReadWramByte(at) == 0 || _runtimeState.ReadWramByte(at + 1) != 0xe6) continue;
+                Vector2 position = new(_runtimeState.ReadWramByte(at + 0x0d) + _runtimeState.ReadWramByte(at + 0x0c) / 256f,
+                    _runtimeState.ReadWramByte(at + 0x0b) + _runtimeState.ReadWramByte(at + 0x0a) / 256f);
+                yield return new RaftInteractionRoomEntity(new RaftInteractionSpawn(position, group, room.Id,
+                    _runtimeState.ReadWramByte(at + 2), NativeReconstructionSlot: slot),
+                    room, Resources.Raft.Behavior, _saveData, _runtimeState, owner);
             }
-        }
         int activeGroup = group;
         if(Resources.TokayDimitri.Matches(activeGroup,room.Id)&&!CompanionRuntimeState.AnyActive(_runtimeState))
             CompanionRuntimeState.ClearScriptScratch(_runtimeState);
-        Resources.KingMoblin.ApplyRoomLayout(group,room,_animationTick());
         // initializeRoom calls createSeaEffectsPartIfApplicable after room
         // code, before companions and the ordered placed object stream.
         if (SuctionPitDatabase.For(AssetRoot).ShouldSpawn(room) && owner.PartSlotAvailable)
@@ -142,189 +186,211 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         // reserved $d1 ship for destination state-0 scrolling preload without
         // advancing the global course (which only runs in cutscene01).
         owner.CheckLoadPirateShip();
+        bool companionSlotActive = CompanionRuntimeState.AnyActive(_runtimeState);
+        // A scrolling native owner survives in the outgoing set. Rebuild only
+        // after that presentation has actually been retired (load/restore).
+        bool rebuildCompanion = !owner.ScreenTransitionActive && companionSlotActive && owner.SpecialObjectPresentationAvailable;
+        IRoomEntity? companionEntity = null;
+        if (rebuildCompanion && CompanionRuntimeState.IsActive(_runtimeState, CompanionRuntimeState.DimitriId))
+        {
+            ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
+            bool riding = _runtimeState.ReadField("wLinkObjectIndex") == 0xd1;
+            IRoomEntity dimitri = _runtimeState.ReadWramByte(0xd104) == 0 ? CompanionScripts.CreateBody(SpecialObjectId.Dimitri, active.Position)
+                : CreateDimitri(new(active.Position, active.Direction, activeGroup, room.Id, Riding: riding), room);
+            companionEntity = dimitri;
+        }
+        else if (rebuildCompanion && CompanionRuntimeState.IsActive(
+                _runtimeState, CompanionRuntimeState.RaftId))
+        {
+            ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
+            if (_saveData is not null)
+            {
+                companionEntity = new RaftRoomEntity(
+                    new RaftSpawn(active.Position, active.Direction,
+                        activeGroup, room.Id),
+                    room, Resources.Raft.Behavior, _saveData, _runtimeState, owner);
+            }
+        }
+        else if (rebuildCompanion && CompanionRuntimeState.IsActive(
+                _runtimeState, CompanionRuntimeState.RickyId))
+        {
+            ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
+            IRoomEntity ricky = _runtimeState.ReadWramByte(0xd104) == 0 ? CompanionScripts.CreateBody(SpecialObjectId.Ricky, active.Position) : _common.CreateRicky(new RickyCompanionSpawn(
+                active.Position, active.Direction, activeGroup, room.Id,
+                Riding: _runtimeState.ReadField("wLinkObjectIndex") == 0xd1), room);
+            companionEntity = ricky;
+        }
+        else if (rebuildCompanion && CompanionRuntimeState.IsActive(
+                _runtimeState, CompanionRuntimeState.MooshId))
+        {
+            ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
+            companionEntity = _runtimeState.ReadWramByte(0xd104) == 0
+                ? Resources.MooshGoodbye.Matches(activeGroup, room.Id)
+                    ? (MooshGoodbye ?? throw new InvalidOperationException("Moosh native initialization requires its Ages content binding.")).CreateBody(active.Position)
+                    : CompanionScripts.CreateBody(SpecialObjectId.Moosh, active.Position)
+                : CreateMoosh(new MooshCompanionSpawn(
+                active.Position, active.Direction, activeGroup, room.Id,
+                Riding: _runtimeState.ReadField("wLinkObjectIndex") == 0xd1), room);
+        }
+        if (companionEntity is not null)
+            yield return companionEntity;
+    }
+
+    public IRoomEntity CreateRememberedCompanion(RememberedCompanionAdmission source, OracleRoomData room)
+    {
+        if (source.IsInteraction)
+        {
+            if (source is not { SpecialObjectId: 0x13, InteractionId: 0xe6, InteractionSubId: 2 } || _saveData is null)
+                throw new NotSupportedException($"{source.Source}: unbound remembered interaction content.");
+            return new RaftInteractionRoomEntity(new RaftInteractionSpawn(source.Position, room.Group, room.Id),
+                room, Resources.Raft.Behavior, _saveData, _runtimeState, owner);
+        }
+        if (source.SpecialObjectId is not (SpecialObjectId.Ricky or SpecialObjectId.Dimitri or SpecialObjectId.Moosh))
+            throw new NotSupportedException($"{source.Source}: no native animal body binding.");
+        if (_runtimeState.ReadWramByte(0xd104) != 0)
+            throw new NotSupportedException($"{source.Source}: retained state ${_runtimeState.ReadWramByte(0xd104):x2} has no fresh remembered-body binding.");
+        return source.SpecialObjectId == SpecialObjectId.Moosh && Resources.MooshGoodbye.Matches(room.Group, room.Id)
+            ? (MooshGoodbye ?? throw new InvalidOperationException($"{source.Source}: the room's native Moosh host is unbound.")).CreateBody(source.Position)
+            : CompanionScripts.CreateBody(source.SpecialObjectId, source.Position);
+    }
+
+    public IRoomEntity CreateMaple(OracleRoomData room)
+    {
+        if (_runtimeState.ReadWramByte(0xd104) != 0)
+            throw new NotSupportedException($"code/roomInitialization.s:checkAndSpawnMaple: room ${room.Group:x1}:${room.Id:x2} retains SPECIALOBJECT $0e state ${_runtimeState.ReadWramByte(0xd104):x2}; encounter reconstruction is unbound.");
+        if (_saveData is null || _inventory is null)
+            throw new InvalidOperationException("SPECIALOBJECT $0e encounter content requires the live save and inventory owners.");
+        var encounterState = new MapleEncounterState(owner.RuntimeState);
+        var maple = new MapleEncounter
+        {
+            Name = "Maple",
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
+        };
+        maple.Initialize(
+            room.Group,
+            Resources.Maple,
+            encounterState,
+            room,
+            _random,
+            _saveData!,
+            _inventory!,
+            owner.OnMapleDialogueRequested,
+            owner.IsTextActive,
+            owner.OnSoundRequested,
+            owner.BeginHorizontalScreenShake,
+            owner.OnRoomMusicRequested);
+        return new MapleEncounterRoomEntity(maple, owner);
+    }
+
+    public IEnumerable<IRoomEntity> CreateRoomEntities(
+        int group,
+        OracleRoomData room,
+        EnemyPlacementContext placementContext)
+    {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("factory", group, room.Id);
+        if (_saveData is not null && Resources.VireEntrance.Matches(group, room.Id))
+            yield return owner.VireEntranceFactory?.Invoke(Resources.VireEntrance) ??
+                throw new InvalidOperationException($"{Resources.VireEntrance.Source}: active $b8:$00 requires its Ages story binding.");
+        if (_saveData is not null && Resources.FairiesWoods.TryController(group, room.Id, out var fairyController) && owner.InteractionSlotAvailable)
+            yield return new FairyHidingMinigameRoomEntity(fairyController, Resources.FairiesWoods,
+                _saveData, _runtimeState, () => FairiesWoods);
+        var forestObjects = Resources.CompanionForest.RoomObjects(group, room.Id);
+        int forestPrefixEnd = _saveData is not null && Resources.FairiesWoods.TryController(group, room.Id, out _) ? 1 : 0;
+        if (_saveData is not null)
+            foreach (var record in forestObjects)
+            {
+                if (record.Order != forestPrefixEnd) break;
+                if (!owner.InteractionSlotAvailable) break;
+                yield return CreateForestObject(record, room);
+                forestPrefixEnd++;
+            }
+        bool hasKeyholeController = Resources.KeyholeControllers.TryGet(group, room.Id, out var keyholeController)
+            && _saveData is not null;
+        // A leading controller allocates immediately; later controllers are
+        // merged with their actual preceding companion placements below.
+        if (hasKeyholeController && keyholeController.Order == 0)
+            yield return new KeyholeControllerRoomEntity(keyholeController, _saveData!, rooms);
+        var reservations = new EnemyPlacementReservations(_runtimeState);
+        var deferredMermaidEnemies = new List<DungeonObjectRecord>();
+        int activeGroup = group;
+        Resources.KingMoblin.ApplyRoomLayout(group,room,_animationTick());
         if (group == Resources.Patch.ResetGroup && room.Id == Resources.Patch.ResetRoom)
             for (int address = 0xcfd0; address < 0xcfd8; address++) _runtimeState.SetWramByte(address, 0);
         foreach (var waterfall in Resources.WaterfallWarps.Records)
             if (waterfall.Group == group && waterfall.Room == room.Id && _saveData is not null)
                 yield return new WaterfallWarpRoomEntity(waterfall, _saveData, _runtimeState,
-                    () => CompanionRuntimeState.IsActive(_runtimeState, CompanionRuntimeState.DimitriId), owner.OnRoomWarpRequested);
-        bool companionSlotActive = CompanionRuntimeState.AnyActive(_runtimeState);
-        bool rickySpawnerActive = !companionSlotActive &&
-            _saveData is not null &&
-            Resources.Ricky.ShouldSpawn(activeGroup, room.Id, _saveData);
-        IRoomEntity? companionEntity = null;
-        ICompanionBarrierTarget? companionBarrierTarget = null;
-        if (CompanionRuntimeState.IsActive(_runtimeState, CompanionRuntimeState.DimitriId))
-        {
-            ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
-            if (active.Room == room.Id)
-            {
-                var dimitri = CreateDimitri(new(active.Position, active.Direction, activeGroup, room.Id, Riding: true), room);
-                companionEntity = dimitri;
-                companionBarrierTarget = dimitri;
-            }
-        }
-        else if (CompanionRuntimeState.IsActive(
-                _runtimeState, CompanionRuntimeState.RaftId))
-        {
-            ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
-            if (active.Room == room.Id && _saveData is not null)
-            {
-                companionEntity = new RaftRoomEntity(
-                    new RaftSpawn(active.Position, active.Direction,
-                        activeGroup, room.Id, Riding: true),
-                    room, Resources.Raft.Behavior, _saveData, _runtimeState);
-            }
-        }
-        else if (CompanionRuntimeState.IsActive(
-                _runtimeState, CompanionRuntimeState.RickyId))
-        {
-            ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
-            if (active.Room == room.Id)
-            {
-                RickyCompanionRoomEntity ricky = CreateRicky(new RickyCompanionSpawn(
-                    active.Position,
-                    active.Direction,
-                    activeGroup,
-                    room.Id,
-                    Riding: true), room);
-                companionEntity = ricky;
-                companionBarrierTarget = ricky;
-            }
-        }
-        else if (CompanionRuntimeState.IsActive(
-                _runtimeState, CompanionRuntimeState.MooshId))
-        {
-            ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
-            if (active.Room == room.Id)
-            {
-                MooshCompanionRoomEntity moosh = CreateMoosh(new MooshCompanionSpawn(
-                    active.Position,
-                    active.Direction,
-                    activeGroup,
-                    room.Id,
-                    Riding: true), room);
-                companionEntity = moosh;
-                companionBarrierTarget = moosh;
-            }
-        }
-        else if (!companionSlotActive &&
-            CompanionRuntimeState.TryGetRemembered(
-                _runtimeState,
-                CompanionRuntimeState.RickyId,
-                activeGroup,
-                room.Id,
-                out Vector2 rememberedRicky))
-        {
-            RickyCompanionRoomEntity ricky = CreateRicky(new RickyCompanionSpawn(
-                rememberedRicky,
-                ObjectDirection.Down,
-                activeGroup,
-                room.Id), room);
-            companionEntity = ricky;
-            companionBarrierTarget = ricky;
-        }
-        else if (!companionSlotActive &&
-            CompanionRuntimeState.TryGetRemembered(
-                _runtimeState,
-                CompanionRuntimeState.MooshId,
-                activeGroup,
-                room.Id,
-                out Vector2 rememberedMoosh))
-        {
-            MooshCompanionRoomEntity moosh = CreateMoosh(new MooshCompanionSpawn(
-                rememberedMoosh,
-                ObjectDirection.Down,
-                activeGroup,
-                room.Id), room);
-            companionEntity = moosh;
-            companionBarrierTarget = moosh;
-        }
-        else if (!companionSlotActive && CompanionRuntimeState.TryGetRemembered(
-            _runtimeState, SpecialObjectId.Dimitri, activeGroup, room.Id, out Vector2 rememberedDimitri))
-        {
-            var dimitri = CreateDimitri(new(rememberedDimitri, ObjectDirection.Down, activeGroup, room.Id), room);
-            companionEntity = dimitri;
-            companionBarrierTarget = dimitri;
-        }
-        else if (!companionSlotActive &&
-            _saveData is not null &&
-            _inventory is not null &&
-            Resources.MooshGoodbye.ShouldSpawn(
-                activeGroup, room.Id, _saveData, _inventory))
-        {
-            // INTERAC_COMPANION_SPAWNER $67:$01 writes only
-            // wRememberedCompanionId after installing the fixed Moosh preset.
-            MooshGoodbyeEventRecord goodbye = Resources.MooshGoodbye.Record;
-            CompanionRuntimeState.InstallPreset(_runtimeState, _saveData ?? throw new InvalidOperationException("INTERAC$67 requires live save state."), new(goodbye.MooshX, goodbye.MooshY));
-            MooshCompanionRoomEntity moosh = CreateMoosh(new MooshCompanionSpawn(
-                new Vector2(goodbye.MooshX, goodbye.MooshY),
-                goodbye.FlightAngle >> 3,
-                activeGroup,
-                room.Id,
-                Goodbye: goodbye), room);
-            companionEntity = moosh;
-            companionBarrierTarget = moosh;
-        }
-        if (companionEntity is null && !companionSlotActive && !rickySpawnerActive && _saveData is not null &&
-            Resources.Ricky.ShouldSpawnPreset(activeGroup, room.Id, _saveData))
-        {
-            var record = Resources.Ricky.Record;
-            Vector2 position = new(record.RickyX, record.RickyY);
-            CompanionRuntimeState.InstallPreset(_runtimeState, _saveData ?? throw new InvalidOperationException("INTERAC$67 requires live save state."), position);
-            var ricky = CreateRicky(new(position, ObjectDirection.Down, activeGroup, room.Id), room);
-            companionEntity = ricky;
-            companionBarrierTarget = ricky;
-        }
-        if (companionEntity is not null)
-            yield return companionEntity;
-        bool raftCreated = companionEntity is RaftRoomEntity;
-        if (!raftCreated && !companionSlotActive && _saveData is not null &&
-            (room.TilesetFlags & Resources.Raft.Behavior.PastTilesetMask) != 0 &&
-            CompanionRuntimeState.TryGetRemembered(
-                _runtimeState, CompanionRuntimeState.RaftId,
-                activeGroup, room.Id, out Vector2 rememberedRaft))
-        {
-            yield return new RaftRoomEntity(
-                new RaftSpawn(rememberedRaft, ObjectDirection.Up, activeGroup, room.Id),
-                room, Resources.Raft.Behavior, _saveData, _runtimeState);
-            raftCreated = true;
-        }
-        // Both placed subids pass through @subid1, which deletes the
-        // interaction whenever w1Companion.id is SPECIALOBJECT_RAFT. During
-        // scrolling that live owner still names the outgoing room, so this
-        // guard must precede destination-room placement creation.
-        if (!raftCreated && !CompanionRuntimeState.IsActive(
-                _runtimeState, CompanionRuntimeState.RaftId) && _saveData is not null)
-        {
-            foreach (RaftPlacement placement in
-                Resources.Raft.GetPlacements(activeGroup, room.Id))
-            {
-                bool enabled = placement.SubId switch
-                {
-                    0 => (_saveData.ReadWramByte(
-                            Resources.Raft.Behavior.DimitriStateAddress) &
-                            Resources.Raft.Behavior.DimitriMask) != 0 &&
-                        _saveData.HasGlobalFlag(Resources.Raft.Behavior.ChangedRoomsFlag),
-                    1 => _saveData.HasGlobalFlag(
-                        Resources.Raft.Behavior.ChangedRoomsFlag),
-                    _ => throw new InvalidOperationException(
-                        $"Placed INTERAC_RAFT has unsupported subid " +
-                        $"${placement.SubId:x2} in {placement.Source}.")
-                };
-                if (!enabled)
-                    continue;
-                yield return new RaftRoomEntity(
-                    new RaftSpawn(new Vector2(placement.X, placement.Y), ObjectDirection.Up,
-                        activeGroup, room.Id),
-                    room, Resources.Raft.Behavior, _saveData, _runtimeState);
-                raftCreated = true;
-                break;
-            }
-        }
+                    () => _runtimeState.ReadField("wLinkObjectIndex") == 0xd1 &&
+                        CompanionRuntimeState.IsActive(_runtimeState, CompanionRuntimeState.DimitriId), owner.OnRoomWarpRequested);
+        if (_saveData is not null && !owner.ReconstructingDebugObjects)
+            foreach (RaftPlacement placement in Resources.Raft.GetPlacements(activeGroup, room.Id))
+                yield return new RaftInteractionRoomEntity(
+                    new RaftInteractionSpawn(new(placement.X, placement.Y), activeGroup, room.Id, placement.SubId),
+                    room, Resources.Raft.Behavior, _saveData, _runtimeState, owner);
         if (_saveData is not null)
         {
             var placements = new Dictionary<int, IRoomEntity>();
+            if (Resources.MooshGoodbye.Matches(group, room.Id))
+            {
+                MooshGoodbyeEvent goodbye = MooshGoodbye ?? throw new InvalidOperationException(
+                    "mainData.s:group0Map6bObjectData requires its Ages native companion binding.");
+                foreach (MooshGoodbyePlacementRecord placement in Resources.MooshGoodbye.Placements)
+                {
+                    if (!owner.InteractionSlotAvailable) break;
+                    yield return placement.Id switch
+                    {
+                        0x71 => new CompanionBarrierRoomEntity(Resources.CompanionBarriers.GetRoomRecords(group, room.Id).Single(),
+                            _saveData, _runtimeState, owner.SetSpecialObjectBarrierCoordinate, owner.OnRoomEntityDialogueRequested)
+                            { NativeAllocationEnabled = true },
+                        0x67 => new CompanionPresetSpawnerRoomEntity(placement.Id, placement.SubId, goodbye.SpawnPreset),
+                        _ => throw new NotSupportedException($"{placement.Source}: unsupported native interaction ${placement.Id:x2}:${placement.SubId:x2}.")
+                    };
+                }
+            }
+            if (Resources.Ricky.Matches(group, room.Id))
+            {
+                RickyGlovesEvent ricky = RickyGloves ?? throw new InvalidOperationException(
+                    "mainData.s:group0Map6aObjectData requires its Ages native interaction bindings.");
+                foreach (RickyGlovesPlacementRecord placement in Resources.Ricky.Placements)
+                {
+                    if (!owner.InteractionSlotAvailable) break;
+                    yield return placement.Id switch
+                    {
+                        0x31 => new ImpaEncounterRoomEntity(NpcCharacter.CreateFromRecord(
+                            NpcDatabase.For(AssetRoot).GetRoomNpcs(group, room.Id).Single(npc =>
+                                npc.Id == placement.Id && npc.SubId == placement.SubId), AssetRoot)),
+                        0xdc => new RoomTileChangeWatcherRoomEntity(
+                            Resources.TileChangeWatchers.GetRoomRecords(group, room.Id).Single(), room, _saveData),
+                        0x71 when placement.SubId is 4 or 5 => new CompanionBarrierRoomEntity(
+                            Resources.CompanionBarriers.GetRoomRecords(group, room.Id).Single(record => record.SubId == placement.SubId),
+                            _saveData, _runtimeState, owner.SetSpecialObjectBarrierCoordinate, owner.OnRoomEntityDialogueRequested)
+                            { NativeAllocationEnabled = true },
+                        0x67 => new CompanionPresetSpawnerRoomEntity(placement.Id, placement.SubId, ricky.SpawnPreset),
+                        0x71 when placement.SubId == 3 => new RickyGlovesControllerRoomEntity(ricky),
+                        _ => throw new NotSupportedException($"{placement.Source}: unsupported native interaction ${placement.Id:x2}:${placement.SubId:x2}.")
+                    };
+                }
+            }
+            if (Resources.Moosh.Matches(group, room.Id))
+            {
+                MooshRescueEvent rescue = MooshRescue ?? throw new InvalidOperationException(
+                    "mainData.s:group0Map6cObjectData requires its Ages native interaction bindings.");
+                foreach (MooshRescuePlacementRecord placement in Resources.Moosh.Placements)
+                {
+                    if (!owner.InteractionSlotAvailable) break;
+                    yield return placement.Id switch
+                    {
+                        0x73 => new MooshRescueGhiniRoomEntity(NpcCharacter.CreateFromRecord(
+                            NpcDatabase.For(AssetRoot).GetRoomNpcs(group, room.Id).Single(npc =>
+                                npc.Id == placement.Id && npc.SubId == placement.SubId), AssetRoot), rescue),
+                        0x71 when placement.SubId == 0 => new MooshRescueControllerRoomEntity(rescue),
+                        0x71 when placement.SubId == 2 => new CompanionBarrierRoomEntity(
+                            Resources.CompanionBarriers.GetRoomRecords(group, room.Id).Single(), _saveData, _runtimeState,
+                            owner.SetSpecialObjectBarrierCoordinate, owner.OnRoomEntityDialogueRequested) { NativeAllocationEnabled = true },
+                        0x67 when placement.SubId == 0 => new CompanionPresetSpawnerRoomEntity(placement.Id, placement.SubId, rescue.SpawnPreset),
+                        _ => throw new NotSupportedException($"{placement.Source}: unsupported native interaction ${placement.Id:x2}:${placement.SubId:x2}.")
+                    };
+                }
+            }
             foreach (var ship in PirateShipDatabase.Shared.Placements)
                 if (ship.Group == group && ship.Room == room.Id &&
                     _saveData.IsLinkedGame == (ship.SubId == 2) && _saveData.HasGlobalFlag(AgesGlobalFlag.PiratesGone) &&
@@ -341,14 +407,22 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     owner.OnRoomEntityDialogueRequested));
             }
             foreach (CompanionBarrierRecord barrier in
-                Resources.CompanionBarriers.GetRoomRecords(activeGroup, room.Id))
+                Resources.CompanionBarriers.GetRoomRecords(activeGroup, room.Id).Where(_ => !Resources.Moosh.Matches(group, room.Id) &&
+                    !Resources.Ricky.Matches(group, room.Id) && !Resources.MooshGoodbye.Matches(group, room.Id)))
             {
                 placements.Add(barrier.Order, new CompanionBarrierRoomEntity(
                     barrier,
-                    companionBarrierTarget,
                     _saveData,
-                    owner.OnRoomEntityDialogueRequested));
+                    _runtimeState,
+                    owner.SetSpecialObjectBarrierCoordinate,
+                    owner.OnRoomEntityDialogueRequested)
+                    {NativeAllocationEnabled=Resources.DimitriDeparture.Matches(group,room.Id)});
             }
+            foreach(var source in Resources.DimitriDeparture.Placements.Where(p=>p.Group==group && p.Room==room.Id))
+                placements.Add(source.Order,new DimitriDepartureRoomEntity(rooms!,owner,Resources.DimitriDeparture));
+            foreach(var source in Resources.GroundTreasures.GetRoomRecords(group,room.Id).Where(p=>p.NativeSpawnerId==0x74))
+                placements.Add(source.Order,new RickyGloveSpawnerRoomEntity(source,_saveData,
+                    _inventory??throw new InvalidOperationException("$74 requires the live inventory owner."),owner));
             if (hasKeyholeController && keyholeController.Order != 0)
                 placements.Add(keyholeController.Order, new KeyholeControllerRoomEntity(keyholeController, _saveData, rooms));
             // Keep allocation lazy. Only a consecutive supported
@@ -369,15 +443,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 yield return placement;
             }
         }
-        bool spawnMaple =
-            _saveData is not null &&
-            _inventory is not null &&
-            Resources.Maple.IsEligibleLocation(
-                activeGroup, room.Id, _inventory.AnimalCompanion) &&
-            _saveData.MapleKillCounter >=
-                RingEffects.MapleKillThreshold(_inventory);
-        if (spawnMaple)
-            _saveData!.SetMapleKillCounter(0);
+        bool spawnMaple = owner.MaplePresent();
 
         // The original object-pointer and tileset tables alias side-scrolling
         // groups $06/$07 to dungeon/interior groups $04/$05. Keep ActiveGroup
@@ -394,12 +460,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         {
             if (DungeonSpinnerDatabase.IsEnabled(spinner, _saveData) && owner.InteractionSlotAvailable)
             {
-                yield return new DungeonSpinnerRoomEntity(
-                    spinner,
-                    _runtimeState,
-                    Resources.DungeonVisuals.Visual("spinner"),
-                    owner.OnSoundRequested,
-                    owner.BeginScreenShake);
+                yield return _common.CreateSpinner(spinner);
             }
         }
         if (group == Resources.Room2e3.Record.Group &&
@@ -421,28 +482,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         {
             foreach (IRoomEntity interaction in CreateRoom5bfInteractions())
                 yield return interaction;
-        }
-        foreach (IRoomEntity controller in
-            CreateMinecartShutterControllers(room, placementContext))
-        {
-            yield return controller;
-        }
-        int dungeon = rooms?.World.GetDungeonIndex(group, room.Id) ?? -1;
-        if (dungeon >= 0 || group>=4)
-        {
-            if(dungeon>=0) MinecartRuntimeState.EnsureInitialized(
-                _runtimeState, Resources.StaticDungeonObjects.Minecarts(dungeon));
-            foreach (ActiveMinecart cart in
-                MinecartRuntimeState.StationaryInRoom(
-                    _runtimeState, room.Id))
-            {
-                yield return CreateMinecart(cart, room);
-            }
-            if (MinecartRuntimeState.TryGetRide(
-                    _runtimeState, room.Id, out ActiveMinecart ride))
-            {
-                yield return CreateMinecart(ride, room);
-            }
         }
         IReadOnlyList<DarkRoomDatabaseRecord> darkRoomRecords =
             Resources.DarkRooms.GetRoomRecords(group, room.Id);
@@ -547,7 +586,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     continue;
                 if (record.Kind == DungeonObjectKind.Twinrova)
                 {
-                    foreach (var entity in ParseRandomEnemies(Resources.Twinrova.EntrySource(record), room, placementContext, reservations)) yield return entity;
+                    foreach (var entity in owner.PlaceEnemies(Resources.Twinrova.EntrySource(record), room, placementContext, reservations)) yield return entity;
                     continue;
                 }
                 if (record.Kind is DungeonObjectKind.Octogon or DungeonObjectKind.Vire)
@@ -668,8 +707,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                         Resources.MermaidDungeon.OctogonInitialization,_runtimeState),
                     DungeonObjectKind.SignalScript => CreateDungeonSignalScript(record),
                     DungeonObjectKind.RoomFlagMirror => CreateRoomFlagMirror(record),
-                    DungeonObjectKind.Spinner => new DungeonSpinnerRoomEntity(record,_runtimeState,
-                        Resources.DungeonVisuals.Visual("spinner"),owner.OnSoundRequested,owner.BeginScreenShake),
+                    DungeonObjectKind.Spinner => _common.CreateSpinner(record),
                     DungeonObjectKind.BossKeyMirror => new DungeonBossKeyMirrorRoomEntity(
                         () => owner.ActiveRoomHasFlag(_saveData ?? throw new InvalidOperationException($"{record.Source}: boss-key mirror requires save state."),0x20),
                         () => (_inventory ?? throw new InvalidOperationException($"{record.Source}: boss-key mirror requires inventory."))
@@ -716,7 +754,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                         _saveData, () => owner.RoomEnemyCount, null, owner.EnableLinkCollisionsAndMenu, owner.TryCreateMinibossPortal),
                     DungeonObjectKind.SwitchTileToggler => CreateSwitchTileToggler(record,room),
                     DungeonObjectKind.MovingPlatform => CreateMovingPlatform(record.Position, record.SubId,
-                        rooms?.World.GetDungeonIndex(record.Group, record.Room) ?? -1),
+                        rooms?.GetDungeonIndex(record.Group, record.Room) ?? -1),
                     DungeonObjectKind.MovingOrb => new MovingOrbRoomEntity(record, Resources.DungeonVisuals.Visual("grotto-orb"), _runtimeState, owner.OnSoundRequested, Resources.DungeonMechanics.SwitchSound),
                     DungeonObjectKind.OrbChest => new DungeonOrbChestRoomEntity(record,_runtimeState,owner.OnSoundRequested,
                         owner.IsScriptTextActive,() => _saveData?.HasRoomFlag(record.Group,record.Room,OracleSaveData.RoomFlagItem) == true,
@@ -750,7 +788,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                         lightableTorchState ?? throw new InvalidOperationException($"{record.Source}: missing shared torch state.")),
                     DungeonObjectKind.MermaidBossKey => new MermaidBossKeyRoomEntity(record,_runtimeState,_random,
                         DungeonChestItemFlagSet,() => owner.RoomEnemyCount,owner.SetTrigger,
-                        () => owner.ParseRandomEnemies(Resources.MermaidDungeon.BossKeyFailureEnemies,
+                        () => owner.ParseNativeObjectStream("objectData78db",
                             EnemyPlacementContext.FromWarpDestination(_runtimeState.ReadWramByte(AgesWramAddress.wWarpDestPos))),
                         owner.OnSoundRequested,() => {
                             owner.OnSoundRequested(SoundId.SndSolvePuzzle);
@@ -873,8 +911,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         }
 
         foreach (var record in Resources.CollapsingFloors.InRoom(group, room.Id))
-            yield return new CollapsingFloorRoomEntity(record, room, owner.OnSoundRequested,
-                owner.OnRoomTileChanged, _animationTick, () => owner.InteractionSlotAvailable);
+            yield return new CollapsingFloorRoomEntity(record,owner.OnSoundRequested,
+                (position,tile) => owner.BreakCrackedFloor(rooms ?? throw new InvalidOperationException("INTERAC$dc:$0b requires its room session."),position,tile),
+                () => owner.InteractionSlotAvailable);
 
         foreach (FountainPlacement fountain in Resources.Fountains.InRoom(group, room.Id))
             yield return new FountainDecorationRoomEntity(fountain, Resources.Fountains, _saveData);
@@ -895,8 +934,8 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         {
             // Room 3:9e places its watcher after Impa, Nayru, and Zelda.
             // CreateNayruHouseNpcs emits it at that exact source position.
-            if (group != Resources.NayruHouse.Record.Group ||
-                room.Id != Resources.NayruHouse.Record.Room)
+            if (!Resources.Ricky.Matches(group, room.Id) && (group != Resources.NayruHouse.Record.Group ||
+                room.Id != Resources.NayruHouse.Record.Room))
             {
                 foreach (RoomTileChangeWatcherDatabaseRecord record in
                     Resources.TileChangeWatchers.GetRoomRecords(group, room.Id))
@@ -946,7 +985,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         diagnostics?.Mark("before-npcs");
         IReadOnlyList<NpcRecord> roomNpcs =
             _familyState.ResolveRoomNpcs(
-                group, room.Id, _saveData, _runtimeState).Where(n => !laterDungeonRecords.Any(placed =>
+                group, room.Id, _saveData, _runtimeState).Where(n =>
+                    !(_saveData is not null && Resources.Moosh.Matches(group, room.Id) && n.Id == AgesInteractionId.GhiniHarassingMoosh) &&
+                    !laterDungeonRecords.Any(placed =>
                     placed.Kind == DungeonObjectKind.Zelda && placed.Id == n.Id && placed.SubId == n.SubId &&
                     placed.X == n.X && placed.Y == n.Y)).ToArray();
         diagnostics?.Mark("npc-resolution");
@@ -1073,6 +1114,8 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     Resources.Library, _saveData, _runtimeState);
             foreach (NpcRecord record in roomNpcs)
             {
+                if (Resources.Ricky.Matches(group, room.Id) && record is { Id: 0x31, SubId: 0 }) continue;
+                if (!owner.InteractionSlotAvailable) continue;
                 switch (record.Implementation)
                 {
                     case NpcImplementationClassification.OrdinaryGeneric:
@@ -1186,6 +1229,10 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             }
         }
 
+        if (_saveData is not null)
+            foreach (var record in forestObjects)
+                if (record.Order >= forestPrefixEnd && owner.InteractionSlotAvailable) yield return CreateForestObject(record, room);
+
         foreach (var record in Resources.SharedInteractions.NpcTail(group, room.Id))
             if (owner.InteractionSlotAvailable) yield return CreateSharedDecoration(record, room);
 
@@ -1196,7 +1243,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             foreach(var placement in Resources.TokayDimitri.Placements.Where(p=>p.Id!=0x48))
             {
                 if(placement.Id==0x67)
-                    yield return new DimitriPresetSpawnerRoomEntity(()=>SpawnDimitriPreset(activeGroup,room));
+                    yield return new CompanionPresetSpawnerRoomEntity(placement.Id, placement.SubId, ()=>SpawnDimitriPreset(activeGroup,room));
                 else yield return new DimitriRescueScriptRoomEntity(_saveData);
             }
         }
@@ -1239,19 +1286,12 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         foreach (GroundTreasureDatabaseRecord record in
             Resources.GroundTreasures.GetRoomRecords(group, room.Id))
         {
+            if(record.NativeSpawnerId>=0)continue;
             if (!owner.InteractionSlotAvailable) continue;
             if (!GroundTreasureDatabase.ShouldSpawn(
                     record, _saveData, _inventory))
                 continue;
-            var treasure = new GroundTreasurePickup
-            {
-                Name = $"GroundTreasure_{record.Order}",
-                ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
-            };
-            treasure.Initialize(AgesGameContent.AssetRoot, record, owner.OnSoundRequested, owner.ToScreen, room, owner.TryCreatePuzzlePuff);
-            yield return new GroundTreasureRoomEntity(
-                treasure, owner.CanCollectGroundTreasure,
-                owner.OnGroundTreasureCollected);
+            yield return _common.TryCreate(new GroundTreasureRecordSpawn(record),room)!;
         }
 
         // $dc:$03/$04 precede both $e1 portals in the source object stream.
@@ -1291,26 +1331,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
         if (spawnMaple)
         {
-            var encounterState = new MapleEncounterState(owner.RuntimeState);
-            var maple = new MapleEncounter
-            {
-                Name = "Maple",
-                ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
-            };
-            maple.Initialize(
-                activeGroup,
-                Resources.Maple,
-                encounterState,
-                room,
-                _random,
-                _saveData!,
-                _inventory!,
-                owner.OnMapleDialogueRequested,
-                owner.IsTextActive,
-                owner.OnSoundRequested,
-                owner.BeginHorizontalScreenShake,
-                owner.OnRoomMusicRequested);
-            yield return new MapleEncounterRoomEntity(maple, owner);
             // checkAndSpawnMaple allocates its interaction before parseObjectData.
             // The placed $dc:$05 must therefore consume its RNG after Maple.
             foreach (VolcanoPlacement record in Resources.Volcano.Placements(group, room.Id))
@@ -1322,143 +1342,48 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             yield break;
         }
 
-        int partSlots = 0;
         var enemyStream = enemies.GetRoomObjects(group,room.Id);
-        foreach (var record in deferredMermaidEnemies)
-            if (Resources.MermaidDungeon.EnemyStreamOrder(record) > enemyStream.Count)
-                throw new InvalidOperationException($"{record.Source}: native enemy insertion exceeds the imported stream for room${group:x1}:${room.Id:x2}.");
-        foreach (RoomObjectRecord source in enemyStream)
+        var program = NativeObjectStreamDatabase.For(AssetRoot);
+        var orders = new Dictionary<int,int>();
+        for (int index = 0; index < enemyStream.Count; index++)
+            orders.Add(program.LegacyPlacementAddress(group,room.Id,index),index);
+        var nativeBodies = deferredMermaidEnemies.ToDictionary(
+            record => program.Entry($"group{record.Group:x1}Map{record.Room:x2}BeforeEventObjectData"));
+        var reader = new NativeObjectStreamReader(program, _runtimeState,
+            () => _saveData?.GetRoomFlags(group,room.Id) ?? 0);
+        foreach (var instruction in reader.Read(program.Root(group,room.Id)))
         {
-            foreach (var entity in InsertMermaidEnemies(source.Order)) yield return entity;
-            if (!RoomObjectConditionMet(source, group, room))
-                continue;
-
-            EnemyObjectHandlerResolution resolution =
-                enemies.EnemyHandlers.Resolve(source);
-            switch (resolution.SlotPolicy)
+            if (nativeBodies.TryGetValue(instruction.Address, out var body))
             {
-                case EnemyObjectSlotPolicy.RandomEnemy:
-                    foreach (var entity in ParseRandomEnemies(source,room,placementContext,reservations))
-                        yield return entity;
-                    break;
-
-                case EnemyObjectSlotPolicy.FixedEnemy:
-                    EnemyHandlerDescriptor fixedHandler =
-                        resolution.RequireEnemyHandler(source);
-                    int fixedKillableEnemyIndex = NextKillableEnemyIndex(
-                        source.Flags);
-                    if (WasKilledDuringPlacement(fixedKillableEnemyIndex))
-                        break;
-                    int fixedSlot = owner.FindFreeEnemySlot();
-                    if (fixedSlot < 0)
-                        break;
-                    Vector2 fixedPosition = fixedHandler.Handler ==
-                        EnemyHandlerKind.VineSprout
-                            ? EnemyFactory.ResolveVineSproutPosition(source, room)
-                            : new Vector2(source.X, source.Y);
-                    reservations.Add(room.GetPackedPosition(fixedPosition));
-                    IRoomEntity? fixedEntity = EnemyFactory.CreateOrderedEnemy(
-                        fixedHandler, source, room, fixedPosition, 0,
-                        fixedKillableEnemyIndex, placementContext);
-                    owner.RegisterEnemySlot(fixedEntity, fixedSlot);
-                    if (fixedEntity is not null)
-                        yield return fixedEntity;
-                    break;
-
-                case EnemyObjectSlotPolicy.ParameterEnemy:
-                    EnemyHandlerDescriptor parameterHandler = resolution.RequireEnemyHandler(source);
-                    int parameterSlot = owner.FindFreeEnemySlot();
-                    if (parameterSlot < 0)
-                        break;
-                    // objectDataOp9 allocates a counted enemy but never checks
-                    // recent defeats, advances the killable index, or reserves a tile.
-                    IRoomEntity? parameterEntity = EnemyFactory.CreateOrderedEnemy(
-                        parameterHandler, source, room, new Vector2(source.X, source.Y),
-                        0, 0, placementContext);
-                    owner.RegisterEnemySlot(parameterEntity, parameterSlot);
-                    if (parameterEntity is not null)
-                        yield return parameterEntity;
-                    break;
-
-                case EnemyObjectSlotPolicy.ItemDrop:
-                    int itemKillableEnemyIndex = NextKillableEnemyIndex(
-                        source.Flags);
-                    if (WasKilledDuringPlacement(itemKillableEnemyIndex))
-                        break;
-                    int itemSlot = owner.FindFreeEnemySlot();
-                    if (itemSlot < 0)
-                        break;
-                    reservations.Add(source.PackedPosition);
-                    if (ItemDropDatabase.IsRuntimeSupported(source.SubId))
-                    {
-                        var producer = new ItemDropProducer
-                        {
-                            Name = $"ItemDropProducer_{source.Order}_{source.SubId:x2}"
-                        };
-                        producer.Initialize(
-                            source.SubId,
-                            PointForPackedPosition(source.PackedPosition),
-                            room,
-                            _inventory,
-                            _saveData,
-                            _random);
-                        var producerEntity = new ItemDropProducerRoomEntity(
-                            producer, itemKillableEnemyIndex);
-                        owner.RegisterEnemySlot(producerEntity, itemSlot);
-                        yield return producerEntity;
-                    }
-                    else
-                        owner.RegisterEnemySlot(null, itemSlot);
-                    break;
-
-                case EnemyObjectSlotPolicy.ReservingPart:
-                    if (partSlots >= 16 || !owner.PartSlotAvailable)
-                        break;
-                    partSlots++;
-                    reservations.Add(source.PackedPosition);
-                    if (source.Id == PartId.OwlStatue)
-                    {
-                        yield return new OwlStatueRoomEntity(
-                            source,
-                            Resources.OwlStatues.Record(source.SubId),
-                            room,
-                            owner.OnOwlStatueMessageRequested,
-                            owner.TryCreateOwlSparkle,
-                            _animationTick);
-                    }
-                    else if (source.Id == PartId.WallArrowShooter)
-                    {
-                        yield return new WallArrowShooterRoomEntity(source, owner.TryCreateWallArrow);
-                    }
-                    else if (source.Id == 0x45)
-                    {
-                        yield return new FallingBoulderRoomEntity(new FallingBoulder(
-                            source.SubId, PointForPackedPosition(source.PackedPosition),
-                            Resources.FallingBoulders, _random, owner.OnSoundRequested, room, owner.ToScreen));
-                    }
-                    else if (source.Id == 0x59)
-                    {
-                        yield return new BlackTowerFlameRoomEntity(owner, Resources.BlackTowerFlames, source.SubId,
-                            PointForPackedPosition(source.PackedPosition));
-                    }
-                    else if (source.Id == PartId.FallingFire)
-                        yield return new FallingFireRoomEntity(owner, Resources.PlacedParts, source.SubId,
-                            PointForPackedPosition(source.PackedPosition));
-                    else if (source.Id == PartId.SmallFairy)
-                        yield return new SmallFairyRoomEntity(owner, Resources.PlacedParts,
-                            PointForPackedPosition(source.PackedPosition));
-                    else
-                        throw new NotSupportedException($"{source.Source}: unsupported placed PART${source.Id:x2}:${source.SubId:x2}.");
-                    break;
-
-                case EnemyObjectSlotPolicy.ParameterPart:
-                    if (partSlots < 16)
-                        partSlots++;
-                    break;
+                if (instruction.Id != body.Id || instruction.SubId != body.SubId)
+                    throw new InvalidOperationException($"{instruction.Source}: native body differs from its content binding.");
+                if (!owner.EnemySlotAvailable) { reader.AllocationFailed(); continue; }
+                if (body.Kind == DungeonObjectKind.Vire)
+                    yield return CreateVire(body,room,placementContext);
+                else if (owner.TryChooseRandomEnemyPosition(room,0x20,reservations,placementContext,out var position))
+                    yield return CreateOctogon(body,position,placementContext);
+                continue;
             }
+            // Existing interaction/main-data constructors above remain content
+            // bindings; enemy-pointer execution now owns their placement rows.
+            if (!orders.TryGetValue(instruction.Address, out int order)) continue;
+            var source = enemyStream[order] with { SourceOverride = instruction.Source, ConditionMask = 0xff };
+            foreach (var entity in owner.PlaceRoomObject(source,room,placementContext,reservations,reader.AllocationFailed))
+                yield return entity;
         }
-        foreach (var entity in InsertMermaidEnemies(enemyStream.Count)) yield return entity;
     }
+
+    public IEnumerable<IRoomEntity> CreateStaticRoomEntities(int group, OracleRoomData room)
+    {
+        if (!owner.ScreenTransitionActive && owner.SpecialObjectPresentationAvailable &&
+            MinecartRuntimeState.TryGetRide(_runtimeState, room.Id, out ActiveMinecart ride))
+            yield return CreateMinecart(ride, room);
+    }
+
+    public IRoomEntity CreateStaticObject(StaticObjectRecord source, OracleRoomData room) =>
+        source.Type == 3 && (source.Id & 0x7f) == 0x16 ? CreateMinecart(new(source.Slot, source.Room,
+            source.Y, source.X, -1, false, source.SubId, (source.Id & 0x80) != 0 ? 3 : 1), room) :
+            throw new NotSupportedException($"{source.Source}: Ages static type${source.Type:x2}, ID${source.Id:x2}:${source.SubId:x2} has no content binding.");
 
     private IRoomEntity? CreateSpiritsGraveInteraction(
         DungeonObjectRecord record,
@@ -1484,7 +1409,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     owner.EnableLinkCollisionsAndMenu, owner.TryCreateMinibossPortal);
             case DungeonObjectKind.MovingPlatform:
                 return CreateMovingPlatform(record.Position, record.SubId,
-                    rooms?.World.GetDungeonIndex(record.Group, record.Room) ?? -1);
+                    rooms?.GetDungeonIndex(record.Group, record.Room) ?? -1);
             case DungeonObjectKind.SpawnMovingPlatform:
                 return new SpiritsGraveMovingPlatformSpawner(
                     owner.TriggerIsActive,
@@ -1515,9 +1440,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     Resources.DungeonBosses.Enemy(AgesEnemyId.GiantGhini), room, record.Position, _random,
                     owner.OnSoundRequested, owner.BossShuttersClosed,
                     owner.DisableLinkCollisionsAndMenu,
-                    () => owner.OnRoomMusicRequested(record.Group, record.Room),owner.ToScreen);
+                    () => owner.OnRoomMusicRequested(record.Group, record.Room),owner.ToScreen,owner.InitializeBossRoom);
                 return new GiantGhiniBossRoomEntity(
-                    giantGhini, placementContext.BossEntryDirection);
+                    giantGhini);
             case DungeonObjectKind.PumpkinHead:
                 ImportedEnemyDefinition pumpkin = Resources.DungeonBosses.Enemy(AgesEnemyId.PumpkinHead);
                 return new PumpkinHeadBossRoomEntity(
@@ -1527,9 +1452,8 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                         owner.DisableLinkCollisionsAndMenu,
                         () => owner.OnRoomMusicRequested(record.Group, record.Room),
                         Resources.DungeonBosses.Constant("pumpkin-body-palette"),
-                        Resources.DungeonBosses.Constant("pumpkin-ghost-palette"), _runtimeState),
-                    pumpkin.DamageQuarters,
-                    placementContext.BossEntryDirection);
+                        Resources.DungeonBosses.Constant("pumpkin-ghost-palette"), _runtimeState,owner.InitializeBossRoom),
+                    pumpkin.DamageQuarters);
             case DungeonObjectKind.Essence:
                 return new DungeonEssence(
                     record,
@@ -1584,16 +1508,20 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         }
     }
 
-    private MinecartRoomEntity CreateMinecart(
+    private IRoomEntity CreateMinecart(
         ActiveMinecart cart,
-        OracleRoomData room) =>
-        new(
-            cart,
-            room,
-            Resources.DungeonInteractions,
-            _runtimeState,
-            Resources.DungeonVisuals.Visual("minecart"),
-            owner.OnSoundRequested);
+        OracleRoomData room) => cart.Riding ? CreateMinecartBody(room) :
+        new MinecartInteractionRoomEntity(new MinecartInteractionSpawn(cart.Position,
+            cart.Slot >= 0 ? cart.Slot : null, cart.SubId, cart.Enabled), room,
+            _runtimeState, Resources.DungeonVisuals.Visual("minecart"), owner);
+
+    private MinecartRoomEntity CreateMinecartBody(OracleRoomData room)
+    {
+        ActiveCompanion active = CompanionRuntimeState.Read(_runtimeState);
+        return new(new(-1, room.Id, active.Y, active.X, active.Direction, true), room,
+            _runtimeState, Resources.DungeonVisuals.Visual("minecart"),
+            owner.OnSoundRequested, owner);
+    }
 
     private IEnumerable<IRoomEntity> CreateMinecartShutterControllers(
         OracleRoomData room, EnemyPlacementContext placementContext)
@@ -1625,8 +1553,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 !DungeonShutterEntry.FacesScrollingEntry(placementContext,
                     originalTile - DungeonShutterEntry.FirstMinecartShutterTile))
                 continue;
-            yield return CreateMinecartShutter(
-                packedPosition, originalTile, oneShotOpener: false, room);
+            if (owner.InteractionSlotAvailable)
+                yield return CreateMinecartShutter(
+                    packedPosition, originalTile, oneShotOpener: false, room);
         }
     }
 
@@ -1737,9 +1666,13 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         new(producer with { Id = AgesInteractionId.Decoration, SubId = 0, Kind = DungeonObjectKind.Decoration },
             Resources.FinalDungeonEntry.Decoration);
 
-    public IRoomEntity? CreateRoomLoadReward(int group, int room) =>
-        Resources.SharedInteractions.TryGetGashaReward(group, room, out var record) && owner.InteractionSlotAvailable
-            ? new MakuGashaRewardRoomEntity(record, _saveData!, _inventory!, request => owner.TryCreateGroundTreasure(request)) : null;
+    public IEnumerable<IRoomEntity> CreateRoomLoadEntities(int group, OracleRoomData room, EnemyPlacementContext placement)
+    {
+        if (Resources.SharedInteractions.TryGetGashaReward(group, room.Id, out var record) && owner.InteractionSlotAvailable)
+            yield return new MakuGashaRewardRoomEntity(record, _saveData!, _inventory!, request => owner.TryCreateGroundTreasure(request));
+        foreach (var controller in CreateMinecartShutterControllers(room, placement))
+            yield return controller;
+    }
     internal MonkeyRoomEntity CreateSavedMonkey(DungeonObjectRecord record) => new(record, Resources.Monkeys, owner, _saveData!);
 
     private DungeonRoomFlagMirrorRoomEntity CreateRoomFlagMirror(DungeonObjectRecord record)
@@ -1885,10 +1818,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     owner.BeginScreenShake,
                     owner.DisableLinkCollisionsAndMenu,
                     () => owner.OnRoomMusicRequested(record.Group, record.Room),
-                    _animationTick);
+                    _animationTick,owner.InitializeBossRoom);
                 return new HeadThwompBossRoomEntity(
-                    headThwompBoss,
-                    placementContext.BossEntryDirection);
+                    headThwompBoss);
             case DungeonObjectKind.Swoop:
                 ImportedEnemyDefinition swoopRecord =
                     Resources.DungeonBosses.Enemy(AgesEnemyId.Swoop);
@@ -1907,9 +1839,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     owner.OnRoomEntityDialogueRequested,
                     owner.IsTextActive,
                     _animationTick,
-                    Resources.WingDungeon.SwoopMessage);
+                    Resources.WingDungeon.SwoopMessage,owner.InitializeBossRoom);
                 return new SwoopBossRoomEntity(
-                    swoop, placementContext.BossEntryDirection);
+                    swoop);
             case DungeonObjectKind.BossReward:
                 DungeonBossRewardScriptDefinition bossReward =
                     Resources.WingDungeon.BossReward;
@@ -2025,10 +1957,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     owner.OnRoomEntityDialogueRequested,
                     owner.IsTextActive,
                     _animationTick,
-                    Resources.MoonlitGrotto.SubterrorMessage);
+                    Resources.MoonlitGrotto.SubterrorMessage,owner.InitializeBossRoom);
                 return new SubterrorBossRoomEntity(
-                    subterror,
-                    placementContext.BossEntryDirection);
+                    subterror);
             case DungeonObjectKind.ShadowHag:
                 ImportedEnemyDefinition shadowHagDefinition =
                     Resources.DungeonBosses.Enemy(AgesEnemyId.ShadowHag);
@@ -2045,10 +1976,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     () => owner.OnRoomMusicRequested(record.Group, record.Room),
                     owner.OnRoomEntityDialogueRequested,
                     owner.IsTextActive,
-                    Resources.MoonlitGrotto.ShadowHagMessage);
+                    Resources.MoonlitGrotto.ShadowHagMessage,owner.InitializeBossRoom);
                 return new ShadowHagBossRoomEntity(
-                    shadowHag,
-                    placementContext.BossEntryDirection);
+                    shadowHag);
             default:
                 throw new ArgumentOutOfRangeException(
                     nameof(record),
@@ -2121,24 +2051,20 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
     private IRoomEntity CreateArmosWarrior(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
     {
         var actor = new ArmosWarriorActor();
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
         actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.ArmosWarrior), new ArmosWarriorEnvironment(room, Resources.ArmosWarrior, Resources.DungeonBosses,
             _random, owner.BossShuttersClosed, () => owner.PartSlotAvailable, owner.CanAllocateEnemies,
             () => -(int)owner.ToScreen(Vector2.Zero).Y, owner.OnSoundRequested, owner.BeginScreenShake,
             owner.DisableLinkCollisionsAndMenu, owner.EnableLinkCollisionsAndMenu,
-            () => owner.OnRoomMusicRequested(record.Group, record.Room), owner.OnRoomEntityDialogueRequested, entry), record.Position);
-        return new ArmosWarriorRoomEntity(actor, entry);
+            () => owner.OnRoomMusicRequested(record.Group, record.Room), owner.OnRoomEntityDialogueRequested, owner.InitializeBossRoom), record.Position);
+        return new ArmosWarriorRoomEntity(actor);
     }
 
     private IRoomEntity CreateBlueStalfos(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
     {
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
-        int killableIndex = NextKillableEnemyIndex(0);
+        int killableIndex = owner.NextKillableEnemyIndex(0);
         BlueStalfosEnvironment? world = null;
-        world = new(room, _random, () => {
-            owner.EnableLinkCollisionsAndMenu(); owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
-            owner.SetNativeActiveMusic(0xff); owner.BeginBossEntrySignal(); entry.Arm();
-        }, () => { owner.SetNativeActiveMusic(SoundId.MusMiniboss); owner.OnNativeSoundRequested(SoundId.MusMiniboss); },
+        world = new(room, _random, owner.InitializeBossRoom,
+            () => { owner.SetNativeActiveMusic(SoundId.MusMiniboss); owner.OnNativeSoundRequested(SoundId.MusMiniboss); },
             () => owner.CanAllocateVireBats(3), (parent, subid, counted) =>
                 owner.TryAllocateEnemy(_ => {
                     var child = new BlueStalfosCharacter { Name = $"BlueStalfos_{subid:x2}" };
@@ -2153,7 +2079,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             parent => owner.TryCreatePart(new BlueStalfosProjectileSpawn(parent.Position, parent.ZFixed, parent.Slot, parent.Angle)),
             owner.DisableLinkCollisionsAndMenu,
             parent => owner.TryCreatePart(new BossDeathExplosionSpawn(parent.Position, AgesEnemyId.BlueStalfos, parent.ZFixed >> 8)),
-            () => owner.OnRoomMusicRequested(record.Group, record.Room), owner.OnNativeSoundRequested, entry);
+            () => owner.OnRoomMusicRequested(record.Group, record.Room), owner.OnNativeSoundRequested);
         var actor = new BlueStalfosCharacter { Name = "BlueStalfos_Spawner" };
         actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.BlueStalfos, 0), record.Position, world);
         return new BlueStalfosRoomEntity(actor, world, true, killableIndex);
@@ -2161,13 +2087,11 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
     private IRoomEntity CreateRamrock(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
     {
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
-        int killableIndex = NextKillableEnemyIndex(0);
+        int killableIndex = owner.NextKillableEnemyIndex(0);
         RamrockEnvironment? world = null;
         world = new(room, _runtimeState, _random, () => {
-            owner.EnableLinkCollisionsAndMenu(); owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
-            owner.SetNativeActiveMusic(0xff); owner.SetNativeObjectPalette(RamrockProfile.Shared.Palette(0x83));
-            owner.BeginBossEntrySignal(); entry.Arm();
+            owner.SetNativeObjectPalette(RamrockProfile.Shared.Palette(0x83));
+            owner.InitializeBossRoom();
         }, () => {
             _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0); _runtimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 0);
             owner.SetNativeActiveMusic(SoundId.MusBoss); owner.OnNativeSoundRequested(SoundId.MusBoss);
@@ -2185,7 +2109,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         owner.ToScreen,
         owner.DisableLinkCollisionsAndMenu,
         parent => owner.TryCreatePart(new BossDeathExplosionSpawn(parent.Position, AgesEnemyId.Ramrock, parent.ZFixed >> 8)),
-        owner.OnNativeSoundRequested, entry);
+        owner.OnNativeSoundRequested);
         var actor = new RamrockCharacter { Name = "Ramrock_07" };
         actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.Ramrock), record.Position, world);
         return new RamrockRoomEntity(actor, world, killableIndex);
@@ -2223,7 +2147,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
     private IRoomEntity CreateSmasher(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
     {
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
         SmasherRoomEnvironment? environment = null;
         environment = new SmasherRoomEnvironment(
             _ => (owner.TryAllocateEnemy(slot =>
@@ -2232,10 +2155,10 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 child.InitializePending(enemies.ImportedEnemy(AgesEnemyId.Smasher,1),room,Vector2.Zero,_random,slot);
                 return new SmasherRoomEntity(child,environment!,false);
             }) as SmasherRoomEntity)?.Character,
-            () => { owner.EnableLinkCollisionsAndMenu(); owner.OnSoundRequested(SoundId.SndCtrlStopMusic); },
+            owner.InitializeBossRoom,
             () => { owner.EnableLinkCollisionsAndMenu(); owner.OnSoundRequested(SoundId.MusMiniboss); },
             () => owner.InteractionSlotAvailable,() => owner.PartSlotAvailable,owner.DisableLinkCollisionsAndMenu,
-            () => owner.OnRoomMusicRequested(record.Group,record.Room),owner.OnSoundRequested,0,true,entry,() => owner.FrameCounter,owner.TryCreatePuzzlePuff);
+            () => owner.OnRoomMusicRequested(record.Group,record.Room),owner.OnSoundRequested,0,true,() => owner.FrameCounter,owner.TryCreatePuzzlePuff);
         var ball = new SmasherCharacter { Name = "Smasher_74_Ball" };
         ball.InitializePending(enemies.ImportedEnemy(AgesEnemyId.Smasher,0),room,record.Position,_random,0);
         return new SmasherRoomEntity(ball,environment,true);
@@ -2243,16 +2166,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
     private IRoomEntity CreateVire(DungeonObjectRecord record,OracleRoomData room,EnemyPlacementContext placementContext)
     {
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
         VireRoomEnvironment? world = null;
         world = new(
-            scrolling => {
-                owner.EnableLinkCollisionsAndMenu(); owner.OnSoundRequested(SoundId.SndCtrlStopMusic); owner.BeginBossEntrySignal();
-                // Destination state0 dispatch runs in SCROLLMODE$08, whose
-                // bit0 is clear: the source queues Link's force movement.
-                // Consume that request after the scroll finishes.
-                entry.Arm();
-            },
+            _ => owner.InitializeBossRoom(),
             () => owner.OnSoundRequested(SoundId.MusMiniboss),owner.DisableLinkCollisionsAndMenu,owner.EnableLinkCollisionsAndMenu,
             () => owner.OnRoomMusicRequested(record.Group,record.Room),owner.OnSoundRequested,
             (id,point) => owner.OnRoomEntityDialogueRequested(id,Resources.VireDialogue.Text(id),point),
@@ -2264,7 +2180,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 child.Initialize(enemies.ImportedEnemy(EnemyId.Vire,1),room,parent.Position,_random,_runtimeState,world!,parent.Slot,index,parent.ZFixed >> 8);
                 return new VireRoomEntity(child,world!);
             }) is not null,
-            slot => owner.ResolveEnemySlot(slot)?.Node as VireCharacter,owner.TryCreatePart,entry);
+            slot => owner.ResolveEnemySlot(slot)?.Node as VireCharacter,owner.TryCreatePart);
         var actor = new VireCharacter { Name = "Vire_75_Main" };
         actor.Initialize(enemies.ImportedEnemy(EnemyId.Vire,0),room,record.Position,_random,_runtimeState,world);
         return new VireRoomEntity(actor,world);
@@ -2272,18 +2188,13 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
     private IRoomEntity CreateAnglerFish(DungeonObjectRecord record,OracleRoomData room,EnemyPlacementContext placementContext)
     {
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
         AnglerFishEnvironment? world = null;
         void SetLinkMask(int value)
         {
             _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects,(byte)value);
             _runtimeState.SetWramByte(AgesWramAddress.wMenuDisabled,(byte)value);
         }
-        world = new(room,_random,scrolling => {
-            owner.EnableLinkCollisionsAndMenu();
-            owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
-            owner.SetNativeActiveMusic(0xff);owner.BeginBossEntrySignal();entry.Arm();
-        },parent => (owner.TryAllocateEnemy(_ => {
+        world = new(room,_random,_ => owner.InitializeBossRoom(),parent => (owner.TryAllocateEnemy(_ => {
             var child = new AnglerFishCharacter { Name = "AnglerFish_76_Antenna" };
             child.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.AnglerFish,1),Vector2.Zero,world!,false,parent);
             return new AnglerFishRoomEntity(child,world!);
@@ -2300,7 +2211,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,AgesEnemyId.AnglerFish)),
         () => owner.OnRoomMusicRequested(record.Group,record.Room),owner.OnNativeSoundRequested,
         point => owner.TryCreatePart(new ItemDropSpawn(ItemDropDatabase.ScentSeeds,point,InvincibilityCounter:0xf0)),
-        point => owner.TryCreateCandleExplosion(point)>=0,entry);
+        point => owner.TryCreateCandleExplosion(point)>=0);
         var actor = new AnglerFishCharacter { Name = "AnglerFish_76_Main" };
         actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.AnglerFish),record.Position,world,true);
         return new AnglerFishRoomEntity(actor,world);
@@ -2308,19 +2219,17 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
     private IRoomEntity CreatePlasmarine(DungeonObjectRecord record,EnemyPlacementContext placementContext)
     {
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
         void SetLinkMask(int value)
         {
             _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects,(byte)value);
             _runtimeState.SetWramByte(AgesWramAddress.wMenuDisabled,(byte)value);
         }
         var world = new PlasmarineEnvironment(_random,() => {
-            SetLinkMask(1);owner.EnableLinkCollisionsAndMenu();owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
-            owner.SetNativeActiveMusic(0xff);owner.BeginBossEntrySignal();entry.Arm();
+            SetLinkMask(1);owner.InitializeBossRoom();
         },() => {
             SetLinkMask(0);owner.SetNativeActiveMusic(SoundId.MusBoss);owner.OnNativeSoundRequested(SoundId.MusBoss);
         },parent => owner.TryCreatePart(new PlasmarineProjectileSpawn(parent.Position.Floor()+new Vector2(0,-20),parent.CurrentOamFlags-1,parent.Slot)),
-        owner.DisableLinkCollisionsAndMenu,point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,AgesEnemyId.Plasmarine)),owner.OnNativeSoundRequested,entry);
+        owner.DisableLinkCollisionsAndMenu,point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,AgesEnemyId.Plasmarine)),owner.OnNativeSoundRequested);
         var actor = new PlasmarineCharacter {Name="Plasmarine_7e"};
         actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.Plasmarine),record.Position,world);
         return new PlasmarineRoomEntity(actor,world);
@@ -2328,7 +2237,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
     private IRoomEntity CreateOctogon(DungeonObjectRecord record,Vector2 position,EnemyPlacementContext placementContext)
     {
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
         OctogonRoomEnvironment? world = null;
         bool SpawnInteraction(Vector2 point,int id,int parameter,int related)
         {
@@ -2338,12 +2246,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 parameter == 0 ? related : 0));
             return true;
         }
-        world = new(scrolling => {
-            owner.EnableLinkCollisionsAndMenu(); owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic); owner.BeginBossEntrySignal();
-            // Native destination state0 runs in SCROLLMODE$08 before bit0
-            // is restored, so its force-movement request survives the scroll.
-            entry.Arm();
-        },() => owner.BossEntrySignal,owner.OnNativeSoundRequested,owner.NativeActiveMusicSource,owner.SetNativeActiveMusic,owner.DisableLinkCollisionsAndMenu,
+        world = new(_ => owner.InitializeBossRoom(),() => owner.BossEntrySignal,owner.OnNativeSoundRequested,owner.NativeActiveMusicSource,owner.SetNativeActiveMusic,owner.DisableLinkCollisionsAndMenu,
         () => owner.OnRoomMusicRequested(record.Group,record.Room),
         () => { _saveData!.SetRoomFlag(5,0x2d,0x80); _saveData.SetRoomFlag(5,0x36,0x80); },
         parent => {
@@ -2355,7 +2258,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 return new OctogonRoomEntity(shell,world!);
             });
             return childSlot;
-        },slot => owner.ResolveEnemySlot(slot)?.Node as OctogonCharacter,owner.TryCreatePart,SpawnInteraction,entry);
+        },slot => owner.ResolveEnemySlot(slot)?.Node as OctogonCharacter,owner.TryCreatePart,SpawnInteraction);
         var actor = new OctogonCharacter { Name = $"Octogon_7d_{record.SubId:x2}" };
         actor.Initialize(enemies.ImportedEnemy(AgesEnemyId.Octogon,record.SubId),position,_random,_runtimeState,world);
         return new OctogonRoomEntity(actor,world);
@@ -2364,7 +2267,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
     private static IRoomEntity CreateArmosChild(ArmosWarriorChildSpawn spawn)
     {
         var actor = spawn.Spawner.CreateChild(spawn.SubId);
-        return new ArmosWarriorRoomEntity(actor, actor.Entry);
+        return new ArmosWarriorRoomEntity(actor);
     }
 
     private static IRoomEntity CreateKingMoblinMinion(KingMoblinMinionSpawn spawn)
@@ -2377,24 +2280,25 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         var actor = new KingMoblinBomb(); actor.Initialize(spawn.Boss,spawn.Minion);
         return new KingMoblinBombRoomEntity(actor);
     }
-    private IRoomEntity CreateExclamationMark(ExclamationMarkSpawn spawn)
-    {
-        var actor = new NpcCharacter();
-        actor.Initialize(spawn.Record is { } record?record with {X=(int)spawn.Position.X,Y=(int)spawn.Position.Y}:
-            Resources.Moosh.CreateExclamationRecord((int)spawn.Position.Y,(int)spawn.Position.X), AgesGameContent.AssetRoot);
-        actor.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // INTERAC $9f state0: visible80.
-        owner.OnSoundRequested(SoundId.SndClink);
-        return new ExclamationMarkRoomEntity(actor,spawn.Duration);
-    }
+    private IRoomEntity CreateForestObject(ForestNativeObjectRecord record, OracleRoomData room) => record.Id == 0x71
+        ? new CompanionForestControllerRoomEntity(record, Resources.CompanionForest, Resources.FairiesWoods,
+            _saveData!, _runtimeState, () => CompanionForest)
+        : new CompanionPresetSpawnerRoomEntity(record.Id, record.SubId, () =>
+        {
+            if (!owner.SpecialObjectSlotAvailable || _saveData!.HasGlobalFlag(AgesGlobalFlag.GotFlute) ||
+                !_saveData.HasGlobalFlag(record.SubId == 4 ? AgesGlobalFlag.CompanionLostInForest : AgesGlobalFlag.SavedCompanionFromForest)) return;
+            int id = _saveData!.ReadField("wAnimalCompanion");
+            Vector2 position = Resources.CompanionForest.Preset(record.SubId);
+            CompanionScripts.SpawnPreset(id, position);
+        });
 
     private IRoomEntity CreateEyesoar(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
     {
         var actor = new EyesoarActor();
-        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
         actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.Eyesoar), new EyesoarEnvironment(room, Resources.Eyesoar, Resources.DungeonBosses,
             Resources.DungeonVisuals.Visual("eyesoar-spawn"), _random, owner.BossShuttersClosed, () => owner.PartSlotAvailable,
             owner.CanAllocateEnemies, () => owner.InteractionSlotAvailable, owner.OnSoundRequested, owner.DisableLinkCollisionsAndMenu,
-            owner.EnableLinkCollisionsAndMenu, entry), record.Position);
+            owner.EnableLinkCollisionsAndMenu, owner.InitializeBossRoom), record.Position);
         return new EyesoarRoomEntity(actor);
     }
 
@@ -2863,9 +2767,9 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             DungeonEntranceInteractionDatabaseObjectKind.MinibossPortal, record.Id, record.SubId,
             record.Y, record.X, 0x0b, record.Source);
         return new MinibossPortalRoomEntity(portal, placement, Resources.DungeonEntrances, _saveData,
-            owner.OnRoomWarpRequested, owner.OnSoundRequested, owner.IsOutgoingEntity,
+            owner.OnRoomWarpRequested, owner.OnSoundRequested, owner.IsOutgoingEntity, _runtimeState,
             new Warp(record.Group, record.Room, record.Y, 0, 3, 4, destination.Room,
-                destination.Position, 0, 0, DirectFadeOut: true), _runtimeState);
+                destination.Position, 0, 0, DirectFadeOut: true));
     }
 
     private IRoomEntity CreateSharedDungeonInteraction(
@@ -2882,8 +2786,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     Resources.DungeonEntrances,
                     _runtimeState,
                     placementContext.Kind == EnemyPlacementEntryKind.ScreenWarp,
-                    dungeon => MinecartRuntimeState.Reset(
-                        _runtimeState, Resources.StaticDungeonObjects.Minecarts(dungeon)),
+                    dungeon => StaticObjectState.LoadDungeon(_runtimeState, dungeon),
                     owner.OnDungeonEntranceTriggered);
 
             case DungeonEntranceInteractionDatabaseObjectKind.EyeSpawner:
@@ -2897,7 +2800,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 portal.Initialize(Resources.DungeonEntrances);
                 return new MinibossPortalRoomEntity(
                     portal, record, Resources.DungeonEntrances, _saveData,
-                    owner.OnRoomWarpRequested, owner.OnSoundRequested, owner.IsOutgoingEntity);
+                    owner.OnRoomWarpRequested, owner.OnSoundRequested, owner.IsOutgoingEntity, _runtimeState);
 
             default:
                 throw new InvalidOperationException(
@@ -2934,18 +2837,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
     private IRoomEntity CreateSmogSentinel(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
     {
-        Vector2I direction = placementContext.BossEntryDirection;
-        var entry = new BossEntryMovement(direction);
-        return CreateSmogEnemy(new(record.Position,record.SubId),room,entry,scrolling =>
-        {
-            owner.EnableLinkCollisionsAndMenu();
-            owner.OnSoundRequested(SoundId.SndCtrlStopMusic);
-            owner.BeginBossEntrySignal();
-            if (scrolling) entry.Arm();
-            // Normal room mode returns A=1. Scrolling preload returns the
-            // cardinal angle after requesting Link's $16-update forced walk.
-            return !scrolling || direction == Vector2I.Zero ? 1 : CarriedObjectMotion.DirectionIndex(direction) * 8;
-        });
+        return CreateSmogEnemy(new(record.Position,record.SubId),room);
     }
 
     internal SmogEncounterRoomEntity CreateSmogEncounter(Vector2I position, OracleRoomData room)
@@ -2977,8 +2869,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             owner.MergeSmogClouds,() => owner.OnSoundRequested(SoundId.SndSplash),owner.ReleaseSmogSentinelCount));
     }
 
-    private IRoomEntity CreateSmogEnemy(SmogEnemySpawn spawn, OracleRoomData room,
-        BossEntryMovement? entry = null, Func<bool,int>? initializeBossRoom = null)
+    private IRoomEntity CreateSmogEnemy(SmogEnemySpawn spawn, OracleRoomData room)
     {
         if (!owner.CanAllocateEnemies(1)) throw new NotSupportedException("smog.s unchecked ENEMY$7c allocation into a full native pool is not represented.");
         var actor = new SmogCharacter();
@@ -3035,7 +2926,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 if (rooms.TrySetTile((byte)packed,(byte)tile)) owner.OnRoomTileChanged();
             },
             owner.DisableLinkCollisionsAndMenu,() => owner.OnRoomMusicRequested(group,room.Id),
-            initializeBossRoom ?? owner.InitializeActiveSmogBossRoom,entry,() => owner.FrameCounter,
+            _ => owner.InitializeBossRoomWithResult(),() => owner.FrameCounter,
             (position, subid) =>
             {
                 // Failed getFreePartSlot leaves HL=$e0c0, an echo of the main
@@ -3063,8 +2954,15 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         _runtimeState.SetWramByte(0xc08d, (byte)(int)spawn.Position.X);
     }
 
-    public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
+    public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn is CompanionInitializationSpawn initialization
+        ?CompanionScripts.CreateBody(initialization.Id,initialization.Position):spawn is DimitriCompanionSpawn dimitri
+        ?CreateDimitri(dimitri,room):spawn is MooshCompanionSpawn moosh
+        ?CreateMoosh(moosh,room):_common.TryCreate(spawn,room) ?? spawn switch
     {
+        RaftSpawn raft => new RaftRoomEntity(raft, room, Resources.Raft.Behavior,
+            _saveData ?? throw new InvalidOperationException("SPECIALOBJECT $13 requires the live save owner."), _runtimeState, owner),
+        RaftInteractionSpawn raft => new RaftInteractionRoomEntity(raft, room, Resources.Raft.Behavior,
+            _saveData ?? throw new InvalidOperationException("INTERAC $e6 requires the live save owner."), _runtimeState, owner),
         PalaceApproachRalphSpawn => new PalaceApproachRoomEntity(owner, rooms!, Resources.PalaceApproach, ralph: true),
         SmogEnemySpawn smog => CreateSmogEnemy(smog,room),
         DungeonSwitchSpawn switchPart => CreateDungeonSwitch(switchPart.Record,room),
@@ -3078,15 +2976,11 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                     throw new InvalidOperationException("PART$0c setTile requires its active room session.");
                 return rooms.TrySetTile(position,tile);
             }),
-        OctorokRockSpawn rock => CreateRock(rock, room),
         VolcanoHandlerSpawn volcano => CreateVolcanoController(volcano.Placement, room),
         VolcanoRockSpawn rock => new VolcanoRockRoomEntity(new VolcanoRock(
             rock.Position, Resources.Volcano, room, _random, owner.OnSoundRequested, owner.ToScreen)),
-        ZoraFireSpawn fire => new ZoraFireRoomEntity(new ZoraFireProjectile(
-            fire, Resources.ZoraFire, owner.ToScreen, owner.RuntimeState) { Name = "ZoraFire", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex }),
         MapleTouchingBookSpawn book => CreateMapleTouchingBook(book, room),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
-        GhiniSpawn ghini => CreateGhini(ghini, room),
         ArmosSpawn armos => CreateArmos(armos, room),
         FlyingTileSpawn tile => CreateFlyingTile(tile, room),
         ArmosSpawnerSpawn spawner => new ArmosSpawnerRoomEntity(
@@ -3113,22 +3007,19 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             owner.OnRoomTileChanged,
             _animationTick),
         EnemySmallKeyRewardSpawn key => CreateEnemySmallKeyReward(key.Request),
-        EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
         StalfosBoneSpawn bone => CreateStalfosBone(bone, room),
-        BurningEnemySpawn burn => CreateBurningEnemy(burn),
         KeeseFireSpawn fire => CreateKeeseFire(fire),
         EnemySwordSpawn sword => new EnemySwordRoomEntity(sword.Parent, sword.SoundRequested, sword.ParentCollisionAllowed),
         SpikedBallSpawn ball => new SpikedBallRoomEntity(ball.Part, ball.Sound),
         FountainFairyHeartSpawn heart => heart.Owner.CreateHeart(_runtimeState),
         LibraryPodiumSpawn podium => podium.Owner.CreatePodium(podium.SubId),
-        FountainFairyPuffSpawn puff => new FixedEffectRoomEntityAdapter<PuzzlePuffEffect>(puff.Effect),
+        FountainFairyPuffSpawn puff => new FixedEffectRoomEntityAdapter<StationaryDebrisEffect>(puff.Effect),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => EnemyFactory.CreateGel(gel, room),
         BariChildSpawn bari => EnemyFactory.CreateBariChild(bari, room),
         CuccoAttackerSpawn attacker => CreateCuccoAttacker(attacker),
         BlueEnergyBeadSpawn bead => new BlueEnergyBeadRoomEntity(bead.Index, bead.Center, bead.Duration,
             Resources.DungeonVisuals.Visual("energy-bead"), _random, _runtimeState,bead.Outgoing),
-        EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
         PlasmarineProjectileSpawn projectile => new PlasmarineProjectileRoomEntity(new PlasmarineProjectile(projectile,room,_runtimeState,
             slot => owner.ResolveEnemySlot(slot)?.Node as PlasmarineCharacter)),
@@ -3137,7 +3028,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         KingMoblinMinionSpawn child => CreateKingMoblinMinion(child),
         KingMoblinBombSpawn bomb => CreateKingMoblinBomb(bomb),
         KingMoblinExplosionSpawn explosion => CreateInteractionExplosion(new InteractionExplosionSpawn(explosion.Position,0,Resources.Patch.ExplosionVisual,Var03:0)),
-        ExclamationMarkSpawn exclamation => CreateExclamationMark(exclamation),
         EyesoarChildSpawn child => new EyesoarRoomEntity(child.Spawner.CreateChild(child.Index)),
         MoldormChildSpawn child => child.Spawner.CreateChild(child.SubId),
         EyesoarSpawnEffectSpawn effect => new FixedEffectRoomEntityAdapter<EyesoarSpawnEffect>(effect.Effect),
@@ -3146,31 +3036,20 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         RamrockPartSpawn part => CreateRamrockPart(part),
         SubterrorDirtSpawn dirt => CreateSubterrorDirt(dirt),
         ShadowHagShadowSpawn shadow => CreateShadowHagShadow(shadow),
-        KillEnemyPuffSpawn puff => CreateKillPuff(puff),
-        ItemDropSpawn drop => CreateItemDrop(drop, room),
-        BoomerangSpawn boomerang => new BoomerangRoomEntity(new BoomerangItem(room, boomerang.Position,
-            boomerang.Angle, boomerang.ZHigh, () => RingEffects.BoomerangDamage(BoomerangDatabase.For(AssetRoot).Damage,
-                _inventory ?? throw new InvalidOperationException("ITEM_BOOMERANG $06 requires the live inventory ring owner.")),
-            owner.OnSoundRequested, owner.TryCreateBoomerangClink) { Name = "Boomerang", ZIndex = ObjectDrawPriority.BehindLinkZIndex }),
         HeadThwompBombDropSpawn => throw new InvalidOperationException("headThwomp.s: bomb pair requires the manager's checked two-PART allocation."),
         HeadThwompBombDropperSpawn dropper => new HeadThwompBombDropRoomEntity(room, _random,
             () => owner.ResolvePartSlot(dropper.DropSlot)?.Node as ItemDropEffect, dropper.Position, _runtimeState),
-        ShovelDebrisSpawn debris => CreateShovelDebris(debris),
-        GrassDebrisSpawn debris => CreateGrassDebris(debris),
-        RockDebrisSpawn debris => CreateRockDebris(debris),
-        EmberSeedSpawn seed => CreateEmberSeed(seed, room),
-        BombSpawn bomb => CreateBomb(bomb, room),
-        BombchuSpawn bombchu => CreateBombchu(bombchu, room),
         InteractionSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, sparkle.SourceAngle, sparkle.Visual,sparkle.Subid),
         OwlStatueSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, 0, sparkle.Visual),
-        PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         GreenPoofSpawn poof => new GreenPoofRoomEntity(Resources.DungeonVisuals.Visual("green-poof"), poof.Position, poof.Z),
         TingleKoolooSparkleSpawn sparkle =>
             CreateInteractionSparkle(sparkle.Position, sparkle.SourceAngle, sparkle.Visual),
         GoronCaveNpcSpawn goron => new GoronCaveRoomEntity(NpcCharacter.CreateFromRecord(goron.Record, AgesGameContent.AssetRoot), goron.Interactive),
         GoronBombSpawn bomb => new GoronBombRoomEntity(NpcCharacter.CreateFromRecord(bomb.Owner.Database.BombRecord, AgesGameContent.AssetRoot),bomb.Owner,bomb.SubId),
         TargetCartDebrisSpawn debris => new TargetCartDebrisRoomEntity(NpcCharacter.CreateFromRecord(debris.Record, AgesGameContent.AssetRoot),debris.Position,debris.Direction,_runtimeState),
-        GoronMinecartSpawn cart => CreateMinecart(cart.Cart,room),
+        MinecartBodySpawn => CreateMinecartBody(room),
+        MinecartInteractionSpawn cart => new MinecartInteractionRoomEntity(cart, room,
+            _runtimeState, Resources.DungeonVisuals.Visual("minecart"), owner),
         InteractionExplosionSpawn explosion =>
             CreateInteractionExplosion(explosion),
         TingleBalloonExplosionSpawn explosion =>
@@ -3180,12 +3059,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             new TokayEntranceEyeRoomEntity(eye.Record),
         TokaySeedlingDecorationSpawn seedling =>
             new TokaySeedlingDecorationRoomEntity(seedling.Record),
-        EnemySplashSpawn splash => CreateEnemySplash(splash),
-        SideScrollBubbleSpawn bubble => new SideScrollBubbleRoomEntity(bubble.Position, room, _random, _runtimeState),
-        FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
-        DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
-        OverworldKeyUseSpawn key => CreateOverworldKeyUse(key),
-        EraInfoSpawn era => CreateEraInfo(era),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
         GroundTreasureGrantSpawn treasure =>
@@ -3207,9 +3080,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             CreateShootingGalleryBall(ball, room),
         ShootingGalleryTargetDebrisSpawn debris =>
             CreateShootingGalleryTargetDebris(debris),
-        SwordBeamSpawn beam => CreateSwordBeam(beam, room),
         FireballShooterChildSpawn shooter => shooter.Parent.CreateChild(shooter.Position, shooter.TimingIndex),
-        BeamosBeamSpawn beam => new BeamosBeamRoomEntity(new BeamosBeamPart(beam, Resources.BeamosBeam, room, _runtimeState)),
         SmogProjectileSpawn smog => CreateSmogProjectile(smog, room),
         OctogonPartSpawn shot => new OctogonPartRoomEntity(new OctogonPart(shot,room,_runtimeState,_random,
             slot => owner.ResolveEnemySlot(slot)?.Node.Visible == true,owner.TryCreatePart,owner.OnSoundRequested),owner.OnSoundRequested),
@@ -3220,9 +3091,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             new WizzrobeProjectile(enemies.WizzrobeProjectile, room, _runtimeState,
                 shot.Position, shot.Angle, shot.ZHigh), () => -owner.ToScreen(Vector2.Zero), owner.OnSoundRequested),
         LynelBeamSpawn shot => new LynelBeamRoomEntity(enemies.LynelBeam, shot, owner),
-        SwordBeamClinkSpawn clink => CreateSwordBeamClink(clink),
-        SwordWallClinkSpawn clink => CreateSwordWallClink(clink),
-        EnemyClinkSpawn clink => CreateEnemyClink(clink),
         StatueEyeballSpawn eye => CreateStatueEyeball(eye),
         MovingPlatformSpawn platform =>
             CreateMovingPlatform(platform),
@@ -3239,12 +3107,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             shutter.ClosedTile,
             oneShotOpener: true,
             room),
-        RickyCompanionSpawn ricky => CreateRicky(ricky, room),
-        RickyPunchAttackSpawn punch => CreateRickyPunch(punch, room),
-        RickyTornadoSpawn tornado => CreateRickyTornado(tornado, room),
-        RickyTileBreakSpawn tileBreak => CreateRickyTileBreak(tileBreak, room),
-        MooshCompanionSpawn moosh => CreateMoosh(moosh, room),
-        DimitriCompanionSpawn dimitri => CreateDimitri(dimitri, room),
         TokayRescueEmberSpawn ember => new TokayRescueEmberRoomEntity(ember,owner.IsTextActive),
         TokayAttachedVisualSpawn accessory => new TokayAttachedVisualRoomEntity(
             accessory.Parent, accessory.Record, accessory.Offset),
@@ -3255,154 +3117,29 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         CleansedFairySpawn fairy => new CleansedFairyRoomEntity(fairy.Data, fairy.Position, _runtimeState, owner.OnSoundRequested,
             message => owner.OnRoomEntityDialogueRequested(0x4109, message, fairy.Position),
             owner.TextActiveSource, owner.PaletteFadeActiveSource, fairy.Fade, fairy.Clean),
-        DimitriMouthSpawn mouth => new DimitriMouthRoomEntity(mouth,
-            CreateCompanionTileBreaker(mouth.Group, mouth.Room, room)),
-        MooshHoverExclamationSpawn exclamation =>
-            CreateMooshHoverExclamation(exclamation),
-        MooshStompAttackSpawn stomp => CreateMooshStomp(stomp, room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
 
-    private RickyCompanionRoomEntity CreateRicky(
-        RickyCompanionSpawn spawn,
-        OracleRoomData room) => new(
-            spawn,
-            room,
-            Resources.Ricky,
-            _saveData,
-            _runtimeState,
-            _random,
-            Resources.LedgeJumps,
-            owner.OnSoundRequested,
-            owner.OnRoomEntityDialogueRequested,
-            owner.IsTextActive);
-
-    private RickyPunchAttackRoomEntity CreateRickyPunch(
-        RickyPunchAttackSpawn spawn,
-        OracleRoomData room) => new(
-            spawn,
-            Resources.Ricky.Behavior,
-            CreateCompanionTileBreaker(spawn.Group, spawn.Room, room));
-
-    private RickyTornadoRoomEntity CreateRickyTornado(
-        RickyTornadoSpawn spawn,
-        OracleRoomData room) => new(
-            spawn,
-            Resources.Ricky.Behavior,
-            room,
-            CreateCompanionTileBreaker(spawn.Group, spawn.Room, room), owner.RuntimeState);
-
-    private RickyTileBreakRoomEntity CreateRickyTileBreak(
-        RickyTileBreakSpawn spawn,
-        OracleRoomData room) => new(
-            spawn,
-            CreateCompanionTileBreaker(spawn.Group, spawn.Room, room));
-
-    private CompanionAttackTileBreaker CreateCompanionTileBreaker(
-        int group,
-        int roomId,
-        OracleRoomData room)
-    {
-        int? LinkedNeighbor(Vector2I direction)
-        {
-            if (rooms is not null && rooms.TryGetNeighbor(
-                    group, roomId, direction, out int neighbor))
-            {
-                return neighbor;
-            }
-            return null;
-        }
-
-        return new CompanionAttackTileBreaker(
-            group,
-            room,
-            Resources.Breakables,
-            _saveData,
-            LinkedNeighbor,
-            owner.OnRoomTileChanged,
-            _animationTick,
-            owner.OnSoundRequested,
-            drop => _itemDrops.DecideBreakableDrop(
-                drop, _random, _inventory, _saveData));
-    }
-
     private void SpawnDimitriPreset(int group,OracleRoomData room)
     {
-        if(_saveData is null||!Resources.Dimitri.ShouldSpawnPreset(group,room.Id,_saveData)||CompanionRuntimeState.AnyActive(_runtimeState)||
-            owner.EntityAdapters<IRoomEntity>().Any(e=>e is not IRoomEntityLifetime{Finished:true}&&
-                e is IForestCompanion or MapleEncounterRoomEntity or MinecartRoomEntity{UsesSpecialObjectSlot:true} or RaftRoomEntity{UsesSpecialObjectSlot:true}))return;
-        Vector2 position=Resources.Dimitri.PresetPosition;
-        CompanionRuntimeState.InstallPreset(_runtimeState,_saveData,position);
-        var companion=CreateDimitri(new(position,ObjectDirection.Down,group,room.Id),room);
-        owner.InitializeCompanionRoomEntity(companion,room);owner.AddEntity(companion);
+        if(_saveData is null||!Resources.DimitriStory.ShouldSpawnPreset(group,room.Id,_saveData)||!owner.SpecialObjectSlotAvailable)return;
+        Vector2 position=Resources.DimitriStory.PresetPosition;
+        CompanionScripts.SpawnPreset(SpecialObjectId.Dimitri, position);
     }
-    private DimitriCompanionRoomEntity CreateDimitri(DimitriCompanionSpawn spawn, OracleRoomData room) =>
-        new(spawn, room, Resources.Dimitri, _saveData ?? throw new InvalidOperationException("Dimitri requires live save state."),
-            _runtimeState, owner.OnSoundRequested, owner.OnRoomEntityDialogueRequested, owner.IsTextActive,
-            destination => CreateCompanionTileBreaker(spawn.Group, destination.Id, destination),
-            nativeRescueScript:Resources.TokayDimitri.Matches(spawn.Group,room.Id)&&(_saveData.ReadWramByte(AgesWramAddress.wDimitriState)&0x20)==0);
-
-    private MooshCompanionRoomEntity CreateMoosh(
-        MooshCompanionSpawn spawn,
-        OracleRoomData room) => new(
-            spawn,
-            room,
-            Resources.Moosh,
-            _saveData,
-            _runtimeState,
-            owner.OnSoundRequested,
-            owner.OnRoomEntityDialogueRequested,
-            owner.IsTextActive,
-            owner.SetVerticalScreenShake,
-            destination => CreateCompanionTileBreaker(spawn.Group, destination.Id, destination));
-
-    private MooshHoverExclamationRoomEntity CreateMooshHoverExclamation(
-        MooshHoverExclamationSpawn spawn)
+    private IRoomEntity CreateDimitri(DimitriCompanionSpawn spawn, OracleRoomData room)
     {
-        MooshCompanionVisualRecord visual = Resources.Moosh.Visual;
-        Vector2 position = spawn.Position + new Vector2(
-            0,
-            (spawn.ZFixed >> 8) + visual.WaterExclamationZOffset);
-        NpcRecord record = Resources.Moosh.CreateExclamationRecord(
-            Mathf.RoundToInt(position.Y),
-            Mathf.RoundToInt(position.X));
-        var npc = new NpcCharacter
-        {
-            Name = "MooshHoverExclamation",
-            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
-        };
-        npc.Initialize(record, AgesGameContent.AssetRoot);
-        // mooshState8Substate1 allocates INTERAC_EXCLAMATION_MARK directly;
-        // it does not call the sound-producing objectCreateExclamationMark.
-        return new MooshHoverExclamationRoomEntity(
-            npc, visual.WaterHoverFrames);
+        _=_saveData??throw new InvalidOperationException("Dimitri requires live save state.");
+        // State0 samples live flags on its visit, never during construction.
+        if(!spawn.Riding && spawn.FluteDestination is null && _runtimeState.ReadWramByte(0xd104)==0)
+            return CompanionScripts.CreateBody(SpecialObjectId.Dimitri,spawn.Position);
+        return _common.TryCreate(spawn,room)??throw new InvalidOperationException("Common SPECIALOBJECT $0c binding is missing.");
     }
 
-    private MooshStompAttackRoomEntity CreateMooshStomp(
-        MooshStompAttackSpawn spawn,
-        OracleRoomData room)
+    private IRoomEntity CreateMoosh(MooshCompanionSpawn spawn, OracleRoomData room)
     {
-        int? LinkedNeighbor(Vector2I direction)
-        {
-            if (rooms is not null && rooms.TryGetNeighbor(
-                    spawn.Group, spawn.Room, direction, out int neighbor))
-            {
-                return neighbor;
-            }
-            return null;
-        }
-
-        return new MooshStompAttackRoomEntity(
-            spawn,
-            room,
-            Resources.Breakables,
-            _saveData,
-            LinkedNeighbor,
-            owner.OnRoomTileChanged,
-            _animationTick,
-            owner.OnSoundRequested,
-            drop => _itemDrops.DecideBreakableDrop(
-                drop, _random, _inventory, _saveData));
+        if (_runtimeState.ReadWramByte(0xd104) is 0 or 0x0a)
+            return CompanionScripts.CreateBody(SpecialObjectId.Moosh, spawn.Position);
+        return _common.TryCreate(spawn, room) ?? throw new InvalidOperationException("Common SPECIALOBJECT $0d binding is missing.");
     }
 
     private IRoomEntity CreateSeedOnTree(
@@ -3641,7 +3378,8 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             return new ForestHintFairyRoomEntity(NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot));
 
         if (record is { Id: AgesInteractionId.ForestFairy, SubId: >= 5 and <= 0x0d })
-            return new ForestNpcRoomEntity(NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot));
+            return new ForestNpcRoomEntity(NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot),
+                entity => owner.RefreshAgesNpcState([entity]));
         if (record is { Id: 0x5d, SubId: 2, Var03: 0 })
             return new WaitingNayruAnimalRoomEntity(NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot), owner,
                 Resources.SharedNpcs, _saveData ?? throw new InvalidOperationException("bear.s:$02 requires save state."));
@@ -3650,7 +3388,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             or { Id: 0x3c, SubId: 0x10 } or { Id: 0x39, SubId: 7, Var03: 1 }
             or { Id: 0x5d, SubId: 2, Var03: 1 } or { Id: 0x29, SubId: 0 }
             or { Id: 0x2e, SubId: 0 })
-            return new SharedScriptNpcRoomEntity(NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot), Resources.SharedNpcs, owner);
+            return new AgesScriptNpcRoomEntity(NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot), Resources.SharedNpcs, owner);
 
         if (record is { Id: AgesInteractionId.ImpaNpc, SubId: 1 })
         {
@@ -4303,24 +4041,29 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         }
 
         // The three $47 placements precede $46:$00 in mainData.s. Stock
-        // replacement can delete a placement, but surviving objects retain
-        // that source order.
+        // deletion and replacement run from the placement's state0 slot.
         Texture2D[]? priceDigits = null;
-        IReadOnlyList<StockRecord> stockRecords = database.ResolveStock(_saveData);
         diagnostics?.Mark("stock-selection");
-        foreach (StockRecord stock in stockRecords)
+        foreach (ItemRecord placement in database.Placements)
         {
             var item = new LynnaShopItem
             {
-                Name = $"ShopItem_{stock.Order}_{stock.Item.SubId:x2}",
+                Name = $"ShopItem_{placement.Order}_{placement.SubId:x2}", Visible = false,
                 ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
             };
+            item.Place(new(placement, placement.Order, placement.Y, placement.X));
             diagnostics?.Mark("node-construction");
-            priceDigits ??= LynnaShopItem.BuildPriceDigitTextures(room);
-            diagnostics?.Mark("digit-call");
-            item.Initialize(stock, room, priceDigits);
-            diagnostics?.Mark("initialize-call");
-            var entity = new LynnaShopItemRoomEntity(item);
+            var entity = new LynnaShopItemRoomEntity(item, _runtimeState, () =>
+            {
+                StockRecord? selected = database.ResolveStock(_saveData).Where(stock => stock.Order == placement.Order)
+                    .Select(stock => (StockRecord?)stock).SingleOrDefault();
+                if (selected is not { } stock) return false;
+                priceDigits ??= LynnaShopItem.BuildPriceDigitTextures(room);
+                item.Name = $"ShopItem_{stock.Order}_{stock.Item.SubId:x2}";
+                item.Initialize(stock, room, priceDigits);
+                item.Visible = true;
+                return true;
+            });
             diagnostics?.Mark("adapter-construction");
             yield return entity;
             diagnostics?.Mark("attachment");
@@ -4333,10 +4076,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         NpcCharacter shopkeeper = NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot);
         yield return new LynnaShopkeeperRoomEntity(shopkeeper, database);
 
-        // The final $71:$0c object is invisible and deletes itself after this
-        // one entry-side effect.
-        if (!database.Hidden && !database.Advance)
-            database.ApplyCompanionEntryState(_saveData);
     }
 
     private IEnumerable<IRoomEntity> CreateTokayShop(
@@ -4602,51 +4341,27 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         };
     }
 
-    private IRoomEntity CreateRock(OctorokRockSpawn spawn, OracleRoomData room)
-    {
-        var rock = new OctorokRockProjectile { Name = "OctorokRock", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
-        rock.Initialize(enemies.OctorokProjectile, room, spawn.Position, spawn.Angle);
-        return new PostObjectHostileProjectileRoomEntity<OctorokRockProjectile>(rock);
-    }
-
     private IRoomEntity CreateMaskedMoblin(
         MaskedMoblinSpawn spawn, OracleRoomData room)
     {
-        var moblin = new MaskedMoblinCharacter
+        var moblin = new ArrowMoblinCharacter
         {
             Name = "MaskedMoblin",
             ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
-        moblin.Initialize(enemies.MaskedMoblin, room, spawn.Position, _random);
+        moblin.Initialize(EnemyDefinitionDatabase.For(room.AssetRoot).Get(EnemyId.MaskedMoblin),
+            room, spawn.Position, _random);
         EnemyHandlerDescriptor handler = enemies.EnemyHandlers.ResolveHandler(
-            enemies.MaskedMoblin.Id,
-            enemies.MaskedMoblin.SubId,
+            EnemyId.MaskedMoblin,
+            0,
             "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere");
-        return new MaskedMoblinRoomEntity(
+        return new ArrowMoblinRoomEntity(
             moblin,
             handler.CombatSource(
                 objectFlags: 0,
                 killableEnemyIndex: 0,
                 source:
                     "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere"),
-            owner.OnSoundRequested);
-    }
-
-    private IRoomEntity CreateGhini(GhiniSpawn spawn, OracleRoomData room)
-    {
-        ImportedEnemyDefinition record = enemies.ImportedEnemy(EnemyId.Ghini, 0x00);
-        var ghini = new GhiniCharacter { Name = spawn.Name, ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
-        ghini.Initialize(record, room, spawn.Position, _random);
-        const string source =
-            "scripts/ages/scripts.s:ghiniHarassingMoosh_*:spawnenemyhere";
-        EnemyHandlerDescriptor handler = enemies.EnemyHandlers.ResolveHandler(
-            record.Id, record.SubId, source);
-        return new GhiniRoomEntity(
-            ghini,
-            handler.CombatSource(
-                objectFlags: 0,
-                killableEnemyIndex: 0,
-                source),
             owner.OnSoundRequested);
     }
 
@@ -4704,13 +4419,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         return new CuccoAttackerRoomEntity(attacker);
     }
 
-    private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
-    {
-        var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
-        arrow.Initialize(enemies.EnemyArrow, room, spawn.Position, spawn.Angle, spawn.SubId);
-        return new EnemyArrowRoomEntity(arrow);
-    }
-
     private IRoomEntity CreateStalfosBone(StalfosBoneSpawn spawn, OracleRoomData room)
     {
         var bone = new StalfosBoneProjectile { Name = "StalfosBone", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
@@ -4718,33 +4426,11 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         return new StalfosBoneRoomEntity(bone);
     }
 
-    private static IRoomEntity CreateBurningEnemy(BurningEnemySpawn spawn)
-    {
-        var part = new BurningEnemyPart { Name = "BurningEnemy", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
-        part.Initialize(AgesGameContent.AssetRoot, spawn.Target);
-        return new BurningEnemyRoomEntity(part);
-    }
-
     private IRoomEntity CreateKeeseFire(KeeseFireSpawn spawn)
     {
         var fire = new KeeseFirePart { Name = "KeeseFire", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
         fire.Initialize(AgesGameContent.AssetRoot, spawn.Position, spawn.ZHigh, owner.OnSoundRequested);
         return new KeeseFireRoomEntity(fire);
-    }
-
-    private bool WasKilledDuringPlacement(int index) =>
-        index != 0 && (_runtimeState.ReadWramByte(EnemyPlacementMemory.KilledEnemies) & (1 << index)) != 0;
-
-    private int NextKillableEnemyIndex(int flags)
-    {
-        // checkEnemyKilled is bypassed by object flag bit $01. Only the first
-        // seven checked objects receive an index in Enemy.enabled.
-        int count = _runtimeState.ReadWramByte(EnemyPlacementMemory.KillableCount);
-        if ((flags & 0x01) != 0 || count >= 7)
-            return 0;
-        count++;
-        _runtimeState.SetWramByte(EnemyPlacementMemory.KillableCount, (byte)count);
-        return count;
     }
 
     private IRoomEntity CreateRoom148Debris(Room148DebrisSpawn spawn)
@@ -4756,217 +4442,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         debris.Initialize(Resources.Room148.Record, spawn);
         return new AlwaysUpdateFixedEffectRoomEntityAdapter<Room148PickaxeDebris>(
             debris);
-    }
-
-    private static IRoomEntity CreateShovelDebris(ShovelDebrisSpawn spawn)
-    {
-        var debris = new ShovelDebrisEffect
-        {
-            Name = "ShovelDebris",
-            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
-        };
-        debris.Initialize(AgesGameContent.AssetRoot, spawn.Position, spawn.Direction);
-        return new DialogueFixedEffectRoomEntityAdapter<ShovelDebrisEffect>(
-            debris);
-    }
-
-    private IRoomEntity CreateGrassDebris(GrassDebrisSpawn spawn)
-    {
-        var debris = new GrassDebrisEffect
-        {
-            Name = spawn.InteractionId == InteractionId.RedGrassDebris
-                ? "RedGrassDebris"
-                : "GrassDebris",
-            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
-        };
-        debris.Initialize(AgesGameContent.AssetRoot,
-            spawn.Position,
-            spawn.InteractionId,
-            spawn.Flickers,
-            spawn.Underwater,
-            owner.OnSoundRequested);
-        return new GrassDebrisRoomEntity(debris);
-    }
-
-    private IRoomEntity CreateRockDebris(RockDebrisSpawn spawn)
-    {
-        var debris = new RockDebrisEffect
-        {
-            Name = spawn.InteractionId == InteractionId.RockDebris2
-                ? "RockDebris2"
-                : "RockDebris",
-            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
-        };
-        debris.Initialize(AgesGameContent.AssetRoot,
-            spawn.Position, spawn.InteractionId, owner.OnSoundRequested);
-        return new DialogueFixedEffectRoomEntityAdapter<RockDebrisEffect>(
-            debris);
-    }
-
-    private IRoomEntity CreateEmberSeed(EmberSeedSpawn spawn, OracleRoomData room)
-    {
-        var seed = new EmberSeedEffect
-        {
-            Name = spawn.Record.SeedItem switch
-            {
-                ItemId.EmberSeed => "EmberSeed",
-                ItemId.ScentSeed => "ScentSeed",
-                TreasureId.MysterySeeds => "MysterySeed",
-                _ => $"Seed_{spawn.Record.SeedItem:x2}"
-            },
-            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
-        };
-        int mysteryEffect =
-            spawn.Record.SeedItem == TreasureId.MysterySeeds
-                ? _random.Next().Value & 0x03
-                : 0;
-        seed.Initialize(
-            spawn.Record, room, Resources.Breakables, spawn.LinkPosition, spawn.Direction,
-            owner.OnSoundRequested, owner.OnItemDropEnteredHazard, owner.OnRoomTileChanged, _animationTick,
-            drop => _itemDrops.DecideBreakableDrop(
-                drop, _random, _inventory, _saveData), _saveData,
-            spawn.Group,
-            rooms is null
-                ? null
-                : direction => rooms.TryGetNeighbor(
-                    spawn.Group, room.Id, direction, out int neighbor)
-                    ? neighbor
-                    : null,
-            mysteryEffect,
-            owner.OnObjectFellInHole,
-              spawn.LaunchKind,
-              spawn.Angle,
-              spawn.LinkZFixed);
-        return new EmberSeedRoomEntity(seed);
-    }
-
-    private IRoomEntity CreateBomb(BombSpawn spawn, OracleRoomData room)
-    {
-        if (_inventory is null)
-        {
-            throw new InvalidOperationException(
-                "ITEM_BOMB cannot be allocated without live inventory state.");
-        }
-        var bomb = new BombEffect
-        {
-            Name = "Bomb",
-            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
-        };
-        bomb.Initialize(
-            spawn.Record,
-            room,
-            Resources.Breakables,
-            spawn.Player,
-            spawn.Group,
-            spawn.HeldExplosion,
-            owner.OnSoundRequested,
-            (position, hazard, kind) =>
-            {
-                // bombs.s:bombUpdateThrowingVerticallyAndCheckDelete writes
-                // this signal for any landed hazard, after the room-boundary check.
-                if (owner.ActiveRoom.Group == 0 && owner.ActiveRoom.Id == 0x50)
-                    _runtimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 1);
-                if (hazard is HazardType.Water or HazardType.Lava)
-                    owner.OnItemDropEnteredHazard(position, hazard);
-                else if (hazard == HazardType.Hole)
-                    owner.OnObjectFellInHole(kind);
-            },
-            owner.OnRoomTileChanged,
-            _animationTick,
-            drop => _itemDrops.DecideBreakableDrop(
-                drop, _random, _inventory, _saveData),
-            _saveData,
-            rooms is null
-                ? null
-                : direction => rooms.TryGetNeighbor(
-                    owner.ActiveRoom.Group, owner.ActiveRoom.Id, direction, out int neighbor)
-                    ? neighbor
-                    : null);
-        return new BombRoomEntity(bomb);
-    }
-
-    private IRoomEntity CreateBombchu(BombchuSpawn spawn, OracleRoomData room)
-    {
-        var item = new BombchuItem { Name = "Bombchu", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
-        item.Initialize(item.ExplosionRecord, room, Resources.Breakables, spawn.Player, spawn.Group,
-            _ => throw new InvalidOperationException("ITEM$0d cannot enter a held-Bomb explosion path."),
-            owner.OnSoundRequested, (_, _, _) => throw new InvalidOperationException("ITEM$0d uses its common item-hazard caller."),
-            owner.OnRoomTileChanged, _animationTick,
-            drop => _itemDrops.DecideBreakableDrop(drop, _random,
-                _inventory ?? throw new InvalidOperationException("ITEM$0d requires live inventory."), _saveData),
-            _saveData, rooms is null ? null : direction => rooms.TryGetNeighbor(spawn.Group, room.Id, direction, out int neighbor) ? neighbor : null);
-        item.Configure(room, spawn.Player, owner, spawn.Group, spawn.Position, spawn.ZFixed);
-        return new BombchuRoomEntity(item);
-    }
-
-    private IRoomEntity CreateSwordBeam(
-        SwordBeamSpawn spawn, OracleRoomData room)
-    {
-        var beam = new SwordBeamEffect
-        {
-            Name = "SwordBeam",
-            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
-        };
-        beam.Initialize(
-            Resources.SwordBeam, room, spawn.LinkPosition, spawn.Direction,
-            owner.ToScreen, owner.OnSoundRequested);
-        return new SwordBeamRoomEntity(beam);
-    }
-
-    private static IRoomEntity CreateSwordBeamClink(SwordBeamClinkSpawn spawn)
-    {
-        var clink = new ClinkEffect
-        {
-            Name = "SwordBeamClink",
-            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
-        };
-        // Subid $81 requests the flickering variant; unlike sword-on-wall
-        // clinks, the beam collision does not play a second sound.
-        clink.Initialize(AgesGameContent.AssetRoot, spawn.Position, flickers: true);
-        clink.SetPhysicsProcess(false);
-        return new SwordBeamClinkRoomEntity(clink);
-    }
-
-    private IRoomEntity CreateSwordWallClink(SwordWallClinkSpawn spawn)
-    {
-        var clink = new ClinkEffect { Name = "SwordWallClink", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
-        clink.Initialize(AgesGameContent.AssetRoot, spawn.Position, spawn.Flickers,spawn.ZHigh);
-        // Ordinary subid$01 plays its sound in state0; bombable subid$80
-        // suppresses it because the item caller already played SND_CLINK2.
-        return new SwordBeamClinkRoomEntity(clink, spawn.Flickers
-            ? () => owner.OnSoundRequested(SoundId.SndClink) : null);
-    }
-
-    private IRoomEntity CreateEnemyClink(EnemyClinkSpawn spawn)
-    {
-        var clink = new ClinkEffect
-        {
-            Name = "EnemyClink",
-            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
-        };
-        clink.Initialize(AssetRoot, spawn.Position, flickers: false, spawn.ZHigh);
-        clink.SetPhysicsProcess(false);
-        if (!spawn.InitializeOnUpdate) owner.OnSoundRequested(SoundId.SndClink);
-        else clink.Visible = false;
-        return new SwordBeamClinkRoomEntity(clink, spawn.InitializeOnUpdate
-            ? () => owner.OnSoundRequested(SoundId.SndClink) : null);
-    }
-
-    private IRoomEntity CreatePuzzlePuff(PuzzlePuffSpawn spawn)
-    {
-        var puff = new PuzzlePuffEffect
-        {
-            Name = "PuzzlePuff",
-            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
-        };
-        puff.Initialize(AgesGameContent.AssetRoot,
-            spawn.Position,
-            spawn.Sound,
-            spawn.Flickers,
-            owner.OnSoundRequested,
-            spawn.ZHigh,
-            spawn.AlwaysUpdates);
-        return new PuzzlePuffRoomEntity(puff);
     }
 
     private IRoomEntity CreateInteractionExplosion(
@@ -5019,79 +4494,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 return rooms.TrySetTile(position,tile);
             });
 
-    private IRoomEntity CreateEnemySplash(EnemySplashSpawn spawn)
-    {
-        if (spawn.Hazard is not (HazardType.Water or HazardType.Lava))
-        {
-            throw new InvalidOperationException(
-                $"Enemy splash cannot represent hazard {spawn.Hazard}.");
-        }
-        var effect = new SplashEffect
-        {
-            Name = spawn.Hazard == HazardType.Lava
-                ? "EnemyLavaSplash"
-                : "EnemyWaterSplash",
-            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex // breakTileDebris.s: $03/$04 -> priority3.
-        };
-        effect.InitializeNative(AgesGameContent.AssetRoot,
-            spawn.Position,
-            spawn.Hazard,
-            owner.OnSoundRequested);
-        effect.SetPhysicsProcess(false);
-        return new NativeSplashRoomEntity(effect);
-    }
 
-    private IRoomEntity CreateFallingDownHole(FallingDownHoleSpawn spawn)
-    {
-        var effect = new FallingDownHoleEffect
-        {
-            Name = "FallingDownHole",
-            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex // fallDownHole.s: visible83.
-        };
-        effect.Initialize(AgesGameContent.AssetRoot, spawn.Position, owner.OnSoundRequested, spawn.Silent);
-        return new FallingDownHoleRoomEntity(effect);
-    }
-
-    private IRoomEntity CreateDungeonKeyUse(DungeonKeyUseSpawn spawn)
-    {
-        var effect = new DungeonKeyUseEffect
-        {
-            Name = "DungeonKeyUse",
-            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex // dungeonKeySprite.s: visible80.
-        };
-        effect.Initialize(spawn.Position, spawn.Visual,
-            () => owner.OnSoundRequested(SoundId.SndGetSeed));
-        return new DungeonKeyUseRoomEntity(effect);
-    }
-
-    private static IRoomEntity CreateOverworldKeyUse(OverworldKeyUseSpawn spawn)
-    {
-        var effect = new OverworldKeyUseEffect
-        {
-            Name = "OverworldKeyUse",
-            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex // overworldKeySprite.s: visible80.
-        };
-        effect.Initialize(spawn.Position, spawn.Visual, spawn.Constants);
-        return new DialogueFixedEffectRoomEntityAdapter<OverworldKeyUseEffect>(
-            effect);
-    }
-
-    private static IRoomEntity CreateEraInfo(EraInfoSpawn spawn)
-    {
-        var display = new EraInfoDisplay();
-        display.Initialize(spawn.Record);
-        return new EraInfoRoomEntity(display);
-    }
-
-    private IRoomEntity CreateDeathPuff(EnemyDeathPuffSpawn spawn)
-    {
-        var puff = new EnemyDeathPuffEffect { Name = "EnemyDeathPuff", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
-        puff.Initialize(AgesGameContent.AssetRoot, spawn.Position, spawn.HighKnockback, spawn.EnemyId, spawn.ZHigh);
-        owner.OnSoundRequested(SoundId.SndKillEnemy);
-        return new DeathPuffRoomEntity(
-            puff, _itemDrops, _random, _inventory, _saveData,
-            spawn.DecrementsRoomCount, spawn.DropsItem);
-    }
 
     private IRoomEntity CreateBossDeathExplosion(BossDeathExplosionSpawn spawn)
     {
@@ -5137,55 +4540,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         return new BossShadowRoomEntity(shadow);
     }
 
-    private IRoomEntity CreateKillPuff(KillEnemyPuffSpawn spawn)
-    {
-        var puff = new KillEnemyPuffEffect { Name = "KillEnemyPuff", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
-        puff.Initialize(AgesGameContent.AssetRoot, spawn.Position, () => owner.OnSoundRequested(SoundId.SndKillEnemy), spawn.ZHigh);
-        return new KillPuffRoomEntity(puff);
-    }
-
-    private IRoomEntity CreateItemDrop(ItemDropSpawn spawn, OracleRoomData room)
-    {
-        ItemDropEffect drop = CreateItemDropEffect(spawn, room);
-        return new ItemDropRoomEntity(drop, owner.OnItemDropEnteredHazard);
-    }
-
-    private ItemDropEffect CreateItemDropEffect(
-        ItemDropSpawn spawn,
-        OracleRoomData room)
-    {
-        var drop = new ItemDropEffect
-        {
-            Name = $"ItemDrop_{spawn.SubId:x2}",
-            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
-        };
-        int treasure = ItemDropDatabase.TreasureForDrop(spawn.SubId);
-        int collectionSound = treasure == TreasureId.None
-            ? SoundId.MusNone
-            : _treasures.GetBehaviour(treasure).Sound;
-        drop.Initialize(
-            spawn.SubId, spawn.Position, room, _itemDrops.GetVisual(spawn.SubId),
-            spawn.Angle, spawn.DugUp, owner.OnSoundRequested, collectionSound,
-            _itemDrops, _random, owner.MaplePresent, owner.SpawnDiggingEnemy, spawn.ZHigh);
-        drop.InvincibilityCounter = spawn.InvincibilityCounter;
-        return drop;
-    }
-
-    internal IRoomEntity CreateDiggingEnemy(EnemyCombatSourceDescriptor source,
-        Vector2 position, OracleRoomData room, byte[] beetleCounters)
-    {
-        ImportedEnemyDefinition record = enemies.ImportedEnemy(source.Id, source.SubId);
-        if (source.Id == EnemyId.Rope)
-        {
-            var rope = new RopeCharacter { Name = $"DugRope_{source.SubId:x2}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
-            rope.Initialize(record, room, position, _random, owner.OnSoundRequested);
-            return new RopeRoomEntity(rope, source, owner.OnSoundRequested);
-        }
-        var beetle = new BeetleCharacter { Name = $"DugBeetle_{source.SubId:x2}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
-        beetle.Initialize(record, room, position, _random, beetleCounters, owner.OnSoundRequested);
-        return new BeetleRoomEntity(beetle, source, owner.OnSoundRequested);
-    }
-
     private static IRoomEntity CreateCutsceneNpc(CutsceneNpcSpawn spawn)
     {
         RequireNpcImplementation(
@@ -5212,7 +4566,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         // newborn allocated below the live interaction cursor waits one pass.
         treasure.Visible = false;
         return new GroundTreasureRoomEntity(
-            treasure, owner.CanCollectGroundTreasure,
+            treasure, _runtimeState, _treasures!.GetObject(record.TreasureObject).TreasureId,0,owner.CanCollectGroundTreasure,
             owner.OnGroundTreasureCollected);
     }
 
@@ -5488,21 +4842,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         return new TimePortalRoomEntity(portal, owner.OnTimePortalEntered);
     }
 
-    private bool RoomObjectConditionMet(
-        RoomObjectRecord record,
-        int group,
-        OracleRoomData room)
-    {
-        int stateModifier = (room.TilesetFlags & (int)TilesetFlags.Underwater) != 0 ? 1 : 0;
-        if (_saveData?.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlagLayoutSwap) == true)
-            stateModifier++;
-        // roomInitialization.s:calculateRoomStateModifier uses the selected
-        // companion for pack $7f, with the standard branch for value $00.
-        int companion = _saveData?.ReadWramByte(AgesWramAddress.wAnimalCompanion) ?? 0;
-        if (room.IsCompanionRegion && companion != 0) stateModifier = companion - 0x0b;
-        return (record.ConditionMask & (1 << stateModifier)) != 0;
-    }
-
     private static Vector2 PointForPackedPosition(int position) => new(
         (position & 0x0f) * OracleRoomData.MetatileSize + 8,
         (position >> 4) * OracleRoomData.MetatileSize + 8);
@@ -5512,7 +4851,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         foreach (RoomObjectRecord source in
             enemies.GetRoomObjects(group, room.Id))
         {
-            if (!RoomObjectConditionMet(source, group, room))
+            if (!owner.RoomObjectConditionMet(source))
                 continue;
             // objectData flags bit $02 calls decEnemyCounterIfApplicable
             // immediately after allocation, so an omitted count-exempt enemy
@@ -5604,179 +4943,29 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         return hasEnemyCountConsumer && DungeonEnemyCountIsComplete(group, room);
     }
 
-    public IEnumerable<IRoomEntity> ParseRandomEnemies(RoomObjectRecord source,OracleRoomData room,
-        EnemyPlacementContext placementContext,EnemyPlacementReservations? reservations = null)
+    public IRoomEntity CreatePlacedPart(RoomObjectRecord source, OracleRoomData room)
     {
-        if (source.Kind != RoomObjectKind.RandomEnemy)
-            throw new InvalidOperationException($"{source.Source}: expected a random-enemy row.");
-        reservations ??= new EnemyPlacementReservations(_runtimeState);
-        var handler = enemies.EnemyHandlers.Resolve(source).RequireEnemyHandler(source);
-        for (int instance = 0; instance < source.Count; instance++)
+        if (source.Kind!=RoomObjectKind.ReservingPart)
+            throw new NotSupportedException($"{source.Source}: parameter PART ${source.Id:x2}:${source.SubId:x2} has no construction binding.");
+        Vector2 position=PointForPackedPosition(source.PackedPosition);
+        return source.Id switch
         {
-            int index = NextKillableEnemyIndex(source.Flags);
-            if (WasKilledDuringPlacement(index)) continue;
-            int slot = owner.FindFreeEnemySlot();
-            if (slot < 0) yield break;
-            if (!TryChooseRandomEnemyPosition(room,source.Flags,reservations,placementContext,out var position))
-            {
-                // US objectDataOp6 leaves the counted allocation behind.
-                owner.RetainFailedPlacementCount(source.Flags);
-                continue;
-            }
-            var entity = EnemyFactory.CreateOrderedEnemy(handler,source,room,position,instance,index,placementContext);
-            owner.RegisterEnemySlot(entity,slot);
-            if (entity is not null) yield return entity;
-        }
-    }
-
-    private bool TryChooseRandomEnemyPosition(
-        OracleRoomData room,
-        int flags,
-        EnemyPlacementReservations reservations,
-        EnemyPlacementContext placementContext,
-        out Vector2 position)
-    {
-        _runtimeState.SetWramByte(EnemyPlacementMemory.AttemptsRemaining, 0x40);
-        while (true)
-        {
-            // getRandomPositionForEnemy decrements before asking its inner
-            // candidate loop. Boundary/reservation retries consume cursor
-            // bytes, not additional attempts. The final zero update gives up.
-            byte attempts = unchecked((byte)(_runtimeState.ReadWramByte(EnemyPlacementMemory.AttemptsRemaining) - 1));
-            _runtimeState.SetWramByte(EnemyPlacementMemory.AttemptsRemaining, attempts);
-            if (attempts == 0) break;
-            int packed, tileY, tileX;
-            while (true)
-            {
-                packed = _random.NextPlacementValue();
-                tileY = packed >> 4;
-                tileX = packed & 0x0f;
-                bool validBoundary = room.Group < 4
-                    ? tileY < OracleRoomData.ViewportHeight / OracleRoomData.MetatileSize &&
-                        tileX < OracleRoomData.ViewportWidth / OracleRoomData.MetatileSize
-                    : tileY > 0 && tileY < room.HeightInTiles - 1 &&
-                        tileX > 0 && tileX < room.WidthInTiles - 1;
-                if (validBoundary && !reservations.Contains(packed)) break;
-            }
-            _runtimeState.SetWramByte(EnemyPlacementMemory.Position, (byte)packed);
-            if (!placementContext.Allows(room, packed))
-                continue;
-
-            position = new Vector2(
-                tileX * OracleRoomData.MetatileSize + 8,
-                tileY * OracleRoomData.MetatileSize + 8);
-            if ((flags & 0x04) == 0 && !Resources.EnemySpawnTiles.IsValid(
-                room.ActiveCollisions, room.GetTerrainInfo(position)))
-                continue;
-            reservations.Add(packed);
-            return true;
-        }
-        position = Vector2.Zero;
-        return false;
-    }
-}
-
-internal enum EnemyPlacementEntryKind
-{
-    Unrestricted,
-    Scrolling,
-    Warp,
-    ScreenWarp
-}
-
-/// <summary>
-/// Inputs consumed by checkPositionValidForEnemySpawn. Ordinary scrolling
-/// excludes the three metatile rows or columns at Link's incoming edge; a
-/// packed warp destination excludes the surrounding 5x5-metatile square.
-/// Scrolling also retains Link's final packed position for the destination
-/// room's replaceShutterForLinkEntering pass.
-/// </summary>
-internal readonly record struct EnemyPlacementContext(
-    EnemyPlacementEntryKind Kind,
-    Vector2I ScrollDirection,
-    int WarpDestination,
-    int EntryPackedPosition)
-{
-    internal Vector2I BossEntryDirection => Kind == EnemyPlacementEntryKind.Scrolling
-        ? ScrollDirection : Vector2I.Zero;
-
-    internal static EnemyPlacementContext Unrestricted => new(
-        EnemyPlacementEntryKind.Unrestricted, Vector2I.Zero, -1, -1);
-
-    internal static EnemyPlacementContext Scrolling(
-        Vector2I direction,
-        int entryPackedPosition = -1)
-    {
-        if (direction != Vector2I.Up && direction != Vector2I.Right &&
-            direction != Vector2I.Down && direction != Vector2I.Left)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(direction), direction, "Scroll direction must be cardinal.");
-        }
-        if (entryPackedPosition is < -1 or >= 0xf0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(entryPackedPosition), entryPackedPosition,
-                "A scrolling entry position must be a packed position below `$f0.");
-        }
-        return new EnemyPlacementContext(
-            EnemyPlacementEntryKind.Scrolling, direction, -1, entryPackedPosition);
-    }
-
-    internal static EnemyPlacementContext Warp(int packedDestination)
-    {
-        if (packedDestination is < 0 or >= 0xf0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(packedDestination), packedDestination,
-                "A direct warp destination must be a packed position below `$f0.");
-        }
-        return new EnemyPlacementContext(
-            EnemyPlacementEntryKind.Warp, Vector2I.Zero, packedDestination, -1);
-    }
-
-    internal static EnemyPlacementContext FromWarpDestination(int packedDestination) =>
-        packedDestination >= 0xf0
-            ? new EnemyPlacementContext(
-                EnemyPlacementEntryKind.ScreenWarp, Vector2I.Up, packedDestination, -1)
-            : Warp(packedDestination);
-
-    internal bool Allows(OracleRoomData room, int packedPosition)
-    {
-        int tileY = packedPosition >> 4;
-        int tileX = packedPosition & 0x0f;
-        return Kind switch
-        {
-            EnemyPlacementEntryKind.Unrestricted => true,
-            EnemyPlacementEntryKind.Warp =>
-                Math.Abs(tileY - (WarpDestination >> 4)) >= 3 ||
-                Math.Abs(tileX - (WarpDestination & 0x0f)) >= 3,
-            EnemyPlacementEntryKind.Scrolling or EnemyPlacementEntryKind.ScreenWarp =>
-                AllowsScrolling(room, tileX, tileY),
-            _ => throw new ArgumentOutOfRangeException(nameof(Kind), Kind, null)
+            PartId.OwlStatue => new OwlStatueRoomEntity(source,Resources.OwlStatues.Record(source.SubId),room,
+                owner.OnOwlStatueMessageRequested,owner.TryCreateOwlSparkle,_animationTick),
+            PartId.WallArrowShooter => new WallArrowShooterRoomEntity(source,owner.TryCreateWallArrow),
+            0x45 => new FallingBoulderRoomEntity(new FallingBoulder(source.SubId,position,
+                Resources.FallingBoulders,_random,owner.OnSoundRequested,room,owner.ToScreen)),
+            0x59 => new BlackTowerFlameRoomEntity(owner,Resources.BlackTowerFlames,source.SubId,position),
+            PartId.FallingFire => new FallingFireRoomEntity(owner,Resources.PlacedParts,source.SubId,position),
+            PartId.SmallFairy => new SmallFairyRoomEntity(owner,Resources.PlacedParts,position),
+            _ => throw new NotSupportedException($"{source.Source}: unsupported placed PART ${source.Id:x2}:${source.SubId:x2}.")
         };
     }
 
-    private bool AllowsScrolling(OracleRoomData room, int tileX, int tileY)
-    {
-        bool small = room.Group < 4;
-        int minimumY = small ? 0 : 1;
-        int maximumY = small ? room.HeightInTiles : room.HeightInTiles - 1;
-        int minimumX = small ? 0 : 1;
-        int maximumX = small ? room.WidthInTiles : room.WidthInTiles - 1;
+    public IRoomEntity? CreatePlacedEnemy(EnemyHandlerDescriptor handler, RoomObjectRecord source,
+        OracleRoomData room, Vector2 position, int instance, int killableIndex, EnemyPlacementContext placement) =>
+        EnemyFactory.CreateOrderedEnemy(handler,source,room,position,instance,killableIndex,placement);
 
-        if (ScrollDirection == Vector2I.Up)
-            maximumY = room.HeightInTiles - 3;
-        else if (ScrollDirection == Vector2I.Right)
-            minimumX = 3;
-        else if (ScrollDirection == Vector2I.Down)
-            minimumY = 3;
-        else
-            maximumX = small ? room.WidthInTiles - 3 : room.WidthInTiles - 4;
-
-        return tileY >= minimumY && tileY < maximumY &&
-            tileX >= minimumX && tileX < maximumX;
-    }
 }
 
 internal sealed record BossDeathExplosionSpawn(Vector2 Position, int BossId, int ZHigh = 0,int? NativeSubid=null)
@@ -5798,43 +4987,13 @@ internal sealed record CutsceneNpcSpawn(
     bool Solid = false)
     : RoomEntitySpawn;
 
-internal sealed record DungeonKeyUseSpawn(
-    Vector2 Position,
-    TreasureObjectVisualRecord Visual) : RoomEntitySpawn;
 
-internal sealed record EmberSeedSpawn(
-    Vector2 LinkPosition,
-    Vector2I Direction,
-    SeedRecord Record,
-    int Group,
-    SeedLaunchKind LaunchKind = SeedLaunchKind.Satchel,
-    int Angle = ObjectAngle.Up,
-    int LinkZFixed = 0)
-    : RoomEntitySpawn;
 
-internal enum SeedLaunchKind
-{
-    Satchel,
-    Shooter
-}
 
-internal sealed record BombSpawn(
-    Player Player,
-    BombRecord Record,
-    int Group,
-    Action<BombEffect> HeldExplosion)
-    : RoomEntitySpawn;
 
-internal sealed record BombchuSpawn(Player Player, int Group, Vector2 Position, int ZFixed) : RoomEntitySpawn;
 
-internal sealed record SwordBeamClinkSpawn(Vector2 Position)
-    : RoomEntitySpawn;
 
-internal sealed record SwordWallClinkSpawn(Vector2 Position, bool Flickers,int ZHigh=0)
-    : RoomEntitySpawn;
 
-internal sealed record EnemyClinkSpawn(Vector2 Position, bool InitializeOnUpdate = false, int ZHigh = 0)
-    : RoomEntitySpawn;
 
 internal sealed record CuccoAttackerSpawn(int HitCount)
     : RoomEntitySpawn(UpdateThisFrame: true);
@@ -5850,30 +5009,12 @@ internal sealed record MinibossPortalSpawn : RoomEntitySpawn;
 internal sealed record SubterrorDirtSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal sealed record ShovelDebrisSpawn(Vector2 Position, Vector2I Direction)
-    : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal sealed record GrassDebrisSpawn(
-    Vector2 Position,
-    int InteractionId = InteractionId.GrassDebris,
-    bool Flickers = false,
-    bool Underwater = false)
-    : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal sealed record RockDebrisSpawn(
-    Vector2 Position,
-    int InteractionId = InteractionId.RockDebris)
-    : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal sealed record PuzzlePuffSpawn(
-    Vector2 Position,
-    int Sound,
-    bool Flickers = false,
-    int ZHigh = 0,
-    bool AlwaysUpdates = true)
-    : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal sealed record BoomerangSpawn(Vector2 Position, int Angle, int ZHigh = 0) : RoomEntitySpawn;
+
+
 
 internal sealed record PumpkinHeadProjectileSpawn(Vector2 Position, int Angle, int SubId = 0, int ZHigh = 0)
     : RoomEntitySpawn;
@@ -5891,19 +5032,8 @@ internal sealed record HeadThwompBoulderSpawn()
 internal sealed record HeadThwompBombDropSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal sealed record OverworldKeyUseSpawn(
-    Vector2 Position,
-    OverworldKeyholeDatabaseRecord Visual,
-    ConstantsRecord Constants) : RoomEntitySpawn;
-
-internal sealed record EraInfoSpawn(EraInfoDatabaseRecord Record)
-    : RoomEntitySpawn;
-
 internal sealed record MaskedMoblinSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);
-
-internal sealed record GhiniSpawn(Vector2 Position, string Name)
-    : RoomEntitySpawn;
 
 internal sealed record ArmosSpawn(Vector2 Position, int ReplacementTile)
     : RoomEntitySpawn(UpdateThisFrame: true);

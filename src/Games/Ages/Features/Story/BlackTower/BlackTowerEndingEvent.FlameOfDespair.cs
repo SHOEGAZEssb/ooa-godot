@@ -54,7 +54,7 @@ internal sealed partial class BlackTowerEndingEvent
             case 6:if(DespairDelay(text:true))DespairText(0x2828,60);return;
             case 7:if(DespairDelay(text:true)){Write(0xcbc1,8);Write(0xcbb3,180);}return;
             case 8:
-                DespairShake();if(((context.Entities.FrameCounter+1)&15)==0)context.Sound.PlayNativeSound(SoundId.SndRumble2);
+                DespairShake();if((context.Entities.FrameCounter&15)==0)context.Sound.PlayNativeSound(SoundId.SndRumble2);
                 if(!DespairDelay())return;
                 context.Sound.PlayNativeSound(SoundId.SndCtrlStopSfx);context.Sound.PlayNativeSound(SoundId.SndCtrlMediumFadeOut);
                 Write(0xcbc1,9);context.Transitions.BeginNativeWhiteFade(true,delay:4);return;

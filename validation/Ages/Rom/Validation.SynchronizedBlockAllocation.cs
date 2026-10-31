@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             FailIf(new[] { 0x35,0x43,0x56 }.Any(position => _currentRoom.Layout[position] != 0x2e),
                 "Source room049b.bin must retain its three blue blocks$35/$43/$56.");
             var sounds = _sound.AttachPlayRequestAudit(); int update = 0;
-            var fillers = new List<(PuzzlePuffEffect Effect,int Slot)>();
+            var fillers = new List<(StationaryDebrisEffect Effect,int Slot)>();
             void Step(int count = 1,bool push = false) => StepSomariaMotionRom(rom,count,batch,push ? 16 : 0xff,afterUpdate:() => {
                 rom.AdvanceTileGraphics();
                 string context = $"Synchronized capacity free={free}, batch={batch}, update={++update}";
@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
             // allocation/deletion; no reflected pool entries or fake timers.
             for (int index = 0; index < 13-free; index++)
             {
-                var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200,120),SoundId.MusNone));
+                var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200,120),SoundId.MusNone));
                 int slot = 0xd000+_entities.InteractionSlot(puff)*256+0x40;
                 int linkX = rom.Word(0xd00c),linkY = rom.Word(0xd00a);
                 rom.Word(0xd00c,200*256); rom.Word(0xd00a,120*256); rom[0xffae] = 0;

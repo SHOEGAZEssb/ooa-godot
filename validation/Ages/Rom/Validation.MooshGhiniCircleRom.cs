@@ -20,6 +20,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(0xc6bf, 2); _saveData.SetRoomFlag(1, 0x79, 0x40, true);
             _saveData.WriteWramByte(0xc648, 0); _inventory.LoseTreasure(0x52);
             LoadValidationRoom(0, 0x6c);
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched); // Complete each placed source state0 before selecting a script cursor.
             var owner = _roomEvents.Get<MooshRescueEvent>();
             string name = $"Ghini{subId}";
             var commands = subId == 0 ? owner.Database.Ghini0 : subId == 1 ? owner.Database.Ghini1 : owner.Database.Ghini2;
@@ -28,10 +29,10 @@ public sealed partial class ValidationRoot
                 .ElementAt(circle).index;
             var lanes = SomariaPrivate<CutsceneCommandLaneScheduler>(owner, "_lanes");
             lanes.Clear();
-            // Retain the production callback when the native mover is independent
-            // of script dispatch. Reflection only selects this declared lane.
-            var mover = typeof(MooshRescueEvent).GetMethod("AdvanceGhiniCircle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            lanes.StartLane(name, commands, firstCommand: first, beforeAdvance: () => mover?.Invoke(owner, [name]));
+            foreach (var entity in _entities.EntityAdapters<IRoomEntity>().Where(entity =>
+                entity is MooshRescueControllerRoomEntity || entity is MooshRescueGhiniRoomEntity ghini && ((NpcCharacter)ghini.Node).Record.SubId != subId).ToArray())
+                _entities.RetireEntity(entity);
+            lanes.StartLane(name, commands, firstCommand: first);
             var actor = SomariaPrivate<Dictionary<string, NpcCharacter>>(owner, "_actors")[name];
             var positions = SomariaPrivate<Dictionary<string, OracleObjectPosition>>(owner, "_positions");
             positions[name] = OracleObjectMovement.Shared.PositionFromPixels(new(88.25f, 48.5f));

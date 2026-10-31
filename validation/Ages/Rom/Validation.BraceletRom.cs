@@ -90,13 +90,15 @@ public sealed partial class ValidationRoot
         int update = 0;
         string button = primary ? "attack" : "item";
         string other = primary ? "item" : "attack";
-        string[] heldActions = held ? [button] : [];
+        var heldActions = new System.Collections.Generic.List<string>();
+        if (held || pressed) heldActions.Add(button);
+        if (otherPressed) heldActions.Add(other);
         string[] pressedActions = pressed ? [button] : otherPressed ? [other] : [];
         StepGameplayUpdates(count, angle == 0xff ? Vector2.Zero : OracleObjectMath.StrictCardinalVector(angle),
-            heldActions, pressedActions, batched, afterUpdate: () =>
+            heldActions.ToArray(), pressedActions, batched, afterUpdate: () =>
             {
                 bool wasThrown = rom.ChildActive && rom[0xdc04] == 3;
-                rom.Update(angle, held, pressed && update == 0, primary, moveLink, otherPressed && update == 0);
+                rom.Update(angle, held || pressed, pressed && update == 0, primary, moveLink, otherPressed && update == 0);
                 CompareBraceletRom(rom, $"Bracelet batch={batched}, angle=${angle:x2}, update={update++}");
                 if (wasThrown && !rom.ChildActive)
                     CompareBraceletImpactRom(rom, $"Bracelet impact angle=${angle:x2}, update={update}");

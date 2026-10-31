@@ -22,8 +22,7 @@ public sealed partial class ValidationRoot
             _runtimeState.SetWramByte(0xcc8a,1);_runtimeState.SetWramByte(0xcd00,0);
             var native=new SomariaRom(_saveData,_random.CaptureState(),_currentRoom,0,120,80)
                 {CompanionDispatchEnabled=true};native.InitializeLinkGameplay();native[0xcc8a]=1;native[0xcd00]=0;
-            // This grouped event does not yet represent the nut's physical
-            // allocation. Declare source slot$d2 for this movement boundary.
+            FailIf(_entities.NativeInteractionSlot(nut) != 2, "Placed $b1 must occupy source slot$d2 before both sisters.");
             const int at=0xd240;
             native[at]=1;native[at+1]=0xb1;native[at+4]=3;native[at+5]=2;
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));native.Word(at+14,0xf000);
@@ -37,12 +36,13 @@ public sealed partial class ValidationRoot
                 armed=false;
             }
             _runtimeState.Changed+=Capture;
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
+            var before = new PartMovementScratchProbe(()=>
             {
                 armed=false;
                 for(int i=0;i<4;i++){observed[i]=(byte)(0xa5+i);_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));}
                 armed=true;
-            }));
+            });
+            _entities.RegisterEnemySlot(before,15); _entities.AddEntity(before);
             void Seed(){for(int i=0;i<4;i++){native[0xcec0+i]=(byte)(0xa5+i);_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));}}
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {

@@ -234,7 +234,7 @@ public sealed partial class ValidationRoot
             _saveData.SetGlobalFlag(AgesGlobalFlag.TuniNutPlaced, false);
             _saveData.WriteWramByte(AgesWramAddress.wAnimalCompanion,(byte)id);
             Vector2 start = new(c.X,32);
-            CompanionRuntimeState.BeginAnimalRide(_runtimeState,_saveData,id,c.Room,start,ObjectDirection.Up);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState,_saveData,id,start,ObjectDirection.Up);
             LoadValidationRoom(0,c.Room);
             IsolateHerosCave(e => e is ICompanionBarrierTarget or SymmetryCompanionBarrierRoomEntity);
             FailIf(_collision.Collides(start), "Symmetry barrier approach must start on source floor.");
@@ -260,10 +260,11 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.Bracelet, 1); _inventory.EquipB(TreasureId.Bracelet);
             LoadValidationRoom(0, 0x22);
             IsolateHerosCave(e => e is SymmetryCompanionBarrierRoomEntity);
-            var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(new(56, 40), ObjectDirection.Down, 0, 0x22));
+            _entities.Spawn(new DimitriCompanionSpawn(new(56, 40), ObjectDirection.Down, 0, 0x22));
             _player.WarpTo(new(56, 64)); _player.Face(Vector2I.Up);
             FailIf(_collision.Collides(_player.Position), "Carried-Dimitri barrier approach must begin on source floor.");
             StepGameplayUpdates(8, Vector2.Up, ["move_up"], batched: batch);
+            var dimitri=_entities.Entities<DimitriCompanionRoomEntity>().Single();
             StepGameplayUpdates(1, Vector2.Zero, ["item"], ["item"], batch);
             StepGameplayUpdates(16, Vector2.Zero, ["item"], batched: batch);
             FailIf(!_player.IsCarryingObject || dimitri.Phase != DimitriPhase.Carried,

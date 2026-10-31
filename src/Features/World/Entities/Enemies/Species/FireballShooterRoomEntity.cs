@@ -6,7 +6,7 @@ namespace Oracles;
 
 /// <summary>Invisible ENEMY_FIREBALL_SHOOTER $50 scanner and its native children.</summary>
 internal sealed partial class FireballShooterRoomEntity : TransitionOffsetNode2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
+    INativeEnemyRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
     IScreenTransitionPreloadRoomEntity, INativeEnemyCounter1RoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {

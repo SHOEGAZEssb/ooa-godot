@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             rom[address] = 1; rom[address+1] = (byte)test.Id; rom[address+2] = (byte)test.Sub;
             rom[address+0xb] = (byte)record.Y; rom[address+0xd] = (byte)record.X;
             if (initialized) StepSomariaMotionRom(rom,1,batched);
-            _transitions.BeginScroll(_player,exit.Direction,exit.Target);
+            _transitions.BeginValidationScroll(_player,exit.Direction,exit.Target);
             rom.SetOutgoingInteractions(); rom.ClearRoomVariables(true); rom[0xcc30] = (byte)exit.Target; rom[0xcd00] = 8;
             // Incoming parsing/occupancy and Link scroll coordinates are
             // declared inputs; execute the retained native physical handlers.

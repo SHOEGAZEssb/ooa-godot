@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
                     _player.ActiveTransformation!=(rom[0xd001]==2?2:0)||random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||
                     random.Calls-seed.Calls!=rom.RandomCalls||!sounds.Requests.SequenceEqual(rom.Sounds),
                     $"Fairy PART${id:x2} fixture{fixture} update{update}: Link/transform/RNG/sounds differ ({string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}).");
-                FailIf(_entities.Entities<PuzzlePuffEffect>().Count!=Enumerable.Range(2,14).Count(slot=>rom[0xd040+slot*256]!=0&&rom[0xd041+slot*256]==5),"Fairy projectile parent-death puff allocation differs.");
+                FailIf(_entities.Entities<StationaryDebrisEffect>().Count!=Enumerable.Range(2,14).Count(slot=>rom[0xd040+slot*256]!=0&&rom[0xd041+slot*256]==5),"Fairy projectile parent-death puff allocation differs.");
             }
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,level==0?[]:["attack"],[],batched:fixture%2==0,afterUpdate:Compare);
             StepGameplayUpdates(1,Vector2.Zero,level==0?[]:["attack"],level==0?[]:["attack"],afterUpdate:Compare);
@@ -75,13 +75,13 @@ public sealed partial class ValidationRoot
                     }
                 if(fixture==5)rom[0xcdd1]=2; // Keep the source reservation handlers waiting.
                 parent.Health=0;rom[0xd0a9]=0;Step(1);
-                FailIf(!shot.Finished||_entities.Entities<PuzzlePuffEffect>().Count!=(fixture==4?1:0),"Parent death must delete its projectile and make one checked puff allocation.");
+                FailIf(!shot.Finished||_entities.Entities<StationaryDebrisEffect>().Count!=(fixture==4?1:0),"Parent death must delete its projectile and make one checked puff allocation.");
                 foreach(var reservation in reservations)
                 {
                     int address=0xd040+interactionSlots[reservation]*256;interactionSlots.Remove(reservation);
                     for(int offset=0;offset<64;offset++)rom[address+offset]=0;
                 }
-                if(fixture==5){rom[0xcdd1]=1;Step(2);FailIf(_entities.Entities<PuzzlePuffEffect>().Count!=0,"Releasing the interaction pool must not retry a deleted projectile's puff.");}
+                if(fixture==5){rom[0xcdd1]=1;Step(2);FailIf(_entities.Entities<StationaryDebrisEffect>().Count!=0,"Releasing the interaction pool must not retry a deleted projectile's puff.");}
             }
             else
             {

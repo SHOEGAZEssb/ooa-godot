@@ -22,7 +22,7 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
     internal int CurrentCommandIndex => _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     public override RoomEventContext Context { get; }
     public bool HasState => _active;
-    public bool BlocksGameplay => _active && (EventResources.InputLocked || OwnsGameLogic);
+    public bool BlocksGameplay => _active && (InputControlHeld || OwnsGameLogic);
     public bool OwnsGameLogic => _nativeState >= 0;
     public bool MenusDisabled => BlocksGameplay;
     public bool AllScreenTransitionsDisabled => BlocksGameplay;
@@ -47,8 +47,6 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
         }
         else
         {
-            Context.Player.Face(Vector2I.Up);
-            Context.Player.RequestState08Control(this);
             tree.SetScriptAnimation(_data.Animation(0x87, save.HasGlobalFlag(AgesGlobalFlag.GotMakuSeed) ? 4 : 0));
             _runner.Start(_data.Commands(save.HasGlobalFlag(AgesGlobalFlag.GotMakuSeed) ? "tree-return" : "tree-seed"));
         }
@@ -75,6 +73,13 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
         if (_tree is not { ScriptButtonSensitive: true } || !_tree.CanTalkTo(player)) return false;
         _pressed = true; return true;
     }
+    internal void InitializeTreeSlot()
+    {
+        if (Context.Rooms.SaveData.HasGlobalFlag(AgesGlobalFlag.SawTwinrovaBeforeEndgame)) return;
+        Context.Player.Face(Vector2I.Up);
+        Context.Player.RequestNativeState08Control(this);
+    }
+
     internal void AdvanceTree()
     {
         if (!_active || _tree is not { Active: true }) return;
@@ -264,12 +269,6 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
         _ownedEntities.Add(Context.Entities.EntityAdapters<IRoomEntity>().Single(entity => ReferenceEquals(entity.PresentationNode, treasure)));
         _runner.WaitForNativeCounter(3);
     }
-    public override void SetInputEnabled(bool enabled)
-    {
-        base.SetInputEnabled(enabled);
-        Write(AgesWramAddress.wDisabledObjects, enabled ? 0 : 0x81);
-        Write(AgesWramAddress.wMenuDisabled, enabled ? 0 : 0x80);
-    }
     public override void RunNativeHandler(string handler)
     {
         switch (handler)
@@ -303,7 +302,8 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
         _tree = null;
         foreach (IRoomEntity entity in _ownedEntities) Context.Entities.RetireEntity(entity);
         _ownedEntities.Clear();
-        if (EventResources.InputLocked) SetInputEnabled(true);
+        if (native) SetInputEnabled(true);
+        else ReleaseInputControl();
         Context.Transitions.CancelNativeWhiteFade();
         Context.Transitions.NativeRoomUsesFullScreen = false;
         Context.Hud.ShowStatusBar(); Context.RoomView.ClearBackgroundFade();

@@ -74,8 +74,7 @@ internal sealed class SeasonsOpeningScriptHost(SeasonsOpeningSession session, Se
                         int direction = session.Link.FacingVector == Vector2I.Up ? 0 : session.Link.FacingVector == Vector2I.Right ? 1 : session.Link.FacingVector == Vector2I.Down ? 2 : 3;
                         owner.SetAnimation((direction ^ 2) + 9); return;
                     case "din_createExclamationMark":
-                        session.Spawn(0x9f, 0, owner.Node.Position + new Vector2(0, -13), Hex(operands[1]));
-                        session.Sound.PlaySound(SoundId.SndClink); return;
+                        session.Entities.TryCreateExclamation(owner.Node.Position + new Vector2(0, -13), Hex(operands[1])); return;
                     case "piratian_waitUntilJumpDone":
                         if (OracleObjectMath.UpdateSpeedZ(ref owner.ZFixed, ref owner.SpeedZ, 0x30)) owner.Bytes[0x7d] = 1;
                         owner.SetZ(owner.ZFixed); return;

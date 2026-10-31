@@ -90,6 +90,22 @@ internal sealed class FrontendRom
         finally { _stopAtInitialization = false; }
     }
 
+    internal void InitializeRoomObjectLoadFlags()
+    {
+        // initializeGame after loadScreenMusicAndSetRoomPack, before global-flag selection.
+        _stopAddress = 0x5a2a; _stopBank = 1;
+        try { Call(0x5a22, 1); }
+        finally { _stopAddress = -1; }
+    }
+
+    internal void CompleteRoomObjectLoadFlags()
+    {
+        // cutscene00 after updateAllObjects/tree graphics, before clearing enabled-$02 objects.
+        _stopAddress = 0x5b48; _stopBank = 1;
+        try { Call(0x5b2f, 1); }
+        finally { _stopAddress = -1; }
+    }
+
     internal void UpdateSpecialObjectPrelude()
     {
         // bank5.updateSpecialObjects $4000 through updateGameKeysPressed

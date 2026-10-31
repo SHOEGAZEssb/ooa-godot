@@ -55,7 +55,7 @@ public partial class ValidationRoot
                 {
                     while (_entities.InteractionSlotAvailable &&
                         (mode == "full-interactions" || FreeSlot("FindFreeInteractionSlot") != 15))
-                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
+                        _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
                 }
                 if (mode == "text")
                 {
@@ -72,11 +72,11 @@ public partial class ValidationRoot
                     FailIf(State() != 9 || !actor.Visible || actor.Position != stopped,
                         "Full INTERACTION pool must retain visible state9 without movement.");
                     Step(19);
-                    FailIf(State() != 9 || _entities.Entities<PuzzlePuffEffect>().Any(),
+                    FailIf(State() != 9 || _entities.Entities<StationaryDebrisEffect>().Any(),
                         "Enemy phase must still fail allocation before terminal puffs delete in the interaction phase.");
                     Step();
                 }
-                var puff = _entities.Entities<PuzzlePuffEffect>().Single(p => !p.AlwaysUpdates);
+                var puff = _entities.Entities<StationaryDebrisEffect>().Single(p => !p.AlwaysUpdates);
                 int puffSlot = _entities.InteractionSlot(puff);
                 FailIf(State() != 0x0a || actor.Visible || actor.CollisionEnabled || actor.Health != 0 ||
                     puff.ElapsedUpdates != 1 || puff.Position != OracleObjectMath.ToPixelPosition(stopped) ||
@@ -116,7 +116,7 @@ public partial class ValidationRoot
                     Step(19);
                     _entities.NonInteractionObjectsDisabledSource = freeze;
                     Step(2);
-                    FailIf(actor.IsDead || State() != 0x0a || _entities.Entities<PuzzlePuffEffect>().Contains(puff),
+                    FailIf(actor.IsDead || State() != 0x0a || _entities.Entities<StationaryDebrisEffect>().Contains(puff),
                         "A puff deleted while enemies are disabled must leave a zero page, not a stale $ff reference.");
                     if (mode is "lost-puff-small-key" or "lost-puff-boss-key")
                     {

@@ -13,7 +13,6 @@ internal sealed partial class MapleEventDatabase
 {
     public string AssetRoot { get; }
 
-    private readonly HashSet<(int Group, int Companion, int Room)> _locations = [];
     private readonly Dictionary<(MaplePathKind Kind, int Index), MaplePathRecord>
         _paths = [];
     private readonly int[] _movementPatternIndices = new int[16];
@@ -25,7 +24,6 @@ internal sealed partial class MapleEventDatabase
 
     internal MapleVisualRecord Visual { get; }
     internal MapleBookVisualRecord BookVisual { get; }
-    internal int LocationCount => _locations.Count;
     internal int PathStepCount => _paths.Values.Sum(path => path.Steps.Count);
     internal int ItemCount => _items.Count;
 
@@ -33,7 +31,6 @@ internal sealed partial class MapleEventDatabase
     {
         AssetRoot = assetRoot;
 
-        LoadLocations();
         LoadPaths();
         LoadMovementSelection();
         Visual = LoadVisual();
@@ -43,17 +40,6 @@ internal sealed partial class MapleEventDatabase
         LoadConstants();
         ValidateContract();
         LoadCredits();
-    }
-
-    internal bool IsEligibleLocation(int group, int room, int animalCompanion)
-    {
-        int companion = NormalizeCompanion(animalCompanion);
-        return group switch
-        {
-            0 => _locations.Contains((0, companion, room)),
-            1 => _locations.Contains((1, -1, room)),
-            _ => false
-        };
     }
 
     internal MaplePathRecord Path(MaplePathKind kind, int index) =>
@@ -89,41 +75,6 @@ internal sealed partial class MapleEventDatabase
             ? value
             : throw new KeyNotFoundException(
                 $"Maple constant {key} was not imported.");
-
-    private void LoadLocations()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            AssetRoot + "objects/maple_locations.tsv",
-            new GeneratedTableSchema(
-                "Maple eligible locations",
-                GeneratedTableKeySemantics.Unique,
-                ["group", "companion", "room", "source"],
-                ["group", "companion", "room"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            int group = row.Decimal(0, 0, 1);
-            int companion = row.Decimal(1, -1, 2);
-            int room = row.HexByte(2);
-            if ((group == 0 && companion < 0) ||
-                (group == 1 && companion != -1))
-            {
-                throw new InvalidOperationException(
-                    $"Invalid Maple location at {row.Path}:{row.LineNumber}.");
-            }
-            _locations.Add((group, companion, room));
-            _ = row.RequiredString(3);
-        }
-    }
-
-    private static int NormalizeCompanion(int animalCompanion) =>
-        animalCompanion switch
-        {
-            0 or 0x0b => 0,
-            1 or 0x0c => 1,
-            2 or 0x0d => 2,
-            _ => 0
-        };
 
     private void LoadPaths()
     {
@@ -332,10 +283,7 @@ internal sealed partial class MapleEventDatabase
 
     private void ValidateContract()
     {
-        if (_locations.Count != 119 ||
-            _locations.Count(location => location.Group == 0) != 90 ||
-            _locations.Count(location => location.Group == 1) != 29 ||
-            _paths.Count != 10 ||
+        if (_paths.Count != 10 ||
             PathStepCount != 61 ||
             Visual is not { Sprite: "spr_maple", Animations.Length: 32 } ||
             _items.Count != 14 ||
@@ -349,6 +297,8 @@ internal sealed partial class MapleEventDatabase
             BookVisual.Sprite != "spr_quest_items_1" ||
             Constant("normal-kill-threshold") != 30 ||
             Constant("ring-kill-threshold") != 15 ||
+            Constant("birth-y") != 0x18 || Constant("birth-x") != 0xb8 ||
+            Constant("initial-y") != 0x10 || Constant("initial-x") != 0xb8 ||
             Constant("initial-z") != -120 ||
             Item(0).Value != 0x3c ||
             Item(13).Value != 1)

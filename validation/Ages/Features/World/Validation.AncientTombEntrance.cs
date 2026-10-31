@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
                         // earlier logical allocation keeps these slots live
                         // until the placed $dc controller attempts its puffs.
                         for (int slot = 0; slot < 13 - freePuffSlots.Value; slot++)
-                            _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
+                            _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
                         filled = true;
                     }
                     Step(1, Vector2.Left);
@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
                 "$dc:$0e triggered without a stationary grave at $34.");
             _sound.ClearPlayRequestAudit();
             PushGrave(entrance);
-            var puffs = _entities.Entities<PuzzlePuffEffect>();
+            var puffs = _entities.Entities<StationaryDebrisEffect>();
             FailIf(positions.Where((p, i) => _currentRoom.GetMetatile(Point(p)) != tiles[i]).Any() ||
                 puffs.Count != 4 || !puffs.Select(p => p.Position).SequenceEqual(positions.Select(Point)) ||
                 _runtimeState.ReadWramByte(AgesWramAddress.wDisabledObjects) != 0x81 ||
@@ -131,7 +131,7 @@ public sealed partial class ValidationRoot
             _saveData.SetRoomFlag(1, 0x8c, 0x80, false);
             LoadValidationRoom(1, 0x8b);
             _player.WarpTo(new(159, 72), recordSafe: false);
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x8c);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x8c);
             entrance = _entities.Entities<AncientTombEntranceRoomEntity>().Single();
             FailIf(!IsTransitioning || entrance.State != 1 || entrance.Visible,
                 "Scrolling into 1:8c must admit only $dc:$0e state0 and keep its controller hidden.");
@@ -151,7 +151,7 @@ public sealed partial class ValidationRoot
             {
                 entrance = Enter();
                 PushGrave(entrance, freeSlots);
-                var created = _entities.Entities<PuzzlePuffEffect>().Where(puff => puff.Position.X < 160).ToArray();
+                var created = _entities.Entities<StationaryDebrisEffect>().Where(puff => puff.Position.X < 160).ToArray();
                 FailIf(created.Length != freeSlots || !created.Select(puff => puff.Position).SequenceEqual(positions.Take(freeSlots).Select(Point)) ||
                     positions.Where((p, i) => _currentRoom.GetMetatile(Point(p)) != tiles[i]).Any(),
                     $"1:8c {freeSlots} free slots must create only the first available puffs after all four tile writes.");

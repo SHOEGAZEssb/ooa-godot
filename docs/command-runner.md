@@ -22,6 +22,8 @@ generated command vocabulary is the contract for source aliases, operand
 shapes, command record type, allowed results, actor members, and required host
 capability names for diagnostics. These names do not grant host support;
 unsupported host operations fail with the active command's source context.
+Menu-only enable commands preserve the object-disable mask. Retain them
+separately from commands that enable objects or release both Link and menus.
 
 The importer rejects an undeclared or malformed command. Runtime loading checks
 the schema again. Errors must identify the script, label, index, source line,
@@ -47,14 +49,20 @@ shape validation is compiled from the same Godot-independent source in the
 importer and runtime. Native metadata contains native operands and placement;
 script operands belong in the command stream, with source-sequence expectations
 in validation rather than duplicate runtime specifications.
+Named memory bindings retain their original scalar operands, including object
+pointer bytes. An ordinary memory write stays a command; native callbacks
+represent the source's native calls and dispatch handoffs.
 
 Preserve the script's execution location when normalizing jumps. In Ages,
 `scriptCmd_jump` yields after relocating a target within the copied
 `wBigBuffer` script, while its ordinary ROM jump continues dispatch. These
 use distinct typed branch commands even when their destination is identical.
 Object-byte and memory-address jump tables call `scriptFunc_jump` directly.
-Selecting a target within the copied buffer yields; the ROM path continues.
+Preserve that helper's carry behavior separately from `scriptCmd_jump`.
 Conditional text-option branches call its carry-setting wrapper and continue.
+Item-obtained tests retain their query scratch write and yield on both outcomes
+when relocating within the copied buffer. A failed memory-bit branch also
+yields; a successful bit branch continues through its carry-setting wrapper.
 Keep these dispatch boundaries explicit in imported commands.
 
 ## Fixed-update semantics

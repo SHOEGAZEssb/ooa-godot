@@ -41,14 +41,14 @@ public sealed partial class ValidationRoot
             Step(70);Step(8,0);FailIf(_collision.Collides(_player.Position),"Meat approach must stay on room floor.");
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                var puff=new StationaryDebrisEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int at=0xd040+_entities.InteractionSlot(puff)*256;native[at]=1;native[at+1]=0x48;native[at+2]=0x1b;native[at+4]=1;
             }
             Step(1,press:true);Step(12);
             FailIf(!_player.IsCarryingObject||meat.Substate!=(free==0?0:1),source+": native checked replacement did not retain its retry/held substate.");
             if(free==0)
             {
-                var filler=InteractionAdmissionPool.First(p=>p.Key.Node is PuzzlePuffEffect);int at=0xd040+filler.Value*256;
+                var filler=InteractionAdmissionPool.First(p=>p.Key.Node is StationaryDebrisEffect);int at=0xd040+filler.Value*256;
                 _entities.RetireEntity(filler.Key);for(int i=0;i<0x40;i++)native[at+i]=0;Step();
                 FailIf(meat.Substate!=1||_entities.Entities<WildTokayMeat>().Count!=2,source+": source replacement must retry on the first available physical slot.");
             }

@@ -112,6 +112,8 @@ public sealed class RoomEventController
             () => new PatchEvent(_context),
             () => new BombUpgradeFairyEvent(_context),
             () => new MooshRescueEvent(_context),
+            () => new MooshGoodbyeEvent(_context),
+            () => new AgesCompanionScriptController(_context),
             () => new MakuSproutRescueEvent(_context),
             () => new DekuForestSoldierEvent(_context),
             () => new DekuForestPalaceEvent(_context),
@@ -213,10 +215,6 @@ public sealed class RoomEventController
             Npc("ralph.s:ralphSubid0c", Get<BlackTowerConfrontationEvent>().TryInteract),
             Npc("makuSprout.s:interactionCode88",
                 Get<MakuSproutRescueEvent>().TryInteractNpc),
-            Npc("companionScripts.s:companionScript_subid00Script",
-                Get<MooshRescueEvent>().TryInteractNpc),
-            Npc("companionScripts.s:companionScript_subid03Script",
-                Get<RickyGlovesEvent>().TryInteractNpc),
             Npc("tingle.s:interactionCodec8; scripts.s:tingleScript",
                 Get<TingleEvent>().TryInteractNpc),
             Npc("tokay.s:tokayScriptTable; rosa.s:interactionCode68",
@@ -262,9 +260,19 @@ public sealed class RoomEventController
                 "tokayShopItem.s:interactionCode81",
                 Get<TokayTradingEvent>().TryInteractPlayer)
         ];
+        _context.Entities.RoomInitializing += OnRoomInitializing;
         _context.Entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
+        _context.Entities.RoomEntitiesLoaded += Get<MooshGoodbyeEvent>().OnRoomLoaded;
+        _context.Entities.RoomEntitiesLoaded += Get<AgesCompanionScriptController>().OnRoomLoaded;
+        _context.Entities.BindNativeCompanions(Get<AgesCompanionScriptController>());
+        _context.Entities.BindFairiesWoods(Get<FairiesWoodsEvent>());
+        _context.Entities.BindCompanionForest(Get<CompanionForestEvent>());
+        _context.Entities.VireEntranceFactory = data => new VireEntranceRoomEntity(_context, data);
         _context.Entities.PostD7AmbiFactory = Get<PostD7Event>().CreatePlacedAmbi;
         _context.Entities.BlackTowerRalphFactory = Get<BlackTowerConfrontationEvent>().CreateRalph;
+        _context.Entities.BindMooshRescue(Get<MooshRescueEvent>());
+        _context.Entities.BindRickyGloves(Get<RickyGlovesEvent>());
+        _context.Entities.BindMooshGoodbye(Get<MooshGoodbyeEvent>());
         _context.Entities.BlackTowerAmbiFactory = Get<BlackTowerPossessionEvent>().CreateAmbi;
         _context.Entities.ZeldaRescueFactory = Get<ZeldaRescueEvent>().CreatePlaced;
         _context.Entities.RoomOfRitesZeldaFactory = Get<RoomOfRitesZeldaEvent>().CreatePlaced;
@@ -316,18 +324,8 @@ public sealed class RoomEventController
     internal bool StatusBarUpdatesDisabled=>_eventsByPriority.Any(roomEvent=>roomEvent.HasState&&roomEvent.SuppressesStatusBar);
     internal bool NormalMenuDispatchSuppressed=>_eventsByPriority.Any(roomEvent=>roomEvent.HasState&&roomEvent.SuppressesNormalMenuDispatch);
     internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled || Get<PostD7Event>().HasState;
-    internal bool NativeCutsceneActive => Get<RoomOfRitesBattleEvent>().NativeActive || Get<RoomOfRitesZeldaEvent>().WarpActive || Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || Get<MakuSeedEvent>().OwnsGameLogic || Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive;
-    internal void PublishNativeGameInput()
-    {
-        // specialObjects.s:updateGameKeysPressed consumes the one-update
-        // reverse request before Link; Ganon renews it in the enemy pass.
-        if(_context.Entities.RuntimeState.ReadWramByte(0xcbc3)==2)
-        {
-            _context.Entities.RuntimeState.SetWramByte(0xcbc3,0);
-            Input.ReverseGameMovement();
-        }
-        else Get<BlackTowerEndingEvent>().PublishGameKeys();
-    }
+    internal bool NativeCutsceneActive => Get<RoomOfRitesBattleEvent>().NativeActive || Get<RoomOfRitesZeldaEvent>().WarpActive || Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || Get<MakuSeedEvent>().OwnsGameLogic || Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive || Get<FairiesWoodsEvent>().NativeActive;
+    internal int? SampleSimulatedInput() => Get<BlackTowerEndingEvent>().SampleGameKeys();
     internal void AdvanceNativeCutscenesAfterObjects()=>Get<BlackTowerEndingEvent>().AdvanceAfterObjects();
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
@@ -339,9 +337,10 @@ public sealed class RoomEventController
         var cleanSeas=Get<CleanSeasEvent>();
         var postD7 = Get<PostD7Event>();
         var makuSeed = Get<MakuSeedEvent>();
+        var fairies = Get<FairiesWoodsEvent>();
         bool ritesOwned = Get<RoomOfRitesZeldaEvent>().WarpActive;
         bool battleOwned = Get<RoomOfRitesBattleEvent>().NativeActive;
-        bool owned=Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || makuSeed.OwnsGameLogic || retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive;
+        bool owned=Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || makuSeed.OwnsGameLogic || retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive || fairies.NativeActive;
         retraction.AdvanceBeforeObjects();
         boot.AdvanceBeforeObjects();
         passage.AdvanceBeforeObjects();
@@ -355,6 +354,8 @@ public sealed class RoomEventController
         cleanSeas.AdvanceBeforeObjects();
         postD7.AdvanceBeforeObjects();
         makuSeed.AdvanceBeforeObjects();
+        fairies.AdvanceBeforeObjects();
+        Get<SymmetryEvent>().AdvanceBeforeObjects();
         Get<WildTokayGameEvent>().AdvanceBeforeObjects();
         Get<FinalDungeonEntryEvent>().AdvanceBeforeObjects();
         Get<RoomOfRitesZeldaEvent>().AdvanceBeforeObjects();
@@ -409,16 +410,16 @@ public sealed class RoomEventController
         Get<CrownDungeonEntranceEvent>().CanTrigger(group, room) ||
         Get<MermaidsCaveEntranceEvent>().CanTrigger(group, room) ||
         Get<LibraryKeyholeEvent>().CanTrigger(group, room);
-    internal void TriggerOverworldKeyhole(int group, int room)
+    internal NativeScriptInputControl TriggerOverworldKeyhole(int group, int room)
     {
         if (Get<CrownDungeonEntranceEvent>().CanTrigger(group, room))
-            Get<CrownDungeonEntranceEvent>().Trigger(group, room);
+            return Get<CrownDungeonEntranceEvent>().Trigger(group, room);
         else if (Get<MermaidsCaveEntranceEvent>().CanTrigger(group, room))
-            Get<MermaidsCaveEntranceEvent>().Trigger(group, room);
+            return Get<MermaidsCaveEntranceEvent>().Trigger(group, room);
         else if (Get<LibraryKeyholeEvent>().CanTrigger(group, room))
-            Get<LibraryKeyholeEvent>().Trigger(group, room);
+            return Get<LibraryKeyholeEvent>().Trigger(group, room);
         else
-            Get<GraveyardGateEvent>().Trigger(group, room);
+            return Get<GraveyardGateEvent>().Trigger(group, room);
     }
     internal bool ScreenTransitionsDisabled =>
         _eventsByPriority.Any(roomEvent => roomEvent.ScreenTransitionsDisabled);
@@ -450,8 +451,6 @@ public sealed class RoomEventController
             if (inObjectPass) return;
             Get<ImpaIntroEvent>().InitializeEncounterInteraction();
             Get<GoronCaveEvent>().InitializeDuringTransition();
-            Get<FairiesWoodsEvent>().InitializeDuringTransition();
-            Get<CompanionForestEvent>().InitializeDuringTransition();
             Get<TokayTheftEvent>().InitializeDuringTransition();
             Get<DefeatedMoblinEvent>().UpdateDuringWarpArrival();
             if (Get<ImpaIntroEvent>().UpdatesDuringTransition)
@@ -486,7 +485,7 @@ public sealed class RoomEventController
         IRoomEvent? owner = null;
         foreach (IRoomEvent candidate in events)
         {
-            if (!candidate.HasState)
+            if (!candidate.HasState || !candidate.RequiresRoomEventUpdate)
                 continue;
             if (owner is null || candidate.OwnsUpdatesOf(owner))
                 owner = candidate;
@@ -499,6 +498,18 @@ public sealed class RoomEventController
         return owner;
     }
 
+    private void OnRoomInitializing(int group, OracleRoomData room)
+    {
+        foreach (IRoomEvent roomEvent in _eventsByPriority)
+        {
+            if (roomEvent is not IRoomInitializationEvent initialization)
+                continue;
+            initialization.Cancel();
+            if (initialization.Matches(group, room))
+                initialization.Start(room);
+        }
+    }
+
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
         _context.Transitions.CancelRequestedNativeWarp();
@@ -508,7 +519,6 @@ public sealed class RoomEventController
         Get<WingDungeonCollapseEvent>().RestoreCollapsedEntrance(group, room);
         Get<CrownDungeonEntranceEvent>().RestoreEntrance(group, room);
         Get<FairiesWoodsEvent>().OnRoomLoaded(group, room);
-        Get<CompanionForestEvent>().OnRoomLoaded(group, room);
         Get<GraveyardGateEvent>().RetireCompletedControllerOnRoomLoad();
         nayru.RestoreCompletedPortal(group, room);
         // The placed $31:$00 Impa object shares room $0:$6a with Ricky's
@@ -526,7 +536,7 @@ public sealed class RoomEventController
         if (impa.TryTransferToRoom(group, room))
             return;
         if (HasEventState)
-            CancelAll();
+            CancelAll(group, room);
 
         Get<WildTokayGameEvent>().OnRoomLoaded(group, room);
 
@@ -538,14 +548,16 @@ public sealed class RoomEventController
                 continue;
             }
 
-            entryEvent.Start(room);
+            if (entryEvent is not IRoomInitializationEvent)
+                entryEvent.Start(room);
             return;
         }
     }
 
-    private void CancelAll()
+    private void CancelAll(int group, OracleRoomData room)
     {
         foreach (IRoomEvent roomEvent in _eventsByPriority)
-            roomEvent.Cancel();
+            if (roomEvent is not IRoomInitializationEvent initialization || !initialization.Matches(group, room))
+                roomEvent.Cancel();
     }
 }

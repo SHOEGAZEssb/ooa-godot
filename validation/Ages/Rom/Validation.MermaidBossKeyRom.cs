@@ -48,8 +48,9 @@ public sealed partial class ValidationRoot
                 slots[blockers[0]] = 2;
                 for (int index = 1; index < blockers.Count; index++) slots[blockers[index]] = index+5;
             }
-            var failure = new MermaidDungeonDatabase().BossKeyFailureEnemies;
-            FailIf(failure.Id != 0x10 || failure.SubId != 1 || failure.Flags != 1 || failure.Count != 4,
+            var streams=NativeObjectStreamDatabase.For(AgesGameContent.AssetRoot);
+            var failure = streams.At(streams.Entry("objectData78db"),"Mermaid boss-key failure");
+            FailIf(failure.Opcode!=6 || failure.Id != 0x10 || failure.SubId != 1 || failure.Flags != 0x81,
                 "objectData78db must decode $81:$10:$01 as four counted, nonpersistent falling Ropes.");
             _inventory.GiveTreasure(TreasureId.Bracelet,1); _inventory.EquipA(0); _inventory.EquipB(TreasureId.Bracelet);
             int x = subid == 6 ? 0x58 : 0x98;

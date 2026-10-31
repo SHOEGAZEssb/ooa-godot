@@ -191,7 +191,7 @@ public partial class ValidationRoot
         var random = new OracleRandom();
         var soldier = new BallChainSoldierCharacter();
         soldier.Initialize(new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), random);
-        var movementMemory = AgesGameContent.CreateRuntimeState();
+        var movementMemory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         soldier.BindMovementMemory(movementMemory);
         var visual = new SpikedBallDatabase(AgesGameContent.AssetRoot);
         SpikedBallPart[] parts = [];

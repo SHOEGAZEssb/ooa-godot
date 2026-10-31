@@ -10,7 +10,7 @@ namespace Oracles;
 /// and the direct black-screen return to the palace entrance.
 /// </summary>
 internal sealed class DekuForestPalaceEvent :
-    InteractiveCutsceneCommandHost,
+    RoomCutsceneCommandHost,
     IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
@@ -216,7 +216,8 @@ internal sealed class DekuForestPalaceEvent :
                 {
                     _throneLinkGateReached = true;
                     _playerInput = PalacePlayerInput.None;
-                    if (!InputControlHeld) SetInputEnabled(false);
+                    _context.Player.EndCutsceneControl(this);
+                    base.SetDisabledObjects(0x01);
                 }
                 UpdateRewardGuardFlight();
                 AnimateAllActors();
@@ -255,7 +256,9 @@ internal sealed class DekuForestPalaceEvent :
         bool restoreFade =
             _stage == DekuForestPalaceStage.Exit ||
             _stage == DekuForestPalaceStage.Throne && _signal == 0x07;
-        ReleaseInputControl();
+        // The soldier's menu/input lane survives the native northward scroll.
+        if (_context.Entities.ScreenTransitionActive) _context.Player.EndCutsceneControl(this);
+        else ReleaseInputControl();
 
         foreach (NpcCharacter actor in _actors.Values)
         {
@@ -308,6 +311,7 @@ internal sealed class DekuForestPalaceEvent :
                 "The Ambi palace escort never re-enables the menu before input.");
         }
         _menusDisabled = true;
+        base.SetMenuEnabled(false);
     }
 
     public override void SetDisabledObjects(int value)
@@ -317,8 +321,7 @@ internal sealed class DekuForestPalaceEvent :
             throw new InvalidOperationException(
                 $"The palace reward requested unsupported wDisabledObjects ${value:x2}.");
         }
-        SetInputEnabled(enabled: false);
-        _context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, (byte)value);
+        base.SetDisabledObjects(value);
     }
 
     public override bool MemoryEquals(string binding, int value)
@@ -420,6 +423,7 @@ internal sealed class DekuForestPalaceEvent :
                         $"soldierSubid07Script wrote unexpected simulated input ${value:x2}.");
                 }
                 _playerInput = PalacePlayerInput.None;
+                _context.Player.EndCutsceneControl(this);
                 return;
 
             case "TextboxFlags":
@@ -498,6 +502,8 @@ internal sealed class DekuForestPalaceEvent :
             case "StartExitInput":
                 _playerInput = PalacePlayerInput.Exit;
                 _playerInputCounter = 0;
+                _context.Player.BeginSimulatedInputControl(this);
+                _context.Player.ClearNativePegasusCounter();
                 return;
 
             case "EnableAllObjects":
@@ -610,7 +616,7 @@ internal sealed class DekuForestPalaceEvent :
         if (escort)
         {
             _menusDisabled = true;
-            SetInputEnabled(enabled: false);
+            _context.Player.BeginSimulatedInputControl(this);
             _playerInput = PalacePlayerInput.Enter;
         }
         // soldierSubid05 state 0 writes only w1Link.xh. Preserve the 8.8 low
@@ -654,7 +660,7 @@ internal sealed class DekuForestPalaceEvent :
         if (escort)
         {
             _menusDisabled = true;
-            SetInputEnabled(enabled: false);
+            _context.Player.BeginSimulatedInputControl(this);
             _playerInput = PalacePlayerInput.Enter;
         }
 
@@ -702,6 +708,9 @@ internal sealed class DekuForestPalaceEvent :
         }
         _playerInputCounter = difference + (difference >> 1);
         _playerInput = PalacePlayerInput.Enter;
+        _context.Player.BeginSimulatedInputControl(this);
+        _context.Player.ClearNativePegasusCounter();
+        base.SetDisabledObjects(0);
     }
 
     private void AdvancePlayerInput()
@@ -873,7 +882,7 @@ internal sealed class DekuForestPalaceEvent :
             new Vector2(_record.ExitPlayerX, _record.ExitPlayerY),
             recordSafe: false);
         _context.Player.Face(Vector2I.Up);
-        SetInputEnabled(enabled: false);
+        _context.Player.BeginSimulatedInputControl(this);
 
         Spawn(ExitGuard, _database.CreateDirectExitGuard(
             0x07,

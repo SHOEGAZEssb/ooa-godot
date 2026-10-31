@@ -156,7 +156,7 @@ public sealed partial class ValidationRoot
         {
             LoadValidationRoom(0, entering ? 0x6a : 0x6b);
             OracleRoomData source = _currentRoom;
-            _transitions.BeginScroll(_player, entering ? Vector2I.Right : Vector2I.Left, entering ? 0x6b : 0x6a);
+            _transitions.BeginValidationScroll(_player, entering ? Vector2I.Right : Vector2I.Left, entering ? 0x6b : 0x6a);
             OracleRoomData target = _currentRoom;
             int total = _transitions.ScrollTotalFrames;
             for (int tick = 1; tick <= total; tick++)
@@ -245,7 +245,7 @@ public sealed partial class ValidationRoot
                 bool entering = crossing != 1;
                 int destination = entering ? source - 1 : source;
                 var timer = System.Diagnostics.Stopwatch.StartNew();
-                _transitions.BeginScroll(_player, entering ? Vector2I.Left : Vector2I.Right, destination);
+                _transitions.BeginValidationScroll(_player, entering ? Vector2I.Left : Vector2I.Right, destination);
                 timer.Stop();
                 GD.Print(FormattableString.Invariant($"LYNNA_ENTRY destination=0:{destination:x2} crossing={crossing} setup_ms={timer.Elapsed.TotalMilliseconds:F3}"));
                 int total = _transitions.ScrollTotalFrames;
@@ -254,13 +254,13 @@ public sealed partial class ValidationRoot
                     $"Lynna diagnostic crossing did not finish at 0:{destination:x2}.");
                 if (!entering) continue;
                 Vector2 door = new(0x58, 0x28);
-                FailIf(!WarpDatabase.For(AgesGameContent.AssetRoot).TryGetTileWarp(0, _currentRoom, 0x25,
+                FailIf(!TryGetResolvedTileWarp(WarpDatabase.For(AgesGameContent.AssetRoot),0, _currentRoom, 0x25,
                     _currentRoom.GetMetatile(door), out Warp shop) ||
                     shop.DestinationGroup != 2 || shop.DestinationRoom != 0x5e,
                     "Lynna profile requires the imported $0:$68/$25 -> $2:$5e doorway.");
                 MeasureWarp(shop, crossing == 0 ? "first" : "repeat");
-                FailIf(!WarpDatabase.For(AgesGameContent.AssetRoot).TryGetEdgeWarp(2, 0x5e, Vector2I.Down,
-                    new Vector2(0x28, 0x78), new Vector2(160, 128), out Warp exit) ||
+                FailIf(!TryGetResolvedEdgeWarp(WarpDatabase.For(AgesGameContent.AssetRoot),2, 0x5e, Vector2I.Down,
+                    new Vector2(0x28, 0x78), out Warp exit) ||
                     exit.DestinationGroup != 0 || exit.DestinationRoom != 0x68,
                     "Lynna profile requires the imported $2:$5e -> $0:$68 exit.");
                 MeasureWarp(exit, "exit");
@@ -470,7 +470,7 @@ public sealed partial class ValidationRoot
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 using Image actual = viewport.GetTexture().GetImage();
-                (int left, int right) = AgesRoomTransitionController.RoomLoadRevealBounds(columns);
+                (int left, int right) = RoomTransitionController.RoomLoadRevealBounds(columns);
                 for (int y = 0; y < 176; y++)
                 for (int x = 0; x < 240; x++)
                 {

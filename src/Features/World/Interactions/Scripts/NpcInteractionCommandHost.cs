@@ -15,7 +15,8 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     private readonly CutsceneCommandRunner _runner;
     private NpcInteractionTarget? _interactionTarget;
     private Player? _player;
-    private bool InputControlHeld => _player?.IsCutsceneControlOwner(this) == true;
+    private readonly NativeScriptInputControl _input;
+    private bool InputControlHeld => _input.LinkDisabled;
     private ICutsceneCommandTraceSink? _traceSink;
 
     protected NpcInteractionCommandHost(
@@ -28,6 +29,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         _binding = new(actorName);
         Rooms = rooms;
         Entities = entities;
+        _input = new(entities.RuntimeState);
         Dialogue = dialogue;
         Commands = commands;
         _runner = new CutsceneCommandRunner(this);
@@ -63,6 +65,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     protected void SetNativeObjectButton(bool pressed) => _binding.SetNativeButton(pressed);
     protected void SetNativeActorSpeed(CutsceneActorId actor,int speed)=>_runner.SetNativeActorSpeed(actor,speed);
     protected void ReplaceObjectScript(IReadOnlyList<CutsceneCommand> commands) => _runner.Start(commands);
+    protected void RelinquishInputControl() => _input.Relinquish();
     internal void SetTraceSink(ICutsceneCommandTraceSink? traceSink) =>
         _traceSink = traceSink;
 
@@ -77,7 +80,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         if (_runner.Active && !ReferenceEquals(_binding.Actor, npc))
             Cancel();
         if (!_runner.Active)
-            Start(target);
+            Start(target, player);
         if (InputControlHeld || !_binding.QueueButton(npc))
         {
             return false;
@@ -102,8 +105,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     public void Cancel()
     {
         ResetHostState();
-        if (InputControlHeld && _player is not null)
-            _player.EndCutsceneControl(this);
+        _input.Cancel();
         _interactionTarget?.Cancel();
         _binding.Clear();
         _interactionTarget = null;
@@ -141,20 +143,17 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
 
     public override void SetInputEnabled(bool enabled)
     {
-        if (enabled)
-        {
-            if (InputControlHeld)
-            {
-                ScriptPlayer.EndCutsceneControl(this);
-            }
-            EndTalkLifecycle();
-            return;
-        }
-
-        if (InputControlHeld)
-            return;
-        ScriptPlayer.BeginCutsceneControl(owner: this);
+        _input.SetEnabled(ScriptPlayer, enabled);
+        if (enabled) EndTalkLifecycle();
     }
+
+    public override void SetDisabledObjects(int value)
+    {
+        if ((uint)value > 0xff) throw UnsupportedCommand($"disabled-object mask ${value:x2}");
+        _input.SetDisabledObjects((byte)value);
+    }
+
+    public override void SetMenuEnabled(bool enabled) => _input.SetMenuEnabled(ScriptPlayer, enabled);
 
     public override bool TextOptionEquals(int value)
     {
@@ -236,12 +235,12 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         }
     }
 
-    private void Start(NpcInteractionTarget target)
+    private void Start(NpcInteractionTarget target, Player player)
     {
         NpcCharacter npc = target.Npc;
         _binding.Bind(npc);
         _interactionTarget = target;
-        _player = null;
+        _player = player;
         target.Begin();
         _runner.Start(Commands);
         // Run initialization through the first checkabutton exactly once.

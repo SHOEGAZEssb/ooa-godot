@@ -42,7 +42,7 @@ internal sealed partial class NayruRescueActorRoomEntity
         _actor.AdvanceAnimationUpdates(1);
         if(Id!=0x36)return;
         int parameter=_actor.ConsumeAnimationParameter();
-        if(parameter!=0)NayruRescueMusicNoteRoomEntity.Spawn(_context,_precise.Floor()+new Godot.Vector2(parameter==1?-6:8,-4),parameter==1);
+        if(parameter!=0)FloatingMusicNoteRoomEntity.Spawn(_context.Entities,_precise.Floor()+new Godot.Vector2(parameter==1?-6:8,-4),parameter==1);
     }
     private bool CreditsMakuActor=>Id==0x36&&SubId==5||Id==0x37&&SubId==7||Id==0x87&&SubId==4;
     private void InitializeCreditsMaku()

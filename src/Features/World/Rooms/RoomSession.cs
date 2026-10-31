@@ -8,6 +8,12 @@ public sealed partial class RoomSession
 {
     private readonly IRoomContent _content;
     internal string AssetRoot => _content.AssetRoot;
+    internal BackgroundPaletteState BackgroundPalettes => _content.BackgroundPalettes;
+    internal bool HasRoom(int group, int room) => _content.HasRoom(group, room);
+    internal bool RequiresRoomPackFade(int group, int sourceRoom, int targetRoom) =>
+        _content.RequiresRoomPackFade(group, sourceRoom, targetRoom);
+    internal RoomTexturePublicationScope DeferTexturePublication() => _content.DeferTexturePublication();
+    internal int GetDungeonIndex(int group, int room) => _content.GetDungeonIndex(group, room);
     private readonly Func<long> _animationTick;
     private readonly Action _resetAnimationTick;
     private readonly OracleSaveData _saveData;
@@ -39,8 +45,8 @@ public sealed partial class RoomSession
 
     // INTERAC$14 state0 writes this shared byte for reserved and dynamic
     // blocks alike. Finishing/deleting the writer does not clear it.
-    internal byte BlockPushAngle { get; private set; }
-    internal void WriteBlockPushAngle(int angle) => BlockPushAngle = (byte)(angle | 0x80);
+    internal byte BlockPushAngle => _runtimeState.ReadField("wBlockPushAngle");
+    internal void WriteBlockPushAngle(int angle) => _runtimeState.SetField("wBlockPushAngle",(byte)(angle | 0x80));
 
     internal int PendingTileGraphics => _changedTiles.Count;
     internal bool TrySetTile(byte position, byte tile) =>
@@ -52,6 +58,7 @@ public sealed partial class RoomSession
     public DungeonMapDatabase DungeonMaps => _content.DungeonMaps ??
         throw new NotSupportedException($"{AssetRoot}: dungeon layouts are not bound.");
     public OracleSaveData SaveData => _saveData;
+    internal OracleRuntimeState RuntimeState => _runtimeState;
     internal DungeonKeyDoorDatabase KeyDoors => _content.KeyDoors ??
         throw new NotSupportedException($"{AssetRoot}: dungeon key doors are not bound.");
     public int ActiveGroup { get; private set; }
@@ -80,6 +87,7 @@ public sealed partial class RoomSession
         InitializeDungeonReturnState();
         InitializeShopState();
         _content.ActivateRoom(CurrentRoom);
+        _content.InitializeRoomState(ActiveGroup, CurrentRoom, _saveData, _runtimeState);
         if (countAsRoomEntry) MarkRoomVisited(startingGroup, startingRoom);
         CurrentRoom.UpdateAnimation(_animationTick());
     }
@@ -95,10 +103,10 @@ public sealed partial class RoomSession
 
     public OracleRoomData Load(int group, int room)
     {
+        ClearScreenTransitionRequest();
         TilePushCounter = 0; // clearMemoryOnScreenReload: $cc5c..$cce8.
-        BlockPushAngle = 0; // clearMemoryOnScreenReload: $cc5c..$cce8 includes $cca6.
         _changedTiles.Clear(); // clearMemoryOnScreenReload includes $ccdf/$cce0.
-        ClearActiveTileState();
+        _runtimeState.ClearRoomReloadGlobals();
         _runtimeState.SetField("wScrollMode", 1);
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         _saveData.AddGashaMaturity(_content.RoomLoadMaturity);
@@ -106,6 +114,7 @@ public sealed partial class RoomSession
         CurrentRoom = GetRoom(group, room);
         InitializeShopState();
         _content.ActivateRoom(CurrentRoom);
+        _content.InitializeRoomState(ActiveGroup, CurrentRoom, _saveData, _runtimeState);
         MarkRoomVisited(group, room);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
@@ -119,6 +128,7 @@ public sealed partial class RoomSession
         CurrentRoom = GetRoom(ActiveGroup, CurrentRoom.Id);
         InitializeShopState();
         _content.ActivateRoom(CurrentRoom);
+        _content.InitializeRoomState(ActiveGroup, CurrentRoom, _saveData, _runtimeState);
         MarkRoomVisited(ActiveGroup, CurrentRoom.Id);
         CurrentRoom.UpdateAnimation(_animationTick());
     }
@@ -130,10 +140,10 @@ public sealed partial class RoomSession
     /// </summary>
     public OracleRoomData LoadCutsceneRoom(int group, int room,bool restartAnimations=false)
     {
+        ClearScreenTransitionRequest();
         TilePushCounter = 0; // disableLcdAndLoadRoom: $cc5c..$cce8.
-        BlockPushAngle = 0;
         _changedTiles.Clear(); // disableLcdAndLoadRoom clears wLinkInAir..wcce9.
-        ClearActiveTileState();
+        _runtimeState.ClearRoomReloadGlobals();
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
@@ -157,40 +167,42 @@ public sealed partial class RoomSession
         return CurrentRoom;
     }
 
+    internal void ClearScreenVariables()
+    {
+        // bank0.clearScreenVariables clears this common $30-byte block,
+        // independently of reload's wider control/item/tile clear ranges.
+        int start = _runtimeState.FieldAddress("wScreenVariables");
+        for (int index = 0; index < 0x30; index++) _runtimeState.SetWramByte(start + index, 0);
+        _runtimeState.SetField("wLoadedTilesetUniqueGfx", 0xff);
+        _runtimeState.SetField("wLoadedTilesetLayout", 0xff);
+        _runtimeState.SetField("wLoadedTilesetAnimation", 0xff);
+    }
+
     public void SetLoadedRoom(int group, OracleRoomData room, bool updateMinimap = true)
     {
-        BlockPushAngle = 0; // func_49c9 clears wDisabledObjects..$cce0, including $cca6.
         _changedTiles.Clear(); // Scroll-entry func_49c9 clears these indices before loading.
-        ClearActiveTileState();
+        _runtimeState.ClearScrollEntryGlobals();
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         _saveData.AddGashaMaturity(_content.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = room;
         InitializeShopState();
         _content.ActivateRoom(CurrentRoom);
+        _content.InitializeRoomState(ActiveGroup, CurrentRoom, _saveData, _runtimeState);
         MarkRoomVisited(group, room.Id, updateMinimap);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
     }
 
-    private void ClearActiveTileState()
+    private void ClearScreenTransitionRequest()
     {
-        // clearMemoryOnScreenReload and func_49c9 both include this mask.
-        _runtimeState.SetField("wDisabledObjects",0);
-        // Reload, cutscene and scroll clear ranges all include $cca3/$cca4.
-        _runtimeState.SetField("wChestContentsOverride",0);
-        _runtimeState.SetField("wChestContentsOverride",0, 1);
-        // Both room reload's $cc5c clear and scroll's $cc8a clear include
-        // these shared cube publications; outgoing state0 handlers see zero.
-        _runtimeState.SetField("wRotatingCubeColor",0);
-        _runtimeState.SetField("wRotatingCubePos",0);
-        _runtimeState.SetField("wInShop",0);
-        // Both ordinary reload and scroll/cutscene clears include $ccd7.
-        _runtimeState.SetField("wInformativeTextsShown",0);
-        // clearMemoryOnScreenReload / func_49c9 include $cc99/$cc9a/$cc9f.
-        _runtimeState.SetField("wActiveTilePos", 0);
-        _runtimeState.SetField("wActiveTileIndex", 0);
-        _runtimeState.SetField("wLinkOnChest", 0);
+        // clearScreenVariables clears $cd00..$cd2f on full loads;
+        // scrolling and func_131f background replacements retain them.
+        _runtimeState.SetField("wScreenTransitionDirection",0);
+        _runtimeState.SetField("wScreenTransitionDelay",0);
+        _runtimeState.SetField("wScreenTransitionState",0);
+        _runtimeState.SetField("wScreenTransitionState2",0);
+        _runtimeState.SetField("wScreenTransitionState3",0);
     }
 
     private void InitializeShopState() =>

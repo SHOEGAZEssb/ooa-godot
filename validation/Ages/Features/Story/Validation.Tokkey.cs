@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             if(nativeMovement){StepGameplayUpdates(frames,Vector2.Zero,batched:batched);return;}
             for (int frame = 0; frame < frames; frame++)
             {
-                _harp.BeginObjectUpdate();
+                _runtimeState.SetField("wLinkPlayingInstrument",0);
                 this.StepRoomEventFrames(1);
             }
         }

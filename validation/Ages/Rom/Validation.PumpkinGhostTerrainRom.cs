@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             if (schedule < firstSchedule || schedule >= firstSchedule + scheduleCount) continue;
             ReinitializeGameplayForValidation();LoadValidationRoom(4,0x13);
             var parent=_entities.EntityAdapters<PumpkinHeadBossRoomEntity>().Single();var boss=(PumpkinHeadBoss)parent.Node;
-            F1Retain(parent);F1Set(parent,"_initialized",true);F1Set(boss,"_initialized",true);
+            F1Retain(parent);F1Set(boss,"_initialized",true);
             bool lateTarget=form==0&&variant>=32,held=form is not (3 or 4);
             int angle=form==0?variant%32:form==1?variant/3:form is 2 or 6?variant:8,terrain=form==1?variant%3:0;
             bool Blocked(Vector2I p)=>p.X<0||p.Y<0||p.X>=_currentRoom.Width||p.Y>=_currentRoom.Height||
@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
                 if(lateTarget&&SomariaPrivate<ExposedPhase>(boss,"_exposedPhase")==ExposedPhase.GhostFleeInit)
                     _player.SetScriptedCoordinateHigh(horizontal:true,200);
             });
-            _entities.RegisterEnemySlot(stage,15);_entities.AddEntity(stage);
+            F1StageBeforeEnemyProbe(parent,stage);
             _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>

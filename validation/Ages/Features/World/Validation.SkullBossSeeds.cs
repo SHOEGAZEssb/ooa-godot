@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
-            _seedSatchel.InterruptShooter();
+            _seedShooter.InterruptShooter();
             while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
             _inventory.RefillHealth();
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
@@ -152,7 +152,7 @@ public sealed partial class ValidationRoot
                 if (!actor.CollisionEnabled) continue; // A killed eye is still in its native respawn delay.
                 data.TryGet(item, out var record);
                 ISeedCollisionTarget adapter = actor is EyesoarActor eye ? new EyesoarRoomEntity(eye) :
-                    new ArmosWarriorRoomEntity((ArmosWarriorActor)actor, ((ArmosWarriorActor)actor).Entry);
+                    new ArmosWarriorRoomEntity((ArmosWarriorActor)actor);
                 var response = adapter.ApplySeedCollision(new Rect2(actor.Position - Vector2.One * 4, Vector2.One * 8),
                     actor.Position, record, 0x1b + selected, new List<RoomEntitySpawn>());
                 int damage = child && selected < 2 || mode == 0x44 && selected == 1 ? 2 : 0;

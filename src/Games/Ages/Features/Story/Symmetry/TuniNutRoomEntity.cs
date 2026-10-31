@@ -1,28 +1,31 @@
 using Godot;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace Oracles;
 
 /// <summary>Native INTERAC_TUNI_NUT $b1 slot, updated before the two sisters.</summary>
-internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomEntity, IRoomBlocker
+internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, INativeInteractionRoomEntity, IRoomBlocker,
+    IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly TuniNutDatabase _data;
     private readonly SymmetryDatabase _npcs;
     private readonly OracleRoomData _room;
     private readonly EnemyAnimationPlayer _nut;
-    private readonly EnemyAnimationPlayer _sparkle;
-    private readonly Sprite2D _sparkleSprite;
+    private readonly InventoryState? _inventory;
+    private readonly OracleSaveData? _save;
+    private SymmetryEvent? _owner;
+    private TuniNutSparkleRoomEntity? _sparkle;
     private Vector2 _precisePosition;
     private int _counter;
     private int _substate;
     private int _z;
     private int _speedZ;
-    private int _palette;
-    private int _paletteDirection;
-    private int _movementDirection;
-    private bool _sparkleActive;
-    private bool _sparkleVisible;
-    private bool _sparkleJustCreated;
+    private bool _ownsPalette;
+    public bool Finished { get; private set; }
+    public bool UpdatesDuringDialogue => State == 0;
+    public bool UpdatesDuringRoomEntityFreeze => State == 0;
     internal int State { get; private set; }
     internal int Substate => _substate;
     internal int Counter => _counter;
@@ -35,21 +38,13 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
         _data = data;
         _npcs = npcs;
         _room = room;
+        _inventory = inventory; _save = save;
         Name = "TuniNut";
         Position = new(data.Constant("x"), data.Constant("y"));
         _precisePosition = Position;
         _nut = Load(data.Visual("nut"));
-        _sparkle = Load(data.Visual("sparkle"));
-        _sparkleSprite = new Sprite2D
-        {
-            Name = "Sparkle", Centered = false, Visible = false,
-            ZAsRelative = false, ZIndex = ObjectDrawPriority.BehindLinkZIndex
-        };
-        AddChild(_sparkleSprite);
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
-        if (save?.HasGlobalFlag(npcs.Constant("placed-flag")) == true) FinishPosition();
-        else State = inventory?.HasTreasure(TreasureId.TuniNut) == true && inventory.TuniNutState == 2 ? 1 : -1;
     }
     private EnemyAnimationPlayer Load(TimedSparkleVisual visual)
     {
@@ -61,37 +56,47 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
         animation.SetAnimation(0);
         return animation;
     }
-    internal void AdvanceFrame(SymmetryEvent owner)
+    internal void Bind(SymmetryEvent owner) => _owner = owner;
+    internal void AdvancePalette()
+    { if (_ownsPalette) _owner!.Context.Transitions.AdvanceNativeRoomColorFade(_room); }
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (Finished) return;
+        if (State == 0) { Initialize(); return; }
+        AdvanceFrame(_owner ?? throw new System.InvalidOperationException("tuniNutMain.s:$b1 requires its Symmetry story binding."));
+    }
+    private void Initialize()
+    {
+        if (_save?.HasGlobalFlag(_npcs.Constant("placed-flag")) == true) FinishPosition();
+        else if (_inventory?.HasTreasure(TreasureId.TuniNut) == true && _inventory.TuniNutState == 2) State = 1;
+        else Finished = true;
+    }
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (State == 0 && !Finished) Initialize();
+        return Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
+    private void AdvanceFrame(SymmetryEvent owner)
     {
         RoomEventContext context = owner.Context;
-        // Palette thread runs independently of the interaction's own state.
-        if (_paletteDirection != 0)
-        {
-            int target = _paletteDirection < 0 ? _data.Constant("darken") : 0;
-            if (_palette == target) _paletteDirection = 0;
-            else _palette += _paletteDirection;
-            context.Rooms.CurrentRoom.SetTemporaryBackgroundPaletteOffset(_palette);
-        }
-        // $b1 is an ordinary initialized interaction. Its palette thread and
-        // the later always-update sparkle have independent eligibility.
-        if (context.Entities.InitializedInteractionUpdatesAllowed) switch (State)
+        switch (State)
         {
             case 1:
                 if (context.DialogueOpen || owner.BlocksGameplay || !context.Player.AcceptsGroundInteractionContact ||
                     context.Player.IsDying || context.Player.IsCarryingObject || context.Player.BraceletLiftCollisionsDisabled ||
                     !Player.EnemyCollisionOverlaps(context.Player.Position,
                         new Rect2(Position - new Vector2(16, 8), new Vector2(32, 16)))) break;
-                owner.SetInputEnabled(false);
+                owner.BeginNutPlacement();
                 context.Entities.ClearPhysicalPlayerItems();
                 context.Player.PutOnGroundForScript();
                 int distance = Mathf.FloorToInt(context.Player.Position.X) - _data.Constant("x");
                 _counter = System.Math.Abs(distance);
-                _movementDirection = distance > 0 ? -1 : 1;
                 State = 2;
                 if (distance == 0) BeginPlacement(context);
+                else context.Player.RequestNativeForcedMovement(_counter,
+                    distance > 0 ? 0x18 : 0x08, distance > 0 ? 3 : 1, owner);
                 break;
             case 2:
-                context.Player.AdvanceCutsceneMovement(new Vector2(_movementDirection, 0), new Vector2I(_movementDirection, 0));
                 if (--_counter == 0) BeginPlacement(context);
                 break;
             case 3:
@@ -120,10 +125,10 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
                         }
                         break;
                     case 4:
-                        if (--_counter == 0) { _paletteDirection = 1; _substate++; }
+                        if (--_counter == 0) { context.Transitions.BeginNativeRoomBrightening(); _substate++; }
                         break;
                     case 5:
-                        if (_paletteDirection != 0) break;
+                        if (context.Transitions.NativePaletteFadeActive) break;
                         context.Rooms.SaveData.SetGlobalFlag(_npcs.Constant("placed-flag"));
                         context.Inventory.LoseTreasure(TreasureId.TuniNut);
                         foreach (int room in new[] { 0x02, 0x03, 0x04, 0x12, 0x13, 0x14 })
@@ -137,25 +142,20 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
                 }
                 break;
         }
-        // The spawned $84:$07 occupies a later slot and follows y/x/z each pass.
-        if (_sparkleActive)
-        {
-            if (_sparkleJustCreated) { _sparkleJustCreated = false; _sparkleVisible = true; }
-            else if ((context.Entities.RuntimeState.ReadWramByte(AgesWramAddress.wTmpcfc0) & 1) != 0) _sparkleActive = false;
-            else { _sparkle.Advance(); _sparkleVisible = (context.Entities.FrameCounter & 1) == 0; }
-        }
-        _sparkleSprite.Visible = _sparkleActive && _sparkleVisible;
-        _sparkleSprite.Texture = _sparkle.CurrentTexture;
-        _sparkleSprite.Position = _sparkle.CurrentOffset + new Vector2(0, _z >> 8) + TransitionDrawOffset;
         QueueRedraw();
     }
     private void BeginPlacement(RoomEventContext context)
     {
-        context.Player.AdvanceCutsceneMovement(Vector2.Zero, Vector2I.Up);
+        context.Player.Face(Vector2I.Up);
         _counter = _data.Constant("rise-wait");
-        _sparkleActive = true;
-        _sparkleJustCreated = true;
-        _paletteDirection = -1;
+        _sparkle = context.Entities.TryAllocateInteraction(() => new TuniNutSparkleRoomEntity(context, this, _data.Visual("sparkle")));
+        if (_sparkle is null)
+        {
+            // Unchecked creation retains HL=$e040; relatedObj1 aliases sound RAM.
+            context.Entities.WriteSoundAllocationAlias(0xc056, 0x46);
+            context.Entities.WriteSoundAllocationAlias(0xc057, (byte)(0xd0 + context.Entities.NativeInteractionSlot(this)));
+        }
+        context.Transitions.BeginNativeLightRoomDarkening(); _ownsPalette = true;
         context.Sound.PlaySound(_data.Constant("stop-music"));
         Visible = true;
         ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // objectSetVisiblec0
@@ -182,7 +182,10 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
         // tileset into those shared BG slots (5:F6 -> 1:13).
         if (ReferenceEquals(_room, currentRoom))
             _room.SetTemporaryBackgroundPaletteOffset(0);
-        _paletteDirection = 0;
+        if (_ownsPalette) _owner?.Context.Transitions.CancelNativeRoomColorFade(_room);
+        _ownsPalette = false;
+        if (_sparkle is not null) _owner?.Context.Entities.RetireEntity(_sparkle);
+        _sparkle = null; Finished = true; _owner = null;
     }
     public bool BlocksLink(Vector2 center) => State == 4 && Player.EnemyCollisionOverlaps(center,
         new Rect2(Position - new Vector2(6, 6), new Vector2(12, 12)));

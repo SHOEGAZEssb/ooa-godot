@@ -26,8 +26,7 @@ internal sealed class GraveyardGateEvent :
     }
 
     public bool HasState => _stage is GraveyardGateEventStage.WaitingForKeyhole or GraveyardGateEventStage.Running;
-    public bool BlocksGameplay => _stage == GraveyardGateEventStage.Running;
-    public bool FreezesNonInteractionObjects => BlocksGameplay;
+    public bool BlocksGameplay => InputControlHeld;
     public bool MenusDisabled => BlocksGameplay;
     internal int Counter => _runner.Counter;
 
@@ -57,7 +56,7 @@ internal sealed class GraveyardGateEvent :
             _stage = GraveyardGateEventStage.Inactive;
     }
 
-    internal void Trigger(int group, int room)
+    internal NativeScriptInputControl Trigger(int group, int room)
     {
         if (!CanTrigger(group, room) ||
             !_context.Rooms.SaveData.HasRoomFlag(group, room, _record.RoomFlag))
@@ -67,6 +66,7 @@ internal sealed class GraveyardGateEvent :
         }
         _stage = GraveyardGateEventStage.Running;
         _runner.Start(_database.Commands);
+        return EventResources.ScriptInput;
     }
 
     public void UpdateFrame()
@@ -81,6 +81,7 @@ internal sealed class GraveyardGateEvent :
         _runner.Clear();
         if (_stage == GraveyardGateEventStage.Running)
             _context.Entities.SetScreenShake(0,0,0);
+        ReleaseInputControl();
         _stage = GraveyardGateEventStage.Inactive;
     }
 
@@ -91,8 +92,7 @@ internal sealed class GraveyardGateEvent :
     {
         if (!enabled)
             throw UnsupportedCommand("disable input from the command stream");
-        // enableinput clears $81; scriptend retires the event in this update.
-        // The ordinary Link dispatch and its retained parents resume next pass.
+        base.SetInputEnabled(true);
     }
 
     void ICutsceneCommandHost.SetMusic(int music)
@@ -163,7 +163,7 @@ internal sealed class GraveyardGateEvent :
     {
         foreach (Vector2 position in positions)
         {
-            PuzzlePuffEffect puff = _context.Entities.Spawn<PuzzlePuffEffect>(
+            StationaryDebrisEffect puff = _context.Entities.Spawn<StationaryDebrisEffect>(
                 new PuzzlePuffSpawn(position, SoundId.SndPoof));
             // The controller precedes its newly allocated puff slots, so each
             // puff receives state 0 in this same original interaction pass.

@@ -23,6 +23,14 @@ public sealed partial class ValidationRoot
             FailIf(npc.ZIndex != sample.Expected, $"Native relative priority failed at Y={sample.ObjectY}/{sample.LinkY}, Z={sample.Z}.");
         }
         npc.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex);
+        foreach (var sample in new (float ObjectY, float LinkY, int Z, int Expected)[]
+        {
+            (51.75f, 40, 0, 11), (52, 40.75f, 0, 12),
+            (0, 245, 0, 11), (1, 245, 0, 12),
+            (200, 40, 1, 9), (200, 40, 16, 9), (200, 40, 17, 12)
+        })
+            FailIf(ObjectDrawPriority.CompanionRelativeToLink(sample.ObjectY, sample.LinkY, sample.Z) != sample.Expected,
+                $"Native companion priority failed at Y={sample.ObjectY}/{sample.LinkY}, Z={sample.Z}.");
         npc.UpdateDrawPriority(Vector2.Zero, 1);
         FailIf(npc.ZIndex != 12, "Fixed visible80 must bypass Link-relative priority.");
         npc.Free();

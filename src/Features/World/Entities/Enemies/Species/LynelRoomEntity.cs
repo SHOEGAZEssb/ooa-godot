@@ -9,7 +9,7 @@ internal sealed class LynelRoomEntity(LynelCharacter enemy, EnemyCombatSourceDes
     : CombatEnemyRoomEntityAdapter<LynelCharacter>(enemy, enemy.SetTransitionDrawOffset,
         EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
             enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback,
-            owner.OnSoundRequested, EnemySwordResponse.Knockback), collisionZ: () => enemy.ZFixed >> 8),
+            owner.OnSoundRequested), collisionZ: () => enemy.ZFixed >> 8),
         IFixedRoomEntity, IScreenTransitionPreloadRoomEntity, ILinkSwordStateAwareRoomEntity, IItemCollisionHittableRoomEntity,
         IExpertPunchHittableRoomEntity, ISeedCollisionTarget, IBurningEnemyTarget, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {

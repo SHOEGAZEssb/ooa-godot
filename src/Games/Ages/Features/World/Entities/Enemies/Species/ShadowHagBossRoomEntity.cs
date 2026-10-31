@@ -5,16 +5,13 @@ namespace Oracles;
 
 internal sealed class ShadowHagBossRoomEntity
     : CombatEnemyRoomEntityAdapter<ShadowHagBoss>, IFixedRoomEntity,
-        IPlayerRestriction, IPlayerForcedMovement,
+        IPlayerRestriction,
         IScreenTransitionPreloadRoomEntity
 {
-    private readonly BossEntryMovement _entryMovement;
-    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
-    private bool _initialized;
+    protected override int GaleCollisionMode => ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).EnemyMode(Entity.Record.Id);
 
     internal ShadowHagBossRoomEntity(
-        ShadowHagBoss boss,
-        Vector2I entryDirection)
+        ShadowHagBoss boss)
         : base(
             boss,
             boss.SetTransitionDrawOffset,
@@ -33,7 +30,6 @@ internal sealed class ShadowHagBossRoomEntity
                 completedOutcome: () =>
                     RoomEnemyOutcome.BossTeardown(0)))
     {
-        _entryMovement = new BossEntryMovement(entryDirection);
     }
 
     public bool DisablesSword => Entity.IntroActive || Entity.Defeated;
@@ -46,14 +42,8 @@ internal sealed class ShadowHagBossRoomEntity
         ICollection<RoomEntitySpawn> spawns)
     {
         Entity.UpdateFrame(frame.Player, frame.Counter, spawns, frame.LinkTarget ?? frame.Player.EnemyContactPosition);
-        if (_initialized)
-            return;
-        _initialized = true;
-        _entryMovement.Arm();
     }
 
-    public void UpdatePlayerForcedMovement(Player player) =>
-        _entryMovement.Update(player);
 
     public ScreenTransitionPresentation PrepareForScreenTransition(
         ICollection<RoomEntitySpawn> spawns)

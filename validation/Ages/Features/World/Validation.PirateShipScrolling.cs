@@ -25,7 +25,8 @@ public sealed partial class ValidationRoot
                 "Pirate scrolling fixture starts outside swimmable $d6 sea geometry.");
             FailIf(_entities.EntityAdapters<PirateShipRoomEntity>().Any(), "Offscreen $d7 ship spawned in source room $d6.");
             for (int update = 0; !_transitions.ScrollActive && update < 80; update++)
-                StepGameplayUpdates(1, Vector2.Right, ["move_right"], ["move_right"], batched);
+                StepGameplayUpdates(1, (update & 1) == 0 ? Vector2.Right : Vector2.Zero,
+                    pressed: (update & 1) == 0 ? ["move_right"] : [], batched: batched);
             FailIf(!_transitions.ScrollActive || _currentRoom.Id != 0xd7,
                 "Swimming through $d6's east boundary did not start the actual $d7 scroll.");
             var ship = _entities.EntityAdapters<PirateShipRoomEntity>().SingleOrDefault();
@@ -62,10 +63,10 @@ public sealed partial class ValidationRoot
 
             // Return through the other edge with the outgoing $d1 slot retained,
             // then enter again. Only room initialization recreates the ship.
-            _transitions.BeginScroll(_player, Vector2I.Left, 0xd6);
+            _transitions.BeginValidationScroll(_player, Vector2I.Left, 0xd6);
             StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batched);
             FailIf(_entities.EntityAdapters<PirateShipRoomEntity>().Any(), "Outgoing pirate ship survived scroll cleanup in $d6.");
-            _transitions.BeginScroll(_player, Vector2I.Right, 0xd7);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0xd7);
             ship = _entities.EntityAdapters<PirateShipRoomEntity>().SingleOrDefault();
             FailIf(ship is null || !ship.Node.Visible || ship.State != 1,
                 "Repeating the sea scroll omitted initialized pirate ship presentation.");

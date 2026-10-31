@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
 
             // Use the real application object/scroll passes, including the
             // finisher's frozen destination and the following ordinary update.
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x91);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x91);
             FailIf(_roomView.UnderwaterWaveActive,
                 "checkDisableUnderwaterWaves must suppress SCX before scrolling.");
             StepGameplayUpdates(_transitions.ScrollTotalFrames - 1, Vector2.Zero,

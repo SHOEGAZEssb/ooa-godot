@@ -159,7 +159,7 @@ public sealed partial class ValidationRoot
                     .First(d => _rooms.TryGetNeighbor(d, out _));
                 _rooms.TryGetNeighbor(direction, out int sourceRoom);
                 LoadValidationRoom(fixture.Group, sourceRoom);
-                _transitions.BeginScroll(_player, -direction, fixture.Room);
+                _transitions.BeginValidationScroll(_player, -direction, fixture.Room);
                 var gels = _entities.Entities<ColorChangingGelCharacter>().ToArray();
                 FailIf(gels.Length != fixture.Count, $"{fixture.Group}:{fixture.Room:x2} lost its source Gel count.");
                 foreach (var gel in gels)

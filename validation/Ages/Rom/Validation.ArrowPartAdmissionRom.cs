@@ -16,11 +16,11 @@ public sealed partial class ValidationRoot
         {
             var native = PrepareEnemyPartAdmissionRom(id, 0, out var enemy);
             OccupyPartAdmissionSlotsRom(native, free);
-            Type fields = enemy is MaskedMoblinCharacter ? typeof(MaskedMoblinCharacter) : typeof(ArrowMoblinCharacter);
+            Type fields = typeof(ArrowMoblinCharacter);
             void StageThrow(int cycles)
             {
                 fields.GetField("_state", hidden)!.SetValue(enemy,
-                    enemy is MaskedMoblinCharacter ? (object)MoblinState.Turning : ArrowMoblinState.Turning);
+                    ArrowMoblinState.Turning);
                 fields.GetField("_counter", hidden)!.SetValue(enemy, 2);
                 fields.GetField("_moveCycles", hidden)!.SetValue(enemy, cycles);
                 native[0xd084] = 9; native[0xd086] = 2; native[0xd0b0] = (byte)cycles;
@@ -44,13 +44,11 @@ public sealed partial class ValidationRoot
             void Compare()
             {
                 AdvancePartAdmissionRom(native); observations++;
-                int state = enemy is MaskedMoblinCharacter ?
-                    ((MoblinState)fields.GetField("_state", hidden)!.GetValue(enemy)! == MoblinState.Turning ? 9 : 8) :
-                    (int)((ArrowMoblinCharacter)enemy).State;
+                int state = (int)((ArrowMoblinCharacter)enemy).State;
                 int counter = (int)fields.GetField("_counter", hidden)!.GetValue(enemy)!;
                 int cycles = (int)fields.GetField("_moveCycles", hidden)!.GetValue(enemy)!;
                 int angle = (int)fields.GetField("_angle", hidden)!.GetValue(enemy)!;
-                FailIf(state != native[0xd084] || counter != native[0xd086] || (cycles & 255) != native[0xd0b0] || angle != native[0xd089],
+                FailIf(state != native[0xd084] || counter != native[0xd086] || cycles != native[0xd0b0] || angle != native[0xd089],
                     $"ENEMY${id:x2} arrow failure must preserve native route/counter/alternation, free={free}, update={observations}.");
                 var rng = _random.CaptureState();
                 FailIf(rng.Rng1 != native[0xff94] || rng.Rng2 != native[0xff95], "Arrow admission must preserve native shared RNG order.");
@@ -85,6 +83,9 @@ public sealed partial class ValidationRoot
                 FailIf(native[0xd5c1] != 0x1a, "The later eligible arrow must reuse the released PART$d5 slot.");
                 Step(2);
             }
+            StageThrow(0xff); Step(2);
+            FailIf(((ArrowMoblinCharacter)enemy).MoveCycles != 0,
+                $"ENEMY${id:x2} must wrap native var30 at $ff while preserving its even-route firing gate.");
             _entities.Clear();
             FailIf(_entities.Entities<EnemyArrowProjectile>().Count != 0, "Room cancellation must retire admitted arrows.");
         }

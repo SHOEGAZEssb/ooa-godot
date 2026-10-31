@@ -88,7 +88,7 @@ public sealed partial class ValidationRoot
                         rom[0xc6cb] = 0xff;
                     }
                     Vector2 start = _player.Position + Vector2.Right * 6;
-                    if (partId == 0x1a) start -= EnemyBehaviorTables.For(AgesGameContent.AssetRoot).EnemyArrowSpawnOffsets[3].Vector;
+                    if (partId == 0x1a) start -= EnemyArrowDatabase.For(AgesGameContent.AssetRoot).SpawnOffsets[3].Vector;
                     ordinaryShot = partId switch
                     {
                         0x18 => _entities.Spawn<OctorokRockProjectile>(new OctorokRockSpawn(start, 24)),

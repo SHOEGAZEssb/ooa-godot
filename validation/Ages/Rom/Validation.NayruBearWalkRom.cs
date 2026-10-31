@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
             native[at] = 1; native[at + 1] = 0x5d; native[at + 0x0b] = 0x28; native[at + 0x0d] = 0x58;
             int visits = 0, moves = 0; bool held = false, cancelled = false;
             void Step(int count, Vector2 direction, int keys = 0, int angle = 0xff, bool press = false, bool compare = true)
-                => StepGameplayUpdates(count, direction, pressed: press ? ["attack"] : [], batched: batched, afterUpdate: () =>
+                => StepGameplayUpdates(count, direction, held: MenuRomActions(keys), pressed: press ? ["attack"] : [], batched: batched, afterUpdate: () =>
                 {
                     int y = native.Word(at + 10);
                     native.UpdateGameplay(press ? 1 : 0, keys, angle, _entities.FrameCounter); visits++;

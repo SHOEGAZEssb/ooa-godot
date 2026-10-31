@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace Oracles;
 
 internal sealed class RoomTileChangeWatcherRoomEntity
-    : RoomEntityAdapter<Node2D>, IFixedRoomEntity, IRoomEntityLifetime
+    : RoomEntityAdapter<Node2D>, INativeInteractionRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
+      IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly RoomTileChangeWatcherDatabaseRecord _record;
     private readonly OracleRoomData _room;
@@ -15,6 +16,9 @@ internal sealed class RoomTileChangeWatcherRoomEntity
 
     internal bool Initialized { get; private set; }
     public bool Finished { get; private set; }
+    internal RoomTileChangeWatcherDatabaseRecord Record => _record;
+    public bool UpdatesDuringDialogue => !Initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !Initialized;
 
     internal RoomTileChangeWatcherRoomEntity(
         RoomTileChangeWatcherDatabaseRecord record,
@@ -47,16 +51,7 @@ internal sealed class RoomTileChangeWatcherRoomEntity
 
         if (!Initialized)
         {
-            // State 0 checks the flag before reading wRoomLayout. A watcher
-            // whose persistent change was already applied deletes itself.
-            if (_save.HasRoomFlag(
-                _record.Group, _record.Room, _record.RoomFlag))
-            {
-                Finished = true;
-                return;
-            }
-            _initialTile = _room.GetMetatile(_tilePoint);
-            Initialized = true;
+            Initialize();
             return;
         }
 
@@ -66,6 +61,21 @@ internal sealed class RoomTileChangeWatcherRoomEntity
         _save.SetRoomFlag(
             _record.Group, _record.Room, _record.RoomFlag);
         Finished = true;
+    }
+
+    private void Initialize()
+    {
+        // State0 checks the flag before capturing the layout byte.
+        if (_save.HasRoomFlag(_record.Group, _record.Room, _record.RoomFlag))
+        { Finished = true; return; }
+        _initialTile = _room.GetMetatile(_tilePoint);
+        Initialized = true;
+    }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!Initialized && !Finished) Initialize();
+        return ScreenTransitionPresentation.Visible;
     }
 
     private static Node2D CreateNode(

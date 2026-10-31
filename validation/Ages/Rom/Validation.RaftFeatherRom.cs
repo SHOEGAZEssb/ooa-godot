@@ -27,9 +27,10 @@ public sealed partial class ValidationRoot
                 _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8),
                     water ? (byte)0xfc : (byte)0xa0, water ? (byte)0x10 : (byte)0, 0);
             }
-            var raft = new RaftRoomEntity(new RaftSpawn(new(raftX, 88), 0, 1, 0xa7),
-                _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState);
-            _entities.AddEntity(raft);
+            var waiting = new RaftInteractionRoomEntity(new RaftInteractionSpawn(new(raftX, 88), 1, 0xa7, SubId: 1),
+                _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState, _entities);
+            _entities.AddEntity(waiting);
+            _entities.UpdateNativeInteractionPass(_player, _entities.FrameCounter);
             // Both takeoff points are open dry shore. The near point is
             // already inside the inner radius; rising Z must prevent boarding.
             int startY = near ? 83 : 54, startX = near ? 92 : 80;
@@ -55,7 +56,7 @@ public sealed partial class ValidationRoot
                 int pressed = held & ~previousHeld; previousHeld = held;
                 StepGameplayUpdates(count, input, MenuRomActions(held), MenuRomActions(pressed), batched, () =>
                 {
-                    rom.UpdateGameplay(pressed, held, angle, _entities.FrameCounter - 1); pressed = 0; update++;
+                    rom.UpdateGameplay(pressed, held, angle, _saveData.ReadField("wPlaytimeCounter")); pressed = 0; update++;
                     string context = $"Raft Feather A={primary} near={near} fraction=${fraction:x2} update={update} batch={batched}";
                     Vector2 nativePosition = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(_player.PrecisePosition != nativePosition || _player.RaftRideActive != (rom[0xcc2c] == 0xd1) ||
@@ -82,8 +83,8 @@ public sealed partial class ValidationRoot
                 rom[0xd100] != 0,
                 "Feather must launch with Z=-$01e0/Vz=-$01c0 and the rising near-shore update must reject raft allocation.");
             if (near) Step(29, feather: true);
-            for (int approach = 0; !raft.LinkRiding && approach < 40; approach++) Step(1, 0x10, true);
-            FailIf(!raft.LinkRiding || !airborneAllocation || update != 31 || rom[0xcc5c] != 0,
+            for (int approach = 0; !_player.RaftRideActive && approach < 40; approach++) Step(1, 0x10, true);
+            FailIf(!_player.RaftRideActive || !airborneAllocation || update != 31 || rom[0xcc5c] != 0,
                 "The reachable Feather approach must allocate during update30 and initialize the raft while landing on update31.");
             Step(24, feather: true);
             Step(); Step(8, feather: true);
@@ -91,8 +92,8 @@ public sealed partial class ValidationRoot
                 "Fresh Feather input while mounted must reject launch.");
             _dialogue.ShowMessage("Raft Feather pause.", _player.Position.Y); rom[0xcba0] = 1;
             Step(6, 0, true); _dialogue.Close(); rom[0xcba0] = 0;
-            for (int approach = 0; raft.LinkRiding && approach < 100; approach++) Step(1, 0, true);
-            FailIf(raft.LinkRiding, "Raft Feather fixture must dismount onto the reachable upper shore.");
+            for (int approach = 0; _player.RaftRideActive && approach < 100; approach++) Step(1, 0, true);
+            FailIf(_player.RaftRideActive, "Raft Feather fixture must dismount onto the reachable upper shore.");
             Step(24, feather: true);
             Step(); Step(1, feather: true);
             FailIf(!_player.TopDownAirborne || rom[0xcc5c] == 0,

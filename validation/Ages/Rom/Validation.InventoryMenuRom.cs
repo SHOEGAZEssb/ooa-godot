@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             void Step(int updates = 1, int pressed = 0, int? held = null)
             {
                 int edge = pressed;
-                application.Step(updates, Vector2.Right, MenuRomActions(held ?? pressed),
+                application.Step(updates, Vector2.Zero, MenuRomActions(held ?? pressed),
                     MenuRomActions(pressed), batched, () =>
                 {
                     rom.Update(edge, held ?? pressed, ++update);

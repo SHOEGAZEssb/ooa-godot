@@ -17,7 +17,10 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
     private Vector2 _precisePosition;
     private OracleRuntimeState? _movementMemory;
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
-    private readonly int _targetAngle;
+    internal int TargetAngle { get; set; }
+    internal int RelatedParentSlot { get; private set; }
+    internal int SubId => _data.SubId;
+    private readonly Action<Vector2>? _breakTile;
     private bool _collisionPending;
 
     internal int State { get; private set; }
@@ -27,27 +30,32 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
     internal int Damage { get; private set; }
     internal bool Finished { get; private set; }
     internal bool CollisionEnabled => !Finished && State is >= 1 and <= 3;
+    internal int CollisionType => _data.Collision & 0x7f;
     internal Vector2 PrecisePosition => _precisePosition;
     internal Rect2 CollisionBounds => new(Position - (Vector2)_data.Radius, (Vector2)_data.Radius * 2);
 
     internal BoomerangItem(OracleRoomData room, Vector2 position, int angle, int zHigh, Func<int> damage,
-        Action<int> sound, Action<Vector2, int> clink)
+        Action<int> sound, Action<Vector2, int> clink, int subId = 0, int parentSlot = 0, Action<Vector2>? breakTile = null)
     {
         AssetRoot = room.AssetRoot;
         _tilePassage = new ItemTilePassage(AssetRoot);
         if (angle is < 0 or > 0x1f) throw new ArgumentOutOfRangeException(nameof(angle));
-        _data = BoomerangDatabase.For(AssetRoot);
+        _data = BoomerangDatabase.For(AssetRoot, subId);
+        RelatedParentSlot = parentSlot;
+        _breakTile = breakTile;
+        if (_data.BreakSource >= 0 && _breakTile is null)
+            throw new InvalidOperationException("ITEM$06:$01 requires its native tile-breaking owner.");
         _room = room;
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
-        Angle = _targetAngle = angle;
+        Angle = TargetAngle = angle;
         ZHigh = unchecked((sbyte)(byte)zHigh);
         _damage = damage;
         _sound = sound;
         _clink = clink;
         _animation = new(this, 1);
         // The $84e1 upload maps item tile base$4e to sprite offset zero.
-        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + "gfx/spr_boomerang.png"),
+        _animation.Load(OracleGraphicsCache.LoadTwoBitSpriteSheet(AssetRoot + $"metadata/boomerang_gfx_{subId}.bin", 64, 2),
             [_data.Animation], 0, _data.OamFlags & 7, sourceGrayscaleInverted: _data.SourceInverted);
         Visible = false;
     }
@@ -79,18 +87,20 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
         }
         if (State == 1)
         {
+            _breakTile?.Invoke(Position);
             if (_collisionPending) BeginReturn(linkPosition);
             else if (_room.IsSolid(Position) && !_tilePassage.CanPass(_room, Position, Angle))
             {
                 _clink(Position, ZHigh);
                 Angle ^= 0x10;
                 State = 2;
+                RelatedParentSlot = 0;
             }
             else if (Position.X >= _room.Width || Position.Y >= _room.Height)
                 BeginReturn(linkPosition);
             else
             {
-                Nudge(_targetAngle);
+                Nudge(TargetAngle);
                 if (--Counter == 0) BeginReturn(linkPosition);
             }
         }
@@ -98,6 +108,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
         {
             Nudge(OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition));
             if (Within(linkPosition, _data.NearRadius)) State = 3;
+            _breakTile?.Invoke(Position);
         }
         else if (State == 3)
         {
@@ -109,6 +120,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
                 Visible = false;
                 return;
             }
+            _breakTile?.Invoke(Position);
         }
         Position = NativeObjectMovement.ApplySpeed(_movementMemory, ref _precisePosition, _data.Speed, Angle);
         if (_animation.ConsumeParameter() != 0) _sound(_data.Sound);
@@ -122,6 +134,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
         if (Position.X > 0xf0 || Position.Y > 0xf0 || unchecked((byte)(target - Angle + 8)) >= 0x11)
             Angle = target;
         State = 2;
+        RelatedParentSlot = 0;
     }
 
     private void Nudge(int target)

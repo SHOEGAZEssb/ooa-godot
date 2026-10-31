@@ -32,13 +32,13 @@ public partial class Player
     private void CreditsLinkAnimationSet(int animation)
     {
         _creditsLinkAnimation=animation;_creditsLinkFrame=0;
-        var frame=CreditsLinkDatabase.Shared.Frames(animation)[0];_creditsLinkTicks=frame.Duration;SetCutsceneSpriteFrame(frame);
+        var frame=AgesLinkCutsceneDatabase.Shared.Frames(animation)[0];_creditsLinkTicks=frame.Duration;SetCutsceneSpriteFrame(frame);
     }
     private void CreditsLinkAnimate()
     {
         _creditsLinkTicks=(_creditsLinkTicks-1)&255;if(_creditsLinkTicks!=0)return;
-        var frames=CreditsLinkDatabase.Shared.Frames(_creditsLinkAnimation);
-        if(++_creditsLinkFrame>=frames.Length)_creditsLinkFrame=CreditsLinkDatabase.Shared.Loop(_creditsLinkAnimation);
+        var frames=AgesLinkCutsceneDatabase.Shared.Frames(_creditsLinkAnimation);
+        if(++_creditsLinkFrame>=frames.Length)_creditsLinkFrame=AgesLinkCutsceneDatabase.Shared.Loop(_creditsLinkAnimation);
         _creditsLinkTicks=frames[_creditsLinkFrame].Duration;SetCutsceneSpriteFrame(frames[_creditsLinkFrame]);
     }
     private bool AdvanceCreditsLink()
@@ -66,7 +66,7 @@ public partial class Player
                 {_creditsLinkSubstate=3;_creditsLinkSpeedZ=-0x1c0;CreditsLinkAnimationSet(0x0d);return true;}
                 // Link precedes the entity manager's counter increment, as
                 // does the existing companion special-object prepass.
-                if(((_world.FrameCounter+1)&7)==0)
+                if((_world.FrameCounter&7)==0)
                 {
                     int direction=((OracleObjectMovement.Shared.RelativeAngle(_precisePosition.Floor(),new(runtime.ReadWramByte(0xcfd6),runtime.ReadWramByte(0xcfd5)))+4)&0x18)>>3;
                     if(direction!=_creditsLinkDirection){_creditsLinkDirection=direction;CreditsLinkAnimationSet(direction);}

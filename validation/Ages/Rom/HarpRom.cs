@@ -38,7 +38,8 @@ internal sealed class HarpRom
     internal void Update(int pressed, int held, int frameCounter)
     {
         this[0xcc00] = (byte)frameCounter;
-        this[0xcc29] = (byte)held; this[0xcc2a] = (byte)pressed;
+        this[0xc481] = (byte)(held | pressed); this[0xc482] = (byte)pressed;
+        _rom.Call(0x40b3, 5); // updateGameKeysPressed retains the preceding object sample.
         // linkState01 clears the preceding parent's shared byte only when
         // text and wDisabledObjects & $81 allow its ordinary update.
         if (this[0xcba0] == 0 && (this[0xcc8a] & 0x81) == 0)
@@ -76,14 +77,14 @@ internal sealed class HarpRom
             throw new InvalidOperationException("Harp ROM room $0:$cd portal did not enter dormant state $01.");
     }
 
-    internal IntroOamPart[] LinkParts
+    internal ObjectSpritePart[] LinkParts
     {
         get
         {
             int pointer = Word(0xd01e);
             int offset = (0x13 + (pointer >> 14)) * 0x4000 + (pointer & 0x3fff);
             int count = _data.Span[offset++];
-            return Enumerable.Range(0, count).Select(index => new IntroOamPart(
+            return Enumerable.Range(0, count).Select(index => new ObjectSpritePart(
                 _data.Span[offset + index * 4], _data.Span[offset + index * 4 + 1],
                 SourceTile(_data.Span[offset + index * 4 + 2]), _data.Span[offset + index * 4 + 3])).ToArray();
         }

@@ -4,26 +4,22 @@ using System.Collections.Generic;
 
 namespace Oracles;
 
-internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
+internal sealed class PumpkinHeadBossRoomEntity : INativeEnemyRoomEntity, IFixedRoomEntity,
     ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
     IRoomEntityLifetime, IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
-    IPlayerRestriction, IBraceletInteractableRoomEntity, IPlayerForcedMovement,
+    IPlayerRestriction, IBraceletInteractableRoomEntity,
     IObjectCollisionHeightRoomEntity, IUpdatesDuringDialogueRoomEntity,
-    IUpdatesDuringRoomEntityFreeze
+    IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly PumpkinHeadBoss _boss;
     private readonly int _damage;
-    private readonly BossEntryMovement _entryMovement;
-    private bool _initialized;
     private bool _outcomeTaken;
     internal PumpkinHeadBossRoomEntity(
         PumpkinHeadBoss boss,
-        int damage,
-        Vector2I entryDirection)
+        int damage)
     {
         _boss = boss;
         _damage = damage;
-        _entryMovement = new BossEntryMovement(entryDirection);
     }
 
     public Node2D Node => _boss;
@@ -40,13 +36,12 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         _boss.UpdateFrame(frame.Player, spawns, frame.Counter, frame.LinkTarget ?? frame.Player.EnemyContactPosition);
-        if (_initialized)
-            return;
-        _initialized = true;
-        _entryMovement.Arm();
     }
-    public void UpdatePlayerForcedMovement(Player player) =>
-        _entryMovement.Update(player);
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        _boss.PrepareForScreenTransition();
+        return ScreenTransitionPresentation.Hidden;
+    }
     public void HandleLinkContact(Player player) => _boss.HandleLinkContact(player, _damage);
     public bool ApplySwordHit(
         Rect2 hitbox,

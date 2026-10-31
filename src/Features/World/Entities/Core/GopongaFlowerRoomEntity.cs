@@ -9,7 +9,7 @@ internal sealed class GopongaFlowerRoomEntity(GopongaFlowerCharacter enemy,
     : CombatEnemyRoomEntityAdapter<GopongaFlowerCharacter>(enemy, enemy.SetTransitionDrawOffset,
         EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
             enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordNoKnockback,
-            soundRequested, EnemySwordResponse.NoKnockback)),
+            soundRequested)),
         IFixedRoomEntity, IScreenTransitionPreloadRoomEntity, ILinkSwordStateAwareRoomEntity,
         IItemCollisionHittableRoomEntity, IExpertPunchHittableRoomEntity
 {

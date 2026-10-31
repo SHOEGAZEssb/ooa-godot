@@ -152,12 +152,12 @@ internal sealed class BlackTowerEntranceEvent :
         _simulatedTailPhase = 0;
         _simulatedTailFrames = 0;
         _explanationPending = false;
-        _context.Player.EndCutsceneControl(this);
+        ReleaseInputControl();
     }
 
     private void StartAftermath()
     {
-        _context.Player.BeginCutsceneControl(owner: this);
+        _context.Player.BeginSimulatedInputControl(this);
         _stage = BlackTowerEntranceEventStage.Aftermath;
         _guardPrecisePosition = _guard!.Position;
         _runner.Start(_database.Aftermath);
@@ -215,8 +215,11 @@ internal sealed class BlackTowerEntranceEvent :
             _record.Group,
             _record.Room,
             _storedPackedPosition,
-            _storedDirection,
+            0,
             _record.DestinationTransition);
+        // showBlackTowerExteriorCutsceneHandler copies $cfd4 to wcc50;
+        // warpTransitionC reads that live byte, not the warp parameter nibble.
+        _context.Entities.RuntimeState.SetField("wcc50",(byte)_storedDirection);
         // ApplyWarp reparses room $86 synchronously. RoomEventController then
         // sees bit $40 and starts the aftermath lane on the new guard object.
         _context.Transitions.ApplyWarp(_context.Player, warp);
@@ -352,6 +355,7 @@ internal sealed class BlackTowerEntranceEvent :
                 _simulatedDirectFrames = 0;
                 _simulatedTailPhase = 0;
                 _simulatedTailFrames = 0;
+                _context.Player.EndCutsceneControl(this);
                 return;
             default:
                 throw UnsupportedCommand($"write '{binding}'=${value:x2}");

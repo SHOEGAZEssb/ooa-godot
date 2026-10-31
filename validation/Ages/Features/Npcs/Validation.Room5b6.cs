@@ -86,14 +86,14 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(record.Group, record.Room);
         pickup = _entities.Entities<GroundTreasurePickup>().Single();
         _player.WarpTo(new Vector2(0x36, 0x48), recordSafe: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             pickup.State != PickupState.Waiting ||
             _inventory.HasTreasure(record.TreasureId),
             "Room 5:b6's $6b:$0b collected at objectCheckLinkWithinDistance's " +
             "excluded Manhattan-distance $0e boundary.");
         _player.WarpTo(new Vector2(0x2f, 0x4f), recordSafe: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             pickup.State != PickupState.Waiting ||
             _inventory.HasTreasure(record.TreasureId),
@@ -101,7 +101,7 @@ public sealed partial class ValidationRoot
             "Manhattan geometry at the $07+$07 diagonal boundary.");
 
         _player.WarpTo(new Vector2(0x35, 0x48), recordSafe: false);
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         RememberedCompanion duringHeldItem =
             CompanionRuntimeState.ReadRemembered(_entities.RuntimeState);
         FailIf(
@@ -127,8 +127,9 @@ public sealed partial class ValidationRoot
             "TREASURE_CHEVAL_ROPE $52:$00, set ROOMFLAG_ITEM, clear the " +
             "death-respawn companion ID, and retain the source input lease.");
 
+        StepGameplayUpdates(3, Vector2.Zero);
         _dialogue.Close();
-        _interactions.Update(frame, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             !pickup.Finished ||
             CompanionRuntimeState.ReadRemembered(_entities.RuntimeState).Id !=
@@ -136,7 +137,7 @@ public sealed partial class ValidationRoot
             "The room 5:b6 Rope did not finish its held-item command before " +
             "the following wRememberedCompanionId write.");
 
-        _entities.Update(frame, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         RememberedCompanion afterScriptWrite =
             CompanionRuntimeState.ReadRemembered(_entities.RuntimeState);
         FailIf(
@@ -148,17 +149,17 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundTreasurePickup>().Count != 1,
             "Room 5:b6 did not write only wRememberedCompanionId after " +
             "giveitem returned and before wait 30 began.");
-        for (int update = 1;
+        for (int update = 0;
             update < record.PostGrantWait - 1;
             update++)
         {
-            _entities.Update(frame, _player);
+            StepGameplayUpdates(1, Vector2.Zero);
         }
         FailIf(
             _entities.Entities<GroundTreasurePickup>().Count != 1 ||
             !_entities.PlayerMovementDisabled,
             "Room 5:b6's $6b:$0b released input before wait 30 completed.");
-        _entities.Update(frame, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
             _entities.PlayerMovementDisabled ||

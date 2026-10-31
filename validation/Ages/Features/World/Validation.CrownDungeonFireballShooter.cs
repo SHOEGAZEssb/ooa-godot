@@ -110,14 +110,14 @@ public partial class ValidationRoot
             try
             {
                 var native = fixture.Manager.Spawn<FireballShooterRoomEntity>(new FireballShooterChildSpawn(parent,new Vector2(40,40),1));
-                for (int i=0;i<3;i++) fixture.Manager.Update(1.0/60.0,_player);
+                for (int i=0;i<3;i++) fixture.Manager.AdvanceEntityFrames(1.0/60.0,_player);
                 FailIf(!native.Finished || fixture.Manager.Entities<FireballShooterRoomEntity>().Count != 0,
                     "$50 native shutdown must release its actual enemy slot.");
                 var reused = fixture.Manager.Spawn<FireballShooterRoomEntity>(new FireballShooterChildSpawn(parent,new Vector2(40,40),1));
                 FailIf(reused.Counter1 != 0xff, "$50 reallocation lost the freed slot's dirty counter byte.");
-                fixture.Manager.Update(1.0/60.0,_player);
+                fixture.Manager.AdvanceEntityFrames(1.0/60.0,_player);
                 FailIf(reused.State != 8 || reused.Counter1 != 0xff, "$50 state0 must preserve an inherited counter byte.");
-                fixture.Manager.Update(1.0/60.0,_player);
+                fixture.Manager.AdvanceEntityFrames(1.0/60.0,_player);
                 FailIf(reused.Counter1 != 126, "$50 state8 must overwrite inherited counter1 from its timing table.");
                 fixture.Manager.LoadCutsceneRoom(5,room,includeTimePortals:false);
                 var cleared = fixture.Manager.Spawn<FireballShooterRoomEntity>(new FireballShooterChildSpawn(parent,new Vector2(40,40),1));
@@ -182,7 +182,7 @@ public partial class ValidationRoot
 
     private void ValidateNativeFireballCollisions()
     {
-        var data = new ZoraFireDatabase();
+        var data = new ZoraFireDatabase(AgesGameContent.AssetRoot);
         foreach (int partId in new[] { 0x19,0x31 })
         for (int shield = 1; shield <= 3; shield++)
         {

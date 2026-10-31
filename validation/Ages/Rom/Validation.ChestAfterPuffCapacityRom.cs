@@ -39,7 +39,7 @@ public partial class ValidationRoot
             int releasedAddress = 0;
             for (int index = 0; index < 13 - freeSlots; index++)
             {
-                var puff = _entities.Spawn<PuzzlePuffEffect>(
+                var puff = _entities.Spawn<StationaryDebrisEffect>(
                     new PuzzlePuffSpawn(new(200, 120), SoundId.MusNone));
                 int slot = _entities.InteractionSlot(puff);
                 int address = 0xd040 + slot * 0x100;
@@ -69,7 +69,7 @@ public partial class ValidationRoot
                     "script wait, chest tile or source sound continuation differs.");
                 int puffs = Enumerable.Range(0xd2, 14).Count(page =>
                     native[page * 0x100 + 0x40] != 0 && native[page * 0x100 + 0x41] == 0x05);
-                FailIf(_entities.Entities<PuzzlePuffEffect>().Count != puffs,
+                FailIf(_entities.Entities<StationaryDebrisEffect>().Count != puffs,
                     "createpuff must preserve native full/one-free allocation and later deletion.");
             }
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero,
@@ -78,7 +78,7 @@ public partial class ValidationRoot
             Step(3);
             FailIf(ValidationNodeLifetime.OrphanIds().Any(id => !orphans.Contains(id)),
                 "Failed queued createpuff must not construct an unowned native node.");
-            FailIf(script.Counter != -1 || _entities.Entities<PuzzlePuffEffect>().Count != 13,
+            FailIf(script.Counter != -1 || _entities.Entities<StationaryDebrisEffect>().Count != 13,
                 "Failed and successful createpuff both yield before installing wait15.");
             if (freeSlots == 0)
             {

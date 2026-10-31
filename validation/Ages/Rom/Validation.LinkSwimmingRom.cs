@@ -32,10 +32,12 @@ public sealed partial class ValidationRoot
             rom.Word(0xd00a, 64 * 256);
             rom.Word(0xd00c, 80 * 256);
             rom[0xd009] = 0xff;
-            int update = 0;
+            int update = 0, physicalKeys = 0;
             int Field(string name) => (int)typeof(Player).GetField(name, flags)!.GetValue(_player)!;
             void Compare()
             {
+                rom[0xc481] = (byte)physicalKeys;
+                rom.Call(0x40b3, bank: 5);
                 rom.Call(LinkCollisionRom.ApplyTile);
                 rom.Call(LinkCollisionRom.Probe);
                 rom.Call(LinkCollisionRom.Swim);
@@ -57,16 +59,15 @@ public sealed partial class ValidationRoot
                 if (_player.TopDownDiving)
                     Check(Field("_topDownDiveCounter"), 0xd007, "dive counter");
                 update++;
-                rom[0xcc2a] = 0;
             }
             for (int block = 0; block < 24; block++)
             {
                 int angle = block < 2 ? 0xff : ((block / 2) & 3) * 8;
                 Vector2 input = angle switch { 0 => Vector2.Up, 8 => Vector2.Right, 16 => Vector2.Down, 24 => Vector2.Left, _ => Vector2.Zero };
-                rom[0xcc2b] = (byte)angle;
                 bool burst = block is 2 or 7 or 12;
                 bool dive = block is 4 or 21 or 22;
-                rom[0xcc2a] = (byte)((burst ? 1 : 0) | (dive ? 2 : 0));
+                physicalKeys = (angle == 0xff ? 0 : angle == 0 ? 0x40 : angle == 8 ? 0x10 : angle == 16 ? 0x80 : 0x20) |
+                    (burst ? 1 : 0) | (dive ? 2 : 0);
                 string[] pressed = burst ? ["attack"] : dive ? ["item"] : [];
                 StepGameplayUpdates(8, input, held: pressed, pressed: pressed, batched: batched, afterUpdate: Compare);
             }
@@ -79,7 +80,7 @@ public sealed partial class ValidationRoot
                     room.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8), tile, 0x10, 0);
                     rom[0xcf00 + y * 16 + x] = tile;
                 }
-                rom[0xcc2b] = 0xff;
+                physicalKeys = 0;
                 StepGameplayUpdates(8, Vector2.Zero, batched: batched, afterUpdate: Compare);
             }
         }

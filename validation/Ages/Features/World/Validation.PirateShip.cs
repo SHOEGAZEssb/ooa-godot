@@ -86,7 +86,8 @@ public sealed partial class ValidationRoot
             void OpenOffer()
             {
                 Step(button: "attack"); Step();
-                FailIf(!_dialogue.ChoiceActive || !_player.CutsceneControlled ||
+                FailIf(!_dialogue.ChoiceActive || _player.CutsceneControlled ||
+                    _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                     !_dialogue.CurrentMessage.Contains("Zora's Scale") ||
                     !_dialogue.CurrentMessage.StartsWith(linked ? "Ahoy!" : "Sailin'"),
                     "Captain lost source linked/unlinked prompt or choice/input ownership.");
@@ -234,7 +235,9 @@ public sealed partial class ValidationRoot
             var captain = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0xc3);
             ApproachPirateActor(captain, batched);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-            FailIf(!_player.CutsceneControlled || !_dialogue.ChoiceActive, "Captain cancellation did not begin a conversation.");
+            FailIf(_player.CutsceneControlled || !_dialogue.ChoiceActive ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 || _runtimeState.ReadField("wMenuDisabled") != 0x80,
+                "Captain cancellation did not begin a conversation with the native $81/$80 control bytes.");
             LoadValidationRoom(0, 0x47); StepGameplayUpdates(3, Vector2.Zero, batched: batched);
             FailIf(_player.CutsceneControlled || _roomEvents.Active || !_inventory.HasTreasure(TreasureId.ZoraScale) ||
                 _inventory.HasTreasure(TreasureId.TokayEyeball) || _saveData.HasGlobalFlag(0x34),

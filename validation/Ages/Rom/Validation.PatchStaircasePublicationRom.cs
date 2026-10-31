@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();_runtimeState.SetWramByte(0xcfd2,0);LoadValidationRoom(3,0xbe);
             var owner=_roomEvents.Get<PatchEvent>();var actor=_entities.Entities<NpcCharacter>().Single(n=>n.Record is{Id:0x94,SubId:0});
-            _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(40,104));_player.BeginCutsceneControl(owner:owner);
+            _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(40,104));owner.SetInputEnabled(false);
             _runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
             var native=new SomariaRom(_saveData,_random.CaptureState(),_currentRoom,0,40,104);
             int at=0xd040+_entities.InteractionSlot(actor)*256;

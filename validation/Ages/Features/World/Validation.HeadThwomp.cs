@@ -301,7 +301,7 @@ public sealed partial class ValidationRoot
             void Step(int count = 1)
             {
                 for (int frame = 0; frame < count; frame++)
-                    _entities.Update(update, _player);
+                    _entities.AdvanceEntityFrames(update, _player);
             }
 
             void WaitFor(
@@ -344,7 +344,7 @@ public sealed partial class ValidationRoot
                 BombEffect bomb = _entities.Spawn<BombEffect>(
                     new BombSpawn(
                         _player,
-                        new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,
+                        new BombDatabase(AgesGameContent.AssetRoot).Data,
                         4,
                         static _ => { }));
                 bomb.Throw(

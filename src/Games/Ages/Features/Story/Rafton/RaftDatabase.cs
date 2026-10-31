@@ -13,6 +13,22 @@ internal sealed class RaftDatabase
 
     internal RaftDatabase()
     {
+        var waitingFrames = new[] { new RaftAnimationFrameState[2], new RaftAnimationFrameState[2] };
+        var mountedFrames = new[] { new RaftAnimationFrameState[2], new RaftAnimationFrameState[2] };
+        var frames = GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/raft_animation_state.tsv",
+            new GeneratedTableSchema("Raft native animation cursors", GeneratedTableKeySemantics.Unique,
+                ["kind", "animation", "frame", "next-pointer", "oam-pointer", "source"],
+                ["kind", "animation", "frame"], headerRequired: true));
+        if (frames.Rows.Count != 8) throw new InvalidOperationException("Raft native animations require eight source frames.");
+        foreach (var row in frames.Rows)
+        {
+            var target = row.RequiredString(0) switch
+            {
+                "waiting" => waitingFrames, "mounted" => mountedFrames,
+                var kind => throw new InvalidOperationException($"Unknown raft animation kind '{kind}'.")
+            };
+            target[row.Decimal(1, 0, 1)][row.Decimal(2, 0, 1)] = new(row.HexWord(3), row.HexWord(4));
+        }
         GeneratedTable table = GeneratedTable.Load(
             AgesGameContent.AssetRoot + "cutscenes/raft.tsv",
             new GeneratedTableSchema(
@@ -29,7 +45,7 @@ internal sealed class RaftDatabase
                     "mounted-vertical", "mounted-horizontal",
                     "mounted-vertical-offsets", "mounted-horizontal-offsets",
                     "valid-tiles", "source", "inner-radius", "instrument-lock",
-                    "dismount-wait"
+                    "dismount-wait", "mounted-tile-base", "mounted-oam-flags"
                 ],
                 ["group", "room"],
                 headerRequired: true));
@@ -57,7 +73,7 @@ internal sealed class RaftDatabase
                 ],
                 row.RequiredString(27).Split(',').Select(value =>
                     Convert.ToInt32(value, 16)).ToArray(),
-                row.HexByte(29), row.HexByte(30), row.HexByte(31));
+                row.HexByte(29), row.HexByte(30), row.HexByte(31), row.HexByte(32), row.HexByte(33), waitingFrames, mountedFrames);
             if (behavior.HasValue &&
                 (behavior.Value.InteractionId != parsed.InteractionId ||
                  behavior.Value.SpecialObjectId != parsed.SpecialObjectId ||
@@ -92,7 +108,7 @@ internal sealed class RaftDatabase
                 DismountCollision: 0x18, DismountDelay: 4,
                 DismountWalkFrames: 14,
                 Sprite: "spr_raft", WaitingTileBase: 0,
-                WaitingPalette: 3, MountedPalette: 3
+                WaitingPalette: 3, MountedPalette: 3, MountedTileBase: 0x60, MountedOamFlags: 0x0b
             } || Behavior.WaitingAnimations.Length != 2 ||
             Behavior.MountedAnimations.Length != 2 ||
             Behavior.ValidTiles is not { Length: 7 })
@@ -129,4 +145,10 @@ internal readonly record struct RaftBehavior(
     int[] ValidTiles,
     int InnerMountRadius,
     int InstrumentLockFrames,
-    int DismountWaitFrames);
+    int DismountWaitFrames,
+    int MountedTileBase,
+    int MountedOamFlags,
+    RaftAnimationFrameState[][] WaitingNativeFrames,
+    RaftAnimationFrameState[][] MountedNativeFrames);
+
+internal readonly record struct RaftAnimationFrameState(int NextPointer, int OamPointer);

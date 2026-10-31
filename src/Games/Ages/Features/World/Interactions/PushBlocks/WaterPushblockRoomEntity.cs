@@ -112,7 +112,7 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
                     Counter = 30;
                     return;
                 }
-                player.SetCutscenePushing(true); // wForceLinkPushAnimation=$01, for this update only.
+                player.SetNativePushAnimationOverride(1); // wForceLinkPushAnimation=$01, for this update only.
                 Counter = (Counter - 1) & 0xff;
                 if (Counter != 0) return;
                 int direction = Mathf.Abs(delta.X) >= Mathf.Abs(delta.Y)

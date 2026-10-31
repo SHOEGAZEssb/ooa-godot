@@ -19,7 +19,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
     private readonly Func<int> _displayedHealth;
     private readonly Func<RoomEntitySpawn, bool> _createPart;
     private readonly OracleRandom _random;
-    private PuzzlePuffEffect? _puff;
+    private StationaryDebrisEffect? _puff;
     private Player? _controlledPlayer;
     private int _counter;
     private int _remainingHearts;
@@ -85,7 +85,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
                 InitializeState();
                 return;
             case 1:
-                _puff = new PuzzlePuffEffect { Name = "FountainFairyPuff_05_02" };
+                _puff = new StationaryDebrisEffect { Name = "FountainFairyPuff_05_02" };
                 _puff.Initialize(AssetRoot, Position + new Vector2(0, Height), SoundId.SndPoof,
                     playSound: _sound);
                 spawns.Add(new FountainFairyPuffSpawn(_puff));
@@ -216,4 +216,4 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
 }
 
 internal sealed record FountainFairyHeartSpawn(FountainFairyRoomEntity Owner) : RoomEntitySpawn;
-internal sealed record FountainFairyPuffSpawn(PuzzlePuffEffect Effect) : RoomEntitySpawn;
+internal sealed record FountainFairyPuffSpawn(StationaryDebrisEffect Effect) : RoomEntitySpawn;

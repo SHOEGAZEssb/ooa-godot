@@ -52,7 +52,7 @@ public partial class ValidationRoot
             _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
             _currentRoom.SetPositionTileAndCollision(new(24,56), bombable ? (byte)0xc1 : (byte)0x3a, 0x0f, 0);
             for (int i = 0; i < 14 - free; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(104,104),SoundId.MusNone));
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(104,104),SoundId.MusNone));
             _sound.ClearPlayRequestAudit();
             _combat.ApplySwordTileHit(_player, 0, swordPoke: true);
             FailIf(_entities.Entities<ClinkEffect>().Count != free ||

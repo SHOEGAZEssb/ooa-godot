@@ -9,7 +9,6 @@ internal sealed class MermaidDungeonDatabase
     private readonly Lookup<int, DungeonObjectRecord> _records = new();
     private readonly Dictionary<(int Group,int Room,int Id,int SubId),int> _enemyOrders = new();
     internal IReadOnlyList<KeyValuePair<int,byte>> OctogonInitialization { get; }
-    internal RoomObjectRecord BossKeyFailureEnemies { get; }
     internal DungeonEssenceDefinition Essence { get; }
     internal MermaidDungeonDatabase()
     {
@@ -58,13 +57,6 @@ internal sealed class MermaidDungeonDatabase
         if (Essence.Index != 5 || essence.HexWord(1) != 0x0013 || Essence.ExitWarp is not
             {DestinationGroup:3,DestinationRoom:0x0f,DestinationPosition:0x16,DestinationTransition:WarpDestinationTransition.SetRespawn})
             throw new InvalidOperationException("Mermaid Essence source text/exit mapping is incomplete.");
-        var failure = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_boss_key_enemies.tsv",
-            new GeneratedTableSchema("Mermaid boss-key failure enemies",GeneratedTableKeySemantics.Unique,
-                ["id","subid","flags","count","source"],["id","subid"],headerRequired:true));
-        if (failure.Rows.Count != 1) throw new InvalidOperationException("objectData78db requires one random-enemy row.");
-        var failureRow = failure.Rows[0];
-        BossKeyFailureEnemies = new(5,0x1c,0,RoomObjectKind.RandomEnemy,failureRow.HexByte(0),failureRow.HexByte(1),
-            failureRow.HexByte(2),failureRow.Decimal(3,1,7),0,0,0,0) { SourceOverride = failureRow.RequiredString(4) };
         var orders = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_enemy_orders.tsv",
             new GeneratedTableSchema("Mermaid native enemy insertion",GeneratedTableKeySemantics.Unique,
                 ["group","room","id","subid","enemy-stream-order","source"],

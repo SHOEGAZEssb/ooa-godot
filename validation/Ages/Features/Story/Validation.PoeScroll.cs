@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
             int expected = !progress && !tomb ? 0 : progress && tomb && !item ? 2 : -1;
             LoadValidationRoom(0, 0x7b);
             _player.WarpTo(new(156, 64));
-            _transitions.BeginScroll(_player, Vector2I.Right, 0x7c);
+            _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x7c);
             var actors = _entities.Entities<PoeCharacter>().ToArray();
             void Check()
             {
@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
                 var outgoingFrames = outgoing.Select(actor => actor.CurrentAnimationFrame).ToArray();
                 var outgoingPositions = outgoing.Select(actor => actor.Position).ToArray();
                 _player.WarpTo(new(6, 64));
-                _transitions.BeginScroll(_player, Vector2I.Left, 0x7b);
+                _transitions.BeginValidationScroll(_player, Vector2I.Left, 0x7b);
                 void CheckOutgoing()
                 {
                     FailIf(_entities.OutgoingEntities<PoeCharacter>().Count != 2 ||
@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
                     "Outgoing Poe was not retired at scroll completion.");
                 StepGameplayUpdates(2, Vector2.Zero, batched: batched);
                 _player.WarpTo(new(156, 64));
-                _transitions.BeginScroll(_player, Vector2I.Right, 0x7c);
+                _transitions.BeginValidationScroll(_player, Vector2I.Right, 0x7c);
                 for (int update = 0; _transitions.ScrollActive && update < 120; update += 2)
                     StepGameplayUpdates(2, Vector2.Zero, batched: batched);
                 actors = _entities.Entities<PoeCharacter>().ToArray();

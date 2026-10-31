@@ -46,6 +46,7 @@ public sealed partial class ValidationRoot
             if(fractional){actor.Position+=new Vector2(.25f,.5f);native[at+10]=0x80;native[at+12]=0x40;}
             Step(6);_dialogue.ShowMessage("Buzz Blob text hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;
             _runtimeState.SetWramByte(0xcc8a,4);native[0xcc8a]=4;Step(3);_runtimeState.SetWramByte(0xcc8a,0);native[0xcc8a]=0;
+            StageDeferredNativeObjectPassCaller();
             _runtimeState.SetWramByte(0xcd00,8);native[0xcd00]=8;Step(3);_runtimeState.SetWramByte(0xcd00,4);native[0xcd00]=4;Step(3);
             _runtimeState.SetWramByte(0xcd00,0);native[0xcd00]=0;Step(240);
             FailIf(moves<180||choices<3,"Buzz Blob must exercise repeated source movement choices and exact counter-zero no-motion visits.");

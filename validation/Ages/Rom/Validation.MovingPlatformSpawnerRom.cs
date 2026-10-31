@@ -59,7 +59,7 @@ public partial class ValidationRoot
                     _player.HealthQuarters != rom[0xc6aa] ||
                     !sounds.Requests.Where(cue=>cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"{context}: phase={phase}, pointer=${rom.Word(0xd258):x4}/${scriptStart+offset:x4}, counter={SomariaPrivate<int>(spawner,"_counter")}/{rom[0xd246]}, deleted={spawner.Finished}/{rom[0xd240]:x2}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
-                var puffs = _entities.Entities<PuzzlePuffEffect>();
+                var puffs = _entities.Entities<StationaryDebrisEffect>();
                 int[] nativePuffs = Enumerable.Range(0xd2,14).Select(page=>page*256+0x40)
                     .Where(address=>rom[address] != 0 && rom[address+1] == 5).ToArray();
                 FailIf(puffs.Count != nativePuffs.Length,context+": checked puff allocation differs.");
@@ -89,7 +89,7 @@ public partial class ValidationRoot
             {
                 for (int index = 0; index < 13-free; index++)
                 {
-                    var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));
+                    var puff = _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));
                     int address = (0xd0+_entities.InteractionSlot(puff))*256+0x40;
                     rom[address] = 1; rom[address+1] = 5; rom[address+2] = 0x80;
                     rom[address+0xb] = 144; rom[address+0xd] = 224;

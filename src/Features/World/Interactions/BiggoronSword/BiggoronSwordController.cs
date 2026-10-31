@@ -21,6 +21,7 @@ internal sealed class BiggoronSwordController(Node world,RoomEntityManager entit
     internal void UpdateParent(bool prohibited)
     {
         if(prohibited) Parent?.Cancel(); else Parent?.Update();
+        if (!Active) ParentItemAnimationState.Clear(entities.RuntimeState, 2, TreasureId.BiggoronSword);
     }
     internal void UpdateItem() => Weapon?.Initialize(sound);
     internal void UpdatePost(Player player)
@@ -33,9 +34,9 @@ internal sealed class BiggoronSwordController(Node world,RoomEntityManager entit
                 itemCollisionType:ItemCollisionType.BiggoronSword,deferAll:true);
         if(Weapon?.Finished==true) { Weapon.Free(); Weapon=null; }
     }
-    internal void DrawLink(CanvasItem canvas,Player player,bool damagePalette)
+    internal (Texture2D Texture, Vector2 Offset)? LinkBody(Player player,bool damagePalette)
     {
-        if(!Active) return;
+        if(!Active) return null;
         int direction=CarriedObjectMotion.DirectionIndex(player.FacingVector),palette=damagePalette?5:0;
         var key=(Parent!.Mode,Parent.Frame,direction,palette);
         if(!_linkGraphics.TryGetValue(key,out var graphic))
@@ -46,12 +47,16 @@ internal sealed class BiggoronSwordController(Node world,RoomEntityManager entit
                 sourceGrayscaleInverted:true,sourceOffset:record.ByteOffset);
             _linkGraphics.Add(key,graphic);
         }
-        canvas.DrawTexture(graphic.Texture,graphic.Offset+Vector2.Down*player.EnemyContactZ);
+        return (graphic.Texture, graphic.Offset + Vector2.Down * player.EnemyContactZ);
     }
-    internal void ClearParent() => Parent?.Cancel();
+    internal void ClearParent()
+    {
+        Parent?.Cancel();
+        ParentItemAnimationState.Clear(entities.RuntimeState, 2, TreasureId.BiggoronSword);
+    }
     internal void Cancel()
     {
-        Parent?.Cancel(); Parent=null;
+        ClearParent(); Parent=null;
         if(Weapon is not null) { Weapon.Free(); Weapon=null; }
     }
 }

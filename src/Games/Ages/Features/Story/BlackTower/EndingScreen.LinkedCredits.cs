@@ -39,7 +39,7 @@ public partial class EndingScreen
     }
     internal void SetOamBatches(params (string Name,int Y,int X)[] batches)
     {
-        var parts=new List<IntroOamPart>();
+        var parts=new List<ObjectSpritePart>();
         foreach(var batch in batches)foreach(var part in _data!.Oam(batch.Name))
         {
             int y=(part.Y+batch.Y)&255,x=(part.X+batch.X)&255;

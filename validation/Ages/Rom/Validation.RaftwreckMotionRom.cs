@@ -78,11 +78,11 @@ public sealed partial class ValidationRoot
         foreach(bool batched in new[]{false,true})
         {
             ReinitializeGameplayForValidation();
-            if(mounted)CompanionRuntimeState.Begin(_runtimeState,0x13,0xa8,new(96,118),3);
+            if(mounted)StageRidingRaftForValidation(new(96,118),3);
             LoadValidationRoom(1,0xa8);
             int initialX=complete?96:80;
             var raft=_entities.Entities<RaftRoomEntity>().SingleOrDefault();
-            if(mounted)F1Set(raft!,"_precisePosition",new Vector2(96.25f,118.5f));
+            if(mounted)((INativeSpecialObjectRoomEntity)raft!).NativeSpecialObjectPosition = new Vector2(96.25f,118.5f);
             _inventory.SetScriptedEquippedItems(0,0);
             _player.WarpTo(mounted?new(96.75f,113.25f):new(initialX+0.25f,118.5f));
             var owner=_roomEvents.Get<RaftwreckEvent>();owner.Start(_currentRoom);

@@ -90,7 +90,7 @@ public sealed partial class ValidationRoot
             $"visible={string.Join(',', cuccos.Select(entity => entity.Visible))}).");
 
         int callsBeforeInitialization = _random.Calls;
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             cuccos.Any(entity =>
                 entity.State != CuccoState.Standing ||
@@ -104,7 +104,7 @@ public sealed partial class ValidationRoot
         _random.RestoreState(randomState with { Rng1 = 0x40, Rng2 = 0x00 });
         int callsBeforeHop = _random.Calls;
         Vector2 hopOrigin = cucco.Position;
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             cucco.State != CuccoState.Hopping ||
             cucco.Counter1 != 0 ||
@@ -115,7 +115,7 @@ public sealed partial class ValidationRoot
             "source-ordered instance and " +
             "decode b=$00/c=$00/e=$00 into its source hop.");
 
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             cucco.State != CuccoState.Hopping ||
             cucco.Counter1 != 1 ||
@@ -125,7 +125,7 @@ public sealed partial class ValidationRoot
             "Cucco state $09 lost its zero-update counter decrement or " +
             "raw SPEED_80 movement boundary.");
         for (int update = 1; update < 16; update++)
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             cucco.State != CuccoState.Standing ||
             cucco.Counter1 != 16 ||
@@ -144,12 +144,12 @@ public sealed partial class ValidationRoot
             !_player.IsCarryingObject,
             "Room 2:cf's adult Cucco was not grabbable from state $08.");
         for (int update = 0; update < 7; update++)
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             cucco.CurrentAnimationFrame != 0,
             "Held adult Cucco advanced before its source eight-update " +
             "animation boundary.");
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             cucco.CurrentAnimationFrame != 1,
             "Held adult Cucco did not run enemyAnimate on its source " +
@@ -166,7 +166,7 @@ public sealed partial class ValidationRoot
             update < 180 && cucco.State == CuccoState.Thrown;
             update++)
         {
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         }
         FailIf(
             cucco.State != CuccoState.Runaway ||
@@ -187,14 +187,14 @@ public sealed partial class ValidationRoot
             transformationSpawns is not [PuzzlePuffSpawn { Sound: SoundId.MusNone }],
             "A Mystery Seed did not hide the calm Cucco and create " +
             "INTERAC_PUFF $05:$02.");
-        _entities.Spawn<PuzzlePuffEffect>(transformationSpawns[0]);
+        _entities.Spawn<StationaryDebrisEffect>(transformationSpawns[0]);
         for (int update = 0; update < 18; update++)
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             _entities.Entities<BabyCuccoCharacter>().Count != 0,
             "Mystery-seed replacement occurred before the puff terminal " +
             "parameter boundary.");
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             _entities.Entities<CuccoCharacter>().Count != 1 ||
             _entities.Entities<BabyCuccoCharacter>().Count != 1 ||
@@ -217,13 +217,13 @@ public sealed partial class ValidationRoot
             if (hit == 16)
                 break;
             for (int update = 0; update < 32; update++)
-                _entities.Update(frame, _player);
+                _entities.AdvanceEntityFrames(frame, _player);
         }
 
         randomState = _random.CaptureState();
         _random.RestoreState(randomState with { Rng1 = 0x40, Rng2 = 0x00 });
         int callsBeforeAttacker = _random.Calls;
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         CuccoAttackerCharacter attacker =
             _entities.Entities<CuccoAttackerCharacter>().Single();
         FailIf(
@@ -250,9 +250,9 @@ public sealed partial class ValidationRoot
             giantSpawns is not [PuzzlePuffSpawn { Sound: SoundId.MusNone }],
             "A Mystery Seed did not begin the aggressive Cucco's source " +
             "ENEMY_GIANT_CUCCO replacement.");
-        _entities.Spawn<PuzzlePuffEffect>(giantSpawns[0]);
+        _entities.Spawn<StationaryDebrisEffect>(giantSpawns[0]);
         for (int update = 0; update < 19; update++)
-            _entities.Update(frame, _player);
+            _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             !cucco.IsGiant ||
             cucco.Record.Id != 0x3b ||
@@ -261,7 +261,7 @@ public sealed partial class ValidationRoot
             _entities.RoomEnemyCount != 2,
             "The aggressive Mystery Seed puff did not replace the adult " +
             "in-place with ENEMY_GIANT_CUCCO $3b:$00.");
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             cucco.State != CuccoState.Standing ||
             !cucco.Visible ||
@@ -290,7 +290,7 @@ public sealed partial class ValidationRoot
             "The collision-disabled Giant Cucco incorrectly accepted a " +
             "second sword slash.");
         Vector2 runawayOrigin = cucco.Position;
-        _entities.Update(frame, _player);
+        _entities.AdvanceEntityFrames(frame, _player);
         FailIf(
             cucco.State != CuccoState.Runaway ||
             cucco.Position.DistanceTo(runawayOrigin) < 0.74f,

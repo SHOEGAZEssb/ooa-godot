@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Oracles;
 
 internal sealed class RamrockRoomEntity : CombatEnemyRoomEntityAdapter<RamrockCharacter>,
-    IFixedRoomEntity, INativeEnemySlotRoomEntity, IPlayerForcedMovement,
+    IFixedRoomEntity, INativeEnemySlotRoomEntity,
     IScreenTransitionPreloadRoomEntity, IAlwaysUpdateDuringScreenTransitionRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     ILinkSwordStateAwareRoomEntity, IPostObjectMeleeCollisionRoomEntity,
@@ -30,7 +30,6 @@ internal sealed class RamrockRoomEntity : CombatEnemyRoomEntityAdapter<RamrockCh
             collisionZ: () => actor.ZFixed >> 8) { _world = world; }
     public void BindEnemySlot(int slot, Func<int, IRoomEntity?> resolve) => Entity.Slot = slot;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(frame.Player.EnemyContactPosition, frame.Counter);
-    public void UpdatePlayerForcedMovement(Player player) { if (Entity.Record.Id == AgesEnemyId.Ramrock && !Finished) _world.Entry.Update(player); }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     { Entity.InitializeNative(); return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden; }
     public void UpdateDuringScreenTransition(RoomEntityFrame frame) { if (Entity.State == 0) Entity.InitializeNative(); }

@@ -284,6 +284,10 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 host.SetMenuEnabled(enabled: false);
                 return CommandResult.Continue;
 
+            case CutsceneEnableMenuCommand:
+                host.SetMenuEnabled(enabled: true);
+                return CommandResult.Continue;
+
             case CutsceneSetDisabledObjectsCommand disabledObjects:
                 host.SetDisabledObjects(disabledObjects.Value);
                 return CommandResult.Yield;
@@ -375,7 +379,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             case CutsceneMemoryBranchCommand branch:
                 if (host.MemoryEquals(branch.Binding, branch.Value))
                     _nextInstruction = branch.TargetCommand;
-                return CommandResult.Continue;
+                return branch is CutsceneMemoryBranchYieldCommand ? CommandResult.Yield : CommandResult.Continue;
 
             case CutsceneMemoryBranchYieldOnMissCommand branch:
                 if (host.MemoryEquals(branch.Binding, branch.Value))

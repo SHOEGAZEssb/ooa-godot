@@ -84,14 +84,14 @@ public sealed partial class ValidationRoot
         RoomEntityManager plantingManager = plantingFixture.Manager;
         plantingManager.SoundRequested += sounds.Add;
         plantingManager.RoomTileChanged += () => roomRedraws++;
-        var plantingInteractions = new InteractionController(
+        var plantingInteractions = AgesInteractionValidation.Create(
             rooms, plantingManager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
             treasures, plantingDialogue, plantingWorld, plantingView,
             static position => position, () => tick, inventory,
             plantingInterface, sounds.Add);
         plantingManager.LoadRoom(0, rooms.CurrentRoom);
         _player.WarpTo(spot.Position + new Vector2(0, 15), recordSafe: false);
-        plantingManager.Update(1.0 / 60.0, _player);
+        plantingManager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             sounds.Count(sound => sound == SoundId.SndCompass) != 1 ||
             !plantingInteractions.TryInteract(_player) ||
@@ -177,7 +177,7 @@ public sealed partial class ValidationRoot
                 transitionManager.Entities<GashaSpotInteraction>().Single();
             Vector2 incomingNutPosition = incomingNut.Position;
             for (int frame = 0; frame < 8; frame++)
-                transitionManager.Update(1.0 / 60.0, _player);
+                transitionManager.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(
                 !incomingNut.Visible ||
                 incomingNut.State != InteractionState.NutReady ||
@@ -214,12 +214,12 @@ public sealed partial class ValidationRoot
             !harvest.RestrictsPlayer || !harvestAdapter.DisablesMenus,
             "The 40-kill Gasha nut was not slashable or did not disable Link/menus.");
         _player.WarpTo(harvest.Position + new Vector2(0, 30), recordSafe: false);
-        harvestFixture.Manager.Update(1.0 / 60, _player);
+        harvestFixture.Manager.AdvanceEntityFrames(1.0 / 60, _player);
         AssertMovementPublication(harvestFixture.Manager.RuntimeState, 256, 0, "INTERAC $b6 nut flight");
         FailIf(nutCaught || harvest.State != InteractionState.NutAirborne,
             "Declared no-catch Gasha flight did not remain airborne.");
         _player.WarpTo(harvest.Position + new Vector2(0, 11), recordSafe: false);
-        harvestFixture.Manager.Update(1.0 / 60, _player);
+        harvestFixture.Manager.AdvanceEntityFrames(1.0 / 60, _player);
         FailIf(
             !nutCaught || harvest.State !=
             InteractionState.AwaitingNutText,

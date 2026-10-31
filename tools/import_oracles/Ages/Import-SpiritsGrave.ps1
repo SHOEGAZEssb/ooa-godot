@@ -397,10 +397,6 @@ Add-DungeonInteractionVisual 'minecart' 0x16 0 @(0, 1) `
 # interactionCode1b rewrites subid to direction $00/$02 before graphics
 # initialization, then selects direction|open for the four source animations.
 Add-DungeonInteractionVisual 'minecart-gate' 0x1b 0 @(0, 1, 2, 3)
-# INTERAC_SPINNER selects animation 0/1 from its angle while the related arrow
-# uses animation 2/3. The parent toggles only its oamFlags palette bit, which
-# the runtime applies to both objects from the same imported graphics closure.
-Add-DungeonInteractionVisual 'spinner' 0x7d 0 @(0, 1, 2, 3)
 # getDataForInteraction clamps subid $02 to the last $0b subid row ($01).
 # That row selects animation 1: four updates, two updates, terminal $ff.
 # spr_circlebeads.properties specifies invert:false, including these oval tiles.
@@ -986,8 +982,8 @@ if ($eyeStatueVisual.Sprite -ne 'spr_polsvoice_hardhatbeetle_spikedbeetle_beamon
 Add-DungeonPartVisualRow 'seed-shooter-eye-statue' $eyeStatueVisual.Sprite $eyeStatueVisual.TileBase `
     $eyeStatueVisual.Palette $eyeStatueVisual.SourceGrayscaleInverted $eyeStatueVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 45) {
-    throw "Expected forty-four imported shared dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 44) {
+    throw "Expected forty-three imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),

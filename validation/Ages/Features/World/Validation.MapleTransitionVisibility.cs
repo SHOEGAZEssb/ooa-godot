@@ -16,6 +16,16 @@ public sealed partial class ValidationRoot
             {
                 _saveData.SetMapleKillCounter(30);
                 LoadValidationRoom(1, 0x5c);
+                FailIf(_entities.MaplePresent() || _saveData.MapleKillCounter != 30,
+                    "Room $1:$5c's native bitmap blocks fresh Maple admission.");
+                // Isolate update-mask arbitration with an already-present actor;
+                // this fixture does not claim a native spawn on the blocked map.
+                for (int address = 0xd100; address < 0xd140; address++) _runtimeState.SetWramByte(address, 0);
+                CompanionRuntimeState.BeginIdle(_runtimeState, SpecialObjectId.Maple, new(0xb8, 0x18));
+                _runtimeState.SetField("wcc85", 1);
+                _runtimeState.SetField("wIsMaplePresent", 1);
+                _saveData.SetMapleKillCounter(0);
+                _entities.AddEntity(SomariaPrivate<IRoomEntityFactory>(_entities, "_factory").CreateMaple(_rooms.CurrentRoom));
                 var maple = _entities.Entities<MapleEncounter>().Single();
                 StepGameplayUpdates(1, Vector2.Zero);
                 MapleEncounterStage stage = maple.Stage;

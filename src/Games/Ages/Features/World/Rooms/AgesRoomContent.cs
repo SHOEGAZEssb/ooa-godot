@@ -26,9 +26,14 @@ internal sealed class AgesRoomContent : IRoomContent
     private RoomShopDatabase? _shops;
     internal AgesWorldData World { get; }
     public string AssetRoot => World.AssetRoot;
+    public BackgroundPaletteState BackgroundPalettes => World.BackgroundPalettes;
     public DungeonMapDatabase DungeonMaps => _resources.DungeonMaps;
     public DungeonKeyDoorDatabase KeyDoors => _resources.KeyDoors;
     public int RoomLoadMaturity => _resources.GashaSpots.RoomLoadMaturity;
+    public bool HasRoom(int group, int room) => World.HasRoom(group, room);
+    public bool RequiresRoomPackFade(int group, int sourceRoom, int targetRoom) =>
+        World.RequiresRoomPackFade(group, sourceRoom, targetRoom);
+    public RoomTexturePublicationScope DeferTexturePublication() => World.DeferTexturePublication();
 
     internal AgesRoomContent(AgesRoomSessionResources? resources, AgesWorldData? world)
     {
@@ -37,6 +42,16 @@ internal sealed class AgesRoomContent : IRoomContent
     }
 
     public void ActivateRoom(OracleRoomData room) => World.SetCurrentPaletteRoom(room);
+    public void InitializeRoomState(int group, OracleRoomData room, OracleSaveData save, OracleRuntimeState memory)
+    {
+        // bank0.initializeRoom skips calculateRoomStateModifier when sent back by a Strange Force.
+        if (memory.ReadField("wSentBackByStrangeForce") == 1) return;
+        int companion = save.ReadField("wAnimalCompanion");
+        int modifier = group == 0 && room.IsCompanionRegion && companion != 0 ? (companion - 0x0b) & 0xff :
+            ((room.TilesetFlags & (byte)TilesetFlags.Underwater) != 0 ? 1 : 0) +
+            (save.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlagLayoutSwap) ? 1 : 0);
+        memory.SetField("wRoomStateModifier", (byte)modifier);
+    }
     public int GetDungeonIndex(int group, int room) => World.GetDungeonIndex(group, room);
     public byte ShopFlags(int group, int room) =>
         (_shops ??= new RoomShopDatabase(AssetRoot)).InitialFlags(group, room);
@@ -63,6 +78,7 @@ internal sealed class AgesRoomContent : IRoomContent
         _resources.SingleTileChanges.Apply(
             group, loaded, saveData, animationTick);
         _resources.StandardTileSubstitutions.Apply(loaded, roomFlags, animationTick);
+        _resources.Chests.ApplyOpenedChest(group, loaded, saveData, runtimeState, animationTick);
         _resources.SwitchTiles.Apply(group,loaded,runtimeState.ReadField("wSwitchState"),animationTick);
         _resources.ToggleTiles.Apply(group, World.GetDungeonIndex(group, room), toggleState, loaded, animationTick);
         int dungeon = World.GetDungeonIndex(group, room);

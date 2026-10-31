@@ -402,7 +402,7 @@ public sealed partial class ValidationRoot
         EnemyShieldBumpResponse? woodenShieldBump =
             crabCombat.ShieldBumpResponse(shieldLevel: 1);
         bool shieldBump = woodenShieldBump is { } crabBump &&
-            shoreCrab.TryApplyShieldBump(
+            shoreCrab.TryApplyCollisionBump(
                 shoreCrab.CollisionBounds,
                 shoreCrab.Position + Vector2.Right * 12,
                 crabBump.EnemyStrength);
@@ -449,7 +449,7 @@ public sealed partial class ValidationRoot
             "state-0 RNG/counter/presentation during destination preload.");
         int frozenLeeverCounter = incomingLeever.Counter;
         int frozenPreloadRandomCalls = _entities.RandomCalls;
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             incomingLeever.State != LeeverState.Underground ||
             incomingLeever.Visible ||
@@ -586,6 +586,7 @@ public sealed partial class ValidationRoot
     private void ValidateEnemyBehaviorTables()
     {
         EnemyBehaviorTables tables = EnemyBehaviorTables.For(AgesGameContent.AssetRoot);
+        var ghini = GhiniDatabase.For(AgesGameContent.AssetRoot).Behavior;
 
         static int[] Values(IReadOnlyList<EnemyBehaviorValue> records) =>
             records.Select(static record => record.Value).ToArray();
@@ -605,15 +606,15 @@ public sealed partial class ValidationRoot
                 [30, 20, 10, 10, 5, 5, 5, 5]) ||
             !Values(tables.KeeseDecelerationAnimationMasks).SequenceEqual(
                 [0, 0, 1, 1, 3, 3, 7, 0]) ||
-            !Values(tables.OctorokCounterValues).SequenceEqual(
+            !Values(OctorokDatabase.For(AgesGameContent.AssetRoot).CounterValues).SequenceEqual(
                 [30, 45, 60, 75, 45, 60, 75, 90]) ||
-            !Values(tables.OctorokWalkCounterValues).SequenceEqual(
+            !Values(OctorokDatabase.For(AgesGameContent.AssetRoot).WalkCounterValues).SequenceEqual(
                 [25, 33, 41, 49]) ||
             !Values(tables.BoomerangMoblinRouteCounters).SequenceEqual(
                 [48, 64, 80, 96]) ||
-            !Pairs(tables.EnemyArrowSpawnOffsets).SequenceEqual(
+            !Pairs(EnemyArrowDatabase.For(AgesGameContent.AssetRoot).SpawnOffsets).SequenceEqual(
                 [(-8, -5), (2, 8), (8, 5), (2, -8)]) ||
-            !Pairs(tables.EnemyArrowCollisionRadii).SequenceEqual(
+            !Pairs(EnemyArrowDatabase.For(AgesGameContent.AssetRoot).CollisionRadii).SequenceEqual(
                 [(6, 3), (3, 6), (6, 3), (3, 6)]) ||
             !Pairs(tables.GiantGhiniChildSpawnOffsets).SequenceEqual(
                 [(0, 24), (-24, 0), (0, -24)]) ||
@@ -652,12 +653,12 @@ public sealed partial class ValidationRoot
                 ],
                 [5, -1, 1, 60, 7, 20, 3]) ||
             !ProfileMatches(
-                tables.ProjectileBounce.Sources,
+                CommonEnemyBehavior.Shared.ProjectileBounce.Sources,
                 [
-                    tables.ProjectileBounce.Frames,
-                    tables.ProjectileBounce.Gravity,
-                    tables.ProjectileBounce.SpeedRaw,
-                    tables.ProjectileBounce.InitialSpeedZ
+                    CommonEnemyBehavior.Shared.ProjectileBounce.Frames,
+                    CommonEnemyBehavior.Shared.ProjectileBounce.Gravity,
+                    CommonEnemyBehavior.Shared.ProjectileBounce.SpeedRaw,
+                    CommonEnemyBehavior.Shared.ProjectileBounce.InitialSpeedZ
                 ],
                 [32, 14, 10, -224]) ||
             !ProfileMatches(
@@ -674,16 +675,18 @@ public sealed partial class ValidationRoot
                     tables.KeeseState.DecelerationMoveLimit,
                     tables.KeeseState.DecelerationEnd,
                     tables.KeeseState.RestCounterBase,
-                    tables.KeeseState.RestCounterMask
+                    tables.KeeseState.RestCounterMask,
+                    tables.KeeseState.InitialTurnAmount,
+                    tables.KeeseState.ReverseTurningMask
                 ],
-                [30, 40, 32, 49, 12, 12, 192, 63, 104, 127, 32, 127]) ||
+                [30, 40, 32, 49, 12, 12, 192, 63, 104, 127, 32, 127, 2, 3]) ||
             !ProfileMatches(
-                tables.ArrowMoblin.Sources,
+                ArrowMoblinBehaviorProfile.For(AgesGameContent.AssetRoot).Sources,
                 [
-                    tables.ArrowMoblin.SpeedRaw,
-                    tables.ArrowMoblin.MoveCounterBase,
-                    tables.ArrowMoblin.MoveCounterMask,
-                    tables.ArrowMoblin.TurnWait
+                    ArrowMoblinBehaviorProfile.For(AgesGameContent.AssetRoot).SpeedRaw,
+                    ArrowMoblinBehaviorProfile.For(AgesGameContent.AssetRoot).MoveCounterBase,
+                    ArrowMoblinBehaviorProfile.For(AgesGameContent.AssetRoot).MoveCounterMask,
+                    ArrowMoblinBehaviorProfile.For(AgesGameContent.AssetRoot).TurnWait
                 ],
                 [20, 48, 63, 8]) ||
             !ProfileMatches(
@@ -743,10 +746,10 @@ public sealed partial class ValidationRoot
                 [40, -512, 40, 24, 4, 48, 30, 40,
                  16, 20, 32, 40, 24, 18, 0x0e]) ||
             !ProfileMatches(
-                tables.Octorok.Sources,
+                OctorokDatabase.For(AgesGameContent.AssetRoot).Behavior.Sources,
                 [
-                    tables.Octorok.ShootDelayFrames,
-                    tables.Octorok.PostShotWaitFrames
+                    OctorokDatabase.For(AgesGameContent.AssetRoot).Behavior.ShootDelayFrames,
+                    OctorokDatabase.For(AgesGameContent.AssetRoot).Behavior.PostShotWaitFrames
                 ],
                 [16, 32]) ||
             !ProfileMatches(
@@ -821,11 +824,11 @@ public sealed partial class ValidationRoot
                     0x0a, 0x0d, 0x20, 0x20, 0x0d, 0x28, 0x29, 0x00
                 ]) ||
             !ProfileMatches(
-                tables.Ghini.Sources,
+                ghini.Sources,
                 [
-                    tables.Ghini.SpeedRaw,
-                    tables.Ghini.MoveCounterBase,
-                    tables.Ghini.MoveCounterMask
+                    ghini.SpeedRaw,
+                    ghini.MoveCounterBase,
+                    ghini.MoveCounterMask
                 ],
                 [20, 48, 127]) ||
             !ProfileMatches(
@@ -996,7 +999,7 @@ public sealed partial class ValidationRoot
             !tables.KeeseDecelerationSpeeds[0].Source.Contains(
                 "keese_updateDeceleration@speeds",
                 StringComparison.Ordinal) ||
-            !tables.EnemyArrowSpawnOffsets[0].Source.Contains(
+            !EnemyArrowDatabase.For(AgesGameContent.AssetRoot).SpawnOffsets[0].Source.Contains(
                 "partCommon_setPositionOffsetAndRadiusFromAngle@data",
                 StringComparison.Ordinal) ||
             !tables.PumpkinHeadStompTimers[0].Source.Contains(
@@ -1144,7 +1147,7 @@ public sealed partial class ValidationRoot
                 Id: 0x32, Count: 2 } ||
             room5db.Count != 7 ||
             room5db.Take(4).Any(record =>
-                record.Kind != RoomObjectKind.ItemDrop) ||
+                record.Kind != RoomObjectKind.ItemDrop || record.Id != 0x59) ||
             room5db[6] is not { Kind: RoomObjectKind.RandomEnemy,
                 Id: 0x32, Count: 3 } ||
             room501.Count != 3 ||
@@ -1165,113 +1168,113 @@ public sealed partial class ValidationRoot
             new HashSet<(int Id, int SubId, EnemyHandlerClassification Classification)>();
         var expectedCombat = new Dictionary<
             (int Id, int SubId),
-            (int CollisionMode, EnemySwordResponse SwordResponse)>
+            int>
         {
-            [(0x02, 0x00)] = (0xea, EnemySwordResponse.None),
-            [(0x08, 0x00)] = (0x0f, EnemySwordResponse.NoKnockback),
-            [(0x18, 0x00)] = (0x9b, EnemySwordResponse.ElectricShock),
-            [(0x09, 0x00)] = (0x90, EnemySwordResponse.Knockback),
-            [(0x09, 0x01)] = (0x90, EnemySwordResponse.Knockback),
-            [(0x09, 0x02)] = (0x90, EnemySwordResponse.Knockback),
-            [(0x0a, 0x00)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x0b, 0x00)] = (0x10, EnemySwordResponse.Knockback),
-            [(0x0b, 0x01)] = (0x10, EnemySwordResponse.Knockback),
-            [(0x25, 0x00)] = (0xa3, EnemySwordResponse.NoKnockback),
-            [(0x2a, 0x03)] = (0xa6, EnemySwordResponse.Armored),
-            [(0x15, 0x00)] = (0x99, EnemySwordResponse.None),
-            [(0x55, 0x00)] = (0xbe, EnemySwordResponse.Bump),
-            [(0x0c, 0x00)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x0c, 0x01)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x0d, 0x00)] = (0x92, EnemySwordResponse.Knockback),
-            [(0x0d, 0x01)] = (0x92, EnemySwordResponse.Knockback),
-            [(0x3d, 0x00)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x3d, 0x01)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x48, 0x00)] = (0xa0, EnemySwordResponse.Knockback),
-            [(0x48, 0x01)] = (0xa0, EnemySwordResponse.Knockback),
-            [(0x21, 0x00)] = (0xa0, EnemySwordResponse.Knockback),
-            [(0x21, 0x01)] = (0xa0, EnemySwordResponse.Knockback),
-            [(0x2d, 0x00)] = (0x0f, EnemySwordResponse.NoKnockback),
-            [(0x10, 0x00)] = (0x14, EnemySwordResponse.Knockback),
-            [(0x10, 0x01)] = (0x14, EnemySwordResponse.Knockback),
-            [(0x0e, 0x01)] = (0x93, EnemySwordResponse.Armored),
-            [(0x0e, 0x00)] = (0x93, EnemySwordResponse.Armored),
-            [(0x1c, 0x00)] = (0x9d, EnemySwordResponse.Knockback),
-            [(0x45, 0x00)] = (0x34, EnemySwordResponse.NoKnockback),
-            [(0x12, 0x00)] = (0x96, EnemySwordResponse.NoKnockback),
-            [(0x24, 0x00)] = (0x22, EnemySwordResponse.Knockback),
-            [(0x4b, 0x00)] = (0xb7, EnemySwordResponse.NoKnockback),
-            [(0x39, 0x00)] = (0xab, EnemySwordResponse.Knockback),
-            [(0x31, 0x02)] = (0x90, EnemySwordResponse.Knockback),
-            [(0x13, 0x00)] = (0x97, EnemySwordResponse.NoKnockback),
-            [(0x14, 0x00)] = (0x98, EnemySwordResponse.Armored),
-            [(0x17, 0x02)] = (0x9a, EnemySwordResponse.Knockback),
-            [(0x17, 0x00)] = (0x9a, EnemySwordResponse.Knockback),
-            [(0x19, 0x00)] = (0x9c, EnemySwordResponse.NoKnockback),
-            [(0x1a, 0x00)] = (0x90, EnemySwordResponse.Knockback),
-            [(0x1b, 0x01)] = (0x90, EnemySwordResponse.Knockback),
-            [(0x20, 0x00)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x20, 0x01)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x22, 0x00)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x22, 0x01)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x23, 0x00)] = (0xa1, EnemySwordResponse.Bump),
-            [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
-            [(0x2f, 0x00)] = (0xa8, EnemySwordResponse.Armored),
-            [(0x30, 0x00)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x30, 0x01)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x30, 0x02)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x3a, 0x00)] = (0x94, EnemySwordResponse.Knockback),
-            [(0x3c, 0x00)] = (0xad, EnemySwordResponse.Knockback),
-            [(0x35, 0x00)] = (0x25, EnemySwordResponse.Knockback),
-            [(0x3c, 0x01)] = (0xad, EnemySwordResponse.Knockback),
-            [(0x40, 0x00)] = (0x30, EnemySwordResponse.Knockback),
-            [(0x40, 0x01)] = (0x30, EnemySwordResponse.Knockback),
-            [(0x40, 0x02)] = (0x30, EnemySwordResponse.Knockback),
-            [(0x31, 0x00)] = (0x90, EnemySwordResponse.Knockback),
-            [(0x32, 0x00)] = (0x9f, EnemySwordResponse.Knockback),
-            [(0x32, 0x01)] = (0x9f, EnemySwordResponse.Knockback),
-            [(0x34, 0x00)] = (0x29, EnemySwordResponse.NoKnockback),
-            [(0x34, 0x01)] = (0x29, EnemySwordResponse.NoKnockback),
-            [(0x3e, 0x00)] = (0xd8, EnemySwordResponse.NoKnockback),
-            [(0x41, 0x00)] = (0x31, EnemySwordResponse.Knockback),
-            [(0x43, 0x00)] = (0xb3, EnemySwordResponse.NoKnockback),
-            [(0x47, 0x00)] = (0xee, EnemySwordResponse.NoKnockback),
-            [(0x49, 0x00)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x49, 0x01)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x4a, 0x00)] = (0xb6, EnemySwordResponse.Knockback),
-            [(0x4a, 0x01)] = (0xb6, EnemySwordResponse.Knockback),
-            [(0x4d, 0x00)] = (0xb8, EnemySwordResponse.Bump),
-            [(0x4e, 0x00)] = (0xb9, EnemySwordResponse.Knockback),
-            [(0x4f, 0x00)] = (0xba, EnemySwordResponse.Knockback),
-            [(0x52, 0x00)] = (0x3c, EnemySwordResponse.NoKnockback),
-            [(0x52, 0x02)] = (0x3c, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x02)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x03)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x04)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x05)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x06)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x07)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x08)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x0a)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x0b)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x0c)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x82)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x83)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x84)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x85)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x86)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x87)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x88)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x89)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x8a)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x8b)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x54, 0x8c)] = (0xda, EnemySwordResponse.NoKnockback),
-            [(0x7f, 0x00)] = (0xd0, EnemySwordResponse.None)
+            [(0x02, 0x00)] = 0xea,
+            [(0x08, 0x00)] = 0x0f,
+            [(0x18, 0x00)] = 0x9b,
+            [(0x09, 0x00)] = 0x90,
+            [(0x09, 0x01)] = 0x90,
+            [(0x09, 0x02)] = 0x90,
+            [(0x0a, 0x00)] = 0x91,
+            [(0x0b, 0x00)] = 0x10,
+            [(0x0b, 0x01)] = 0x10,
+            [(0x25, 0x00)] = 0xa3,
+            [(0x2a, 0x03)] = 0xa6,
+            [(0x15, 0x00)] = 0x99,
+            [(0x55, 0x00)] = 0xbe,
+            [(0x0c, 0x00)] = 0x91,
+            [(0x0c, 0x01)] = 0x91,
+            [(0x0d, 0x00)] = 0x92,
+            [(0x0d, 0x01)] = 0x92,
+            [(0x3d, 0x00)] = 0x91,
+            [(0x3d, 0x01)] = 0x91,
+            [(0x48, 0x00)] = 0xa0,
+            [(0x48, 0x01)] = 0xa0,
+            [(0x21, 0x00)] = 0xa0,
+            [(0x21, 0x01)] = 0xa0,
+            [(0x2d, 0x00)] = 0x0f,
+            [(0x10, 0x00)] = 0x14,
+            [(0x10, 0x01)] = 0x14,
+            [(0x0e, 0x01)] = 0x93,
+            [(0x0e, 0x00)] = 0x93,
+            [(0x1c, 0x00)] = 0x9d,
+            [(0x45, 0x00)] = 0x34,
+            [(0x12, 0x00)] = 0x96,
+            [(0x24, 0x00)] = 0x22,
+            [(0x4b, 0x00)] = 0xb7,
+            [(0x39, 0x00)] = 0xab,
+            [(0x31, 0x02)] = 0x90,
+            [(0x13, 0x00)] = 0x97,
+            [(0x14, 0x00)] = 0x98,
+            [(0x17, 0x02)] = 0x9a,
+            [(0x17, 0x00)] = 0x9a,
+            [(0x19, 0x00)] = 0x9c,
+            [(0x1a, 0x00)] = 0x90,
+            [(0x1b, 0x01)] = 0x90,
+            [(0x20, 0x00)] = 0x91,
+            [(0x20, 0x01)] = 0x91,
+            [(0x22, 0x00)] = 0x91,
+            [(0x22, 0x01)] = 0x91,
+            [(0x23, 0x00)] = 0xa1,
+            [(0x28, 0x00)] = 0x25,
+            [(0x2f, 0x00)] = 0xa8,
+            [(0x30, 0x00)] = 0x91,
+            [(0x30, 0x01)] = 0x91,
+            [(0x30, 0x02)] = 0x91,
+            [(0x3a, 0x00)] = 0x94,
+            [(0x3c, 0x00)] = 0xad,
+            [(0x35, 0x00)] = 0x25,
+            [(0x3c, 0x01)] = 0xad,
+            [(0x40, 0x00)] = 0x30,
+            [(0x40, 0x01)] = 0x30,
+            [(0x40, 0x02)] = 0x30,
+            [(0x31, 0x00)] = 0x90,
+            [(0x32, 0x00)] = 0x9f,
+            [(0x32, 0x01)] = 0x9f,
+            [(0x34, 0x00)] = 0x29,
+            [(0x34, 0x01)] = 0x29,
+            [(0x3e, 0x00)] = 0xd8,
+            [(0x41, 0x00)] = 0x31,
+            [(0x43, 0x00)] = 0xb3,
+            [(0x47, 0x00)] = 0xee,
+            [(0x49, 0x00)] = 0x91,
+            [(0x49, 0x01)] = 0x91,
+            [(0x4a, 0x00)] = 0xb6,
+            [(0x4a, 0x01)] = 0xb6,
+            [(0x4d, 0x00)] = 0xb8,
+            [(0x4e, 0x00)] = 0xb9,
+            [(0x4f, 0x00)] = 0xba,
+            [(0x52, 0x00)] = 0x3c,
+            [(0x52, 0x02)] = 0x3c,
+            [(0x54, 0x02)] = 0xda,
+            [(0x54, 0x03)] = 0xda,
+            [(0x54, 0x04)] = 0xda,
+            [(0x54, 0x05)] = 0xda,
+            [(0x54, 0x06)] = 0xda,
+            [(0x54, 0x07)] = 0xda,
+            [(0x54, 0x08)] = 0xda,
+            [(0x54, 0x0a)] = 0xda,
+            [(0x54, 0x0b)] = 0xda,
+            [(0x54, 0x0c)] = 0xda,
+            [(0x54, 0x82)] = 0xda,
+            [(0x54, 0x83)] = 0xda,
+            [(0x54, 0x84)] = 0xda,
+            [(0x54, 0x85)] = 0xda,
+            [(0x54, 0x86)] = 0xda,
+            [(0x54, 0x87)] = 0xda,
+            [(0x54, 0x88)] = 0xda,
+            [(0x54, 0x89)] = 0xda,
+            [(0x54, 0x8a)] = 0xda,
+            [(0x54, 0x8b)] = 0xda,
+            [(0x54, 0x8c)] = 0xda,
+            [(0x7f, 0x00)] = 0xd0
         };
-        expectedCombat[(0x0e, 0x05)] = (0x93, EnemySwordResponse.Armored);
-        expectedCombat[(0x17, 0x01)] = (0x9a, EnemySwordResponse.Knockback);
-        expectedCombat[(0x1b, 0x00)] = (0x90, EnemySwordResponse.Knockback);
-        expectedCombat[(0x1b, 0x03)] = (0x90, EnemySwordResponse.Knockback);
-        expectedCombat[(0x41, 0x01)] = (0x31, EnemySwordResponse.Knockback);
+        expectedCombat[(0x0e, 0x05)] = 0x93;
+        expectedCombat[(0x17, 0x01)] = 0x9a;
+        expectedCombat[(0x1b, 0x00)] = 0x90;
+        expectedCombat[(0x1b, 0x03)] = 0x90;
+        expectedCombat[(0x41, 0x01)] = 0x31;
         var combatSourceFlags = new HashSet<(int Id, int SubId, int Flags)>();
         int combatSourceRows = 0;
         int ordinaryEnemyPlacements = 0;
@@ -1309,18 +1312,17 @@ public sealed partial class ValidationRoot
                             !expectedCombat.TryGetValue(
                                 (handler.Id, handler.SubId),
                                 out var expected) ||
-                            combat.CollisionMode != expected.CollisionMode ||
+                            combat.CollisionMode != expected ||
                             combat.ObjectFlags != source.Flags ||
                             combat.CountsAsEnemy !=
                                 ((source.Flags & 0x02) == 0) ||
                             combat.CollisionInitiallyEnabled !=
-                                ((expected.CollisionMode & 0x80) != 0) ||
+                                ((expected & 0x80) != 0) ||
                             combat.KillableEnemyIndex != testKillableIndex ||
                             combat.Source != source.Source,
                             $"{source.Source} did not retain its typed " +
                             $"combat flags/collision descriptor.");
-                        combat.ValidateSwordResponse(
-                            expected.SwordResponse);
+                        combat.ValidateNativeCollisionData();
                         combatSourceFlags.Add(
                             (handler.Id, handler.SubId, source.Flags));
                         combatSourceRows++;
@@ -1365,8 +1367,7 @@ public sealed partial class ValidationRoot
                 killableEnemyIndex: 0,
                 source:
                     "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere");
-        dynamicCombat.ValidateSwordResponse(
-            EnemySwordResponse.Knockback);
+        dynamicCombat.ValidateNativeCollisionData();
         FailIf(
             ordinaryEnemyPlacements != 822 ||
             parameterEnemyPlacements != 12 ||
@@ -1414,7 +1415,7 @@ public sealed partial class ValidationRoot
                 CollisionMode: 0x91,
                 Classification:
                     EnemyHandlerClassification.OrderedImplemented,
-                Handler: EnemyHandlerKind.MaskedMoblin,
+                Handler: EnemyHandlerKind.ArrowMoblin,
                 EnemyName: "ENEMY_MASKED_MOBLIN",
                 Source: "constants/common/enemies.s:ENEMY_MASKED_MOBLIN",
                 CompletesDungeonEnemyCount: true
@@ -1439,7 +1440,7 @@ public sealed partial class ValidationRoot
                 ObjectFlags: 0,
                 CountsAsEnemy: true,
                 CollisionInitiallyEnabled: true,
-                Handler: EnemyHandlerKind.MaskedMoblin
+                AssetRoot: AgesGameContent.AssetRoot
             } ||
             room5b0[0].Source !=
                 "objects/ages/enemyData.s:" +
@@ -1449,7 +1450,7 @@ public sealed partial class ValidationRoot
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
-        var placementRuntime = AgesGameContent.CreateRuntimeState();
+        var placementRuntime = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         var wrappedReservations = new EnemyPlacementReservations(placementRuntime);
         for (int position = 0; position < 15; position++)
             wrappedReservations.Add(position);
@@ -1685,7 +1686,7 @@ public sealed partial class ValidationRoot
             "at `$58,$a0 and `$68,$90 in source order.");
         int roomRandomCalls = _entities.RandomCalls;
         _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             _entities.RandomCalls != roomRandomCalls + 7 ||
             live.Exists(enemy =>
@@ -1818,7 +1819,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(4, 0x65);
         _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         PolsVoiceCharacter expertTarget =
             _entities.Entities<PolsVoiceCharacter>()[0];
         _entities.Entities<PolsVoiceCharacter>()[1].Position =
@@ -1842,7 +1843,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _entities.Entities<EnemyClearChestRoomEntity>() is not
                 [{ Position: { X: 0x88, Y: 0x58 } }] ||
-            !chests.TryGet(4, 0x65, 0x58, out ChestRecord mapChest) ||
+            !chests.TryGetRecord(4, 0x65, 0x58, out ChestRecord mapChest) ||
             mapChest.TreasureObject != "TREASURE_OBJECT_MAP_02" ||
             _currentRoom.GetMetatile(mapChestPosition) == 0xf1,
             "Room 4:65 did not import INTERAC_DUNGEON_STUFF $12:$02 at " +
@@ -1895,7 +1896,7 @@ public sealed partial class ValidationRoot
 
         int deathPuffDuration = puffs[0].DurationFrames;
         for (int frame = 1; frame < deathPuffDuration - 1; frame++)
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             _entities.RoomEnemyCount != 2 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 2 ||
@@ -1908,13 +1909,13 @@ public sealed partial class ValidationRoot
         int solveSounds =
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle);
         int poofSounds = _sound.PlayRequestsFor(SoundId.SndPoof);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             _entities.RoomEnemyCount != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _entities.Entities<EnemyClearChestRoomEntity>() is not
                 [{ Counter: 30 }] ||
-            _entities.Entities<PuzzlePuffEffect>().Count != 1 ||
+            _entities.Entities<StationaryDebrisEffect>().Count != 1 ||
             _currentRoom.GetMetatile(mapChestPosition) == 0xf1 ||
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) !=
                 solveSounds + 1 ||
@@ -1922,14 +1923,14 @@ public sealed partial class ValidationRoot
             "Room 4:65 did not begin the solve/poof and exact 30-update " +
             "enemy-clear chest reveal after wNumEnemies reached zero.");
         for (int frame = 0; frame < 29; frame++)
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             _entities.Entities<EnemyClearChestRoomEntity>() is not
                 [{ Counter: 1 }] ||
             _currentRoom.GetMetatile(mapChestPosition) == 0xf1,
             "Room 4:65 installed its Dungeon Map chest before wait 30 " +
             "reached zero.");
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             _entities.Entities<EnemyClearChestRoomEntity>().Count != 0 ||
             _currentRoom.GetMetatile(mapChestPosition) != 0xf1,
@@ -2148,7 +2149,7 @@ public sealed partial class ValidationRoot
             "its supported closed right enemy shutter $1e:$09 at $5e.");
         int initializationRandomCalls = _entities.RandomCalls;
         _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         var live = _entities.Entities<MoldormCharacter>();
         FailIf(
             live.Count != 2 || !live.Select(enemy => enemy.State).SequenceEqual(new[] { 8, 0 }) ||
@@ -2156,7 +2157,7 @@ public sealed partial class ValidationRoot
             _entities.RandomCalls != initializationRandomCalls + 7,
             "Room 4:62 did not initialize its two Moldorm heads in source " +
             "order: the second head reuses earlier slot0 and must wait for the next enemy pass.");
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
 
         _sound.ClearPlayRequestAudit();
         foreach (MoldormCharacter target in live)
@@ -2176,7 +2177,7 @@ public sealed partial class ValidationRoot
         while (_entities.Entities<MoldormCharacter>().Count != 0 &&
             deathFrames++ < 40)
         {
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         }
         FailIf(
             deathFrames > 40 ||
@@ -2186,7 +2187,7 @@ public sealed partial class ValidationRoot
             "PART_ENEMY_DESTROYED effects after lethal recoil.");
         int puffFrames = 0;
         while (_entities.RoomEnemyCount != 0 && puffFrames++ < 40)
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             puffFrames > 40 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0,
@@ -2196,7 +2197,7 @@ public sealed partial class ValidationRoot
         while (_entities.Entities<DungeonDoorRoomEntity>().Count != 0 &&
             openFrames++ < 40)
         {
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         }
         FailIf(
             openFrames > 40 || room.GetMetatile(rightShutter) != 0xa0 ||
@@ -2322,12 +2323,12 @@ public sealed partial class ValidationRoot
             hardhat.Position + Vector2.Right * 32,
             recordSafe: false);
         Vector2 hardhatStart = hardhat.Position;
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             !hardhat.Initialized || hardhat.Position != hardhatStart,
             "ENEMY_HARDHAT_BEETLE did not retain its source initialization " +
             "update before movement.");
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             hardhat.Angle != 0x08 ||
             !Mathf.IsEqualApprox(
@@ -2371,7 +2372,7 @@ public sealed partial class ValidationRoot
             "exact mimicked dungeon-bush `$20, red Zol, and three Keese.");
 
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             spiny.State != SpinyBeetleState.CoveredWaiting ||
             spiny.ParentVisible || !spiny.CoverProtects,
@@ -2381,7 +2382,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             spiny.Position + Vector2.Right * 32,
             recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             spiny.State != SpinyBeetleState.CoveredCharging ||
             spiny.Counter1 != 56 ||
@@ -2391,7 +2392,7 @@ public sealed partial class ValidationRoot
             "The covered Spiny Beetle did not begin its source-aligned " +
             "56-update cardinal charge with the bush four pixels high.");
         Vector2 spinyChargeStart = spiny.Position;
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             spiny.Counter1 != 55 ||
             !Mathf.IsEqualApprox(
@@ -2410,7 +2411,7 @@ public sealed partial class ValidationRoot
         _entities.Entities<ZolCharacter>().Single().Position =
             new Vector2(48, 24);
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         int spinyHealth = spiny.Health;
         int spinyDamageSounds =
             _sound.PlayRequestsFor(SoundId.SndDamageEnemy);
@@ -2431,7 +2432,7 @@ public sealed partial class ValidationRoot
             "Cutting the Spiny Beetle's protective bush damaged/recoiled the " +
             "parent, omitted grass debris, or requested enemy-hit audio.");
 
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             spiny.State != SpinyBeetleState.ExposedWaiting ||
             spiny.Counter1 != 60 ||
@@ -2470,7 +2471,7 @@ public sealed partial class ValidationRoot
         _entities.Entities<ZolCharacter>().Single().Position =
             new Vector2(48, 24);
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         SeedRecord emberRecord = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
         EmberSeedEffect bushFlame = _entities.Spawn<EmberSeedEffect>(
             new EmberSeedSpawn(
@@ -2478,7 +2479,7 @@ public sealed partial class ValidationRoot
                 Vector2I.Right,
                 emberRecord,
                 4));
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             bushFlame.State != EmberState.Burning ||
             bushFlame.FlameCounter != 59 ||
@@ -2489,7 +2490,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             spiny.Position + Vector2.Right * 32,
             recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             bushFlame.FlameCounter != 58 ||
             spiny.State != SpinyBeetleState.CoveredCharging ||
@@ -2497,12 +2498,12 @@ public sealed partial class ValidationRoot
             "Burning the child bush incorrectly froze the Spiny Beetle parent.");
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         for (int frame = 0; frame < 57; frame++)
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             bushFlame.FlameCounter != 1 || !spiny.CoverProtects,
             "The burning dungeon bush ended before source counter 1.");
         int emberHealth = spiny.Health;
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
             spiny.CoverProtects || spiny.CoverVisualActive ||
@@ -2525,7 +2526,7 @@ public sealed partial class ValidationRoot
         _entities.Entities<ZolCharacter>().Single().Position =
             new Vector2(48, 24);
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         _player.WarpTo(
             spiny.Position - Vector2.Right * 6,
             recordSafe: false);
@@ -2536,7 +2537,7 @@ public sealed partial class ValidationRoot
             !spiny.ParentVisible || !_player.IsCarryingObject,
             "The Power Bracelet did not detach and hold the Spiny Beetle's " +
             "dungeon-bush child.");
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             spiny.State != SpinyBeetleState.ExposedWaiting ||
             spiny.Counter1 != 60 ||
@@ -2549,7 +2550,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         int thrownUpdates = 0;
         while (spiny.CoverThrown && thrownUpdates++ < 120)
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             spiny.CoverThrown || spiny.CoverVisualActive ||
             thrownUpdates > 120 ||
@@ -2654,7 +2655,7 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         int initializationRandomCalls = _entities.RandomCalls;
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             beetles.Any(enemy =>
                 enemy.State != SpikedBeetleState.Wandering ||
@@ -2760,12 +2761,12 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         for (int frame = 1; frame < armoredClink.DurationFrames; frame++)
         {
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
             FailIf(
                 _entities.Entities<ClinkEffect>().Count != 1,
                 "Room-entity INTERAC_CLINK ended before its tenth update.");
         }
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             _entities.Entities<ClinkEffect>().Count != 0,
             "Room-entity INTERAC_CLINK did not finish and free exactly once " +
@@ -2774,13 +2775,14 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x44);
         beetles = _entities.Entities<SpikedBeetleCharacter>();
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         SpikedBeetleCharacter flipped = beetles[0];
         Vector2 flipStart = flipped.Position;
         int bombLandSounds =
             _sound.PlayRequestsFor(SoundId.SndBombLand);
+        var flipTarget = _entities.EntityAdapters<SpikedBeetleRoomEntity>().Single(actor => actor.Node == flipped);
         FailIf(
-            !_entities.ApplyShovelHit(
+            !flipTarget.ApplyNativeShovelCollision(
                 flipped.CollisionBounds.Grow(0.25f),
                 flipped.Position + Vector2.Left * 8) ||
             flipped.State != SpikedBeetleState.Wandering ||
@@ -2792,7 +2794,7 @@ public sealed partial class ValidationRoot
             "ITEM_SHOVEL did not write the Spiked Beetle's pending just-hit " +
             "status with ENEMYDMG_$10 and its collision sound.");
 
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             flipped.State != SpikedBeetleState.Flipped ||
             !flipped.FlippedCollision ||
@@ -2811,7 +2813,7 @@ public sealed partial class ValidationRoot
             new DimitriDatabase(AgesGameContent.AssetRoot).CanSwallow(flippedMouthTarget.DimitriCollisionMode),
             "Overturned Spiked Beetle did not switch to the non-edible mouth row $51.");
 
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             flipped.Counter1 != 180 ||
             flipped.ZFixed != -384 ||
@@ -2825,7 +2827,7 @@ public sealed partial class ValidationRoot
 
         int bounceUpdates = 1;
         while (flipped.KnockbackCounter != 0 && bounceUpdates++ < 120)
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             flipped.KnockbackCounter != 0 ||
             flipped.ZFixed != 0 ||
@@ -2835,22 +2837,22 @@ public sealed partial class ValidationRoot
             "The source half-speed bounce did not finish on the ground before " +
             "the 180-update flipped wait began.");
 
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             flipped.Counter1 != 179,
             "Flipped wait state `$0b` did not begin after recoil completed.");
 
         FailIf(
-            !_entities.ApplyShovelHit(
+            !flipTarget.ApplyNativeShovelCollision(
                 flipped.CollisionBounds.Grow(0.25f),
                 flipped.Position + Vector2.Left * 8) ||
             !flipped.FlipHitPending,
             "A grounded flipped Spiked Beetle did not accept a repeat " +
             "ITEM_SHOVEL collision.");
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             flipped.FlippedRebound ||
-            flipped.KnockbackCounter != 8 ||
+            flipped.KnockbackCounter != 0x0b ||
             flipped.Counter1 != 179,
             "A grounded shield/shovel repeat hit incorrectly restarted the " +
             "flipped bounce instead of preserving ordinary knockback.");
@@ -2900,13 +2902,13 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x44);
         beetles = _entities.Entities<SpikedBeetleCharacter>();
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         SpikedBeetleCharacter charger = beetles[0];
         charger.Position = FindChargePath(_currentRoom);
         _player.WarpTo(
             charger.Position + Vector2.Right * 32,
             recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             charger.State != SpikedBeetleState.Charging ||
             charger.Counter2 != 150 ||
@@ -3042,12 +3044,15 @@ public sealed partial class ValidationRoot
             $"got {_entities.Entities<KeeseCharacter>().Count}.");
 
         KeeseCharacter approachKeese = _entities.Entities<KeeseCharacter>()[0];
+        FailIf(!approachKeese.InitializationPending || approachKeese.Visible || approachKeese.SpriteHeight != 0,
+            "Parsing Keese must leave state-zero visibility/Z/RNG work for the native object visit.");
+        _entities.AdvanceEntityFrames(1.0 / 60.0,_player);
         FailIf(
             approachKeese.SpriteHeight != -1,
             "Keese subid `$01 did not preserve its original z-height `$ff.");
         approachKeese.Position = new Vector2(80, 80);
         _player.WarpTo(new Vector2(128, 80));
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             approachKeese.State != KeeseState.Moving ||
             approachKeese.Counter1 != 12 || approachKeese.Counter2 != 12 ||
@@ -3055,17 +3060,18 @@ public sealed partial class ValidationRoot
             "Keese subid `$01 did not wake inside strict Manhattan distance `$31 with 12x12 counters.");
 
         for (int frame = 0; frame < 4; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             approachKeese.CurrentAnimationFrame != 1,
             "Flying Keese did not switch OAM frames after the original 4 animation calls.");
         for (int frame = 4; frame < 144; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             approachKeese.State != KeeseState.Resting || approachKeese.Flying,
             "Keese subid `$01 did not return to rest after 12 turning intervals of 12 updates.");
 
         LoadValidationRoom(4, 0xcb);
+        _entities.AdvanceEntityFrames(1.0 / 60.0,_player);
         FailIf(
             _entities.Entities<KeeseCharacter>().Count != 4 || _entities.Entities<KeeseCharacter>().Exists(keese => keese.Record.SubId != 0),
             $"Room 4:cb should contain four random-position ENEMY_KEESE subid `$00 objects, " +
@@ -3082,11 +3088,11 @@ public sealed partial class ValidationRoot
         }
         normalKeese.Position = new Vector2(48, 48);
         _player.WarpTo(new Vector2(160, 120));
-        _entities.Update(31.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(31.0 / 60.0, _player);
         FailIf(
             normalKeese.State != KeeseState.Resting || normalKeese.Counter1 != 1,
             "Normal Keese did not preserve its original 32-update initial rest counter.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             normalKeese.State != KeeseState.Moving || !normalKeese.Flying ||
             normalKeese.Counter1 is < 0xc0 or > 0xff,
@@ -3100,16 +3106,17 @@ public sealed partial class ValidationRoot
         (string Axis, int SkippedCalls, int InitialAngle,
             Vector2 Position, int ReflectedAngle)[] keeseBoundaryCases =
         [
-            ("vertical", 21, 0x00, new Vector2(80, 3), 0x10),
-            ("horizontal", 23, 0x08,
+            ("vertical", 20, 0x00, new Vector2(80, 3), 0x10),
+            ("horizontal", 22, 0x08,
                 new Vector2(boundaryRoom.Width - 6, 64), 0x18),
-            ("corner", 2, 0x04,
+            ("corner", 1, 0x04,
                 new Vector2(boundaryRoom.Width - 6, 3), 0x14)
         ];
         foreach ((string axis, int skippedCalls, int initialAngle,
             Vector2 position, int reflectedAngle) in keeseBoundaryCases)
         {
             var boundaryRandom = new OracleRandom();
+            // State zero consumes the common var3d draw before flight RNG.
             for (int call = 0; call < skippedCalls; call++)
                 boundaryRandom.Next();
             var boundaryKeese = new KeeseCharacter();
@@ -3118,6 +3125,7 @@ public sealed partial class ValidationRoot
                 boundaryRoom,
                 new Vector2(80, 64),
                 boundaryRandom);
+            boundaryKeese.InitializeStateZero();
             for (int frame = 0; frame < 0x20; frame++)
                 boundaryKeese.UpdateFrame(Vector2.Zero, frame);
             FailIf(
@@ -3183,7 +3191,7 @@ public sealed partial class ValidationRoot
                 killSoundsBeforeSword,
             "Lethal ENEMY_KEESE recoil did not complete before the death update.");
         normalKeese.UpdateFrame(_player.Position, 0x08);
-        _entities.Update(0.0, _player);
+        _entities.AdvanceEntityFrames(0.0, _player);
         FailIf(
             _entities.Entities<KeeseCharacter>().Count != countBeforeSword - 1 ||
             _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
@@ -3203,7 +3211,7 @@ public sealed partial class ValidationRoot
         int transitionCounter = transitionKeese.Counter1;
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x39);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             _entities.OutgoingEntities<KeeseCharacter>().Count != 3 || _entities.Entities<KeeseCharacter>().Count != 2 ||
             _entities.OutgoingEntities<EnemyDeathPuffEffect>().Count != 1 ||
@@ -3235,7 +3243,7 @@ public sealed partial class ValidationRoot
             new EmberSeedSpawn(
                 burningKeese.Position - emberRecord.RightOffset,
                 Vector2I.Right, emberRecord, 4));
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !burningKeese.IsVisibleInTree() ||
             attachedFlame.State != EmberState.Burning ||
@@ -3249,20 +3257,20 @@ public sealed partial class ValidationRoot
         int burningCounter2 = burningKeese.Counter2;
 
         burningKeese.Position += new Vector2(3, 2);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             attachedFlame.Position != burningKeese.Position ||
             attachedFlame.FlameCounter != 58,
             "PART_BURNING_ENEMY did not follow its related enemy on the first burn update.");
         for (int update = 1; update < 58; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             attachedFlame.FlameCounter != 1 || burningKeese.State != burningState ||
             burningKeese.Counter1 != burningCounter1 ||
             burningKeese.Counter2 != burningCounter2 ||
             _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn,
             "PART_BURNING_ENEMY did not stun Keese through counter1 value 1 without killing it.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
             _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn - 1 ||
@@ -3285,7 +3293,7 @@ public sealed partial class ValidationRoot
             new EmberSeedSpawn(
                 new Vector2(80, 80), Vector2I.Up, emberRecord, 4));
         for (int update = 0; update < 9; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             landedFlame.State != EmberState.Burning ||
             landedFlame.FlameCounter != 0x3a ||
@@ -3297,7 +3305,7 @@ public sealed partial class ValidationRoot
         edgeKeese.Position = landedFlame.Position + Vector2.Right * edgeOverlap;
         int edgeKillSounds =
             _sound.PlayRequestsFor(SoundId.SndKillEnemy);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         KeeseState edgeState = edgeKeese.State;
         int edgeCounter1 = edgeKeese.Counter1;
         int edgeCounter2 = edgeKeese.Counter2;
@@ -3306,13 +3314,13 @@ public sealed partial class ValidationRoot
             landedFlame.Position != edgeKeese.Position,
             "A landed Ember flame touching the edge of ENEMY_KEESE did not adopt its burn target.");
         for (int update = 1; update < 59; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             landedFlame.FlameCounter != 1 || edgeKeese.State != edgeState ||
             edgeKeese.Counter1 != edgeCounter1 ||
             edgeKeese.Counter2 != edgeCounter2,
             "The edge-contact Ember flame did not retain its enemy through burn counter 1.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
             _entities.Entities<KeeseCharacter>().Count != 0 ||
@@ -3415,7 +3423,7 @@ public sealed partial class ValidationRoot
         while (red.KnockbackCounter > 0)
             red.UpdateFrame(_player.Position);
         red.UpdateFrame(_player.Position);
-        _entities.Update(0.0, _player);
+        _entities.AdvanceEntityFrames(0.0, _player);
         FailIf(
             _entities.Entities<OctorokCharacter>().Count != redCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
@@ -3444,12 +3452,12 @@ public sealed partial class ValidationRoot
         blue.SetStateForValidation(
             OctorokState.Shooting, counter1: 0x10, angle: ObjectAngle.Left);
         for (int frame = 1; frame < 0x10; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<OctorokRockProjectile>().Count != 0 || blue.Counter1 != 1,
             "ENEMY_OCTOROK fired before completing its original `$10-update windup.");
         Vector2 projectileOrigin = blue.Position;
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<OctorokRockProjectile>().Count != 1 ||
             _entities.Entities<OctorokRockProjectile>()[0].State !=
@@ -3461,23 +3469,23 @@ public sealed partial class ValidationRoot
             "enter its 32-update post-shot stand.");
 
         OctorokRockProjectile rock = _entities.Entities<OctorokRockProjectile>()[0];
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             rock.Position != projectileOrigin + Vector2.Left * 2.0f,
             "The Octorok rock did not move at SPEED_200 (2 pixels/update).");
         for (int frame = 0; frame < 4; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !_entities.ApplySwordHit(rock.CollisionBounds.Grow(1.0f), _player.Position) ||
             rock.State != HostileProjectileState.Bouncing ||
             rock.Angle != 0x08 || rock.Counter != 0x20,
             "The level-1 sword did not reverse an Octorok rock and start its `$20-update bounce.");
         for (int frame = 1; frame < 0x20; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             rock.Finished || _entities.Entities<OctorokRockProjectile>().Count != 1 || rock.Counter != 1,
             "The deflected Octorok rock ended before bounce update `$20.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<OctorokRockProjectile>().Count != 0,
             "The deflected Octorok rock survived bounce update `$20.");
@@ -3512,7 +3520,7 @@ public sealed partial class ValidationRoot
         while (blue.KnockbackCounter > 0)
             blue.UpdateFrame(_player.Position);
         blue.UpdateFrame(_player.Position);
-        _entities.Update(0.0, _player);
+        _entities.AdvanceEntityFrames(0.0, _player);
         FailIf(
             _entities.Entities<OctorokCharacter>().Count != blueCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
@@ -3528,7 +3536,7 @@ public sealed partial class ValidationRoot
         _entities.BeginScreenTransition(0, incomingRoom, Vector2.Left * incomingRoom.Width);
         int frozenCounter = transitionOctorok.Counter1;
         int frozenRockFrames = transitionRock.ElapsedFrames;
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             _entities.OutgoingEntities<OctorokCharacter>().Count != 1 || _entities.OutgoingEntities<OctorokRockProjectile>().Count != 1 ||
             _entities.Entities<OctorokCharacter>().Count != 2 || transitionOctorok.Counter1 != frozenCounter ||
@@ -3588,7 +3596,7 @@ public sealed partial class ValidationRoot
                 Vector2I.Up,
                 scent,
                 _activeGroup));
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             collided.State != EmberState.Dissipating ||
             collided.ScentTarget is not null || struck.Health != 1 ||
@@ -3619,12 +3627,12 @@ public sealed partial class ValidationRoot
                 scent,
                 _activeGroup));
         for (int frame = 0; frame < 9; frame++)
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             lure.State != EmberState.Scent || lure.ScentTarget is not null ||
             follower.State == OctorokState.FollowingScentSeed,
             "The landed Scent Seed attracted an Octorok on its landing update.");
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             lure.ScentTarget != scentPoint ||
             follower.State != OctorokState.FollowingScentSeed ||
@@ -3632,12 +3640,12 @@ public sealed partial class ValidationRoot
             "The item-before-enemy pass did not publish the Scent Seed target " +
             "and enter Octorok state `$04 on the following update.");
         for (int frame = 0; frame < 14; frame++)
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             follower.ScentAttractionCounter != 0xf1 || follower.Angle != 0,
             "ecom_updateAngleToScentSeed refreshed before its wrapping " +
             "16-update var3d boundary.");
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         FailIf(
             follower.ScentAttractionCounter != 0xf0 ||
             follower.Angle is not (ObjectAngle.Right or ObjectAngle.Down),
@@ -3646,7 +3654,7 @@ public sealed partial class ValidationRoot
         int remainingUpdates = 0;
         while (!lure.Finished && remainingUpdates < 0x140)
         {
-            _entities.Update(update, _player);
+            _entities.AdvanceEntityFrames(update, _player);
             remainingUpdates++;
         }
         FailIf(
@@ -3657,7 +3665,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(0, 0x84);
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         ArrowMoblinCharacter arrow =
             _entities.Entities<ArrowMoblinCharacter>().Single();
         int initialArrowScentCounter = arrow.ScentAttractionCounter;
@@ -3672,7 +3680,7 @@ public sealed partial class ValidationRoot
             "its angle while consuming only the exit duration RNG.");
 
         LoadValidationRoom(4, 0x2c);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         ArrowMoblinCharacter shrouded =
             _entities.Entities<ArrowMoblinCharacter>()[0];
         int initialShroudedScentCounter = shrouded.ScentAttractionCounter;
@@ -3686,7 +3694,7 @@ public sealed partial class ValidationRoot
             "its source scent state `$04.");
 
         LoadValidationRoom(4, 0x17);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         BoomerangMoblinCharacter boomerang =
             _entities.Entities<BoomerangMoblinCharacter>()[0];
         boomerang.UpdateFrame(
@@ -3702,7 +3710,7 @@ public sealed partial class ValidationRoot
             "duration-then-angle two-RNG route on exit.");
 
         LoadValidationRoom(4, 0x1c);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         RopeCharacter rope = _entities.Entities<RopeCharacter>()[0];
         int ropeScentCounter = rope.ScentAttractionCounter;
         rope.UpdateFrame(
@@ -3717,7 +3725,7 @@ public sealed partial class ValidationRoot
             "ENEMY_ROPE did not restore SPEED_60 and state `$09 after scent ended.");
 
         LoadValidationRoom(0, 0xb9);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         SandCrabCharacter crab =
             _entities.Entities<SandCrabCharacter>()[0];
         crab.UpdateFrame(crab.Position + new Vector2(48, 32));
@@ -3731,7 +3739,7 @@ public sealed partial class ValidationRoot
             "ENEMY_SAND_CRAB did not return to state `$08 after scent ended.");
 
         LoadValidationRoom(4, 0x30);
-        _entities.Update(update, _player);
+        _entities.AdvanceEntityFrames(update, _player);
         SwordEnemyCharacter sword =
             _entities.Entities<SwordEnemyCharacter>()[0];
         Vector2 diagonalTarget = sword.Position + new Vector2(64, 32);
@@ -3834,7 +3842,7 @@ public sealed partial class ValidationRoot
 
         Vector2 originalPlayerPosition = _player.Position;
         _player.WarpTo(new Vector2(-0x100, -0x100), recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         ArrowMoblinCharacter moblin = moblins[0];
         FailIf(
             moblin.State != ArrowMoblinState.Moving ||
@@ -3848,7 +3856,7 @@ public sealed partial class ValidationRoot
              update < 0x80 && moblin.State == ArrowMoblinState.Moving;
              update++)
         {
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             moblin.State != ArrowMoblinState.Turning ||
@@ -3861,7 +3869,7 @@ public sealed partial class ValidationRoot
         int expectedFirstShotCounter =
             0x30 + (predictor.Next().Value & 0x3f);
         for (int update = 0; update < 7; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             moblin.State != ArrowMoblinState.Turning ||
             moblin.Counter != 1 ||
@@ -3873,7 +3881,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             OnScreenTarget(firstShotOrigin, expectedFirstShotAngle),
             recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         Vector2 expectedArrowOffset = expectedFirstShotAngle switch
         {
             0x00 => new Vector2(-5, -8),
@@ -3904,7 +3912,7 @@ public sealed partial class ValidationRoot
              update < 0x80 && moblin.State == ArrowMoblinState.Moving;
              update++)
         {
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         }
         FailIf(
             moblin.State != ArrowMoblinState.Turning ||
@@ -3915,13 +3923,13 @@ public sealed partial class ValidationRoot
         int expectedSecondCounter =
             0x30 + (predictor.Next().Value & 0x3f);
         for (int update = 0; update < 7; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         HashSet<EnemyArrowProjectile> arrowsBeforeEvenCycle =
             manager.Entities<EnemyArrowProjectile>().ToHashSet();
         _player.WarpTo(
             OnScreenTarget(moblin.Position, expectedSecondAngle),
             recordSafe: false);
-        manager.Update(1.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         List<EnemyArrowProjectile> arrowsAfterEvenCycle =
             manager.Entities<EnemyArrowProjectile>();
         FailIf(
@@ -3983,12 +3991,11 @@ public sealed partial class ValidationRoot
             angle: ObjectAngle.Right);
         var arrow = new EnemyArrowProjectile();
         arrow.Initialize(
-            database.EnemyArrow,
+            EnemyArrowDatabase.For(AgesGameContent.AssetRoot).Record,
             room,
-            Vector2.Zero,
+            collisionPosition - new Vector2(8, 2), // Native right-facing state-zero offset.
             angle: ObjectAngle.Right);
-        arrow.Position = collisionPosition;
-        var arrowMemory = AgesGameContent.CreateRuntimeState();
+        var arrowMemory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         arrow.BindMovementMemory(arrowMemory);
         for (int offset = 0; offset < 4; offset++) arrowMemory.SetWramByte(0xcec0 + offset, 0xa5);
 
@@ -3996,15 +4003,18 @@ public sealed partial class ValidationRoot
         arrow.UpdateFrame(_player);
         rock.UpdateFrame(_player);
         arrow.UpdateFrame(_player);
+        FailIf(rock.State != HostileProjectileState.Flying || rock.Position != collisionPosition,
+            "PART_OCTOROK_PROJECTILE must enter the solid tile before its next current-position probe.");
+        rock.UpdateFrame(_player);
         FailIf(
             rock.State != HostileProjectileState.CollisionPending ||
-            rock.Position != collisionPosition ||
+            rock.Position != collisionPosition + Vector2.Right * 2 ||
             arrow.State != HostileProjectileState.Bouncing ||
             arrow.Position != collisionPosition ||
             arrow.Counter != 0x20 ||
             arrow.Angle != 0x18,
             "PART_OCTOROK_PROJECTILE and PART_ENEMY_ARROW lost their " +
-            "distinct destination-pending versus current-tile-immediate " +
+            "distinct current-tile-pending versus current-tile-immediate " +
             "collision order.");
         FailIf(Enumerable.Range(0, 4).Any(offset => arrowMemory.ReadWramByte(0xcec0 + offset) != 0xa5),
             "Arrow initialization and current-tile bounce setup must return before movement scratch writes.");
@@ -4019,9 +4029,9 @@ public sealed partial class ValidationRoot
             rock.Counter != 0x20 ||
             rock.Angle != 0x18 ||
             rock.CollisionBounds.Size != new Vector2(4, 4) ||
-            arrow.CollisionBounds.Size != Vector2.Zero,
-            "The shared hostile-projectile bounce did not preserve the " +
-            "rock/arrow collision-window distinction.");
+            arrow.CollisionBounds.Size != new Vector2(12, 6) ||
+            arrow.DeflectWithSword() || arrow.Counter != 0x20,
+            "The shared bounce must retain native radii while disabling later collisions.");
 
         rock.UpdateFrame(_player);
         arrow.UpdateFrame(_player);
@@ -4031,7 +4041,7 @@ public sealed partial class ValidationRoot
             arrowMemory.ReadWramByte(0xcec2) != 0xc0 || arrowMemory.ReadWramByte(0xcec3) != 0xff,
             "Arrow bounce must publish SPEED_40 angle$18 as Y=$0000/X=$ffc0.");
         FailIf(
-            rock.Position != firstBouncePosition ||
+            rock.Position != firstBouncePosition + Vector2.Right * 2 ||
             arrow.Position != firstBouncePosition ||
             rock.Counter != 0x1f ||
             arrow.Counter != 0x1f ||
@@ -4265,7 +4275,7 @@ public sealed partial class ValidationRoot
             "A lethal sword hit did not complete all 11 normal " +
             "knockback updates before death.");
         ghini.UpdateFrame();
-        _entities.Update(0.0, _player);
+        _entities.AdvanceEntityFrames(0.0, _player);
         FailIf(
             _entities.Entities<GhiniCharacter>().Count != ghiniCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != puffCount + 1 ||
@@ -4289,7 +4299,7 @@ public sealed partial class ValidationRoot
             zol.Position + Vector2.Left * 16.0f,
             damage: 1,
             knockbackStrength: EnemyKnockbackStrength.High);
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         _entities.ResolvePostObjectCollisions(_player);
         FailIf(
             zol.Health != 2 ||
@@ -4403,15 +4413,13 @@ public sealed partial class ValidationRoot
             int mode = combat.CollisionMode & 0x7f;
             FailIf(
                 !expectedEffects.TryGetValue(mode, out var effects) ||
-                combat.ShieldLevel1Effect != effects.L1 ||
-                combat.ShieldLevel2Effect != effects.L2 ||
-                combat.ShieldLevel3Effect != effects.L3 ||
+                ObjectCollisionDatabase.For(combat.AssetRoot).Effect(mode,1) != effects.L1 ||
+                ObjectCollisionDatabase.For(combat.AssetRoot).Effect(mode,2) != effects.L2 ||
+                ObjectCollisionDatabase.For(combat.AssetRoot).Effect(mode,3) != effects.L3 ||
                 combat.ShieldBumpResponse(1) != BumpResponse(effects.L1) ||
                 combat.ShieldBumpResponse(2) != BumpResponse(effects.L2) ||
                 combat.ShieldBumpResponse(3) != BumpResponse(effects.L3) ||
-                combat.ShieldSource !=
-                    "data/ages/objectCollisionTable.s:" +
-                    $"objectCollisionTable+${mode * 0x20:x4}",
+                combat.AssetRoot != AgesGameContent.AssetRoot,
                 $"{source.Source} did not retain the clean-US shield " +
                 $"collision columns for mode ${mode:x2}.");
             auditedCombatKeys.Add((handler.Id, handler.SubId));
@@ -4601,7 +4609,7 @@ public sealed partial class ValidationRoot
             walkCounter: 10,
             angle: ObjectAngle.Left);
         FailIf(
-            !wallOctorok.TryApplyShieldBump(
+            !wallOctorok.TryApplyCollisionBump(
                 wallOctorok.CollisionBounds.Grow(1),
                 wallBumpStart + Vector2.Left * 16.0f,
                 EnemyKnockbackStrength.Normal) ||
@@ -4965,13 +4973,13 @@ public sealed partial class ValidationRoot
 
         int randomCalls = _entities.RandomCalls;
         Vector2[] initialPositions = stalfos.Select(enemy => enemy.Position).ToArray();
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.RandomCalls != randomCalls + 2 ||
             stalfos.Any(enemy =>
                 enemy.State != StalfosState.Deciding),
             "ENEMY_STALFOS state `$00 lost enemyStandardUpdate's one var3d RNG roll per enemy.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.RandomCalls != randomCalls + 6 ||
             stalfos.Any(enemy =>
@@ -4983,11 +4991,11 @@ public sealed partial class ValidationRoot
             "and choose a 32/48/64/80-update walk without moving immediately.");
 
         for (int frame = 0; frame < 3; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             stalfos.Any(enemy => enemy.CurrentAnimationFrame != 0),
             "The Stalfos walk animation advanced before four walking updates.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             stalfos.Any(enemy => enemy.CurrentAnimationFrame != 1) ||
             stalfos.Where((enemy, index) => enemy.Position == initialPositions[index]).Any(),
@@ -5131,7 +5139,7 @@ public sealed partial class ValidationRoot
         int frozenCounter = transitionZol.Counter1;
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x0b);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             _entities.OutgoingEntities<ZolCharacter>().Count != 6 || _entities.Entities<ZolCharacter>().Count != 0 ||
             _entities.Entities<GelCharacter>().Count != 3 || transitionZol.Counter1 != frozenCounter ||
@@ -5231,7 +5239,7 @@ public sealed partial class ValidationRoot
         _entities.ApplySwordHit(green.CollisionBounds.Grow(1.0f));
         _entities.ResolvePostObjectCollisions(_player);
         FailIf(green.Health != 0 || green.IsDead, "Lethal Zol collision must retain its pending JUST_HIT before death dispatch.");
-        _entities.Update(2.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(2.0 / 60.0, _player);
         FailIf(
             _entities.Entities<ZolCharacter>().Count != greenCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
@@ -5241,7 +5249,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(4, 0xcc);
         _player.WarpTo(new Vector2(220, 160), recordSafe: false);
-        _entities.Update(1.0 / 60.0, _player); // Native state0 before a collision can reach the red Zol.
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player); // Native state0 before a collision can reach the red Zol.
         ZolCharacter red = _entities.Entities<ZolCharacter>().Find(zol => zol.Record.SubId == 1)!;
         Vector2 splitPosition = red.Position;
         int redRoomCount = _entities.Entities<ZolCharacter>().Count;
@@ -5255,14 +5263,14 @@ public sealed partial class ValidationRoot
         _entities.ResolvePostObjectCollisions(_player);
         FailIf(red.State != ZolState.RedWaiting || red.Health != 1,
             "Red Zol sword collision must write JUST_HIT before its next enemy handler selects splitting.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             red.State != ZolState.RedSplitting ||
             _entities.Entities<ZolCharacter>().Count != redRoomCount ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 0,
             "A sword-hit red Zol did not enter its special split state without a normal death puff.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             red.State != ZolState.RedSplitDelay || red.Counter2 != 18 ||
             red.Visible || red.CollisionEnabled || _entities.Entities<KillEnemyPuffEffect>().Count != 1 ||
@@ -5270,11 +5278,11 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 1,
             "Red Zol did not create the 22-update INTERAC_KILLENEMYPUFF and begin its 18-update delay.");
         for (int frame = 0; frame < 17; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<GelCharacter>().Count != 0 || red.Counter2 != 1,
             "Red Zol spawned Gels before split delay update 18.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         RecentEnemyDefeatsState afterSplitDefeats =
             _entities.CaptureDebugState().RecentEnemyDefeats;
         FailIf(
@@ -5287,7 +5295,7 @@ public sealed partial class ValidationRoot
                 splitRecentDefeats.KilledEnemies),
             "Red Zol replacement did not preserve silent deletion, recent-" +
             "defeat state, and two +/-4 X Gels.");
-        _entities.Update(4.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(4.0 / 60.0, _player);
         FailIf(
             _entities.Entities<KillEnemyPuffEffect>().Count != 0 || _entities.Entities<ItemDropEffect>().Count != 0,
             "INTERAC_KILLENEMYPUFF did not end after 22 updates or incorrectly resolved an item drop.");
@@ -5324,13 +5332,13 @@ public sealed partial class ValidationRoot
             "independent enemyDie counter events.");
         _entities.EnemyDefeated -= RecordRedZolDeath;
         for (int update = 0; update < 19; update++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<EnemyDeathPuffEffect>().Count != 2 ||
             _entities.RoomEnemyCount != splitGelRoomEnemyCount,
             "Counted Gel death puffs released the room enemy count " +
             "before their terminal animation update.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _entities.RoomEnemyCount != splitGelRoomEnemyCount - 2,
@@ -5356,24 +5364,24 @@ public sealed partial class ValidationRoot
         FailIf(latchGel.Counter2 != 119 || !_entities.PlayerSwordDisabled,
             "The first Gel stateD update must publish the item restriction.");
         bool movementPhase = _entities.PlayerMovementDisabled;
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             _entities.PlayerMovementDisabled == movementPhase,
             "Attached Gel did not immobilize Link on alternating updates.");
         for (int frame = 0; frame < 117; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !latchGel.IsAttached || latchGel.Counter2 != 1,
             "Gel did not remain attached through latch update 119: " +
             $"state={latchGel.State}, counter2={latchGel.Counter2}, " +
             $"entityFrame={_entities.FrameCounter}.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             latchGel.IsAttached || latchGel.State != GelState.Hopping ||
             latchGel.Angle != 0x00 || latchGel.CollisionEnabled ||
             _entities.PlayerSwordDisabled,
             "Gel did not automatically release after 120 updates with hop collision disabled.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             latchGel.IsAttached || _entities.PlayerSwordDisabled,
             "A naturally released Gel immediately relatched before completing its hop.");
@@ -5396,7 +5404,7 @@ public sealed partial class ValidationRoot
             buttonGel.Angle != 0x00 || buttonGel.CollisionEnabled ||
             _entities.PlayerSwordDisabled,
             "Button presses did not release the Gel with collision disabled and hop it away from Link.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             buttonGel.IsAttached || _entities.PlayerSwordDisabled,
             "A button-released Gel immediately relatched before completing its hop.");
@@ -5425,7 +5433,7 @@ public sealed partial class ValidationRoot
             "The counted hazard-validation Gel did not increment the live " +
             "room enemy count.");
         _sound.ClearPlayRequestAudit();
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !_entities.Entities<GelCharacter>().Contains(holeGel) ||
             !holeGel.IsFallingIntoHole || !holeGel.Visible ||
@@ -5451,7 +5459,7 @@ public sealed partial class ValidationRoot
             _player.Position,
             _player.FacingVector,
             anyButtonJustPressed: false);
-        _entities.Update(0.0, _player);
+        _entities.AdvanceEntityFrames(0.0, _player);
         RecentEnemyDefeatsState afterHazardDefeats =
             _entities.CaptureDebugState().RecentEnemyDefeats;
         FailIf(
@@ -5466,7 +5474,7 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 0,
             "ecom_decNumEnemiesAndDelete did not remove the centered Gel " +
             "without a recent-defeat mark or Slayer/Maple/Gasha event.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(_sound.PlayRequestsFor(SoundId.SndFallInHole) != 1,
             "The removed Gel's INTERAC$0f must request its cue on its first eligible dispatch.");
         _entities.EnemyDefeated -= RecordHazardDeath;
@@ -5573,7 +5581,7 @@ public sealed partial class ValidationRoot
             lifecycleManager.Spawn<EnemyDeathPuffEffect>(
                 new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: EnemyId.Keese));
             for (int frame = 0; frame < 20; frame++)
-                lifecycleManager.Update(1.0 / 60.0, _player);
+                lifecycleManager.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(
                 lifecycleManager.Entities<EnemyDeathPuffEffect>().Count != 0,
                 "A finished Keese death puff was not replaced/deleted by item-drop resolution.");
@@ -5760,7 +5768,7 @@ public sealed partial class ValidationRoot
         ItemDropEffect swordDrop = _entities.Spawn<ItemDropEffect>(
             new ItemDropSpawn(ItemDropDatabase.OneRupee, dropPosition));
         for (int frame = 1; frame <= 36; frame++)
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         _player.WarpTo(
             dropPosition - new Vector2(16, -2),
             recordSafe: false);
@@ -5777,7 +5785,7 @@ public sealed partial class ValidationRoot
         FailIf(
             swordDrop.Collected || swordDrop.Finished,
             "The sword granted PART_ITEM_DROP before the part's next update.");
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             !swordDrop.Collected || !swordDrop.Finished ||
             _player.Rupees != swordRupeesBefore + 1 ||
@@ -5883,7 +5891,7 @@ public sealed partial class ValidationRoot
             new ItemDropSpawn(ItemDropDatabase.OneRupee, dropPosition));
         OracleRoomData incomingRoom = _world.LoadRoom(4, 0x39);
         _entities.BeginScreenTransition(4, incomingRoom, Vector2.Left * incomingRoom.Width);
-        _entities.Update(1.0, _player);
+        _entities.AdvanceEntityFrames(1.0, _player);
         FailIf(
             _entities.OutgoingEntities<ItemDropEffect>().Count != 1 ||
             _entities.OutgoingEntities<ItemDropEffect>()[0] != transitionDrop ||
@@ -5966,8 +5974,8 @@ public sealed partial class ValidationRoot
         var saveOnlyInventory = new InventoryState(treasures, saveOnly);
         saveOnlyInventory.GiveTreasure(TreasureId.Bombs, 0);
         FailIf(
-            !ItemDropDatabase.IsAvailable(
-            ItemDropDatabase.Bombs, inventory: null, saveData: saveOnly),
+            database.ResolveAvailableDrop(
+            ItemDropDatabase.Bombs, inventory: null, saveData: saveOnly) != ItemDropDatabase.Bombs,
             "The shared item-drop availability path lost its save-backed " +
             "TREASURE_BOMBS fallback for placed producers.");
 
@@ -6013,7 +6021,7 @@ public sealed partial class ValidationRoot
                 ItemDrops = database,
                 Random = random,
                 SaveData = save,
-                RuntimeState = AgesGameContent.CreateRuntimeState(),
+                RuntimeState = OracleRuntimeState.CreateInitialized(OracleGame.Ages),
                 Inventory = inventory,
                 Treasures = treasures
             });
@@ -6027,7 +6035,7 @@ public sealed partial class ValidationRoot
         manager.Spawn<EnemyDeathPuffEffect>(
             new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: EnemyId.BoomerangMoblin));
         for (int update = 0; update < 20; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             manager.Entities<ItemDropEffect>().Count != 0 ||
             random.Calls != 12,
@@ -6039,7 +6047,7 @@ public sealed partial class ValidationRoot
         manager.Spawn<EnemyDeathPuffEffect>(
             new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: EnemyId.BoomerangMoblin));
         for (int update = 0; update < 20; update++)
-            manager.Update(1.0 / 60.0, _player);
+            manager.AdvanceEntityFrames(1.0 / 60.0, _player);
         FailIf(
             manager.Entities<ItemDropEffect>().SingleOrDefault() is not
                 { SubId: ItemDropDatabase.Bombs, ElapsedFrames: 0 } ||
@@ -6254,12 +6262,12 @@ public sealed partial class ValidationRoot
 
         for (int update = 1; update <= 23; update++)
         {
-            _entities.Update(1.0 / 60.0, _player);
+            _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
             FailIf(
                 drop.Finished || _entities.Entities<SplashEffect>().LastOrDefault() != priorSplash,
                 $"PART_ITEM_DROP created its water splash while still airborne on update {update}.");
         }
-        _entities.Update(1.0 / 60.0, _player);
+        _entities.AdvanceEntityFrames(1.0 / 60.0, _player);
         SplashEffect? splash = _entities.Entities<SplashEffect>().LastOrDefault();
         FailIf(
             !drop.Finished || drop.FinishedHazard != HazardType.Water ||
@@ -6656,7 +6664,7 @@ public sealed partial class ValidationRoot
         var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         byte stairTile = _currentRoom.GetMetatile(stair);
         FailIf(
-            !warps.TryGetTileWarp(
+            !TryGetResolvedTileWarp(warps,
                 group, _currentRoom, stairPosition, stairTile, out Warp stairWarp) ||
             stairWarp.SourcePosition != -1 ||
             stairWarp.SourceTransition != 4 ||
@@ -6689,7 +6697,7 @@ public sealed partial class ValidationRoot
             if (!foundOffWarp &&
                 terrain.Hazard == HazardType.None &&
                 !RoomCollides(_currentRoom, center) &&
-                !WarpDatabase.IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(center)))
+                !WarpDatabase.For(AgesGameContent.AssetRoot).IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(center)))
             {
                 offWarp = center;
                 foundOffWarp = true;
@@ -6797,11 +6805,11 @@ public sealed partial class ValidationRoot
         _player.WarpTo(ledgeStart);
         _player.Face(Vector2I.Right);
         FailIf(
-            TryStartLedgeHop(_player, _player.Position, Vector2.Down),
+            TryStartTerrainJump(_player, _player.Position, Vector2.Down),
             "A ledge jump ignored the source movement-angle/facing equality check.");
         _player.Face(Vector2I.Down);
         FailIf(
-            TryStartLedgeHop(
+            TryStartTerrainJump(
             _player,
             _player.Position,
             new Vector2(1, 1)),
@@ -6810,7 +6818,7 @@ public sealed partial class ValidationRoot
         int jumpSounds = _sound.PlayRequestsFor(SoundId.SndJump);
         int landSounds = _sound.PlayRequestsFor(SoundId.SndLand);
         FailIf(
-            !TryStartLedgeHop(_player, _player.Position, Vector2.Down),
+            !TryStartTerrainJump(_player, _player.Position, Vector2.Down),
             "Room 0:11's two $64 south-cliff probes did not start a ledge jump.");
         FailIf(
             _player.LedgeJumpPhase != LedgeJumpState.Airborne ||
@@ -6883,7 +6891,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(ledgeStart);
         _player.Face(Vector2I.Down);
         FailIf(
-            !TryStartLedgeHop(_player, _player.Position, Vector2.Down),
+            !TryStartTerrainJump(_player, _player.Position, Vector2.Down),
             "The deterministic long-frame ledge replay did not start.");
         _player._PhysicsProcess(29.0 / 60.0);
         FailIf(
@@ -6904,7 +6912,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(ledgeStart);
         _player.Face(Vector2I.Down);
         FailIf(
-            !TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
+            !TryStartTerrainJump(_player, _player.Position, Vector2.Down) ||
             _player.LedgeCliffLength != 3,
             "Source $05 breakable tile $c3 was not accepted as a ledge landing.");
         _player._PhysicsProcess(29.0 / 60.0);
@@ -6926,7 +6934,7 @@ public sealed partial class ValidationRoot
         jumpSounds = _sound.PlayRequestsFor(SoundId.SndJump);
         landSounds = _sound.PlayRequestsFor(SoundId.SndLand);
         FailIf(
-            !TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
+            !TryStartTerrainJump(_player, _player.Position, Vector2.Down) ||
             _player.LedgeJumpPhase != LedgeJumpState.AirborneBeforeScroll ||
             _player.LedgeCliffLength != 0 ||
             _player.LedgeSpeedRaw != 0 ||
@@ -6945,6 +6953,9 @@ public sealed partial class ValidationRoot
             _scrollTransitionActive,
             "The transition ledge did not preserve its 18-update pre-scroll fall.");
         _player._PhysicsProcess(1.0 / 60.0);
+        FailIf(_runtimeState.ReadField("wScreenTransitionDirection") != 0x82 || _scrollTransitionActive,
+            "The component ledge update must publish $82 before the later object-tail consumer.");
+        _transitions.CheckRoomExit(_player);
         FailIf(
             _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll ||
             !_scrollTransitionActive ||

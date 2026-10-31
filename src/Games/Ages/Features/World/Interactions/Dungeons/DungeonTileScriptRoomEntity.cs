@@ -81,7 +81,7 @@ internal sealed partial class DungeonTileScriptRoomEntity : Node2D,
                     player.ApplyInteractionInvincibility(0x80);
                     Counter = _profile.Wait; Step = 3; return;
                 }
-                if (Step == 3) { player.ResetPortalDamageState(); _wall(); break; }
+                if (Step == 3) { player.ResetLinkInvincibility(); _wall(); break; }
                 throw new InvalidOperationException($"{_profile.Source}: invalid wall script step {Step}.");
             case DungeonTileScriptKind.EnemyStairs:
                 if (Step == 1) { if (_enemies() == _profile.GateValue) Step = 2; return; }

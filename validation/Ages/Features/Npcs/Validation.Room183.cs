@@ -32,23 +32,23 @@ public sealed partial class ValidationRoot
             objects.Count != 4 ||
             objects[0] is not
                 {
-                    Order: 0, Kind: RoomObjectKind.ItemDrop, Id: 0x57,
+                    Order: 0, Kind: RoomObjectKind.ItemDrop, Id: 0x59,
                     SubId: ItemDropDatabase.Heart, PackedPosition: 0x22
                 } ||
             objects[1] is not
                 {
-                    Order: 1, Kind: RoomObjectKind.ItemDrop, Id: 0x57,
+                    Order: 1, Kind: RoomObjectKind.ItemDrop, Id: 0x59,
                     SubId: ItemDropDatabase.MysterySeeds,
                     PackedPosition: 0x12
                 } ||
             objects[2] is not
                 {
-                    Order: 2, Kind: RoomObjectKind.ItemDrop, Id: 0x57,
+                    Order: 2, Kind: RoomObjectKind.ItemDrop, Id: 0x59,
                     SubId: ItemDropDatabase.Heart, PackedPosition: 0x18
                 } ||
             objects[3] is not
                 {
-                    Order: 3, Kind: RoomObjectKind.ItemDrop, Id: 0x57,
+                    Order: 3, Kind: RoomObjectKind.ItemDrop, Id: 0x59,
                     SubId: ItemDropDatabase.Bombs, PackedPosition: 0x28
                 },
             "Room 1:83 did not retain its source-ordered heart, Mystery " +
@@ -149,14 +149,14 @@ public sealed partial class ValidationRoot
             man.Position + Vector2.Down * 40.0f,
             recordSafe: false);
         for (int update = 0; update < 15; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             man.CurrentAnimationFrame != 0 ||
             man.FacingVector != Vector2I.Down ||
             producers.Any(producer => !producer.Initialized),
             "Room 1:83's misc man advanced animation $02 early or its " +
             "drop producers failed to capture their source metatiles.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             man.CurrentAnimationFrame != 1 ||
             man.CurrentAnimationPixelHash == initialFrameHash ||
@@ -164,7 +164,7 @@ public sealed partial class ValidationRoot
             "Room 1:83's misc man did not reach animation $02's second " +
             "pose after exactly 16 updates.");
         for (int update = 0; update < 16; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             man.CurrentAnimationFrame != 0 ||
             man.CurrentAnimationPixelHash != initialFrameHash ||
@@ -175,7 +175,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             man.Position + Vector2.Left * 20.0f,
             recordSafe: false);
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             man.FacingVector != Vector2I.Left,
             "Room 1:83's misc man did not face Link to his left.");
@@ -183,12 +183,12 @@ public sealed partial class ValidationRoot
             man.Position + Vector2.Right * 20.0f,
             recordSafe: false);
         for (int update = 0; update < 29; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             man.FacingVector != Vector2I.Left,
             "Room 1:83's misc man changed direction before the source " +
             "$1d-to-$00 facing cooldown elapsed.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             man.FacingVector != Vector2I.Right,
             "Room 1:83's misc man did not face Link to his right on the " +
@@ -208,7 +208,7 @@ public sealed partial class ValidationRoot
                 "could just blast it away...",
             "Room 1:83's misc man did not run the TX_2606 A-button loop.");
         int frozenFrame = man.CurrentAnimationFrame;
-        manager.Update(16.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(16.0 / 60.0, _player);
         FailIf(
             man.CurrentAnimationFrame != frozenFrame,
             "Gameplay text did not freeze room 1:83's misc-man animation.");
@@ -221,7 +221,7 @@ public sealed partial class ValidationRoot
             rooms.CurrentRoom.SetPositionTileAndCollision(
                 producer.Position, (byte)(tile ^ 1), null, fixture.Tick);
         }
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         List<ItemDropEffect> drops = manager.Entities<ItemDropEffect>();
         int[] expectedDropSubIds =
         [

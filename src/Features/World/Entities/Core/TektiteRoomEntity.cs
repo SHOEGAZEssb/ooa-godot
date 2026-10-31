@@ -11,7 +11,7 @@ internal sealed class TektiteRoomEntity : CombatEnemyRoomEntityAdapter<TektiteCh
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
                 enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback,
-                soundRequested, EnemySwordResponse.Knockback), collisionZ: () => enemy.ZHigh) { }
+                soundRequested), collisionZ: () => enemy.ZHigh) { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.EnemyContactPosition);

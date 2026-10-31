@@ -1,7 +1,5 @@
 using Godot;
-using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 namespace Oracles;
 
@@ -16,20 +14,9 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(0, 0x82);
             var owner = _roomEvents.Get<FairiesWoodsEvent>(); owner.Cancel();
-            var flight = (ForestFairyFlight)typeof(FairiesWoodsEvent).GetMethod("SpawnFlight", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(owner, [preset])!;
-            if (subId != 0)
-            {
-                flight = new ForestFairyFlight(owner.Database, _runtimeState, _sound,
-                    SomariaPrivate<FairiesWoodsSparkleLayer>(owner, "_sparkles"), flight.Actor,
-                    preset, _ => { }, subId);
-                var flights = SomariaPrivate<List<ForestFairyFlight>>(owner, "_flights");
-                flights.Clear(); flights.Add(flight);
-            }
-            SomariaPrivate<CutsceneCommandRunner>(owner, "_runner").Clear();
-            F1Set(owner, "_stage", FairiesWoodsStage.IntroScript);
-            F1Retain(_entities.EntityAdapters<IRoomEntity>().Single(entity => ReferenceEquals(entity.Node, flight.Actor)));
-            _player.WarpTo(new(40, 112)); _player.BeginCutsceneControl(owner: owner);
+            var flight = ForestFairyFlight.TryCreate(owner.Context, owner.Database, preset, subId, "NativeFairyFlight")!;
+            F1Retain(_entities.EntityAdapters<IRoomEntity>().Single(entity => ReferenceEquals(entity.PresentationNode, flight.Actor)));
+            _player.WarpTo(new(40, 112));
             _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 1);
             _runtimeState.SetWramByte(0xcfd2, subId == 4 ? (byte)1 : (byte)0);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, 40, 112) { CompanionDispatchEnabled = true };
@@ -43,6 +30,7 @@ public sealed partial class ValidationRoot
                 int beforeY = native.Word(at + 10), beforeX = native.Word(at + 12);
                 native.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter, afterInteractions: () =>
                 { for (int i = 0; i < 4; i++) expected[i] = native[0xcec0 + i]; });
+                CompareFairyInteractionSlotsRom(native, $"fairy flight ${subId:x2}/${preset:x2} visit{updates + 1}, batch={batched}");
                 updates++;
                 if (native[at] != 0 && (beforeY != native.Word(at + 10) || beforeX != native.Word(at + 12)) && !text) motions++;
                 if (flight.Stage == (int)FairyFlightStage.Circle) circleVisits++;

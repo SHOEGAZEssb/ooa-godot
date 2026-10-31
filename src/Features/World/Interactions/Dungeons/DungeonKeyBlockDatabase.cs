@@ -45,6 +45,8 @@ internal sealed class DungeonKeyBlockDatabase
             row.UnsignedDecimal(9),
             row.RequiredString(11));
         _activeCollisionModes = ActiveCollisionModeSet.Parse(row, 10);
+        int nativeModes = OracleAssetPack.GameFor(assetRoot) == OracleGame.Ages
+            ? (1 << 1) | (1 << 2) | (1 << 5) : (1 << 3) | (1 << 4);
         if (Record.ClosedTile != 0x1e || Record.KeyGraphic != 0x42 ||
             Record.OpenTile != 0xa0 || Record.RoomFlag != 0x80 ||
             Record.PushCounter != 20 ||
@@ -53,12 +55,7 @@ internal sealed class DungeonKeyBlockDatabase
             Record.NoKeyTextId != 0x5102 ||
             string.IsNullOrWhiteSpace(Record.NoKeyMessage) ||
             Record.PuffSound != SoundId.SndPoof ||
-            !_activeCollisionModes.Contains(1) ||
-            !_activeCollisionModes.Contains(2) ||
-            !_activeCollisionModes.Contains(5) ||
-            _activeCollisionModes.Contains(0) ||
-            _activeCollisionModes.Contains(3) ||
-            _activeCollisionModes.Contains(4) ||
+            _activeCollisionModes.Mask != nativeModes ||
             !Record.Source.Contains(
                 "nextToKeyBlock", StringComparison.Ordinal))
         {

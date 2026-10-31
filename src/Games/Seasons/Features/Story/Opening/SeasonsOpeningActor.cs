@@ -6,7 +6,7 @@ namespace Oracles;
 
 internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity, IFixedRoomEntity,
     IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
-    IScreenTransitionPreloadRoomEntity, IAlwaysUpdateDuringScreenTransitionRoomEntity, IPlayerInteractable
+    IScreenTransitionPreloadRoomEntity, IAlwaysUpdateDuringScreenTransitionRoomEntity, IPlayerInteractable, IRoomBlocker
 {
     private readonly SeasonsOpeningSession _session;
     internal int Slot => _session.Entities.NativeInteractionSlot(this);
@@ -18,7 +18,7 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
     internal byte[] Bytes { get; } = new byte[256];
     internal int TextId, RadiusY = 6, RadiusX = 6;
     internal bool Initialized { get; private set; }
-    internal bool AlwaysUpdate => (Id == 0x4e && Subid == 7) || Id is 0x9f or 5 or 8 or 0x88;
+    internal bool AlwaysUpdate => (Id == 0x4e && Subid == 7) || Id == 0x88;
     internal bool ButtonPressed;
     internal int ZFixed, SpeedZ;
     internal int State { get; private set; }
@@ -27,6 +27,7 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
 
     Node2D IRoomEntity.Node => Node;
     public bool Finished => _deleted;
+    bool IRoomBlocker.BlocksLink(Vector2 center) => BlocksLink(center);
     public bool UpdatesDuringDialogue => !Initialized || AlwaysUpdate;
     public bool UpdatesDuringRoomEntityFreeze => !Initialized || AlwaysUpdate;
     public void SetTransitionDrawOffset(Vector2 offset) => Node.SetTransitionDrawOffset(offset);
@@ -40,7 +41,12 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
         if (!Initialized) AdvanceFrame();
         return Finished || !Node.Visible ? ScreenTransitionPresentation.Hidden : ScreenTransitionPresentation.Visible;
     }
-    public bool TryInteract(Player player) => TryTalk();
+    public bool TryInteract(Player player)
+    {
+        if (!TryTalk()) return false;
+        player.ApplyObjectInteractionGrace();
+        return true;
+    }
 
     internal SeasonsOpeningActor(SeasonsOpeningSession session, int id, int subid, Vector2 position, int variable)
     {
@@ -50,7 +56,6 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
             0x4e => subid == 7 ? ObjectDrawPriority.FixedHighPriorityZIndex : ObjectDrawPriority.FixedLowPriorityZIndex,
             0x4f => subid switch { 2 => ObjectDrawPriority.InFrontOfLinkZIndex, 3 => ObjectDrawPriority.FixedHighPriorityZIndex,
                 4 when variable == 0 => ObjectDrawPriority.FixedLowPriorityZIndex, _ => ObjectDrawPriority.BehindLinkZIndex },
-            0x9f => ObjectDrawPriority.FixedHighPriorityZIndex,
             0x86 => ObjectDrawPriority.InFrontOfLinkZIndex,
             0x77 when subid == 1 => ObjectDrawPriority.FixedLowPriorityZIndex,
             _ => ObjectDrawPriority.BehindLinkZIndex };
@@ -96,6 +101,7 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
             {
                 case 0xa5:
                     if (Subid != 9) throw Unsupported();
+                    if (_session.RoomFlag(0x40)) { Delete(); return; }
                     Script("dinScript_discoverLinkCollapsed_body"); return;
                 case 0x4e:
                     if (Subid == 0x0b)
@@ -119,9 +125,6 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
                     else _session.Sound.PlaySound(0x1f);
                     Script("impaScript_afterOnoxTakesDin"); return;
                 case 0x4f: InitializeImprisonment(); return;
-                case 0x9f: _counter = Variable; return;
-                case 0x05: _session.Sound.PlaySound(SoundId.SndPoof); return;
-                case 0x08: _session.Sound.PlaySound(SoundId.SndKillEnemy); return;
                 case 0x77: SetAnimation(Subid); return;
                 case 0x86: ResetExplosion(); return;
                 case 0x88:
@@ -156,11 +159,6 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
                 }
                 break;
             case 0x4f: Imprisonment(); break;
-            case 0x9f:
-                Node.AdvanceAnimationUpdates(1); if (_counter != 0xff && Tick()) Delete(); break;
-            case 0x05:
-            case 0x08:
-                Node.AdvanceAnimationUpdates(1); if (Node.CurrentAnimationParameter == 0xff) Delete(); break;
             case 0x77:
                 Node.SetScriptVisible((_session.Signal(3) & 0x80) == 0);
                 var screen = _session.NativeScreen;
@@ -206,7 +204,7 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
         {
             _counter2 = 1;
             string name = new[] { "PALH_TILESET_ONOX_CASTLE_OUTSIDE_WINTER", "PALH_SEASONS_99", "PALH_SEASONS_9a" }[palette];
-            _session.Data.Palettes.Restore(OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + $"opening/{name}-bg.bin"));
+            _session.Data.World.Palettes.Restore(OracleGraphicsData.LoadPalette(SeasonsOpeningData.Root + $"opening/{name}-bg.bin"));
             if (palette != 0) _session.Sound.PlaySound(0xd2);
             if (palette != 2) Node.Hide();
             else
@@ -237,7 +235,7 @@ internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity
         }
         if (Subid == 5)
         {
-            if (_session.Signal(0) != 0) { _session.Spawn(5, 0, Node.Position); Delete(); return; }
+            if (_session.Signal(0) != 0) { _session.Entities.TryCreatePuzzlePuff(Node.Position); Delete(); return; }
             Node.AdvanceAnimationUpdates(1); Node.PushPlayerAwayAndUpdateDrawPriority(_session.Link); return;
         }
         switch (State)

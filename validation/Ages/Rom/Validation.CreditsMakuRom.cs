@@ -26,10 +26,10 @@ public sealed partial class ValidationRoot
             rom[0xcc03]=1;rom[0xcd16]=0;rom[0xcd17]=0xd0;
             foreach(var pair in new[]{(0xc2ef,10),(0xcbc1,1),(0xcbc2,0),(0xcfde,0),(0xcbc3,255),(0xcbc4,255),(0xcbc5,255)})
             {_runtimeState.SetWramByte(pair.Item1,(byte)pair.Item2);rom[pair.Item1]=(byte)pair.Item2;}
-            var screen=_scene.EndingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0;
+            var screen=_endingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0;
             bool sawSwirl=false,sawFlash=false,sawImpaJumps=false,sawRalphJump=false,sawLinkJump=false,sawCompleted=false;
             Texture2D? previousBackground=null;bool checkedStatuePixels=false;
-            IntroOamPart[]? previousLinkParts=null;int previousLinkOam=-1;
+            ObjectSpritePart[]? previousLinkParts=null;int previousLinkOam=-1;
             var sourceBytes=ValidationRom.LoadCleanUs();
             void Compare()
             {

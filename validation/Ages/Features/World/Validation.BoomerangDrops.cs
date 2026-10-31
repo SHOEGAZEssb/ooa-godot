@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateBoomerangDrops()
     {
-        FailIf(!BoomerangCollisionDatabase.For(AgesGameContent.AssetRoot).PartEnabled(1) || BoomerangCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(EnemyCollisionMode.Item) != 0x24,
+        FailIf(!ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).PartEnabled(1, ItemCollisionType.L1Boomerang) || ObjectCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(EnemyCollisionMode.Item, ItemCollisionType.L1Boomerang) != 0x24,
             "PART$01 mode$01 column$17 must attach via source effect$24.");
         foreach (bool batched in new[] { false, true })
         foreach (int outcome in new[] { 0, 1, 2, 3, 4 })

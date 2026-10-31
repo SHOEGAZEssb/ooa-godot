@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Oracles;
 
 /// <summary>interactionCode9d, its ROM scripts, and the copied Tokkey dance helper.</summary>
-internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent,
+internal sealed class TokkeyEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
     private readonly CutsceneCommandRunner _runner;
@@ -184,7 +184,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
     public override void SetDisabledObjects(int value)
     {
         if (value != 0x91) throw UnsupportedCommand($"set disabled objects ${value:x2}");
-        SetInputEnabled(false);
+        base.SetDisabledObjects(value);
     }
     public override void ShowText(int textId, string message, int? textboxPosition) =>
         Context.ShowDialogue(message, textboxPosition);

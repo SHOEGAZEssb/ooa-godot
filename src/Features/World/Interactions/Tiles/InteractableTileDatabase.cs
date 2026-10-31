@@ -2,7 +2,7 @@ using System;
 
 namespace Oracles;
 
-// data/ages/tile_properties/interactableTiles.s: six collision-mode pointers,
+// data/{game}/tile_properties/interactableTiles.s: six collision-mode pointers,
 // including aliases and unterminated label fallthrough. $ff represents the
 // source lookup miss; real parameters retain their direction/handler bits.
 internal sealed class InteractableTileDatabase
@@ -16,6 +16,7 @@ internal sealed class InteractableTileDatabase
     internal InteractableTileDatabase(string assetRoot)
     {
         AssetRoot = assetRoot;
+        bool ages = OracleAssetPack.GameFor(assetRoot) == OracleGame.Ages;
         _parametersSourceCache = OracleAssetCache.ReadBytes(AssetRoot + "metadata/interactableTiles.bin");
 
         if (_parameters.Length != 6 * 256)
@@ -25,12 +26,12 @@ internal sealed class InteractableTileDatabase
         {
             byte parameter = _parameters[index];
             if (parameter == NoEntry) continue;
-            if ((parameter & 15) > 6)
-                throw new NotSupportedException($"interactableTiles.s: unsupported Ages parameter ${parameter:x2} in collision mode ${index >> 8:x2}, tile ${index & 255:x2}.");
+            if ((parameter & 15) > (ages ? 6 : 8))
+                throw new NotSupportedException($"interactableTiles.s: unsupported native parameter ${parameter:x2} in collision mode ${index >> 8:x2}, tile ${index & 255:x2}.");
             records++;
         }
-        if (records != 115)
-            throw new InvalidOperationException($"interactableTiles.s: expected 115 source lookup entries, got {records}.");
+        if (records != (ages ? 115 : 74))
+            throw new InvalidOperationException($"interactableTiles.s: invalid selected-build source lookup count {records}.");
     }
 
     internal byte Parameter(int mode, byte tile) => mode is >= 0 and < 6

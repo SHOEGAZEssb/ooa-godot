@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
             int animationCounter = CompanionField<int>(animation, "_frameCounter");
             int sourceUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique;
             Vector2I vector = (Vector2I)OracleObjectMath.StrictCardinalVector(direction * 8);
-            _transitions.BeginScroll(_player, vector, 0x2b);
+            _transitions.BeginValidationScroll(_player, vector, 0x2b);
             Vector2 start = transition.ScreenTransitionPosition;
             int unique = graphics.ForTileset(_currentRoom.TilesetId).Unique;
             var rom = new ScrollRom(false, direction, (int)(_player.PrecisePosition.X * 256),

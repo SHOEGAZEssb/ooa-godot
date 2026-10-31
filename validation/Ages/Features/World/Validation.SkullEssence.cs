@@ -45,10 +45,13 @@ public sealed partial class ValidationRoot
         FailIf(_roomEvents.Get<DungeonEssenceEvent>().HasState,
             "Essence approach must not run on the three updates between frame-counter multiples of4.");
         Step();
-        FailIf(!_roomEvents.Get<DungeonEssenceEvent>().HasState || !_player.CutsceneControlled,
-            "Essence centered gate must include X+4 when delta(4,15) is below Manhattan distance20.");
+        FailIf(!_roomEvents.Get<DungeonEssenceEvent>().HasState || _player.CutsceneControlled ||
+            !_player.NativeNormalStateForInteraction || _runtimeState.ReadField("wDisabledObjects")!=0x81 ||
+            _runtimeState.ReadField("wDisableLinkCollisionsAndMenu")!=0x81,
+            "Essence centered gate includes X+4 below Manhattan distance20, retaining ordinary Link behind native$81 object/collision-menu locks.");
         LoadValidationRoom(4, 0x6b);
         FailIf(_roomEvents.Get<DungeonEssenceEvent>().HasState || _player.CutsceneControlled ||
+            _runtimeState.ReadField("wDisabledObjects")!=0 || _runtimeState.ReadField("wDisableLinkCollisionsAndMenu")!=0 ||
             _saveData.HasRoomFlag(4, 0x69, OracleSaveData.RoomFlagItem),
             "Canceling Essence approach by changing rooms must release ownership without awarding the Essence.");
         foreach (bool linked in new[] { false, true })

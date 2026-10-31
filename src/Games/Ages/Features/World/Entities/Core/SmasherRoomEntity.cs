@@ -15,7 +15,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity,
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
         INativeBraceletRoomEntity, IBraceletChildRoomEntity, IReservedBraceletCollisionRoomEntity,
-        INativeEnemyCounter1RoomEntity, IScreenTransitionPreloadRoomEntity, IPlayerForcedMovement,
+        INativeEnemyCounter1RoomEntity, IScreenTransitionPreloadRoomEntity,
         IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     public void UpdateDuringScreenTransition(RoomEntityFrame frame)
@@ -23,21 +23,14 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         // _updateEnemiesIfStateIsZero dispatches uninitialized enemies on
         // every scroll update, including allocation retries. State8 freezes.
         if (Entity.State == 0)
-            Entity.UpdateInitializationFrame(frame.Counter, InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
+            Entity.UpdateInitializationFrame(frame.Counter, world.InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
     }
     public int Counter1 { get => Entity.Counter1; set => Entity.Counter1 = value; }
     public bool RetainsCounter1AfterDeletion => false;
-    public void UpdatePlayerForcedMovement(Player player)
-    { if (placed && !Finished) world.Entry?.Update(player); }
-    private void InitializeBossRoom()
-    {
-        world.InitializeBossRoom();
-        world.Entry?.Arm();
-    }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.State == 0)
-            Entity.UpdateInitializationFrame(world.FrameCounter?.Invoke() ?? 0, InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
+            Entity.UpdateInitializationFrame(world.FrameCounter?.Invoke() ?? 0, world.InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
         return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
     }
     private Action<INativeBraceletRoomEntity>? _publishGrabbable;
@@ -45,7 +38,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     private NativeBraceletThrow? _throw;
     private static readonly Lazy<BraceletGrabGeometry> GrabGeometry = new(() => new(AgesGameContent.AssetRoot));
     private static readonly Lazy<BraceletWeightDatabase> Weights = new(() => new(AgesGameContent.AssetRoot));
-    private static readonly Lazy<BraceletDatabaseRecord> Bracelet = new(() => new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data);
+    private static readonly Lazy<BraceletDatabaseRecord> Bracelet = new(() => new BraceletDatabase(AgesGameContent.AssetRoot).Data);
     public bool TryGetReservedBraceletCollision(out ReservedBraceletCollision collision)
     {
         collision = default;
@@ -94,10 +87,10 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         player.BeginCarriedObjectPose();
         return true;
     }
-    public void UpdateBraceletChild(Player player)
+    public void UpdateBraceletChild(Player player, bool frozen = false)
     {
-        if (_holder is not null && !_holder.IsCarryingObject) DropHeldObject();
-        _throw?.Update(world.Sound);
+        if (!frozen && _holder is not null && !_holder.IsCarryingObject) DropHeldObject();
+        _throw?.Update(world.Sound, frozen);
     }
     public void UpdateHeldPosition(Player player)
     {
@@ -211,7 +204,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     {
         if (Entity.State == 0)
         {
-            Entity.UpdateInitializationFrame(frame.Counter, InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
+            Entity.UpdateInitializationFrame(frame.Counter, world.InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
             return;
         }
         bool Puff(Vector2 position)
@@ -247,7 +240,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
                     () => !Entity.IsDead && Entity.State == 2 && Entity.GrabSubstate < 3,
                     () => Entity.Position, () => Entity.ZFixed, Entity.CopyCarriedPosition,
                     Entity.ReleaseGrab, Entity.FinishGrabBounce, Entity.ApplyMovementSpeed,
-                    Weights.Value, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data);
+                    Weights.Value, new BombDatabase(AgesGameContent.AssetRoot).Data);
             },
             forceDrop: Drop,
             handleDeath: () => Entity.UpdateDeathFrame(Puff, Explosion, world.DisableLinkCollisionsAndMenu,

@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
             rom[0xd240]=1;rom[0xd241]=0x36;rom[0xd242]=4;rom[0xd244]=1;rom[0xd24b]=0x48;rom[0xd24d]=0x40;
             rom[0xcbc3]=255;rom[0xcbc4]=rom[0xcbc5]=255;
             _runtimeState.SetWramByte(0xcbc3,255);_runtimeState.SetWramByte(0xcbc4,255);_runtimeState.SetWramByte(0xcbc5,255);
-            var screen=_scene.EndingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,generation=0,hold=0,texts=0;
+            var screen=_endingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,generation=0,hold=0,texts=0;
             Texture2D? previousBackground=null;Texture2D[]? previousCells=null;bool sawLeft=false,sawRight=false,sawFlash=false;
             void Compare()
             {

@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
                 var outgoing = _entities.Entities<FireKeeseCharacter>().ToArray();
                 string[] outgoingState = outgoing.Select(State).ToArray();
                 var outgoingSlots = slots.ToArray();
-                _transitions.BeginScroll(_player, route.Direction, route.Target);
+                _transitions.BeginValidationScroll(_player, route.Direction, route.Target);
                 var incomingSlots = slots.Where(pair => !outgoingSlots.Any(old => old.Key==pair.Key)).ToArray();
                 int[] expectedSlots = Enumerable.Range(0,16).Except(outgoingSlots.Select(pair=>pair.Value))
                     .Take(incomingSlots.Length).ToArray();

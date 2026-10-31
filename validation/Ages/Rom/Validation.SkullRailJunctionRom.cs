@@ -27,11 +27,11 @@ public partial class ValidationRoot
             // Declare the mounted companion at this original junction.
             // Reachable push/jump/handoff and repeat boarding have separate
             // native coverage; no room geometry is changed in this fixture.
-            MinecartRuntimeState.Reset(_runtimeState,[]);
-            MinecartRuntimeState.BeginRide(_runtimeState,0,c.Room,center,c.Direction);
+            ResetMinecartsForValidation(_runtimeState,[]);
+            MinecartValidationView.PrepareMountedBody(_runtimeState, center, c.Direction);
             var cart = new MinecartRoomEntity(new ActiveMinecart(-1,c.Room,(int)center.Y,(int)center.X,c.Direction,true),
-                _currentRoom,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),_runtimeState,
-                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"),_sound.PlaySound);
+                _currentRoom,_runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"),_sound.PlaySound, _entities);
             _entities.AddEntity(cart);
             _player.WarpTo(center+new Vector2(0.25f,0.5f)); _player.Face(directions[c.Direction]);
             _player.FinishMinecartMount(center,c.Direction,0);
@@ -45,9 +45,10 @@ public partial class ValidationRoot
             rom[0xd108] = (byte)c.Direction; rom[0xd109] = (byte)(c.Direction*8);
             rom[0xd10b] = (byte)center.Y; rom[0xd10d] = (byte)center.X;
             rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter);
+            MinecartValidationView.CopyMountedBodyFromRom(_entities, rom);
             var sounds = _sound.AttachPlayRequestAudit(); int update = 0;
             void Step(int count) => StepGameplayUpdates(count,Vector2.Zero,batched:batch,afterUpdate:()=> {
-                rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter-1); update++;
+                rom.UpdateGameplay(0,0,0xff,_saveData.ReadField("wPlaytimeCounter")); update++;
                 FailIf(cart.Position != new Vector2(rom.Word(0xd10c)/256f,rom.Word(0xd10a)/256f) ||
                     cart.Direction != rom[0xd108] || cart.Angle != rom[0xd109] ||
                     _player.PrecisePosition != new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f) ||

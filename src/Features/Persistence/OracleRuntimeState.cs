@@ -9,22 +9,41 @@ namespace Oracles;
 public sealed class OracleRuntimeState
 {
     internal OracleGame Game { get; }
+    private readonly int _objectsDisabledAddress;
+    private readonly int _menuDisabledAddress;
+    private readonly int _screenTransitionsDisabledAddress;
+    private readonly int _linkCollisionsAndMenuDisabledAddress;
+    internal ulong ObjectsDisabledWriteVersion { get; private set; }
+    internal ulong MenuDisabledWriteVersion { get; private set; }
+    internal ulong ScreenTransitionsDisabledWriteVersion { get; private set; }
+    internal ulong LinkCollisionsAndMenuDisabledWriteVersion { get; private set; }
     // Clock ticks do not invalidate NPC story-state bindings.
     internal byte FrameCounter
     {
         get => _wram[FieldAddress("wFrameCounter") - WramStart];
         set => _wram[FieldAddress("wFrameCounter") - WramStart] = value;
     }
-    internal static OracleRuntimeState CreateInitialized(OracleGame game) => game switch
+    internal static OracleRuntimeState CreateInitialized(OracleGame game)
     {
-        OracleGame.Ages => AgesGameContent.CreateRuntimeState(),
-        OracleGame.Seasons => SeasonsGameContent.CreateRuntimeState(),
-        _ => throw new ArgumentOutOfRangeException(nameof(game))
-    };
+        var state = game switch
+        {
+            OracleGame.Ages => AgesGameContent.CreateContentRuntimeState(),
+            OracleGame.Seasons => SeasonsGameContent.CreateContentRuntimeState(),
+            _ => throw new ArgumentOutOfRangeException(nameof(game))
+        };
+        NativeObjectStreamDatabase.For(OracleAssetPack.ForGame(game)).InitializeLoadFlags(state);
+        // clearMemoryOnScreenReload initializes the active Link page to w1Link.
+        state.SetField("wLinkObjectIndex", 0xd0);
+        return state;
+    }
     internal OracleRuntimeState(OracleGame game)
     {
         _ = OracleAssetPack.ForGame(game);
         Game = game;
+        _objectsDisabledAddress = FieldAddress("wDisabledObjects");
+        _menuDisabledAddress = FieldAddress("wMenuDisabled");
+        _screenTransitionsDisabledAddress = FieldAddress("wDisableScreenTransitions");
+        _linkCollisionsAndMenuDisabledAddress=FieldAddress("wDisableLinkCollisionsAndMenu");
     }
     internal byte ReadField(string symbol, int offset = 0) => OracleWramLayout.Shared.Value.Resolve(Game, symbol, offset) is int address ? ReadWramByte(address) : (byte)0;
     internal int FieldAddress(string symbol, int offset = 0) => OracleWramLayout.Shared.Value.Require(Game, symbol, offset);
@@ -32,6 +51,29 @@ public sealed class OracleRuntimeState
     {
         if (OracleWramLayout.Shared.Value.Resolve(Game, symbol, offset) is int address) SetWramByte(address, value);
         else if (value != 0) throw new NotSupportedException($"include/wram.s:{symbol} is absent in {Game}.");
+    }
+
+    internal void ClearRoomReloadGlobals()
+    {
+        // bank1.clearMemoryOnScreenReload: the two builds have different spans.
+        ClearSourceRange("wLinkInAir", "wcce9");
+        if (ReadField("wLinkObjectIndex") != 0xd1) SetField("wLinkObjectIndex", 0xd0);
+        SetField("wCameraFocusedObject", ReadField("wLinkObjectIndex"));
+        SetField("wCameraFocusedObjectType", 0);
+        SetField("wccaa", 0xff);
+    }
+
+    internal void ClearScrollEntryGlobals()
+    {
+        // bank1.func_49c9 preserves earlier Link/carry/Maple globals.
+        ClearSourceRange("wDisabledObjects", "wcce1");
+        SetField("wccaa", 0xff);
+    }
+
+    private void ClearSourceRange(string first, string end)
+    {
+        int limit = FieldAddress(end);
+        for (int address = FieldAddress(first); address < limit; address++) SetWramByte(address, 0);
     }
     public const int WramStart = 0xc000;
     public const int WramEnd = 0xdfff;
@@ -55,6 +97,11 @@ public sealed class OracleRuntimeState
     public void SetWramByte(int address, byte value)
     {
         ValidateAddress(address);
+        // Cancellation must observe later writers even when the byte is unchanged.
+        if (address == _objectsDisabledAddress) ObjectsDisabledWriteVersion++;
+        if (address == _menuDisabledAddress) MenuDisabledWriteVersion++;
+        if (address == _screenTransitionsDisabledAddress) ScreenTransitionsDisabledWriteVersion++;
+        if(address==_linkCollisionsAndMenuDisabledAddress)LinkCollisionsAndMenuDisabledWriteVersion++;
         int offset = address - WramStart;
         if (_wram[offset] == value)
             return;
@@ -103,6 +150,10 @@ public sealed class OracleRuntimeState
         }
 
         snapshot.Wram.CopyTo(_wram, 0);
+        ObjectsDisabledWriteVersion++;
+        MenuDisabledWriteVersion++;
+        ScreenTransitionsDisabledWriteVersion++;
+        LinkCollisionsAndMenuDisabledWriteVersion++;
         snapshot.SeedTreeRefillRooms.CopyTo(_seedTreeRefillRooms, 0);
         Changed?.Invoke();
     }

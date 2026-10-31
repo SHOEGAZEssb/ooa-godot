@@ -44,6 +44,7 @@ public sealed partial class ValidationRoot
             });
             Step(4);_dialogue.ShowMessage("Ordinary Bipin hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;
             _runtimeState.SetWramByte(0xcc8a,2);native[0xcc8a]=2;Step(3);_runtimeState.SetWramByte(0xcc8a,0);native[0xcc8a]=0;
+            StageDeferredNativeObjectPassCaller();
             _runtimeState.SetWramByte(0xcd00,8);native[0xcd00]=8;Step(3);_runtimeState.SetWramByte(0xcd00,4);native[0xcd00]=4;Step(3);
             _runtimeState.SetWramByte(0xcd00,0);native[0xcd00]=0;Step(110);
             FailIf(reversals<2,"Bipin patrol must exercise repeated original interval reversals, including wrapping starts.");

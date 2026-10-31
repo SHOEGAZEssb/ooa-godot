@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             rom[0xcc03]=1;rom[0xcd16]=0;rom[0xcd17]=0xd0;
             foreach(var pair in new[]{(0xc2ef,10),(0xcbc1,1),(0xcbc2,2),(0xcfde,card),(0xcfdf,255),(0xcbc3,255),(0xcbc4,255),(0xcbc5,255)})
             {_runtimeState.SetWramByte(pair.Item1,(byte)pair.Item2);rom[pair.Item1]=(byte)pair.Item2;}
-            var screen=_scene.EndingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,firstParent=0,firstChild=0,maskUploads=0;
+            var screen=_endingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,firstParent=0,firstChild=0,maskUploads=0;
             Image? previousFont=null;bool sawMask=false,sawRestored=false,backgroundChecked=false;
             var checkedCells=new HashSet<(int,int)>();
             bool poolInjected=false;var fillers=new List<Node2D>();
@@ -101,7 +101,7 @@ public sealed partial class ValidationRoot
                     poolInjected=true;
                     for(int index=0;index<13;index++)
                     {
-                        var filler=_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));fillers.Add(filler);
+                        var filler=_entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(224,144),SoundId.MusNone));fillers.Add(filler);
                         int at=0xd040+_entities.InteractionSlot(filler)*256;rom[at]=1;rom[at+1]=5;rom[at+2]=0x80;rom[at+11]=144;rom[at+13]=224;
                     }
                 }

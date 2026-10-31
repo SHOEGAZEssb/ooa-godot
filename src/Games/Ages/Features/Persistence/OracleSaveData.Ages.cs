@@ -12,7 +12,6 @@ public sealed partial class OracleSaveData
     public int TimePortalRoom => ReadWramByte(AgesWramAddress.wPortalRoom);
     public int TimePortalPosition => ReadWramByte(AgesWramAddress.wPortalPos);
     public int MakuTreeState => ReadWramByte(AgesWramAddress.wMakuTreeState);
-    public int MakuMapTextPresent => ReadWramByte(AgesWramAddress.wMakuMapTextPresent);
     public int MakuMapTextPast => ReadWramByte(AgesWramAddress.wMakuMapTextPast);
     public int MakuTreeSeedSatchelXPosition => ReadWramByte(AgesWramAddress.wMakuTreeSeedSatchelXPosition);
 
@@ -84,14 +83,6 @@ public sealed partial class OracleSaveData
         if (textLow is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(textLow));
         if (WriteWramByte(AgesWramAddress.wMakuMapTextPast, (byte)textLow))
-            PublishChange();
-    }
-
-    public void SetMakuMapTextPresent(int textLow)
-    {
-        if (textLow is < 0 or > 0xff)
-            throw new ArgumentOutOfRangeException(nameof(textLow));
-        if (WriteWramByte(AgesWramAddress.wMakuMapTextPresent, (byte)textLow))
             PublishChange();
     }
 

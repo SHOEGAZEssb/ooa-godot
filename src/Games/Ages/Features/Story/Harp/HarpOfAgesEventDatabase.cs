@@ -16,7 +16,7 @@ internal sealed class HarpOfAgesEventDatabase
     internal HarpOfAgesEventRecord Record { get; }
     internal IReadOnlyList<CutsceneCommand> Commands { get; }
     internal EffectRecord MusicNote { get; }
-    internal IntroSpriteFrame[] LinkHarpFrames { get; }
+    internal ObjectSpriteFrame[] LinkHarpFrames { get; }
 
     internal HarpOfAgesEventDatabase()
     {
@@ -195,7 +195,7 @@ internal sealed class HarpOfAgesEventDatabase
     }
 
     private static bool LinkHarpGraphicsMatch(
-        IReadOnlyList<IntroSpriteFrame> frames)
+        IReadOnlyList<ObjectSpriteFrame> frames)
     {
         int[] durations =
             [20, 20, 12, 20, 20, 12, 20, 20, 12, 20, 20, 12, 20];
@@ -219,7 +219,7 @@ internal sealed class HarpOfAgesEventDatabase
             return false;
         for (int frame = 0; frame < frames.Count; frame++)
         {
-            IntroSpriteFrame actual = frames[frame];
+            ObjectSpriteFrame actual = frames[frame];
             if (actual.Duration != durations[frame] ||
                 actual.SourceOffset != 0 ||
                 actual.BasePalette != 0 ||

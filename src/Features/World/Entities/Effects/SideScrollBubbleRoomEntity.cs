@@ -6,7 +6,8 @@ namespace Oracles;
 
 /// <summary>INTERAC_BUBBLE $91:$00 in side-view water.</summary>
 internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity,
+    IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly OracleRoomData _room;
     private readonly OracleRandom _random;
@@ -18,6 +19,7 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
     private int _turns;
     private int _counter;
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, BubbleDefinition> Definitions = new(System.StringComparer.Ordinal);
+    static SideScrollBubbleRoomEntity() => OracleGraphicsCache.RegisterApplicationCache(Definitions.Clear);
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
@@ -25,6 +27,8 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
     internal int TurnCounter => _counter;
     internal int TurnsRemaining => _turns;
     internal Vector2 PrecisePosition => _precisePosition;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     internal SideScrollBubbleRoomEntity(Vector2 position, OracleRoomData room, OracleRandom random, OracleRuntimeState runtime)
     {
@@ -43,11 +47,22 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+        => Advance();
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_initialized && !Finished) Advance();
+        return Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
+
+    private void Advance()
     {
         if (Finished) return;
-        // hazardCollisionTable@sidescrolling contains precisely $1a-$1f.
-        // The probe precedes initialization, including its RNG draw.
-        if (_room.GetTerrainInfo(Position).Hazard != HazardType.Water)
+        // @checkDelete consumes lookupCollisionTable's match carry, including
+        // Seasons' lava rows. Probe native byte-indexed layout before RNG.
+        Vector2 sample = new(unchecked((byte)Mathf.FloorToInt(Position.X)),unchecked((byte)Mathf.FloorToInt(Position.Y)));
+        byte tile = _room.ReadNativeLayoutByte((byte)_room.GetPackedPosition(sample),_runtime);
+        if (TilePropertyDatabase.For(AssetRoot).NativeHazardFlags(_room.ActiveCollisions,tile) == 0)
         {
             Finished = true;
             Visible = false;

@@ -180,7 +180,7 @@ public sealed partial class ValidationRoot
                 if (collision <= 3)
                 {
                     damage = 0;
-                    enemy.TryApplyShieldBump(enemy.CollisionBounds,enemy.Position-Vector2.Right,
+                    enemy.TryApplyCollisionBump(enemy.CollisionBounds,enemy.Position-Vector2.Right,
                         collision==1?EnemyKnockbackStrength.High:EnemyKnockbackStrength.Normal);
                 }
                 else if (collision >= 0x1a)

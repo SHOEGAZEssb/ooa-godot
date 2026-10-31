@@ -26,6 +26,7 @@ public sealed partial class ValidationRoot
             void Compare()
             {
                 string context = $"Bombchu chord ITEM${other:x2}, A={primary}, batch={batched}, update={++update}";
+                CompareParentAnimationPublicationRom(_player, address => rom[address], context);
                 foreach (var parent in new[] { _entities.BombchuParent, _entities.BoomerangParent })
                 {
                     int id = ReferenceEquals(parent, _entities.BombchuParent) ? 0x0d : 0x06;

@@ -22,7 +22,7 @@ internal sealed class MinibossPortalRoomEntity :
     private Player? _controlledPlayer;
     private readonly Warp? _caveWarp;
     private readonly bool _requiresItem;
-    private readonly OracleRuntimeState? _caveRuntime;
+    private readonly NativeScriptInputControl _input;
 
     internal MinibossPortalRoomEntity(
         MinibossPortal portal,
@@ -32,8 +32,8 @@ internal sealed class MinibossPortalRoomEntity :
         Action<Warp> warpRequested,
         Action<int> soundRequested,
         Func<IRoomEntity, bool> isOutgoing,
-        Warp? caveWarp = null,
-        OracleRuntimeState? caveRuntime = null)
+        OracleRuntimeState runtime,
+        Warp? caveWarp = null)
         : base(portal, portal.SetTransitionDrawOffset)
     {
         _placement = placement;
@@ -44,7 +44,7 @@ internal sealed class MinibossPortalRoomEntity :
         _isOutgoing = isOutgoing;
         _caveWarp = caveWarp;
         _requiresItem = (placement.X & 0x80) != 0;
-        _caveRuntime = caveRuntime;
+        _input = new(runtime);
         portal.TreeExiting += ReleaseControl;
     }
 
@@ -89,7 +89,7 @@ internal sealed class MinibossPortalRoomEntity :
         }
 
         if (_caveWarp is null) frame.Player.CopyPortalPosition(Entity.Position);
-        frame.Player.ResetPortalDamageState();
+        frame.Player.ResetLinkInvincibility();
         if (frame.Player.IsDying) return;
         if ((frame.Counter & 0x03) == 0)
             frame.Player.Face(NextClockwise(frame.Player.FacingVector));
@@ -161,13 +161,13 @@ internal sealed class MinibossPortalRoomEntity :
 
     private void BeginSpin(Player player)
     {
-        player.ResetPortalDamageState();
+        player.ResetLinkInvincibility();
         player.CopyPortalPosition(Entity.Position);
         player.RequestState08Control(this);
         _controlledPlayer = player;
         _state = PortalState.Spinning;
         _counter = _data.PortalSpinUpdates;
-        _caveRuntime?.SetField("wDisabledObjects", 1);
+        _input.SetDisabledObjects(1);
         _soundRequested(_data.PortalSound);
     }
 
@@ -176,12 +176,11 @@ internal sealed class MinibossPortalRoomEntity :
 
     private void ReleaseControl()
     {
+        _input.Cancel();
         if (_controlledPlayer?.IsCutsceneControlOwner(this) == true)
         {
             _controlledPlayer.SetScriptedLinkAnimationMode(null);
             _controlledPlayer.EndCutsceneControl(this);
-            if (_caveRuntime?.ReadField("wDisabledObjects") == 1)
-                _caveRuntime.SetField("wDisabledObjects", 0);
         }
         _controlledPlayer = null;
     }

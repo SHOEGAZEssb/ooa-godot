@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
             _inventory.AddRupees(wallet - _inventory.Rupees);
             _statusBar.SynchronizeRupees();
             NpcCharacter npc = Approach();
-            OldManRupeesScriptHost host = _interactions.NpcScriptsForValidation.OldMan;
+            OldManRupeesScriptHost host = _interactions.AgesScripts().OldMan;
             PressA();
             RequireText(0x3315);
             FailIf(!host.InputDisabled || _inventory.Rupees != wallet,

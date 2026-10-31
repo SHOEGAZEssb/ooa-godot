@@ -22,15 +22,14 @@ public sealed partial class ValidationRoot
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
             _player.WarpTo(new(136, 136));
-            bool disabled = true;
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Left, batched: batched);
             for (int repeat = 0; repeat < 2; repeat++)
             {
-                disabled = true;
+                _runtimeState.SetField("wDisabledObjects",0x81);
                 _player.SetScriptedLinkAnimationMode(0x06);
                 _dialogue.ShowMessage("State04 boundary.", _player.Position.Y);
                 Vector2 before = _player.Position;
-                _player.RequestGetItemState(parameter, () => disabled);
+                _player.RequestGetItemState(parameter);
                 FailIf(!_player.NativeNormalStateForInteraction || _player.IsHoldingItemOneHand || _player.IsHoldingItemTwoHands,
                     "A state04 request must retain normal state and the preceding animation.");
                 Step();
@@ -49,13 +48,13 @@ public sealed partial class ValidationRoot
                 bool skipsMask = (parameter & 0x80) != 0;
                 FailIf(_player.NativeNormalStateForInteraction != skipsMask,
                     "wcc50 bit7 must skip only the disabled-object gate after text closes.");
-                disabled = false;
+                _runtimeState.SetField("wDisabledObjects",0);
                 if (!skipsMask) Step();
                 FailIf(!_player.NativeNormalStateForInteraction || _player.IsHoldingItemOneHand || _player.IsHoldingItemTwoHands ||
                     _player.ScriptedLinkAnimationMode != 0x06 || _player.Position != before,
                     "State04 release must restore the saved animation and state01 without also moving Link.");
             }
-            _player.RequestGetItemState(parameter, () => disabled);
+            _player.RequestGetItemState(parameter);
             _player.WarpTo(new(136, 136));
             FailIf(!_player.NativeNormalStateForInteraction || _player.IsHoldingItemOneHand || _player.IsHoldingItemTwoHands,
                 "WarpTo must cancel a pending state04 request.");

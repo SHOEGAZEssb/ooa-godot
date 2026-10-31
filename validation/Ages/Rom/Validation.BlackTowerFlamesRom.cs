@@ -12,6 +12,11 @@ public sealed partial class ValidationRoot
         foreach (bool fractional in new[] { false, true })
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, 0xd2);
+            if (!fractional)
+            {
+                _entities.Clear();
+                _entities.ParseNativeObjectStream("group4Mapd2ObjectData",EnemyPlacementContext.Unrestricted);
+            }
             _inventory.EquipA(0); _inventory.EquipB(0); _player.WarpTo(new(0x68, 0x68));
             FailIf(_collision.Collides(_player.Position), "PART $59 fixture requires the central floor of room $4:d2.");
             var flames = _entities.EntityAdapters<BlackTowerFlameRoomEntity>().OrderBy(flame => flame.SubId).ToArray();

@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
                 "PART$01 state3 visible80 must suppress shadows even on an airborne carrier.");
 
             var bomb = _entities.Spawn<BombEffect>(new BombSpawn(
-                _player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 4, _ => { }));
+                _player, new BombDatabase(AgesGameContent.AssetRoot).Data, 4, _ => { }));
             StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             bomb.SetHeldOffset(_player, new(0, -14));
             for (int update = 0; update < 4; update++)

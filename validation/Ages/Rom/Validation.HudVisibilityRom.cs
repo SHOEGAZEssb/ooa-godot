@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
             int updates = 0;
             void Step(int count)
             {
-                application.Step(count, Vector2.Right, batched: batched, afterUpdate: () =>
+                application.Step(count, Vector2.Zero, batched: batched, afterUpdate: () =>
                 {
                     int frame = _saveData.ReadWramByte(0xc622);
                     rom.Update(0, 0, frame);

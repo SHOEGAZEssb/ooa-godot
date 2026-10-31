@@ -18,17 +18,18 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
     private int _var3b;
     private int _var3c;
     private int _loadedTextId;
-    private bool _ownsDisabledMask;
+    private readonly Func<bool> _openNameEntry;
 
     internal FamilyNpcScriptHost(NpcCharacter npc, FamilyNpcScriptDatabase data,
         RoomSession rooms, RoomEntityManager entities, DialogueBox dialogue,
-        InventoryState inventory, TreasureDatabase treasures)
+        InventoryState inventory, TreasureDatabase treasures, Func<bool> openNameEntry)
         : base("Family", rooms, entities, dialogue, data.Script(npc.Record))
     {
         _npc = npc;
         _data = data;
         _inventory = inventory;
         _treasures = treasures;
+        _openNameEntry = openNameEntry;
         _save = rooms.SaveData;
         BindObject(npc);
     }
@@ -48,9 +49,7 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
     {
         if (value is not (0 or 0x91))
             throw UnsupportedCommand($"set disabled objects ${value:x2}");
-        Entities.RuntimeState.SetField("wDisabledObjects",
-            (byte)value);
-        _ownsDisabledMask = value != 0;
+        base.SetDisabledObjects(value);
     }
 
     public override void ShowText(int textId, string message)
@@ -82,6 +81,7 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
         "wChildStatus" => _save.ReadField("wChildStatus"),
         "wChildStage8Response" => _save.ReadField("wChildStage8Response"),
         "wSelectedTextOption" => TakeChoice(),
+        "wTextInputResult" => Entities.RuntimeState.ReadField("wTextInputResult"),
         _ => throw UnsupportedCommand($"read {binding}")
     };
 
@@ -153,11 +153,6 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
 
     protected override void ResetHostState()
     {
-        if (_ownsDisabledMask)
-        {
-            Entities.RuntimeState.SetField("wDisabledObjects", 0);
-            _ownsDisabledMask = false;
-        }
         if (_treasure is null) return;
         _treasure.Finish(ScriptPlayer);
         _treasure = null;
@@ -169,6 +164,12 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
         int value = args.Length > 1 ? RupeeOrHex(args[1]) : 0;
         switch (name)
         {
+            case "scriptHelp.blossom_openNameEntryMenu":
+                if (!_openNameEntry()) throw UnsupportedCommand("open MENU_KIDNAME $07 while another menu owns the lifecycle");
+                break;
+            case "scriptHelp.blossom_decideInitialChildStatus":
+                _save.DecideInitialChildStatus();
+                break;
             case "scriptHelp.bipin_showText_subid1To9":
                 int subid = _npc.Record.SubId;
                 int textId = subid switch

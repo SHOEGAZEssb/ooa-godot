@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
             FailIf(beam.Counter != 2, "The ordinary control must initialize before scrolling.");
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Left, out int target) || target != 0xa0,
                 "PART scroll must use imported dungeon adjacency $4:$a1 -> $4:$a0.");
-            _transitions.BeginScroll(_player, Vector2I.Left, target);
+            _transitions.BeginValidationScroll(_player, Vector2I.Left, target);
             native.SetOutgoingParts(); native[0xcd00] = 8;
             FailIf(native[0xd0c0] != 0x82 || native[0xd8c0] != 0x82 || native[0xdac0] != 2,
                 "setPartsEnabledTo2 must retain enabled bit7 only on its source owners.");

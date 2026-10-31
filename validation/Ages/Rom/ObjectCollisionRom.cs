@@ -11,15 +11,19 @@ internal sealed class ObjectCollisionRom
     internal const int Overlap = 0x1d5a;
     internal const int LinkOverlap = 0x1c41;
     internal const int Scan = 0x41d1;
-    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom;
+    private readonly OracleGame _game;
+    internal int ScanAddress => _game == OracleGame.Ages ? Scan : 0x41b9;
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;
     private byte[] _caller = [];
     private int _bank = 7;
     internal List<(int Target, int Type, int Effect)> Dispatches { get; } = [];
-    internal ObjectCollisionRom()
+    internal ObjectCollisionRom(OracleGame game = OracleGame.Ages)
     {
-        _memory[0xcc2c] = 0xd0;
+        _game = game;
+        _rom = ValidationRom.LoadCleanUs(game);
+        _memory[game == OracleGame.Ages ? 0xcc2c : 0xcc48] = 0xd0;
         _memory[0xc6cb] = 0xff;
         _memory[0xffb5] = 0xa0;
         _cpu = new OracleCpu(Read, Write, static _ => { },
@@ -33,8 +37,9 @@ internal sealed class ObjectCollisionRom
         Dispatches.Clear();
         _bank = 7;
         _memory[0xff97] = 7;
-        _memory[0xffae] = (byte)obj;
-        _memory[0xffaf] = (byte)(obj >> 8);
+        int active = _game == OracleGame.Ages ? 0xffae : 0xffac;
+        _memory[active] = (byte)obj;
+        _memory[active + 1] = (byte)(obj >> 8);
         _caller = [0x16, (byte)(obj >> 8), 0x21, (byte)other, (byte)(other >> 8),
             0xcd, (byte)entry, (byte)(entry >> 8), 0xf5, 0xc1,
             0x79, 0xea, 0x00, 0xc2, 0xc9];
@@ -49,8 +54,14 @@ internal sealed class ObjectCollisionRom
         if (address < 0x8000 && _bank is 3 or 5 or 6 or 7 or 0x3f)
         {
             int value = _rom.Span[_bank * 0x4000 + address - 0x4000];
-            if (_bank == 7 && _cpu.InstructionAddress == 0x4371 && address is >= 0x6d0a and < 0x7caa)
-                Dispatches.Add((_memory[0xffaf] * 256 + _memory[0xffae], _memory[0xff90], value));
+            int table = _game == OracleGame.Ages ? 0x6d0a : 0x6a90;
+            int extent = _game == OracleGame.Ages ? 0xfa0 : 0xe60;
+            if (_bank == 7 && _cpu.InstructionAddress == (_game == OracleGame.Ages ? 0x4371 : 0x4359) &&
+                address >= table && address < table + extent)
+            {
+                int active = _game == OracleGame.Ages ? 0xffae : 0xffac;
+                Dispatches.Add((_memory[active + 1] * 256 + _memory[active], _memory[0xff90], value));
+            }
             return value;
         }
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];

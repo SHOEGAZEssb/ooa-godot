@@ -172,14 +172,14 @@ public sealed partial class ValidationRoot
         float gameplayY = _dialogue.Position.Y;
         Vector2 shake = _roomCamera.Offset;
         _roomCamera.Offset = new Vector2(1, -2);
-        _scene.ApplyHudPlacement(!bottom, _transitions);
+        ApplyHudPlacement(!bottom);
         FailIf(_player.Position != world || _roomCamera.Offset != new Vector2(1, -2) ||
             _transitions.WorldToGameplayScreen(world) != sourceScreen ||
             _dialogue.Position.Y != gameplayY + (bottom ? 16 : -16),
             "HUD placement must shift open gameplay dialogue without changing world or source camera coordinates.");
         _dialogue.ShowMessage("HUD", 24, 2);
         float fullScreenY = _dialogue.Position.Y;
-        _scene.ApplyHudPlacement(bottom, _transitions);
+        ApplyHudPlacement(bottom);
         _roomCamera.Offset = shake;
         FailIf(_dialogue.Position.Y != fullScreenY,
             "Full-screen dialogue must retain its imported screen position.");

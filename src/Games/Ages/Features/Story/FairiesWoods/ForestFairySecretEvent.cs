@@ -19,7 +19,6 @@ internal sealed class ForestFairySecretEvent : InteractiveInfiniteScriptHost<Npc
     internal int SecretResult => _secretResult;
     public override bool DialogueOpen => Context.DialogueOpen || _secretPending;
     public override bool ScriptExecutionBlocked => base.ScriptExecutionBlocked || _secretPending;
-    public bool FreezesNonInteractionObjects => BlocksGameplay;
     public bool MenusDisabled => BlocksGameplay;
     public bool ScreenTransitionsDisabled => BlocksGameplay;
 

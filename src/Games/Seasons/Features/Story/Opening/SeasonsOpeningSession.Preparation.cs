@@ -12,25 +12,24 @@ internal partial class SeasonsOpeningSession
         if (ResourcesPrepared) yield break;
         Data = new SeasonsOpeningData();
         yield return false;
-        _roomView = GetNode<RoomView>("Room"); _actorLayer = GetNode<Node2D>("Actors");
-        Link = GetNode<Player>("Actors/Link"); _hud = GetNode<Hud>("Hud");
-        Dialogue = GetNode<DialogueBox>("Dialogue"); _overlay = GetNode<ColorRect>("Fade");
-        _screen = GetNode<SeasonsOpeningScreen>("Cutscene"); _screen.Initialize(Data); _screen.Hide();
-        _hud.AssetRoot = SeasonsGameContent.AssetRoot; _hud.PrepareResources();
+        foreach (bool step in PreparePresentation()) yield return step;
+        _overlay = GetNode<ColorRect>("Interface/OpeningFade");
+        SetCameraOrigin(Vector2.Zero);
+        _screen = GetNode<SeasonsOpeningScreen>("OpeningBackground/Cutscene"); _screen.Initialize(Data); _screen.Hide();
+        Hud.AssetRoot = SeasonsGameContent.AssetRoot; Hud.PrepareResources();
         Dialogue.PrepareResources(SeasonsGameContent.AssetRoot);
         yield return false;
-        foreach (bool step in Link.PrepareInitialPresentation(SeasonsGameContent.AssetRoot)) yield return step;
         foreach (int room in new[] { 0xa7,0x97,0x98,0xb6,0xb8,0xc6,0xc8 })
         foreach (int season in Enumerable.Range(0,4))
         {
-            _ = Data.LoadRoom(room, season).Texture;
+            _ = Data.World.LoadRoom(room, season).Texture;
             yield return false;
         }
         foreach (var entry in Data.ActorVariants)
         {
             if (entry.Id == 0x4f)
                 _screen.Load("GFXH_SCENE_INSIDE_ONOX_CASTLE", "PALH_SEASONS_97", 0x0d);
-            else Data.LoadRoom(0x98, 0);
+            else Data.World.LoadRoom(0x98, 0);
             var visual = Data.CreateActor(entry.Id, entry.Subid, Vector2.Zero);
             try
             {
@@ -52,9 +51,8 @@ internal partial class SeasonsOpeningSession
         }
         _screen.Hide();
         foreach (bool step in Link.PrepareCutscenePresentation(Data.OpeningLinkFrames(), SeasonsGameContent.AssetRoot)) yield return step;
-        _pregameScreen = new NewGameIntroScreen { Name = "Pregame", AssetRoot = SeasonsGameContent.AssetRoot,
-            ZIndex = 30, Visible = false, DeferPreparation = true };
-        AddChild(_pregameScreen);
+        _pregameScreen = GetNode<NewGameIntroScreen>("Interface/Pregame");
+        _pregameScreen.DeferPreparation = true;
         foreach (bool step in _pregameScreen.PrepareResources()) yield return step;
         ResourcesPrepared = true;
     }

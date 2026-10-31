@@ -8,7 +8,7 @@ internal sealed class TokayTheftEventDatabase
 {
     private readonly Dictionary<int, TokayAccessoryRecord> _accessories;
     internal TokayTheftEventRecord Record { get; }
-    internal IntroSpriteFrame[] LinkFrames { get; }
+    internal ObjectSpriteFrame[] LinkFrames { get; }
     internal int LinkLoopStart { get; }
     internal IReadOnlyList<CutsceneCommand> Commands { get; }
     internal int MainScriptEntry { get; }
@@ -66,7 +66,7 @@ internal sealed class TokayTheftEventDatabase
                 ["index", "duration", "gfx-index", "anim-parameter",
                  "source-offset", "base-palette", "oam-parts", "loop-start", "source"],
                 headerRequired: true));
-        var linkFrames = new List<IntroSpriteFrame>();
+        var linkFrames = new List<ObjectSpriteFrame>();
         var graphics = new List<int>();
         var parameters = new List<int>();
         int? loopStart = null;
@@ -74,16 +74,16 @@ internal sealed class TokayTheftEventDatabase
         {
             if (visual.UnsignedDecimal(0) != linkFrames.Count)
                 throw new InvalidOperationException("Tokay Link frames are not ordered.");
-            IntroOamPart[] parts = visual.RequiredString(6).Split(';').Select(value =>
+            ObjectSpritePart[] parts = visual.RequiredString(6).Split(';').Select(value =>
             {
                 string[] fields = value.Split(',');
                 if (fields.Length != 4)
                     throw new InvalidOperationException("Malformed Tokay Link OAM part.");
-                return new IntroOamPart(
+                return new ObjectSpritePart(
                     Convert.ToInt32(fields[0], 16), Convert.ToInt32(fields[1], 16),
                     Convert.ToInt32(fields[2], 16), Convert.ToInt32(fields[3], 16));
             }).ToArray();
-            linkFrames.Add(new IntroSpriteFrame(
+            linkFrames.Add(new ObjectSpriteFrame(
                 visual.UnsignedDecimal(1), visual.HexWord(4),
                 visual.UnsignedDecimal(5), parts));
             graphics.Add(visual.HexByte(2));

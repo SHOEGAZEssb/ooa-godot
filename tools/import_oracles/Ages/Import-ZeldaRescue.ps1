@@ -1,6 +1,31 @@
 # Room $0:$65: independent copied-buffer Impa script and ROM bird/Zelda scripts.
 $rescueHelper = Join-Path $Disassembly 'scripts/ages/scriptHelper.s'
 $rescueMain = Join-Path $Disassembly 'scripts/ages/scripts.s'
+$vireNative = Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/vire.s')
+$vireObjects = @(Read-AssemblyLabelNodes (Join-Path $Disassembly 'objects/ages/mainData.s') 'group4Mape6ObjectData' |
+    Where-Object { $_.Kind -eq 'MacroInvocation' })
+if ($vireObjects.Count -ne 3 -or $vireObjects[0].Name -ne 'obj_Interaction' -or
+    ($vireObjects[0].Operands -join ' ') -ne '$b8 $00 $78 $78' -or
+    $vireNative -notmatch '(?s)vire_subid0:.*?@state0:\s+call getThisRoomFlags\s+bit 6,\(hl\)\s+jp nz,interactionDelete\s+ld a,MUS_GREAT_MOBLIN\s+call playSound\s+ld hl,mainScripts.vireSubid0Script' -or
+    $vireNative -notmatch '(?s)vire_setScript:.*?Interaction.speed\s+ld \(hl\),SPEED_200.*?wTmpcfc0.genericCutscene.cfd0.*?objectSetVisiblec2') {
+    throw 'vire.s:$b8:$00 source placement or initialization contract changed.'
+}
+$vireGraphic = $interactionGraphics['184:0']
+$vireAnimation = Resolve-NpcAnimation 0xb8 $vireGraphic.DefaultAnimation
+$vireSpeed = [regex]::Match((Read-ImportText (Join-Path $Disassembly 'constants/common/objectSpeeds.s')), '(?m)^\s*SPEED_200\s+dsb 5 ; 0x(?<value>[0-9a-f]{2})\s*$')
+$vireSound = [regex]::Match((Read-ImportText (Join-Path $Disassembly 'constants/common/music.s')), '(?m)^\s*MUS_GREAT_MOBLIN\s+db ; \$(?<value>[0-9a-f]{2})\s*$')
+if (!$vireSpeed.Success -or !$vireSound.Success) { throw 'Vire entrance speed/music symbols are missing.' }
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/vire_entrance.tsv'), @(
+    "# group`troom`torder`ty`tx`tsprite`ttile-base`tpalette`tanimation`tinit-speed`tinit-sound`tsource",
+    "4`te6`t0`t78`t78`t$($gfxNames[$vireGraphic.Gfx])`t$($vireGraphic.TileBase)`t$($vireGraphic.Palette)`t$vireAnimation`t$([Convert]::ToInt32($vireSpeed.Groups['value'].Value,16))`t$([Convert]::ToInt32($vireSound.Groups['value'].Value,16))`tobjects/ages/mainData.s:group4Mape6ObjectData;vire.s:vire_subid0"))
+$vireCommands = @(Read-AssemblyCutsceneCommands $rescueMain 'vireSubid0Script' @('showtext','wait','applyspeed','orroomflag','resetmusic','scriptend') 'vireSubid1Script')
+$vireBindings = @{
+    'orroomflag|$40' = @{Opcode='orroomflag';Arg0='40'}
+    'resetmusic|' = @{Opcode='setmusic';Arg0='ff'}
+}
+$vireTexts = @{0x2f27 = (Resolve-PalaceText 0x2f27 ([Collections.Generic.HashSet[int]]::new()))}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/vire_entrance_commands.tsv'),
+    (ConvertTo-CutsceneCommandRows $vireCommands 'Vire' -texts $vireTexts -bindings $vireBindings))
 $rescueTexts = @{}
 foreach ($id in @(0x0127,0x0128,0x0129,0x012a,0x0603,0x0604,0x0608,0x3216,0x3217)) {
     $rescueTexts[$id] = Resolve-PalaceText $id ([Collections.Generic.HashSet[int]]::new())

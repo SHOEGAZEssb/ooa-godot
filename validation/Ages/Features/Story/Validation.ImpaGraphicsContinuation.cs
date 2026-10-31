@@ -27,15 +27,19 @@ public sealed partial class ValidationRoot
                 $"Impa graphics: pending={impa.ObjectUpdateSuspended}, control={_player.NativeCutsceneControlled}, " +
                 $"time={_saveData.ReadWramByte(0xc622)}/{objectTime}, position={_player.Position}/{entryPosition}, " +
                 $"gfx={_runtimeState.ReadWramByte(0xcc08):x2}, visible={impa.Actor!.Visible}.");
-            StepGameplayUpdates(1, Vector2.Right, batched: batched);
+            byte retainedKeys = _runtimeState.ReadField("wGameKeysPressed");
+            byte retainedPressed = _runtimeState.ReadField("wGameKeysJustPressed");
+            StepGameplayUpdates(1, Vector2.Left, batched: batched);
             FailIf(!impa.ObjectUpdateSuspended || !_player.NativeCutsceneControlled ||
+                _runtimeState.ReadField("wGameKeysPressed") != retainedKeys || _runtimeState.ReadField("wGameKeysJustPressed") != retainedPressed ||
                 _saveData.ReadWramByte(0xc622) != objectTime || _player.Position != entryPosition ||
                 _runtimeState.ReadWramByte(0xcc0a) != 0x8f || impa.FakeOctoroks.Count != 3 ||
                 impa.FakeOctoroks[0].Visible || !impa.Actor.Visible,
                 "Resuming Impa must install Link's override before yielding for the first fake Octorok.");
             AssertOctorokProjection(new Vector2(0, -128));
-            StepGameplayUpdates(1, Vector2.Right, batched: batched);
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             FailIf(impa.ObjectUpdateSuspended || _saveData.ReadWramByte(0xc622) != objectTime ||
+                _runtimeState.ReadField("wGameKeysPressed") != retainedKeys || _runtimeState.ReadField("wGameKeysJustPressed") != retainedPressed ||
                 _runtimeState.ReadWramByte(0xcc0c) != 0 ||
                 !impa.FakeOctoroks[0].Visible || !impa.FakeOctoroks[1].Visible || !impa.FakeOctoroks[2].Visible,
                 "Shared fake Octorok graphics were loaded repeatedly or advanced the main thread.");

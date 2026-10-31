@@ -8,6 +8,17 @@ public sealed partial class ValidationRoot
     private void ValidateRemoteMakuHudPlacement()
     {
         bool originalBottom = _presentationSettings.HudBottom;
+        void PlaceLinkOnDryFloor()
+        {
+            var room=_rooms.CurrentRoom;
+            Vector2 point=(from y in Enumerable.Range(1,room.HeightInTiles-2)
+                from x in Enumerable.Range(1,room.WidthInTiles-2)
+                let candidate=new Vector2(x*16+8,y*16+8)
+                where !_collision.Collides(candidate) && room.GetTerrainInfo(candidate+new Vector2(0,5)) is
+                    {Hazard:HazardType.None,Type:TerrainType.Normal}
+                select candidate).First();
+            _player.WarpTo(point);
+        }
         try
         {
             foreach (bool bottom in new[] { false, true })
@@ -25,8 +36,10 @@ public sealed partial class ValidationRoot
                 _saveData.WriteWramByte(AgesWramAddress.wEssencesObtained, past ? (byte)0x02 : (byte)0x08);
                 _saveData.CommitInventoryChange();
                 _saveData.SetRoomFlag(group, room, 0x40, false);
+                _inventory.RefillHealth();
                 LoadValidationRoom(group, room);
-                _scene.ApplyHudPlacement(bottom, _transitions);
+                PlaceLinkOnDryFloor(); // HUD cases do not inherit a hazardous debug position from the preceding room.
+                ApplyHudPlacement(bottom);
                 bool sawHidden = false;
                 bool sawDialogue = false;
                 bool sawFullFade = false;
@@ -59,6 +72,7 @@ public sealed partial class ValidationRoot
                         (cancellation == 2 && _warpFade.Size.Y == 144))
                     {
                         LoadValidationRoom(0, 0x11);
+                        PlaceLinkOnDryFloor();
                         StepGameplayUpdates(4, Vector2.Zero, batched: batched);
                         cancelled = true;
                         break;
@@ -67,10 +81,10 @@ public sealed partial class ValidationRoot
                     {
                         sawDialogue = true;
                         float y = _dialogue.Position.Y;
-                        _scene.ApplyHudPlacement(!bottom, _transitions);
+                        ApplyHudPlacement(!bottom);
                         FailIf(_dialogue.Position.Y != y + (bottom ? 16 : -16),
                             "Remote Maku dialogue must follow the gameplay field while the HUD is hidden.");
-                        _scene.ApplyHudPlacement(bottom, _transitions);
+                        ApplyHudPlacement(bottom);
                         _dialogue.Close();
                     }
                 }
@@ -80,10 +94,16 @@ public sealed partial class ValidationRoot
                     (cancellation == 0 && (!sawDialogue || !sawFullFade ||
                         !_saveData.HasRoomFlag(group, room, 0x40))) ||
                     (cancellation != 0 && (!cancelled || _saveData.HasRoomFlag(group, room, 0x40))),
-                    "Remote Maku HUD lifecycle did not complete/cancel with source hide/show and fade ownership intact.");
+                    $"Remote Maku ${group:x2}:${room:x2}/bottom{bottom}/batch{batched}/cancel{cancellation}: "+
+                    $"stage={cutscene.Stage}, hidden={_hud.StatusBarHidden}, control={_player.CutsceneControlled}, fade={_warpFade.Size.Y}, "+
+                    $"saw={sawHidden}/{sawDialogue}/{sawFullFade}, cancelled={cancelled}, flag={_saveData.HasRoomFlag(group,room,0x40)}, "+
+                    $"Link={_player.Position}, health={_player.HealthQuarters}, dying={_player.IsDying}, dialogue={_dialogue.IsOpen}, "+
+                    $"instruction={cutscene.CommandInstruction}, counter={cutscene.CommandCounter}, "+
+                    $"respawn={SomariaPrivate<int>(_player,"_forcedRespawnPhase")}, drowning={_player.IsDrowning}.");
                 if (cancellation == 0)
                 {
                     LoadValidationRoom(group, room);
+                    PlaceLinkOnDryFloor();
                     StepGameplayUpdates(4, Vector2.Zero, batched: batched);
                     CheckLayout();
                     FailIf(cutscene.HasState, "Completed remote Maku event replayed on re-entry.");
@@ -95,7 +115,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             _presentationSettings.HudBottom = originalBottom;
             LoadValidationRoom(0, 0x11);
-            _scene.ApplyHudPlacement(originalBottom, _transitions);
+            ApplyHudPlacement(originalBottom);
         }
         GD.Print("Validated remote Maku top/bottom HUD placement in both eras through hidden dialogue, full-screen fade, completion, cancellation and re-entry with individual/batched gameplay updates.");
     }
@@ -204,7 +224,8 @@ public sealed partial class ValidationRoot
 
             StepRoomEventFrames(1);
             FailIf(
-                !_player.CutsceneControlled ||
+                _runtimeState.ReadField("wDisabledObjects") != 0x81 ||
+                _runtimeState.ReadField("wMenuDisabled") != 0x80 ||
                 cutscene.TextboxFlags != 0x04 ||
                 cutscene.CommandInstruction != 3 ||
                 _sound.ActiveMusic != SoundId.MusMakuTree,

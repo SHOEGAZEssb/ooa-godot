@@ -210,6 +210,9 @@ public sealed partial class ValidationRoot
             F1Set(_player, "_topDownMovementSpeedRaw", 0x14); F1Set(_player, "_topDownMovementAngle", angle);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, right ? 1 : 3, (int)initial.X, 38) { CompanionDispatchEnabled = true };
             native.InitializeLinkGameplay(); native[0xcc8a] = 1; native[0xcc6e] = 1; native[0xcfd0] = 6;
+            native.EnableVramDma();
+            var menu = native.CreateMenuView(); menu.LoadHudGraphics();
+            var sourceBytes = ValidationRom.LoadCleanUs();
             native[0xd001] = 8; native[0xd002] = 6; native[0xd004] = 0; native[0xd005] = 0; native[0xd009] = (byte)angle;
             native.Word(0xd00a, (int)(initial.Y * 256)); native.Word(0xd00c, (int)(initial.X * 256));
             int stoneAt = 0xd040 + _entities.InteractionSlot(stone) * 256;
@@ -235,6 +238,37 @@ public sealed partial class ValidationRoot
                     afterLink: () => { for (int i = 0; i < 4; i++) linkExpected[i] = native[0xcec0 + i]; },
                     afterInteractions: () => { for (int i = 0; i < 4; i++) finalExpected[i] = native[0xcec0 + i]; }); updates++;
                 if (native[stoneAt + 6] != 0 && native.Word(stoneAt + 12) != before) stoneMotions++;
+                FailIf(_runtimeState.ReadField("wForceLinkPushAnimation") != native[0xcc66] ||
+                    _player.World.TilePushingDirection != native[0xcc65] ||
+                    SomariaPrivate<int>(owner, "_stoneLinkSubstate") != native[0xd005] ||
+                    native[0xd005] < 2 && SomariaPrivate<int>(owner, "_stoneLinkTicks") != native[0xd020],
+                    $"Impa stone right={right} visit{updates}: ID$08 animation/force/push lifetime differs: port force${_runtimeState.ReadField("wForceLinkPushAnimation"):x2}/push${_player.World.TilePushingDirection:x2}/sub{SomariaPrivate<int>(owner, "_stoneLinkSubstate")}/ticks{SomariaPrivate<int>(owner, "_stoneLinkTicks")}, native force${native[0xcc66]:x2}/push${native[0xcc65]:x2}/sub{native[0xd005]}/ticks{native[0xd020]}.");
+                if (_player.CutsceneSpriteFrame is { } frame)
+                {
+                    int pointer = native.Word(0xd01e);
+                    int at = (0x13 + (pointer >> 14)) * 0x4000 + (pointer & 0x3fff);
+                    var bytes = sourceBytes.Span;
+                    FailIf(bytes[at++] != frame.Parts.Length, "linkCutscene6 OAM count differs from clean ROM.");
+                    var renderer = SomariaPrivate<CutsceneSpriteRenderer>(_player, "_cutsceneSpriteRenderer");
+                    foreach (var part in frame.Parts)
+                    {
+                        int y0 = bytes[at++], x0 = bytes[at++], tile = bytes[at++] + native[0xd01d], flags = bytes[at++] ^ native[0xd01c];
+                        FailIf(part.Y != y0 || part.X != x0 || (part.Flags & ~8) != (flags & ~8),
+                            "linkCutscene6 OAM position/flags differ from clean ROM.");
+                        using var image = renderer.CellTexture(frame, part).GetImage();
+                        for (int y = 0; y < 16; y++) for (int x = 0; x < 8; x++)
+                        {
+                            int sx = (flags & 0x20) == 0 ? x : 7 - x, sy = (flags & 0x40) == 0 ? y : 15 - y;
+                            int address = 0x8000 + (tile & ~1) * 16 + sy * 2, bank = (flags >> 3) & 1;
+                            int shade = ((native.VramByte(bank, address) >> (7 - sx)) & 1) |
+                                (((native.VramByte(bank, address + 1) >> (7 - sx)) & 1) << 1);
+                            var color = image.GetPixel(x, y);
+                            int rgb = Mathf.RoundToInt(color.R * 31) | (Mathf.RoundToInt(color.G * 31) << 5) | (Mathf.RoundToInt(color.B * 31) << 10);
+                            FailIf(shade == 0 ? color.A != 0 : color.A != 1 || rgb != menu.HudColor(true, flags & 7, shade),
+                                $"linkCutscene6 right={right}, visit{updates}, pixel({x},{y}) differs from native VRAM/OAM/palette.");
+                        }
+                    }
+                }
                 FailIf(probes != 1 || !observed.SequenceEqual(linkExpected) ||
                     _player.PrecisePosition != new Vector2(native.Word(0xd00c) / 256f, native.Word(0xd00a) / 256f) ||
                     SomariaPrivate<Vector2>(owner, "_stonePrecisePosition") != new Vector2(native.Word(stoneAt + 12) / 256f, native.Word(stoneAt + 10) / 256f) ||

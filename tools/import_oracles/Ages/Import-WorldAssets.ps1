@@ -21,48 +21,6 @@ foreach ($node in Read-AssemblyLabelNodes (Join-Path $Disassembly 'code/bank1.s'
 if ($screenWaveOrder -ne 32) { throw 'initWaveScrollValues_body@sineWave: expected 32 byte coefficients.' }
 Write-GeneratedTable((Join-Path $destination 'metadata/screen_wave_sine.tsv'), $screenWaveRows)
 
-# Preserve the complete Ages branch of constants/common/globalFlags.s for the
-# editable debug flag menu. Within WLA-DX enums, "db" advances the value while
-# ".db" is used here for range aliases, so only the former emits a flag row.
-$globalFlagRows = [Collections.Generic.List[string]]::new()
-$globalFlagValues = @{}
-$globalFlagValue = 0
-$inGlobalFlagEnum = $false
-$includeGlobalFlagBranch = $true
-$globalFlagBranch = ''
-foreach ($line in Read-ImportLines (Join-Path $Disassembly 'constants\common\globalFlags.s')) {
-    if ($line -match '^\s*\.ENUM\s+\$0') {
-        $inGlobalFlagEnum = $true
-        continue
-    }
-    if (-not $inGlobalFlagEnum) { continue }
-    if ($line -match '^\s*\.ENDE') { break }
-    if ($line -match '^\s*\.ifdef\s+ROM_(AGES|SEASONS)') {
-        $globalFlagBranch = $Matches[1]
-        $includeGlobalFlagBranch = $globalFlagBranch -eq 'AGES'
-        continue
-    }
-    if ($line -match '^\s*\.else') {
-        $includeGlobalFlagBranch = $globalFlagBranch -eq 'SEASONS'
-        continue
-    }
-    if ($line -match '^\s*\.endif') {
-        $globalFlagBranch = ''
-        $includeGlobalFlagBranch = $true
-        continue
-    }
-    if ($includeGlobalFlagBranch -and
-        $line -match '^\s*(GLOBALFLAG_[A-Za-z0-9_]+)\s+db(?:\s|;)') {
-        $globalFlagRows.Add("$($globalFlagValue.ToString('x2'))`t$($Matches[1])")
-        $globalFlagValues[$Matches[1]] = $globalFlagValue
-        $globalFlagValue++
-    }
-}
-if ($globalFlagRows.Count -ne 0x80) {
-    throw "Expected 128 Ages global flags, parsed $($globalFlagRows.Count)."
-}
-$globalFlagPath = Join-Path $destination 'metadata\global_flags.tsv'
-Write-GeneratedTable($globalFlagPath, $globalFlagRows)
 
 # Pollution replacement is the first substitution pass, before position-specific
 # writes. The montage's func_782a uses $3a underwater; ordinary reload uses $3b.
@@ -106,8 +64,6 @@ Write-GeneratedTable((Join-Path $destination 'metadata\polluted_water_tile_subst
 # applySingleTileChanges is a separate, ordered room-load pass. Most rows test
 # a room-flag mask; $f0-$f2 are the three Ages-specific linked/completion
 # predicates handled by commonTileSubstitutions.s.
-$singleTileChangeSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\singleTileChanges.s')
 $commonTileSubstitutionSource = Read-ImportText (
     Join-Path $Disassembly 'code\commonTileSubstitutions.s')
 if ($commonTileSubstitutionSource -notmatch
@@ -116,47 +72,6 @@ if ($commonTileSubstitutionSource -notmatch
         '(?ms)^@unlinkedOnly:.*?call checkIsLinkedGame.*?^@linkedOnly:.*?call checkIsLinkedGame.*?^@finishedGameOnly:.*?GLOBALFLAG_FINISHEDGAME') {
     throw 'applySingleTileChanges linked/completion predicate behavior changed.'
 }
-$singleTileChangeRows = [Collections.Generic.List[string]]::new()
-$singleTileChangeRows.Add("# group`troom`tmask`tposition`ttile`tsource")
-$singleTileChangeRecords = [Collections.Generic.List[object]]::new()
-for ($group = 0; $group -lt 8; $group++) {
-    $label = "singleTileChangeGroup${group}Data"
-    $block = [regex]::Match(
-        $singleTileChangeSource,
-        "(?ms)^${label}:\s*(?<body>.*?)(?=^singleTileChangeGroup[0-7]Data:|\z)")
-    if (-not $block.Success) {
-        throw "Could not parse $label."
-    }
-    foreach ($entry in [regex]::Matches(
-        $block.Groups['body'].Value,
-        '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$(?<mask>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s*$')) {
-        $room = [Convert]::ToInt32($entry.Groups['room'].Value, 16)
-        $mask = [Convert]::ToInt32($entry.Groups['mask'].Value, 16)
-        $position = [Convert]::ToInt32($entry.Groups['position'].Value, 16)
-        $tile = [Convert]::ToInt32($entry.Groups['tile'].Value, 16)
-        if ($mask -eq 0 -or ($mask -gt 0x80 -and $mask -notin 0xf0, 0xf1, 0xf2)) {
-            throw "$label room `$$($room.ToString('x2')) has unsupported mask `$$($mask.ToString('x2'))."
-        }
-        $source = "singleTileChanges.s:$label"
-        $singleTileChangeRows.Add(
-            "$group`t$($room.ToString('x2'))`t$($mask.ToString('x2'))`t$($position.ToString('x2'))`t$($tile.ToString('x2'))`t$source")
-        $singleTileChangeRecords.Add([pscustomobject]@{
-            Group = $group
-            Room = $room
-            Mask = $mask
-            Position = $position
-            Tile = $tile
-            Source = $source
-        })
-    }
-}
-if ($singleTileChangeRecords.Count -ne 56) {
-    throw "Expected 56 Ages single-tile changes, parsed $($singleTileChangeRecords.Count)."
-}
-$singleTileChangePath = Join-Path $destination 'metadata\single_tile_changes.tsv'
-Write-GeneratedTable(
-    $singleTileChangePath,
-    $singleTileChangeRows)
 
 # replaceSwitchTiles runs before object parsing, independently of the PART
 # and INTERACTION allocators. Preserve every ordered row in the Ages branch.
@@ -828,9 +743,6 @@ for ($group = 0; $group -lt 8; $group++) {
 if ($continuousRespawnRows.Count -ne 3) {
     throw "Expected 2 continuous death-respawn rooms, parsed $($continuousRespawnRows.Count - 1)."
 }
-$continuousRespawnPath = Join-Path $destination 'metadata\continuous_death_respawn_rooms.tsv'
-Write-GeneratedTable(
-    $continuousRespawnPath, $continuousRespawnRows)
 if ($roomEntryRows.Count -ne 8) {
     throw "${roomEntryPath}: expected 7 room-entry side-effect bindings, found $($roomEntryRows.Count - 1)."
 }
@@ -1006,301 +918,11 @@ foreach ($tileset in $tilesets) {
 $metadataPath = Join-Path $destination "metadata\tilesets.bin"
 Write-GeneratedBytes($metadataPath, $tilesetMetadata)
 
-# Join the two original collision-mode-indexed tables used by
-# interactWithTileBeforeLink and INTERAC_PUSHBLOCK. Each generated record is
-# four bytes: interactable parameter, source replacement tile, destination
-# tile, and property flags. $ff in the first byte means that the metatile does
-# not use the ordinary pushblock interaction in that collision mode.
-function Read-LocalHexByteTable([string]$path, [string]$tableLabel, [string]$pointerDirective) {
-    $bytes = [Collections.Generic.List[byte]]::new()
-    $labels = @{}
-    $pointers = [Collections.Generic.List[string]]::new()
-    foreach ($node in Read-AssemblyLabelNodes $path $tableLabel) {
-        if ($node.Kind -eq 'Label' -and $node.Name.StartsWith('@')) {
-            $labels[$node.Name] = $bytes.Count
-        }
-        if ($node.Name -ieq $pointerDirective -and
-            $node.Operands.Count -gt 0) {
-            $pointers.Add($node.Operands[0])
-            continue
-        }
-        if ($node.Kind -eq 'Data' -and $node.Name -ieq '.db') {
-            foreach ($operand in $node.Operands) {
-                $bytes.Add([byte](Convert-AssemblyInteger $operand))
-            }
-        }
-    }
-    if ($pointers.Count -ne 6) {
-        throw "$tableLabel should have 6 collision-mode pointers, got $($pointers.Count)."
-    }
-    return @{ Bytes = $bytes; Labels = $labels; Pointers = $pointers }
-}
 
-$interactableTable = Read-LocalHexByteTable `
-    (Join-Path $Disassembly 'data\ages\tile_properties\interactableTiles.s') `
-    'interactableTilesTable' '.dw'
-$pushableTable = Read-LocalHexByteTable `
-    (Join-Path $Disassembly 'data\ages\tile_properties\pushableTiles.s') `
-    'pushableTilePropertiesTable' 'dbrel'
-$pushableBytes = [byte[]]::new(6 * 256 * 4)
-$nativePushableBytes = [byte[]]::new(6 * 256 * 3)
-for ($i = 0; $i -lt $nativePushableBytes.Length; $i++) { $nativePushableBytes[$i] = 0xff }
-for ($i = 0; $i -lt $pushableBytes.Length; $i++) { $pushableBytes[$i] = 0xff }
-$interactableBytes = [byte[]]::new(6 * 256)
-for ($i = 0; $i -lt $interactableBytes.Length; $i++) { $interactableBytes[$i] = 0xff }
-$interactableRecords = 0
-$joinedPushableRecords = 0
-$somariaPushRows = [Collections.Generic.List[string]]::new()
-$somariaPushRows.Add("# active-collisions`ttile`tparameter`tsource")
-for ($mode = 0; $mode -lt 6; $mode++) {
-    $interactable = @{}
-    if (-not $interactableTable.Labels.ContainsKey($interactableTable.Pointers[$mode])) {
-        throw "interactableTilesTable: unresolved collision-mode $mode pointer $($interactableTable.Pointers[$mode])."
-    }
-    $offset = $interactableTable.Labels[$interactableTable.Pointers[$mode]]
-    # Labels record positions in the complete physical byte stream. In
-    # particular @indoors falls through @dungeons/@five and @sidescrolling;
-    # @overworld/@underwater are aliases. Do not stop at the next label.
-    while ($offset -lt $interactableTable.Bytes.Count -and $interactableTable.Bytes[$offset] -ne 0) {
-        if ($offset + 1 -ge $interactableTable.Bytes.Count) {
-            throw "interactableTilesTable: truncated parameter for collision mode $mode at offset $offset."
-        }
-        $tile = $interactableTable.Bytes[$offset]
-        $parameter = $interactableTable.Bytes[$offset + 1]
-        $lookupOffset = $mode * 256 + $tile
-        if ($interactableBytes[$lookupOffset] -ne 0xff -or ($parameter -band 15) -gt 6) {
-            throw "interactableTilesTable: duplicate tile or unsupported Ages handler in mode $mode, tile `$$($tile.ToString('x2')), parameter `$$($parameter.ToString('x2'))."
-        }
-        $interactableBytes[$lookupOffset] = $parameter
-        $interactableRecords++
-        if (($parameter -band 0x0f) -eq 0) { $interactable[$tile] = $parameter }
-        $offset += 2
-    }
-    if ($offset -ge $interactableTable.Bytes.Count) {
-        throw "interactableTilesTable: collision mode $mode has no zero terminator."
-    }
-
-    $properties = @{}
-    $offset = $pushableTable.Labels[$pushableTable.Pointers[$mode]]
-    while ($pushableTable.Bytes[$offset] -ne 0) {
-        $tile = $pushableTable.Bytes[$offset]
-        $properties[$tile] = @(
-            $pushableTable.Bytes[$offset + 1],
-            $pushableTable.Bytes[$offset + 2],
-            $pushableTable.Bytes[$offset + 3])
-        # Script-created INTERAC $14 also reads properties for tiles absent
-        # from nextToPushableBlock's player-input dispatch, such as palace $02.
-        $nativeOffset = ($mode * 256 + $tile) * 3
-        for ($column = 0; $column -lt 3; $column++) {
-            $nativePushableBytes[$nativeOffset + $column] = $properties[$tile][$column]
-        }
-        $offset += 4
-    }
-
-    foreach ($tile in $interactable.Keys) {
-        # The Somaria block ($da) uses its dedicated item object and therefore
-        # intentionally has no INTERAC_PUSHBLOCK property record.
-        if (-not $properties.ContainsKey($tile)) {
-            if ($tile -eq 0xda) {
-                $somariaPushRows.Add("$mode`t$($tile.ToString('x2'))`t$($interactable[$tile].ToString('x2'))`tdata/ages/tile_properties/interactableTiles.s:$($interactableTable.Pointers[$mode])")
-                continue
-            }
-            # INTERAC_PUSHBLOCK@loadPushableTileProperties returns at the
-            # zero terminator on a miss. The freshly allocated var32..var34
-            # stay zero; the native dispatch still moves/deletes INTERAC$14.
-            # Collision modes04/05 intentionally point to an empty table.
-            if ($mode -notin @(4, 5)) {
-                throw "data/ages/tile_properties/pushableTiles.s:$($pushableTable.Pointers[$mode]): unexpected property lookup miss for collision mode $mode, tile `$$($tile.ToString('x2'))."
-            }
-            $properties[$tile] = @(0, 0, 0)
-        }
-        $recordOffset = ($mode * 256 + $tile) * 4
-        $pushableBytes[$recordOffset] = $interactable[$tile]
-        $pushableBytes[$recordOffset + 1] = $properties[$tile][0]
-        $pushableBytes[$recordOffset + 2] = $properties[$tile][1]
-        $pushableBytes[$recordOffset + 3] = $properties[$tile][2]
-        $joinedPushableRecords++
-    }
-}
-if ($joinedPushableRecords -ne 51) {
-    throw "Expected 51 collision-mode pushblock records including 18 native zero-property rows, joined $joinedPushableRecords."
-}
-$pushablePath = Join-Path $destination 'metadata\pushableTiles.bin'
-Write-GeneratedBytes($pushablePath, $pushableBytes)
-Write-GeneratedBytes((Join-Path $destination 'metadata/native_pushblock_properties.bin'), $nativePushableBytes)
-if ($interactableRecords -ne 115) { throw "interactableTilesTable: expected115 collision-mode/tile entries, got$interactableRecords." }
-Write-GeneratedBytes((Join-Path $destination 'metadata/interactableTiles.bin'), $interactableBytes)
-if ($somariaPushRows.Count -ne 7) { throw 'Expected Somaria push dispatch in all six collision modes.' }
-Write-GeneratedTable((Join-Path $destination 'metadata/somaria_push_tiles.tsv'), $somariaPushRows)
 
 # Source graphics initialization owns wInShop, independently of an NPC's
 # item restrictions. Preserve the physical local-label stream: group$03
 # deliberately falls through into the empty group$04 terminator.
-$roomGfxPath = Join-Path $Disassembly 'code/ages/roomGfxChanges.s'
-$roomGfxSource = Read-ImportText $roomGfxPath
-if ($roomGfxSource -notmatch '(?ms)^roomTileChangesAfterLoad04:\s*ld hl,wInShop\s*set 1,\(hl\)\s*ld a,TREE_GFXH_03\s*jp loadTreeGfx') {
-    throw 'roomGfxChanges.s:roomTileChangesAfterLoad04 must set wInShop bit$01 before loading price graphics.'
-}
-$afterGfxBytes = [Collections.Generic.List[byte]]::new()
-$afterGfxLabels = @{}
-$afterGfxPointers = [Collections.Generic.List[string]]::new()
-$captureAfterGfxPointers = $false
-foreach ($node in Read-AssemblyLabelNodes $roomGfxPath 'applyRoomSpecificTileChangesAfterGfxLoad') {
-    if ($node.Kind -eq 'Label') {
-        if ($node.Name -eq '@tileChangesGroupTable') { $captureAfterGfxPointers = $true }
-        elseif ($node.Name -match '^@group[0-7]$') {
-            $captureAfterGfxPointers = $false
-            $afterGfxLabels[$node.Name] = $afterGfxBytes.Count
-        }
-    }
-    if ($captureAfterGfxPointers -and $node.Kind -eq 'Data' -and $node.Name -ieq '.dw') {
-        foreach ($operand in $node.Operands) { $afterGfxPointers.Add($operand) }
-    }
-    if ($node.Kind -eq 'Data' -and $node.Name -ieq '.db') {
-        foreach ($operand in $node.Operands) { $afterGfxBytes.Add([byte](Convert-AssemblyInteger $operand)) }
-    }
-}
-if ($afterGfxPointers.Count -ne 8) {
-    throw "roomGfxChanges.s:@tileChangesGroupTable requires8 pointers, got$($afterGfxPointers.Count)."
-}
-$shopFlags = [byte[]]::new(8 * 256)
-$afterGfxRecords = 0
-$shopRooms = 0
-for ($group = 0; $group -lt 8; $group++) {
-    $pointer = $afterGfxPointers[$group]
-    if (-not $afterGfxLabels.ContainsKey($pointer)) {
-        throw "roomGfxChanges.s:@tileChangesGroupTable group$group points to missing$pointer."
-    }
-    $cursor = [int]$afterGfxLabels[$pointer]
-    $seenRooms = @{}
-    while ($true) {
-        if ($cursor -ge $afterGfxBytes.Count) { throw "roomGfxChanges.s:$pointer lost its zero terminator." }
-        $room = [int]$afterGfxBytes[$cursor++]
-        if ($room -eq 0) { break }
-        if ($cursor -ge $afterGfxBytes.Count) { throw "roomGfxChanges.s:${pointer}: truncated room `$$($room.ToString('x2')) handler." }
-        $handler = [int]$afterGfxBytes[$cursor++]
-        if ($handler -gt 0x0a -or $seenRooms.ContainsKey($room)) {
-            throw "roomGfxChanges.s:${pointer}: invalid/duplicate room `$$($room.ToString('x2')), handler `$$($handler.ToString('x2'))."
-        }
-        $seenRooms[$room] = $true
-        $afterGfxRecords++
-        if ($handler -eq 4) { $shopFlags[$group * 256 + $room] = 2; $shopRooms++ }
-    }
-}
-if ($afterGfxRecords -ne 35 -or $shopRooms -ne 4) {
-    throw "roomGfxChanges.s: expected35 after-load room rows/four shop initializations, got$afterGfxRecords/$shopRooms."
-}
-Write-GeneratedBytes((Join-Path $destination 'metadata/roomShopFlags.bin'), $shopFlags)
-
-# Transformation rings replace Link with special objects $03-$07. Export the
-# eight source GFX/OAM combinations for each disguise instead of reconstructing
-# their tile offsets or mirroring rules in gameplay code.
-$specialObjectAnimationSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
-$specialObjectOamSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
-$specialObjectDamageSource = Read-ImportText (
-    Join-Path $Disassembly 'code\specialObjectAnimationsAndDamage.s')
-if ($specialObjectDamageSource -notmatch
-        '(?ms)^@ringToID:\s*\.db OCTO_RING\s+SPECIALOBJECT_LINK_AS_OCTOROK\s*\.db MOBLIN_RING\s+SPECIALOBJECT_LINK_AS_MOBLIN\s*\.db LIKE_LIKE_RING\s+SPECIALOBJECT_LINK_AS_LIKELIKE\s*\.db SUBROSIAN_RING\s+SPECIALOBJECT_LINK_AS_SUBROSIAN\s*\.db FIRST_GEN_RING\s+SPECIALOBJECT_LINK_AS_RETRO\s*\.db \$00' -or
-    $specialObjectAnimationSource -notmatch
-        '(?ms)^animationData1a1a6:\s*\.db \$02 \$00 \$00\s*animationLoop1a1a9:\s*\.db \$06 \$04 \$84\s*\.db \$06 \$00 \$00\s*m_AnimationLoop animationLoop1a1a9') {
-    throw 'Transformed-Link ring mapping or 2/6/6 animation cadence changed.'
-}
-$specialObjectOamPointerBlock = [regex]::Match(
-    $specialObjectAnimationSource,
-    '(?ms)^specialObject03OamDataPointers:\s*(?:specialObject0[4-9]OamDataPointers:\s*)*(?<body>(?:\s*\.dw\s+oamData4c[0-9a-f]+\s*)+?)(?=^specialObject02GfxPointers:)')
-if (-not $specialObjectOamPointerBlock.Success) {
-    throw 'Could not parse the shared transformed-Link OAM pointer table.'
-}
-$specialObjectOamLabels = @(
-    [regex]::Matches(
-        $specialObjectOamPointerBlock.Groups['body'].Value,
-        '(?m)^\s*\.dw\s+(?<label>oamData4c[0-9a-f]+)') |
-        ForEach-Object { $_.Groups['label'].Value })
-if ($specialObjectOamLabels.Count -lt 6) {
-    throw 'The transformed-Link OAM pointer table has fewer than six entries.'
-}
-
-function Resolve-TransformedLinkOam([int]$index) {
-    if ($index -lt 0 -or $index -ge $specialObjectOamLabels.Count) {
-        throw "Transformed-Link OAM index `$$($index.ToString('x2')) is out of range."
-    }
-    $label = $specialObjectOamLabels[$index]
-    $block = [regex]::Match(
-        $specialObjectOamSource,
-        ('(?ms)^{0}:\s*\.db \$(?<count>[0-9a-f]{{2}})(?<body>.*?)(?=^oamData4c[0-9a-f]+:|\z)' -f
-            [regex]::Escape($label)))
-    if (-not $block.Success) { throw "Could not parse $label." }
-    $count = [Convert]::ToInt32($block.Groups['count'].Value, 16)
-    $entries = @(
-        [regex]::Matches(
-            $block.Groups['body'].Value,
-            '\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})') |
-            ForEach-Object {
-                $oamEntry = $_
-                $values = @('y', 'x', 'tile', 'flags') | ForEach-Object {
-                    [Convert]::ToInt32($oamEntry.Groups[$_].Value, 16)
-                }
-                $values -join ','
-            })
-    if ($entries.Count -ne $count) {
-        throw "$label declares $count OAM entries but contains $($entries.Count)."
-    }
-    return $entries -join ';'
-}
-
-$transformedRingBySpecialObject = @{
-    2 = 0xff # SPECIALOBJECT_LINK_AS_BABY; no transformation ring
-    3 = 0x2d # SUBROSIAN_RING
-    4 = 0x2e # FIRST_GEN_RING
-    5 = 0x2a # OCTO_RING
-    6 = 0x2b # MOBLIN_RING
-    7 = 0x2c # LIKE_LIKE_RING
-}
-$transformedLinkRows = [Collections.Generic.List[string]]::new()
-$transformedLinkRows.Add(
-    "# ring`tspecial-object`tdirection`tframe`tsprite`ttile-base`toam`tinitial-duration`tloop-duration")
-foreach ($specialObject in 2..7) {
-    $block = [regex]::Match(
-        $specialObjectAnimationSource,
-        "(?ms)^specialObject0${specialObject}GfxPointers:\s*(?<body>(?:\s*m_SpecialObjectGfxPointer[^\r\n]+\r?\n){8})")
-    if (-not $block.Success) {
-        throw "Could not parse specialObject0${specialObject}GfxPointers."
-    }
-    $entries = @([regex]::Matches(
-        $block.Groups['body'].Value,
-        'm_SpecialObjectGfxPointer \$(?<oam>[0-9a-f]{2}) (?<sprite>[A-Za-z0-9_]+) \$(?<offset>[0-9a-f]{4}) \$(?<tiles>[0-9a-f]{2})'))
-    if ($entries.Count -ne 8) {
-        throw "Expected eight transformed-Link GFX entries for special object `$$($specialObject.ToString('x2'))."
-    }
-    for ($index = 0; $index -lt 8; $index++) {
-        $entry = $entries[$index]
-        $oamIndex = [Convert]::ToInt32($entry.Groups['oam'].Value, 16)
-        $offset = [Convert]::ToInt32($entry.Groups['offset'].Value, 16)
-        $tiles = [Convert]::ToInt32($entry.Groups['tiles'].Value, 16)
-        if ($tiles -ne 4 -or ($offset % 16) -ne 0) {
-            throw "Special object `$$($specialObject.ToString('x2')) has an unsupported GFX span."
-        }
-        $transformedLinkRows.Add(
-            "$($transformedRingBySpecialObject[$specialObject].ToString('x2'))`t$($specialObject.ToString('x2'))`t$($index % 4)`t$([Math]::Floor($index / 4))`t$($entry.Groups['sprite'].Value)`t$($offset / 16)`t$(Resolve-TransformedLinkOam $oamIndex)`t2`t6")
-    }
-}
-$transformedLinkPath = Join-Path $destination 'metadata\transformed_link.tsv'
-Write-GeneratedTable(
-    $transformedLinkPath, $transformedLinkRows)
-$babyPath = Join-Path $Disassembly 'object_code/common/specialObjects/transformedLink.s'
-$baby = (Read-ImportText $babyPath) -replace '(?m);[^\r\n]*',''
-if ($baby -notmatch '(?ms)^@state0:.*?dropLinkHeldItem.*?clearAllParentItems.*?SPECIALOBJECT_LINK_AS_BABY.*?counter1\s*ld \(hl\),\$e0\s*inc l\s*ld \(hl\),\$01.*?SND_BECOME_BABY.*?@disableTransformationForBaby:\s*ld a,SND_MAGIC_POWDER' -or
-    $baby -notmatch '(?ms)^@state1:.*?wLinkForceState.*?wPaletteThread_mode.*?wScrollMode.*?updateLinkDamageTaken.*?wLinkDeathTrigger.*?retIfTextIsActive.*?wDisabledObjects.*?and \$81.*?decPegasusSeedCounter.*?decHlRef16WithCap.*?@disableTransformationForBaby.*?updateLinkSpeed_standard.*?srl \(hl\)' -or
-    $specialObjectAnimationSource -notmatch '(?ms)^animationData1a121:\s*\.db \$02 \$00 \$00\s*animationLoop1a124:\s*\.db \$06 \$04 \$84\s*\.db \$06 \$00 \$00\s*m_AnimationLoop animationLoop1a124') {
-    throw 'transformedLink.s: baby initialization, 480-update lifetime, gates, half speed or 2/6/6 animation changed.'
-}
-Write-GeneratedTable((Join-Path $destination 'metadata/baby_link.tsv'),@(
-    "# duration`tspeed-shift`tstep-parameter`tsource",
-    "480`t1`t84`tobject_code/common/specialObjects/transformedLink.s;data/ages/specialObjectAnimationData.s:animationData1a121"
-))
-
 
 $tilesetAssignmentSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tilesetAssignments.s')
@@ -1319,7 +941,6 @@ foreach ($group in 0..7) {
 Copy-GeneratedFile "rooms\ages\roomPacksPresent.bin" "groups\roomPacksPresent.bin"
 Copy-GeneratedFile "rooms\ages\roomPacksPast.bin" "groups\roomPacksPast.bin"
 Copy-GeneratedFile "gfx\common\spr_link.png" "gfx\spr_link.png"
-Copy-GeneratedFile "gfx\common\spr_swords.png" "gfx\spr_swords.png"
 Copy-GeneratedFile "gfx\ages\spr_boomerang.png" "gfx\spr_boomerang.png"
 Copy-GeneratedFile "gfx\ages\spr_seed_shooter.png" "gfx\spr_seed_shooter.png"
 Copy-GeneratedFile "gfx\ages\spr_switch_hook.png" "gfx\spr_switch_hook.png"

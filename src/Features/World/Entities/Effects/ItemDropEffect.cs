@@ -91,6 +91,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
     private Func<bool>? _maplePresent;
     private Action<int, int, Vector2>? _spawnEnemy;
     private int _var03;
+    private ItemDropDatabase _drops = null!;
+    internal Action? OreFiftyCollected { get; set; }
 
     public int SubId { get; private set; }
     public bool Finished { get; private set; }
@@ -130,6 +132,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
         int zHigh = 0)
     {
         AssetRoot = room.AssetRoot;
+        _drops = itemDrops ?? ItemDropDatabase.For(AssetRoot);
         if (angle is < 0 or >= 0x20)
             throw new ArgumentOutOfRangeException(nameof(angle));
         if (subId == ItemDropDatabase.Fairy &&
@@ -238,6 +241,11 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
                     FinishWithoutCollection();
                     return;
                 }
+                if (OracleAssetPack.GameFor(AssetRoot) == OracleGame.Seasons && _room.TilesetFlags == 0x81)
+                {
+                    FinishWithoutCollection(); // itemDrop.s deletes the rare rupee result in outdoor Subrosia.
+                    return;
+                }
             }
             // partCode01 state0 writes speedZ only when this PART is first
             // dispatched, after objectReplaceWithID has cleared its bytes.
@@ -317,7 +325,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
             // objectCheckIsOnHazard ignores an object while zh is negative.
             // On the first ground-height update, the hazard replaces the drop
             // instead of allowing another bounce.
-            if (_zFixed == 0)
+            if (!TryPullOre(player) && _zFixed == 0)
             {
                 HazardType hazard = _room.GetTerrainInfo(
                     Position + new Vector2(0, 5)).Hazard;
@@ -377,7 +385,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
         }
         else
         {
-            if (!IsSideScrolling() && (_zFixed >> 8) >= 0)
+            if (!TryPullOre(player) && !IsSideScrolling() && (_zFixed >> 8) >= 0)
             {
                 HazardType hazard = _room.GetTerrainInfo(Position + new Vector2(0, 5)).Hazard;
                 if (hazard != HazardType.None)
@@ -519,22 +527,34 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
     private void UpdateConveyor()
     {
         // PART$01 @label_11_010: conveyor lookup follows hazard handling
-        // and rejects negative zh. Its table has rows only for groups 2/5.
-        if (Finished || (_zFixed >> 8) < 0 || _room.ActiveCollisions is not (2 or 5)) return;
-        int angle = _room.GetTerrainInfo(Position + new Vector2(0, 5)).Type switch
-        {
-            TerrainType.UpConveyor => ObjectAngle.Up,
-            TerrainType.RightConveyor => ObjectAngle.Right,
-            TerrainType.DownConveyor => ObjectAngle.Down,
-            TerrainType.LeftConveyor => ObjectAngle.Left,
-            _ => -1
-        };
+        // and rejects negative zh; mode identities come from the selected pack.
+        if (Finished || (_zFixed >> 8) < 0) return;
+        int angle = _drops.ConveyorAngle(_room.ActiveCollisions,_room.GetMetatile(Position + new Vector2(0,5)));
         if (angle < 0) return;
         // itemDrop_applySpeed checks only the forward probe; unlike bomb
         // conveyors it uses the PART offsets (-5/+4), allowing holes.
         Vector2 front = Position + FairyProbeOffsets[angle / 4];
         if (IsOutsideRoom(front) || IsSolidExceptHole(front)) return;
         Position = NativeObjectMovement.ApplySpeed(_movementMemory, ref _precisePosition, 0x14, angle);
+    }
+
+    private bool TryPullOre(Player player)
+    {
+        if (SubId is < ItemDropDatabase.OneOreChunk or > ItemDropDatabase.FiftyOreChunks ||
+            OracleAssetPack.GameFor(AssetRoot) != OracleGame.Seasons ||
+            _movementMemory is null || _movementMemory.ReadField("wMagnetGloveState") == 0) return false;
+        Vector2 target = player.ActiveLinkObjectPosition;
+        int angle = OracleObjectMovement.Shared.RelativeAngle(Position,target);
+        int distance = Math.Max(Math.Abs(unchecked((byte)(int)target.Y) - unchecked((byte)(int)Position.Y)),
+            Math.Abs(unchecked((byte)(int)target.X) - unchecked((byte)(int)Position.X)));
+        int index = (distance >> 4) & 15;
+        if ((index & 8) != 0) index = 7;
+        int speed = _drops.MagnetPullSpeed(index);
+        Vector2 front = Position + FairyProbeOffsets[((angle + 2) & 0x1c) / 4];
+        // itemDrop_applySpeed retains carry even when its forward probe blocks.
+        if (IsOutsideRoom(front) || IsSolidExceptHole(front)) return true;
+        Position = NativeObjectMovement.ApplySpeed(_movementMemory,ref _precisePosition,speed,angle);
+        return true;
     }
 
     private void UpdateHorizontalSpeed()
@@ -579,11 +599,11 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
             return;
         }
 
-        // partCommon_getTileCollisionInFront returns $ff only outside the room.
-        // ITEM_DROP_FAIRY increments that byte before deciding whether to move,
-        // so ordinary solid collisions are deliberately ignored in state 2.
-        if (!IsOutsideRoom(Position + FairyFrontOffset()))
-            ApplyFairyVelocity();
+        // The $ff boundary result falls through into chooseRandomFairyMovement;
+        // ordinary solid collisions still jump to objectApplySpeed in state 2.
+        if (IsOutsideRoom(Position + FairyFrontOffset()))
+            ChooseRandomFairyMovement();
+        else ApplyFairyVelocity();
     }
 
     private void ChooseRandomFairyMovement()
@@ -663,46 +683,13 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
             FinishWithoutCollection(); // @linkCollectedItem checks wLinkDeathTrigger first.
             return;
         }
-        switch (SubId)
-        {
-            case ItemDropDatabase.Fairy:
-                player.Heal(24 * RingEffects.DropMultiplier(
-                    player.Inventory, RingDropKind.Heart));
-                break;
-            case ItemDropDatabase.Heart:
-                player.Heal(4 * RingEffects.DropMultiplier(
-                    player.Inventory, RingDropKind.Heart));
-                break;
-            case ItemDropDatabase.OneRupee:
-                player.AddRupees(RingEffects.DropMultiplier(
-                    player.Inventory, RingDropKind.Rupee));
-                break;
-            case ItemDropDatabase.FiveRupees:
-                player.AddRupees(5 * RingEffects.DropMultiplier(
-                    player.Inventory, RingDropKind.Rupee));
-                break;
-            case ItemDropDatabase.OneHundredRupeesOrEnemy:
-                player.AddRupees(100 * RingEffects.DropMultiplier(
-                    player.Inventory, RingDropKind.Rupee));
-                break;
-            case ItemDropDatabase.Bombs:
-                player.Inventory.GiveTreasure(
-                    TreasureId.Bombs,
-                    RingEffects.DropMultiplier(player.Inventory, RingDropKind.Other) == 2
-                        ? 0x08
-                        : 0x04);
-                break;
-            case >= ItemDropDatabase.EmberSeeds and <= ItemDropDatabase.MysterySeeds:
-                player.Inventory.GiveTreasure(
-                    TreasureId.EmberSeeds + SubId - ItemDropDatabase.EmberSeeds,
-                    RingEffects.DropMultiplier(player.Inventory, RingDropKind.Other) == 2
-                        ? 0x0a
-                        : 0x05);
-                break;
-            default:
-                FinishWithoutCollection(); // A zero treasure-table entry deletes the part.
-                return;
-        }
+        ItemDropRule rule = _drops.Rule(SubId);
+        if (rule.Treasure == 0) { FinishWithoutCollection(); return; }
+        bool doubled = player.Inventory.IsRingActive(RingId.GoldJoy) ||
+            rule.JoyRing != 0 && player.Inventory.ActiveRing == rule.JoyRing;
+        player.Inventory.GiveTreasure(rule.Treasure,doubled ? rule.DoubledParameter : rule.Parameter);
+        if (SubId == ItemDropDatabase.FiftyOreChunks)
+            (OreFiftyCollected ?? throw new InvalidOperationException("PART_ITEM_DROP:$0e collection requires its room-flag owner."))();
 
         if (_collectionSound != SoundId.MusNone)
             _soundRequested(_collectionSound);

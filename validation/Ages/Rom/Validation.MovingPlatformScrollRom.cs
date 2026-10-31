@@ -61,7 +61,7 @@ public partial class ValidationRoot
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Down,out int target) || target != 0x1a,
                 "Platform script scroll must use original dungeon adjacency$4:$16 -> $4:$1a.");
-            _transitions.BeginScroll(_player,Vector2I.Down,target);
+            _transitions.BeginValidationScroll(_player,Vector2I.Down,target);
             int unique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             var scroll = new ScrollRom(true,2,(int)(_player.PrecisePosition.X*256),(int)(_player.PrecisePosition.Y*256),unique,sourceUnique);
@@ -94,7 +94,7 @@ public partial class ValidationRoot
                 FailIf(point != (frozen ? new Vector2(scroll.Word(0xd00c)/256f,scroll.Word(0xd00a)/256f) :
                     new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f)),
                     "Platform script scroll must match native precise Link coordinates during and after completion.");
-                var puffs = _entities.OutgoingEntities<PuzzlePuffEffect>();
+                var puffs = _entities.OutgoingEntities<StationaryDebrisEffect>();
                 int[] nativePuffs = Enumerable.Range(0xd2,14).Select(page=>page*256+0x40)
                     .Where(address=>rom[address] != 0 && rom[address+1] == 5).ToArray();
                 FailIf(puffs.Count != nativePuffs.Length,"Outgoing platform puff lifetimes must match native scroll eligibility.");

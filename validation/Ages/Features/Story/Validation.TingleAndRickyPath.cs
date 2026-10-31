@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace Oracles;
 
@@ -17,6 +18,8 @@ public sealed partial class ValidationRoot
 
         CompanionRuntimeState.Clear(
             _runtimeState, CompanionRuntimeState.RickyId);
+        // This is the post-gloves visit; source rickyState0 otherwise selects state $0a.
+        _saveData.WriteWramByte(AgesWramAddress.wCompanionStates, 0x20);
         CompanionRuntimeState.Remember(
             _runtimeState,
             CompanionRuntimeState.RickyId,
@@ -30,8 +33,7 @@ public sealed partial class ValidationRoot
 
         TingleRoomEntity tingleEntity =
             _entities.Entities<TingleRoomEntity>().Single();
-        RickyCompanionRoomEntity room079Ricky =
-            _entities.Entities<RickyCompanionRoomEntity>().Single();
+        var pendingRicky = _entities.EntityAdapters<RickyScriptedCompanionRoomEntity>().Single();
         CompanionTutorialRoomEntity tutorial079 =
             _entities.Entities<CompanionTutorialRoomEntity>().Single();
         FailIf(
@@ -49,7 +51,7 @@ public sealed partial class ValidationRoot
             tingleEntity.Npc.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
             tingleEntity.Grounded || tingleEntity.HasEnoughSeedTypes ||
             tutorial079.Record != room079Tutorial ||
-            room079Ricky.Phase != RickyCompanionPhase.Waiting,
+            pendingRicky.RoomInitialization is not { Pending: true } || _runtimeState.ReadWramByte(0xd104) != 0,
             "Room 0:79 did not instantiate source-typed Tingle, balloon, " +
             "Ricky tutorial, and remembered dismounted Ricky state.");
 
@@ -61,6 +63,7 @@ public sealed partial class ValidationRoot
             "Room 0:79 state-0 objects did not consume exactly one initial " +
             "update while retaining Tingle's source priority $00 above Link.");
         StepRoomEventFrames(55);
+        RickyCompanionRoomEntity room079Ricky = _entities.Entities<RickyCompanionRoomEntity>().Single();
         FailIf(
             tingleEntity.BalloonCounter != 1 ||
             tingleEntity.BalloonSpeedZ != -0x10,
@@ -196,6 +199,10 @@ public sealed partial class ValidationRoot
             "replace fixed airborne priority with Link-relative ordering.");
 
         tingleEntity.StartKooloo();
+        // Native $d0:$01 precedes Tingle and deletes after Ricky crosses its
+        // threshold. Reusing $d2 is below Tingle's $d3 cursor; $d4/$d5 run now.
+        FailIf(!tutorial079.Finished || _entities.NativeInteractionSlot(tingleEntity) != 3,
+            "Room $0:$79 must release tutorial slot $d2 before Tingle's $d3 sparkle allocation.");
         for (int update = 0; update < 59; update++)
         {
             StepRoomEventFrames(1);
@@ -218,10 +225,15 @@ public sealed partial class ValidationRoot
             koolooSparkles.Length != 3 ||
             !koolooSparkles.Select(sparkle => sparkle.Position)
                 .SequenceEqual(expectedKoolooSparklePositions) ||
+            !koolooSparkles.Select(sparkle => _entities.InteractionSlot(sparkle))
+                .SequenceEqual([2, 4, 5]) ||
+            !koolooSparkles.Select(sparkle => sparkle.ElapsedUpdates)
+                .SequenceEqual([0, 1, 1]) ||
+            !koolooSparkles.Select(sparkle => sparkle.Visible)
+                .SequenceEqual([false, true, true]) ||
             koolooSparkles.Any(sparkle =>
                 sparkle.SourceAngle != 0x10 ||
                 sparkle.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
-                sparkle.ElapsedUpdates != 1 || !sparkle.Visible ||
                 sparkle.Finished || sparkle.AnimationFrame != 0 ||
                 sparkle.AnimationParameter != 0 ||
                 sparkle.RenderedTextureOrigin !=
@@ -229,13 +241,15 @@ public sealed partial class ValidationRoot
                 sparkle.TextureSize != new Vector2(32, 32) ||
                 sparkle.TexturePixelHash != 0x9fab991cab9cedd0UL) ||
             tingleEntity.ZFixed != tingleRecord.KoolooSpeedZ,
-            "Tingle's animation-$03 cue did not create the three visible " +
+            "Tingle's animation-$03 cue did not create the three native " +
             "INTERAC_SPARKLE $84:$00 children at $e800/$f008/$f0f8, " +
-            "force source angle $10/foreground priority, and then apply " +
+            "retain $d2/$d4/$d5 birth timing and angle $10/foreground priority, then apply " +
             $"-$0200 Z motion (positions=" +
             $"{string.Join(';', koolooSparkles.Select(s => s.Position))}, " +
             $"hashes={string.Join(';', koolooSparkles.Select(s =>
-                s.TexturePixelHash.ToString("x16")))}, z={tingleEntity.ZFixed}).");
+                s.TexturePixelHash.ToString("x16")))}, z={tingleEntity.ZFixed}, " +
+            $"children={string.Join(';', koolooSparkles.Select(s =>
+                $"a{s.SourceAngle:x2}/z{s.ZIndex}/u{s.ElapsedUpdates}/v{s.Visible}/f{s.Finished}/frame{s.AnimationFrame}/param{s.AnimationParameter}/origin{s.RenderedTextureOrigin}/size{s.TextureSize}"))}).");
         int koolooCleanupUpdates = 0;
         while ((tingleEntity.KoolooActive ||
             _entities.Entities<InteractionSparkleEffect>().Count != 0) &&
@@ -247,12 +261,12 @@ public sealed partial class ValidationRoot
         FailIf(
             tingleEntity.KoolooActive || !tingleEntity.KoolooComplete ||
             _entities.Entities<InteractionSparkleEffect>().Count != 0 ||
-            koolooCleanupUpdates != 36 ||
+            koolooCleanupUpdates != 37 ||
             tingleEntity.Npc.CurrentScriptAnimationSource !=
                 tingleDatabase.Animation("tingle", 1),
             "Tingle or the three always-update INTERAC_SPARKLE $84:$00 " +
             "children did not retire on their source animation parameters " +
-            $"after 36 updates (actual={koolooCleanupUpdates}).");
+            $"after 37 updates including the deferred $d2 birth (actual={koolooCleanupUpdates}).");
 
         TingleEvent tingleEvent = _roomEvents.Get<TingleEvent>();
         FailIf(
@@ -352,7 +366,9 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             tingleEvent.Stage != TingleEventStage.Inactive ||
-            room079Ricky.Phase != RickyCompanionPhase.TingleDeparture,
+            room079Ricky.Phase != RickyCompanionPhase.Scripted ||
+            _runtimeState.ReadWramByte(0xd103)!=2 || _runtimeState.ReadField("wDisabledObjects")!=1 ||
+            _runtimeState.ReadField("wMenuDisabled")!=1,
             "tingleScript did not write Ricky's departure state after wait 60.");
         StepRoomEventFrames(1);
         FailIf(
@@ -363,7 +379,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepRoomEventFrames(1);
         int departureUpdates = 0;
-        int observedDepartureStage = room079Ricky.TingleDepartureStage;
+        int observedDepartureStage = _runtimeState.ReadWramByte(0xd103);
         var departureTransitions = new List<(
             int Stage,
             int Updates,
@@ -374,23 +390,23 @@ public sealed partial class ValidationRoot
             int Angle)>
         {
             (observedDepartureStage, 0, room079Ricky.PrecisePosition,
-                room079Ricky.ZFixed, room079Ricky.TingleDepartureCounter,
+                room079Ricky.ZFixed, _runtimeState.ReadWramByte(0xd106),
                 room079Ricky.AnimationIndex,
-                room079Ricky.TingleDepartureAngle)
+                _runtimeState.ReadWramByte(0xd109))
         };
         while (!room079Ricky.Finished && departureUpdates < 300)
         {
             StepRoomEventFrames(1);
             departureUpdates++;
-            if (room079Ricky.TingleDepartureStage != observedDepartureStage)
+            if (!room079Ricky.Finished && _runtimeState.ReadWramByte(0xd103) != observedDepartureStage)
             {
-                observedDepartureStage = room079Ricky.TingleDepartureStage;
+                observedDepartureStage = _runtimeState.ReadWramByte(0xd103);
                 departureTransitions.Add((observedDepartureStage,
                     departureUpdates, room079Ricky.PrecisePosition,
                     room079Ricky.ZFixed,
-                    room079Ricky.TingleDepartureCounter,
+                    _runtimeState.ReadWramByte(0xd106),
                     room079Ricky.AnimationIndex,
-                    room079Ricky.TingleDepartureAngle));
+                    _runtimeState.ReadWramByte(0xd109)));
             }
         }
         Vector2 cliffStart = new(20.203125f, 64.484375f);
@@ -419,6 +435,7 @@ public sealed partial class ValidationRoot
                 new Vector2(20.203125f, 143.734375f) ||
             (_saveData.ReadWramByte(AgesWramAddress.wCompanionStates) & 0x40) == 0 ||
             CompanionRuntimeState.AnyActive(_runtimeState) ||
+            _runtimeState.ReadWramByte(0xd103)!=0 || _runtimeState.ReadWramByte(0xd106)!=0 || _runtimeState.ReadWramByte(0xd109)!=0 ||
             CompanionRuntimeState.ReadRemembered(_runtimeState).Id != 0,
             "Ricky's room 0:79 departure diverged from state-$0a's " +
             "$14 cliff path, $18 farewell punch, $10 exit hops, or " +
@@ -429,6 +446,24 @@ public sealed partial class ValidationRoot
                 $"c={transition.Counter}/a=${transition.Animation:x2}/" +
                 $"angle=${transition.Angle:x2}")) +
             $" | finish@{departureUpdates}:{room079Ricky.PrecisePosition}");
+
+        // Isolate the script's unchecked writer after the real conversation proved reachability.
+        typeof(TingleEvent).GetField("_stage",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(tingleEvent,TingleEventStage.PostChartWait);
+        typeof(TingleEvent).GetField("_counter",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(tingleEvent,1);
+        try
+        {
+            StepRoomEventFrames(1);
+            FailIf(_runtimeState.ReadWramByte(0xd100)!=0 || _runtimeState.ReadWramByte(0xd101)!=0 ||
+                _runtimeState.ReadWramByte(0xd103)!=2 || _runtimeState.ReadWramByte(0xd104)!=0x0a ||
+                _runtimeState.ReadField("wDisabledObjects")!=1 || _runtimeState.ReadField("wMenuDisabled")!=1 ||
+                _entities.IsSpecialObjectOwner(room079Ricky),
+                "tingleScript must preserve its unchecked native writes without allocating a body in an inactive D1 slot.");
+        }
+        finally
+        {
+            _runtimeState.SetWramByte(0xd103,0);_runtimeState.SetWramByte(0xd104,0);
+            _runtimeState.SetField("wDisabledObjects",0);_runtimeState.SetField("wMenuDisabled",0);
+        }
 
         void ValidateUpgrade(bool cancelGlow)
         {

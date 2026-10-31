@@ -64,12 +64,12 @@ public sealed partial class ValidationRoot
             oldLady.Position + Vector2.Left * 20.0f,
             recordSafe: false);
         for (int update = 0; update < 15; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             oldLady.CurrentAnimationFrame != 0 ||
             oldLady.FacingVector != Vector2I.Down,
             "Room 1:74's old lady advanced animation $04 early or faced Link.");
-        manager.Update(frame, _player);
+        manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             oldLady.CurrentAnimationFrame != 1 ||
             oldLady.CurrentAnimationPixelHash == initialFrameHash ||
@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
             "Room 1:74's old lady did not reach animation $04's second " +
             "pose after exactly 16 updates.");
         for (int update = 0; update < 16; update++)
-            manager.Update(frame, _player);
+            manager.AdvanceEntityFrames(frame, _player);
         FailIf(
             oldLady.CurrentAnimationFrame != 0 ||
             oldLady.CurrentAnimationPixelHash != initialFrameHash,
@@ -100,7 +100,7 @@ public sealed partial class ValidationRoot
             "with TX_180a.");
 
         int dialogueFrame = oldLady.CurrentAnimationFrame;
-        manager.Update(16.0 / 60.0, _player);
+        manager.AdvanceEntityFrames(16.0 / 60.0, _player);
         FailIf(
             oldLady.CurrentAnimationFrame != dialogueFrame,
             "wTextIsActive did not freeze room 1:74's ordinary old-lady animation.");

@@ -82,6 +82,7 @@ public sealed partial class ValidationRoot
             rom.CopySave(_saveData);
             Step(4);
             _inventoryMenu.CloseImmediatelyForValidation();
+            rom.LoadCommonGraphics(_runtimeState.FrameCounter);
             _mapMenu.OpenImmediatelyForValidation();
             _inventory.Heal(2);
             rom.CopySave(_saveData);
@@ -90,7 +91,9 @@ public sealed partial class ValidationRoot
                 FailIf(_statusBar.DisplayedHealth != frozen,
                     "Map menu must suspend HUD updates while global playtime advances."));
             _mapMenu.CloseImmediatelyForValidation();
+            rom.LoadCommonGraphics(_runtimeState.FrameCounter);
             _inventoryMenu.OpenImmediatelyForValidation();
+            rom.LoadCommonGraphics(_runtimeState.FrameCounter);
             sounds.Clear();
             rom.ClearSounds();
             Step(8); // Resume on global phase, after seven frozen updates.

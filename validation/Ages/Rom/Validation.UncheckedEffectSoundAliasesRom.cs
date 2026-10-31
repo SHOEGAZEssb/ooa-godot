@@ -113,7 +113,7 @@ public sealed partial class ValidationRoot
             FailIf(aliases.Where((address, index) => native[address] != expected[index] || snapshot[address] != expected[index]).Any() ||
                 writes != (free == 0 ? aliases.Length : 0),
                 $"Unchecked effect moosh={moosh}, free={free}: failed writes must match original echo bytes and reach their authoritative audio consumer.");
-            int children = moosh ? _entities.EntityAdapters<MooshHoverExclamationRoomEntity>().Count() : _entities.Entities<InteractionExplosionEffect>().Count;
+            int children = moosh ? _entities.EntityAdapters<ExclamationMarkRoomEntity>().Count() : _entities.Entities<InteractionExplosionEffect>().Count;
             FailIf(children != free || NativeAdmissionChildren(native, moosh ? 0x9f : 0x56, 0).Length != free ||
                 (moosh ? companion!.Phase != MooshCompanionPhase.HoveringOverWater : tingle!.BalloonActive || tingle.State != 3),
                 "Failed unchecked creation must construct no node while completing the original Moosh/Tingle parent continuation.");
@@ -122,7 +122,7 @@ public sealed partial class ValidationRoot
             if (!moosh) FailIf(native[0xd244] != 3 || native[0xd246] != 15, "Original Tingle must continue into state 3/wait 15 after failed balloon explosion.");
             if (moosh && free == 1)
             {
-                var child = _entities.EntityAdapters<MooshHoverExclamationRoomEntity>().Single();
+                var child = _entities.EntityAdapters<ExclamationMarkRoomEntity>().Single();
                 int at = NativeAdmissionChildren(native, 0x9f, 0).Single();
                 FailIf(native[at + 0x1a] != 0x80 || child.Node.ZIndex != 12,
                     "Moosh's original $9f state zero sets fixed visible $80 / Z12, without Link-relative priority.");
@@ -139,12 +139,12 @@ public sealed partial class ValidationRoot
                         "Moosh's enabled-bit-7 exclamation must retain every countdown update under INTERACTION $02.");
                 });
                 StepGameplayUpdates(1, Vector2.Zero, batched: batched); native.AdvanceInteractions(_entities.FrameCounter);
-                FailIf(!child.Finished || native[at] != 0 || _entities.EntityAdapters<MooshHoverExclamationRoomEntity>().Any(),
+                FailIf(!child.Finished || native[at] != 0 || _entities.EntityAdapters<ExclamationMarkRoomEntity>().Any(),
                     "Moosh's exclamation must delete on update60 after its setup-only visit, including under $02.");
                 _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0); native[0xcc8a] = 0;
             }
             StepGameplayUpdates(80, Vector2.Zero, batched: batched);
-            FailIf(moosh ? _entities.EntityAdapters<MooshHoverExclamationRoomEntity>().Any() : !tingle!.Grounded || _entities.Entities<InteractionExplosionEffect>().Count != 0,
+            FailIf(moosh ? _entities.EntityAdapters<ExclamationMarkRoomEntity>().Any() : !tingle!.Grounded || _entities.Entities<InteractionExplosionEffect>().Count != 0,
                 "Optional effects must expire without retry and Tingle must finish the fall after either allocation result.");
             if (!moosh)
             {
