@@ -377,7 +377,12 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
     {
         LastText = id;
         Dialogue.ShowMessage(Data.Text(id), _screen.Visible ? DialogueScreenContext.FullScreen(Link.Position.Y) :
-            DialogueScreenContext.Gameplay(Link.Position.Y), position, 0, id);
+            DialogueScreenContext.Gameplay(Link.Position.Y,-Transitions.WorldToGameplayScreen(Vector2.Zero).Y), position, 0, id);
+    }
+    internal void ShowText(int id, string message)
+    {
+        LastText = id;
+        Dialogue.ShowMessage(message,DialogueScreenContext.Gameplay(Link.Position.Y,-Transitions.WorldToGameplayScreen(Vector2.Zero).Y),null,0,id);
     }
     internal bool RoomFlag(int flag) => (Save.GetRoomFlags(0, RoomId) & flag) != 0;
     internal void OrRoomFlag(int flag) => Save.SetRoomFlag(0, RoomId, (byte)flag);

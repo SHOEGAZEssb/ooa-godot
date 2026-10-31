@@ -14,7 +14,7 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
     IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly OracleRoomData _room;
-    private readonly DungeonMechanicDatabase _data;
+    private readonly DungeonPuzzleDatabase _data;
     private readonly Func<int> _roomEnemyCount;
     private readonly Func<long> _animationTick;
     private readonly Action _clearRoomEnemyCount;
@@ -32,7 +32,7 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
     internal PushBlockTriggerRoomEntity(
         DungeonMechanicDatabaseRecord record,
         OracleRoomData room,
-        DungeonMechanicDatabase data,
+        DungeonPuzzleDatabase data,
         Func<int> roomEnemyCount,
         Func<long> animationTick,
         Action clearRoomEnemyCount,

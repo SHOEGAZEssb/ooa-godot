@@ -9,7 +9,7 @@ public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
     private GelBehaviorProfile? _behaviorSourceCache;
-    private GelBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Gel;
+    private GelBehaviorProfile _behavior => _behaviorSourceCache ??= GelZolDatabase.For(AssetRoot).Gel;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private EnemyVerticalMotion _verticalMotion = null!;

@@ -11,7 +11,7 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
 
     internal int NativeSpeed { get; private set; }
     private ZolBehaviorProfile? _behaviorSourceCache;
-    private ZolBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Zol;
+    private ZolBehaviorProfile _behavior => _behaviorSourceCache ??= GelZolDatabase.For(AssetRoot).Zol;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;

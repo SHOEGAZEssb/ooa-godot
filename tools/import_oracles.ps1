@@ -483,6 +483,15 @@ $stageContracts = @(
     New-ImportStageContract 'ghini-data' 'Shared/Import-GhiniData.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
         -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'gel-zol-data' 'Shared/Import-GelZolData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'dungeon-puzzles' 'Shared/Import-DungeonPuzzles.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'seasons-heros-cave' 'Seasons/Import-HerosCave.ps1' `
+        -inputs @('seasonsSymbols', 'seasonsRomBytes', 'seasonTreasureTexts', 'seasonMapTexts') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted')
     New-ImportStageContract 'treasure-collection' 'Shared/Import-TreasureCollection.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
         -outputs @('rupeeValuesByGame') `

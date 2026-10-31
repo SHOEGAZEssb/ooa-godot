@@ -21,7 +21,7 @@ include dormant data. Coordinates and var03 retain source inputs before native
 rewriting; no-value placements initialize their other fields in native code.
 
 Room object declarations are imported as shared native control programs.
-Native story bindings remain bounded by the standard opening; shared effect
+Native story bindings cover the standard opening and first-sword Hero's Cave route; shared effect
 and treasure services also operate through their explicitly bound producers.
 Shared dungeon spinners use their native placed room streams.
 Handler scripts and native cutscenes are imported only for implemented routes.
@@ -42,8 +42,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 5 | 24 | 196 | 7 | 232 |
-| Expanded placed interaction contexts | 7 | 1 | 1027 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 6 | 28 | 191 | 7 | 232 |
+| Expanded placed interaction contexts | 17 | 3 | 1015 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -70,6 +70,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Scope | Status |
 | --- | --- |
 | Standard-opening character rows listed as **I** in the NPC ledger | Implemented within the stated standard-opening boundary |
+| Hero's Cave first sword | Runtime route through shared push blocks, floor buttons, key chest, door contacts, shutters and scripted sword return; optional side-view Gasha producer remains unbound |
 | Missing character rows and family variants in the NPC ledger | Missing |
 | Other room placements listed as **M** below | Missing |
 | Additional native/script variants of **P** dispatch families | Missing beyond the explicit runtime boundary |
@@ -82,7 +83,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Remaining **M** interaction dispatch entries | No production route; retained/unreachable variants still require reachability tracing |
 | Linked-game introduction and linked troupe/Impa dialogue | Missing |
 | Seasons attract cinematic and title-timeout replay | Missing |
-| Seasons gameplay saving and resuming after the opening | Runtime route through the shared save/checkpoint flow for supported standard overworld files |
+| Seasons gameplay saving and resuming after the opening | Runtime route through the shared save/checkpoint flow for supported standard overworld and Hero's Cave files |
 | Overworld layout navigation after the opening | Runtime route; room `$00:$98` retains its after-event Octorok stream; other later NPC, enemy, event and warp contexts remain unsupported |
 | Progression beyond control returning in room `0:b6` | Missing |
 | Exhaustive executed clean-US-ROM comparison | Unproven |
@@ -118,8 +119,8 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$0f` | [fallDownHole](../../external/oracles-disasm/object_code/common/interactions/fallDownHole.s) | — | — | — | 6 | **P** ? Common falling-hole effect `$00`; dust and other native producers remain incomplete. |
 | `$10` | [farore](../../external/oracles-disasm/object_code/common/interactions/farore.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$11` | [farore](../../external/oracles-disasm/object_code/common/interactions/farore.s) | — | `$01, $11, $21, $31, $41, $51, $61, $71` | — | 1 | **M** — No Seasons production route. |
-| `$12` | [dungeonStuff](../../external/oracles-disasm/object_code/common/interactions/dungeonStuff.s) | `$00-$02, $04` | — | — | 0 | **M** — No Seasons production route. |
-| `$13` | [pushblockTrigger](../../external/oracles-disasm/object_code/common/interactions/pushblockTrigger.s) | `$01` | — | — | 0 | **M** — No Seasons production route. |
+| `$12` | [dungeonStuff](../../external/oracles-disasm/object_code/common/interactions/dungeonStuff.s) | `$00-$02, $04` | — | — | 0 | **P** — Hero's Cave dungeon$00 entry and enemy-clear stairs; other placements and variants remain unbound. |
+| `$13` | [pushblockTrigger](../../external/oracles-disasm/object_code/common/interactions/pushblockTrigger.s) | `$01` | — | — | 0 | **P** — Hero's Cave $4:05/$4:07 push-block triggers; other placements remain unbound. |
 | `$14` | [pushblock](../../external/oracles-disasm/object_code/common/interactions/pushblock.s) | — | — | — | 2 | **P** — Shared tile contact constructs reserved normal/sliding blocks; additional scripted producers remain unbound. |
 | `$15` | [usedRodOfSeasons](../../external/oracles-disasm/object_code/seasons/interactions/usedRodOfSeasons.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$16` | [minecart](../../external/oracles-disasm/object_code/common/interactions/minecart.s) | — | — | — | 1 | **M** — No Seasons production route. |
@@ -130,9 +131,9 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$1b` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
 | `$1c` | [faroresMemory](../../external/oracles-disasm/object_code/common/interactions/faroresMemory.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$1d` | [rupeeRoomRupees](../../external/oracles-disasm/object_code/seasons/interactions/rupeeRoomRupees.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
-| `$1e` | [doorController](../../external/oracles-disasm/object_code/common/interactions/doorController.s) | `$04-$0b, $10, $12, $14-$15` | `$14` | `$13` | 5 | **P** — Shared dungeon-key contacts construct the reserved opener; placed door scripts and other variants remain unbound. |
+| `$1e` | [doorController](../../external/oracles-disasm/object_code/common/interactions/doorController.s) | `$04-$0b, $10, $12, $14-$15` | `$14` | `$13` | 5 | **P** — Shared dungeon-key contacts and Hero's Cave placed $04/$08/$0a/$0b shutters; other placements and variants remain unbound. |
 | `$1f` | [specialWarp](../../external/oracles-disasm/object_code/seasons/interactions/specialWarp.s) | `$00, $02-$0d` | — | — | 0 | **M** — No Seasons production route. |
-| `$20` | [dungeonScript](../../external/oracles-disasm/object_code/seasons/interactions/dungeonScript.s) | `$00-$0e` | — | — | 0 | **M** — No Seasons production route. |
+| `$20` | [dungeonScript](../../external/oracles-disasm/object_code/seasons/interactions/dungeonScript.s) | `$00-$0e` | — | — | 0 | **P** — Hero's Cave $4:03 exact-trigger key chest; other dungeon scripts remain unbound. |
 | `$21` | [gnarledKeyhole](../../external/oracles-disasm/object_code/seasons/interactions/gnarledKeyhole.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$22` | [makuCutscenes](../../external/oracles-disasm/object_code/seasons/interactions/makuCutscenes.s) | `$00-$08, $0a` | — | — | 1 | **M** — No Seasons production route. |
 | `$23` | [seasonSpiritsScripts](../../external/oracles-disasm/object_code/seasons/interactions/seasonSpiritsScripts.s) | `$01, $11, $21, $30-$31, $40` | — | — | 0 | **M** — No Seasons production route. |
@@ -298,7 +299,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$c3` | [zeldaKidnappedRoom](../../external/oracles-disasm/object_code/seasons/interactions/zeldaKidnappedRoom.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$c4` | [zeldaVillagersRoom](../../external/oracles-disasm/object_code/seasons/interactions/zeldaVillagersRoom.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$c5` | [d4HolesFloortrapRoom](../../external/oracles-disasm/object_code/seasons/interactions/d4HolesFloortrapRoom.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
-| `$c6` | [herosCaveSwordChest](../../external/oracles-disasm/object_code/seasons/interactions/herosCaveSwordChest.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
+| `$c6` | [herosCaveSwordChest](../../external/oracles-disasm/object_code/seasons/interactions/herosCaveSwordChest.s) | `$00` | — | — | 0 | **R** — Unlinked Hero's Cave sword chest, native spin handoff and direct return warp. |
 | `$c7` | [createObjectAtEachTileindex](../../external/oracles-disasm/object_code/common/interactions/createObjectAtEachTileindex.s) | `$04, $08, $bc` | `$a0` | — | 0 | **M** — No Seasons production route. |
 | `$c8` | [boomerangSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/boomerangSubrosian.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$c9` | [boomerang](../../external/oracles-disasm/object_code/seasons/interactions/boomerang.s) | — | — | — | 1 | **M** — No Seasons production route. |
@@ -320,7 +321,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$d9` | [faroreGiveItem](../../external/oracles-disasm/object_code/common/interactions/faroreGiveItem.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$da` | [zeldaApproachTrigger](../../external/oracles-disasm/object_code/common/interactions/zeldaApproachTrigger.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$db` | [linkedSecredGivers](../../external/oracles-disasm/object_code/seasons/interactions/linkedSecredGivers.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
-| `$dc` | [miscPuzzles](../../external/oracles-disasm/object_code/seasons/interactions/miscPuzzles.s) | `$00-$0f` | — | — | 1 | **M** — No Seasons production route. |
+| `$dc` | [miscPuzzles](../../external/oracles-disasm/object_code/seasons/interactions/miscPuzzles.s) | `$00-$0f` | — | — | 1 | **P** — Unlinked $0:d4 $01/$02 deletion paths; linked entrance and other puzzle variants remain unbound. |
 | `$dd` | [goldenBeastOldMan](../../external/oracles-disasm/object_code/seasons/interactions/goldenBeastOldMan.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$de` | [makuSeedAndEssences](../../external/oracles-disasm/object_code/seasons/interactions/makuSeedAndEssences.s) | — | — | — | 2 | **M** — No Seasons production route. |
 | `$df` | [nayruRalphCredits](../../external/oracles-disasm/object_code/common/interactions/nayruRalphCredits.s) | — | `$00-$01` | — | 0 | **M** — No Seasons production route. |
@@ -448,7 +449,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:cf` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand |
 | `0:d0` | [M] `$22:$06/v$00` makuCutscenes |
 | `0:d1` | [M] `$6b:$0a/v$00` miscellaneous1 |
-| `0:d4` | [M] `$dc:$01/v$00` miscPuzzles<br>[M] `$dc:$02/v$00` miscPuzzles |
+| `0:d4` | [P] `$dc:$01/v$00` miscPuzzles<br>[P] `$dc:$02/v$00` miscPuzzles |
 | `0:d6` | [M] `$37:$80/v$00` miscNpcs<br>[M] `$2d:$81/v$00` miscNpcs<br>[M] `$2d:$83/v$00` miscNpcs<br>[M] `$2d:$85/v$00` miscNpcs<br>[M] `$3e:$04/v$00` miscBoyNpcs<br>[M] `$3e:$11/v$00` miscBoyNpcs<br>[M] `$a5:$08/v$00` din<br>[M] `$4e:$0a/v$00` dinDancingEvent |
 | `0:d7` | [M] `$6b:$1b/v$00` miscellaneous1 |
 | `0:d8` | [M] `$6b:$0a/v$00` miscellaneous1<br>[M] `$8a:$04/v$00` sunkenCityNpcs |
@@ -596,12 +597,12 @@ An opening implementation of the same ID does not cover another room's placement
 | `1:b9` | [M] `$ab:$01/v$00` moblinKeepScenes |
 | `1:ba` | [M] `$cb:$00/v$00` linkedGameGhini |
 | `4:01` | [M] `$6b:$1f/v$00` miscellaneous1 |
-| `4:03` | [M] `$20:$01/v$00` dungeonScript |
-| `4:04` | [M] `$12:$00/v$00` dungeonStuff |
-| `4:05` | [M] `$13:$01/v$00` pushblockTrigger<br>[M] `$1e:$08/v$00` doorController<br>[M] `$1e:$0a/v$00` doorController<br>[M] `$1e:$0b/v$00` doorController |
-| `4:06` | [M] `$c6:$00/v$00` herosCaveSwordChest |
-| `4:07` | [M] `$13:$01/v$00` pushblockTrigger<br>[M] `$12:$04/v$00` dungeonStuff |
-| `4:08` | [M] `$1e:$04/v$00` doorController |
+| `4:03` | [R] `$20:$01/v$00` dungeonScript |
+| `4:04` | [R] `$12:$00/v$00` dungeonStuff |
+| `4:05` | [R] `$13:$01/v$00` pushblockTrigger<br>[R] `$1e:$08/v$00` doorController<br>[R] `$1e:$0a/v$00` doorController<br>[R] `$1e:$0b/v$00` doorController |
+| `4:06` | [R] `$c6:$00/v$00` herosCaveSwordChest |
+| `4:07` | [R] `$13:$01/v$00` pushblockTrigger<br>[R] `$12:$04/v$00` dungeonStuff |
+| `4:08` | [R] `$1e:$04/v$00` doorController |
 | `4:09` | [M] `$6b:$20/v$00` miscellaneous1 |
 | `4:0b` | [M] `$20:$00/v$00` dungeonScript<br>[M] `$7e:$00/v$00` minibossPortal<br>[M] `$1e:$0b/v$00` doorController<br>[M] `$1e:$0a/v$00` doorController |
 | `4:0e` | [M] `$13:$01/v$00` pushblockTrigger<br>[M] `$1e:$0b/v$00` doorController |

@@ -16,7 +16,7 @@ public sealed partial class RoomEntityManager
             if (instruction.Opcode is 1 or 2 || instruction.Opcode==9 && instruction.Flags==0)
             {
                 if (!InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
-                if (_factory.CreateStreamInteraction(instruction,room) is { } interaction) yield return interaction;
+                if (_factory.CreateStreamInteraction(instruction,room,placement) is { } interaction) yield return interaction;
                 continue;
             }
             RoomObjectKind kind=instruction.Opcode switch

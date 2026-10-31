@@ -2,9 +2,9 @@
 
 This project reconstructs *The Legend of Zelda: Oracle of Ages* and
 *Oracle of Seasons* using one shared engine in Godot 4.7.1/.NET. Ages is playable;
-Seasons supports its title/file flow, standard opening through Din's capture and
-Impa returning control to Link, and shared gameplay systems in supported rooms.
-Further Seasons story and dungeon progression is not implemented.
+Seasons supports its title/file flow, standard opening through Din's capture,
+Hero's Cave through the first sword, and shared gameplay systems in supported rooms.
+Other town NPCs and later Seasons story and dungeon progression are not implemented.
 
 The project aims to reproduce the supported clean US game exactly. ROM behavior
 and `oracles-disasm` are the authority for data, timing, coordinates, object
@@ -66,7 +66,7 @@ Godot_v4.7.1-stable_mono_win64_console.exe --path .
 Choosing Seasons preloads its assets while Din dances, then opens its title
 and three-file menu. Name entry, message speed, copy and erase use separate
 Seasons save files. New files start the standard opening; supported existing
-overworld checkpoints can resume through the shared save/Continue flow. Linked
+overworld and Hero's Cave checkpoints can resume through the shared save/Continue flow. Linked
 games and unimplemented Seasons content remain unavailable.
 
 Launch directly into a hexadecimal group and room for development:

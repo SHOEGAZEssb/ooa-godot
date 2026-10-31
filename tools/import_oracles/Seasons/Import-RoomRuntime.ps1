@@ -2,11 +2,21 @@ $seasonDestination = Split-Path $previewDestination -Parent
 $rows = [Collections.Generic.List[string]]::new()
 $rows.Add("# group`troom`tsource")
 $path = Join-Path $Disassembly 'objects/seasons/mainData.s'
-foreach ($room in @(0x97, 0x98, 0xa7, 0xb6)) {
+foreach ($room in @(0x97, 0x98, 0xa7, 0xb6, 0xb5, 0xb4, 0xc4, 0xc3, 0xd3, 0xd4)) {
     $label = 'group0Map' + $room.ToString('x2') + 'ObjectData'
     $nodes = @(Read-AssemblyMacroInvocations $path $label)
-    if ($nodes.Count -eq 0 -or $nodes[-1].Name -ne 'obj_End') { throw "${label}: missing object-stream terminator." }
+    if ($nodes.Count -eq 0) {
+        if (-not $seasonsSymbols.ContainsKey($label) -or $seasonsRomBytes[$seasonsSymbols[$label]] -ne 0xff) { throw "${label}: unresolved empty-stream alias." }
+    } elseif ($nodes[-1].Name -ne 'obj_End') { throw "${label}: missing object-stream terminator." }
     $rows.Add("0`t$($room.ToString('x2'))`tobjects/seasons/mainData.s:$label")
+}
+foreach ($room in 0x02..0x08) {
+    $label = 'group4Map' + $room.ToString('x2') + 'ObjectData'
+    $nodes = @(Read-AssemblyMacroInvocations $path $label)
+    if ($nodes.Count -eq 0) {
+        if (-not $seasonsSymbols.ContainsKey($label) -or $seasonsRomBytes[$seasonsSymbols[$label]] -ne 0xff) { throw "${label}: unresolved empty Hero's Cave stream alias." }
+    } elseif ($nodes[-1].Name -ne 'obj_End') { throw "${label}: missing Hero's Cave object-stream terminator." }
+    $rows.Add("4`t$($room.ToString('x2'))`tobjects/seasons/mainData.s:$label")
 }
 foreach ($placement in @(@(4, 0x26, 0x57), @(4, 0xb1, 0x57), @(5, 0x6f, 0x67))) {
     $group, $room, $position = $placement

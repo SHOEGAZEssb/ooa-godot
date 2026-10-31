@@ -27,6 +27,7 @@ entry point.
 | --- | --- |
 | Project fidelity, evidence, or definition of done | [Project principles](project-principles.md) |
 | Integrating a gameplay object with shared owners | [Shared-system integration](shared-system-integration.md) |
+| Reusing mechanics across games or assessing shared-engine completion | [Cross-game readiness](shared-system-integration.md#cross-game-readiness) |
 | Setup, commands, controls, or contributor workflow | [Development](development.md) |
 | Generated data, assembly parsing, schemas, or import stages | [Data import](data-import.md) |
 | Composition, scene ownership, fixed updates, or input ordering | [Runtime architecture](runtime-architecture.md) |

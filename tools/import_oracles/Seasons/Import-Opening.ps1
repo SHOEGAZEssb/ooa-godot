@@ -92,8 +92,8 @@ foreach ($group in @(0,1,4,5,6,7)) {
     # tilesetAssignments.s aliases group6/group4 and group7/group5.
     $assignment = if ($group -lt 6) { $group } else { $group - 2 }
     $groupTilesets = [IO.File]::ReadAllBytes((Join-Path $Disassembly "rooms/seasons/group${assignment}Tilesets.bin"))
-    # Import native geometry for shared placed spinners and the sliding-block puzzle.
-    $selectedRooms = if ($group -eq 4) { @(0x26, 0xb1) } elseif ($group -eq 5) { @(0x6f, 0x86) } else { 0..255 }
+    # Hero's Cave, shared placed spinners and the sliding-block puzzle.
+    $selectedRooms = if ($group -eq 4) { @((0x02..0x08) + @(0x26, 0xb1)) } elseif ($group -eq 5) { @(0x6f, 0x86) } else { 0..255 }
 foreach ($room in $selectedRooms) {
     $tileset = $groupTilesets[$room] -band 0x7f
     $block = [regex]::Match($tilesetSource, '(?ms)^tileset' + $tileset.ToString('x2') + 'Seasons:\s*(?<body>.*?)(?=^\w+:|\z)')

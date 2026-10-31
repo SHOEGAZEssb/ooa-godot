@@ -141,12 +141,14 @@ internal sealed class GameplaySession : IDisposable
         if (!Active || _transitions is not null || !transitions.UsesOwners(_rooms,_entities))
             throw new ArgumentException("Gameplay requires one transition owner bound to its authoritative room and entities.");
         _transitions = transitions;
+        _entities.RoomWarpRequested += ApplyRequestedWarp;
         transitions.CommonGraphicsReloadRequested += ReloadCommonGraphics;
         Menus.Map.ConfigureGale(_rooms,target => transitions.ApplyWarp(_scene.Player,new Warp(
             _rooms.ActiveGroup,_rooms.CurrentRoom.Id,0,0,0,_rooms.ActiveGroup,target.Room,target.Position,0,WarpDestinationTransition.Fall)),
             () => _scene.Player.ReturnFromGale((int)transitions.WorldToGameplayScreen(_scene.Player.Position).Y));
         _entities.GaleMenuRequested += Menus.Map.OpenGale;
     }
+    private void ApplyRequestedWarp(Warp warp)=>Transitions.ApplyWarp(_scene.Player,warp);
 
     internal void Advance()
     {
@@ -254,6 +256,7 @@ internal sealed class GameplaySession : IDisposable
             _objects.Cancel();
             _scene.Player.GameOverRequested -= Menus.BeginGameOver;
             if (_transitions is not null) _entities.GaleMenuRequested -= Menus.Map.OpenGale;
+            if (_transitions is not null) _entities.RoomWarpRequested -= ApplyRequestedWarp;
             if (_transitions is not null) _transitions.CommonGraphicsReloadRequested -= ReloadCommonGraphics;
             _transitions?.Dispose();
             _inventory.Changed -= SynchronizeHud;

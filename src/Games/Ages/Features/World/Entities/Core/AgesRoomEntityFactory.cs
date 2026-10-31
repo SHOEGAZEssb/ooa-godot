@@ -2783,7 +2783,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 return new DungeonEntranceRoomEntity(
                     new Vector2(record.X, record.Y),
                     Resources.DungeonEntrances.Entry(record.Dungeon),
-                    Resources.DungeonEntrances,
+                    Resources.DungeonEntrances.EntryMinimumY, Resources.DungeonEntrances.EntryRadius,
                     _runtimeState,
                     placementContext.Kind == EnemyPlacementEntryKind.ScreenWarp,
                     dungeon => StaticObjectState.LoadDungeon(_runtimeState, dungeon),
@@ -3015,7 +3015,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         LibraryPodiumSpawn podium => podium.Owner.CreatePodium(podium.SubId),
         FountainFairyPuffSpawn puff => new FixedEffectRoomEntityAdapter<StationaryDebrisEffect>(puff.Effect),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
-        GelSpawn gel => EnemyFactory.CreateGel(gel, room),
         BariChildSpawn bari => EnemyFactory.CreateBariChild(bari, room),
         CuccoAttackerSpawn attacker => CreateCuccoAttacker(attacker),
         BlueEnergyBeadSpawn bead => new BlueEnergyBeadRoomEntity(bead.Index, bead.Center, bead.Duration,
@@ -3061,8 +3060,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             new TokaySeedlingDecorationRoomEntity(seedling.Record),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
-        GroundTreasureGrantSpawn treasure =>
-            CreateGroundTreasure(treasure.Request.Resolve(_treasures)),
         MapleDroppedItemSpawn item => CreateMapleDroppedItem(item, room),
         LightableTorchSpawn torch => CreateLightableTorch(torch, room),
         RespawnableBushSpawn bush => new RespawnableBushRoomEntity(
@@ -5071,10 +5068,6 @@ internal sealed record RespawnableBushSpawn(
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record GroundTreasureSpawn(GroundTreasureDatabaseRecord Record)
-    : RoomEntitySpawn;
-
-internal sealed record GroundTreasureGrantSpawn(
-    GroundTreasureGrantRequest Request)
     : RoomEntitySpawn;
 
 internal sealed record MapleDroppedItemSpawn(

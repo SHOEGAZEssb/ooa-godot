@@ -16,7 +16,7 @@ namespace Oracles;
 /// source-ordered dispatch because their switch state and reward are common
 /// dungeon mechanics rather than room-authored exceptions.
 /// </summary>
-internal sealed class DungeonMechanicDatabase
+internal sealed class DungeonMechanicDatabase : DungeonPuzzleDatabase
 {
 
     private readonly Lookup<int, DungeonMechanicDatabaseRecord> _recordsByRoom =
@@ -27,27 +27,8 @@ internal sealed class DungeonMechanicDatabase
     private readonly Dictionary<int, string> _texts = new();
 
     internal int RecordCount { get; }
-    internal int PushableBlock => Constant("pushable-block");
-    internal int PushDelay => Constant("push-delay");
-    internal int SolveWait => Constant("solve-wait");
-    internal int DoorFrameWait => Constant("door-frame-wait");
-    internal int OpenTile => Constant("open-tile");
-    internal int SolveSound => Constant("solve-sound");
     internal int AncientTombGraveTile => Constant("ancient-tomb-grave-tile");
     internal int AncientTombSolveWait => Constant("ancient-tomb-solve-wait");
-    internal int EnemyStairTile(int sourceTile) => Constant($"enemy-stair-tile-{sourceTile - 0x40}");
-    internal int DoorSound => Constant("door-sound");
-    internal int DoorTorchWait => Constant("door-torch-wait");
-    internal int DoorEntryScratchMask => Constant("door-entry-scratch-mask");
-    internal int DoorAngle(int subId) => subId switch
-    {
-        >= 0x04 and <= 0x0b => 0x10+(subId&3)*2,
-        >= 0x10 and <= 0x17 => Constant($"door-angle-{subId:x2}"),
-        _ => throw new ArgumentOutOfRangeException(nameof(subId),$"Unsupported INTERAC$1e shutter subid${subId:x2}.")
-    };
-    internal int DoorRadiusY(int subId) => subId >= 0x10 ? Constant($"door-y-{subId:x2}") : (subId&1) == 0 ? 10 : 8;
-    internal int DoorRadiusX(int subId) => subId >= 0x10 ? Constant($"door-x-{subId:x2}") : (subId&1) == 0 ? 8 : 10;
-    internal int DoorTorchCount(int subId) => Constant($"door-speed-{subId:x2}");
     internal int BridgeStepWait => Constant("bridge-step-wait");
     internal int BridgeSpawnerWait => Constant("bridge-spawner-wait");
     internal int BridgeSpawnerHalfTile => Constant("bridge-spawner-half-tile");
@@ -57,12 +38,6 @@ internal sealed class DungeonMechanicDatabase
     internal int RidgeBridgeAngle(int subId) => Constant($"ridge-bridge-angle-{subId:x2}");
     internal int BridgeFirstTile => Constant("bridge-first-tile");
     internal int BridgeTileCount => Constant("bridge-tile-count");
-    internal int ButtonTile => Constant("button-tile");
-    internal int PressedButtonTile => Constant("pressed-button-tile");
-    internal int ButtonRadiusY => Constant("button-radius-y");
-    internal int ButtonRadiusX => Constant("button-radius-x");
-    internal int ButtonObjectReleaseDelay => Constant("button-object-release-delay");
-    internal int ButtonSound => Constant("button-sound");
     internal int SwitchOffTile => Constant("switch-off-tile");
     internal int SwitchOnTile => Constant("switch-on-tile");
     internal int OverworldSwitchOnTile => Constant("overworld-switch-on");
@@ -119,7 +94,7 @@ internal sealed class DungeonMechanicDatabase
     internal int MoonlitBreakSound => Constant("moonlit-break-sound");
     internal int MoonlitBreakSoundDelay => Constant("moonlit-break-sound-delay");
 
-    public DungeonMechanicDatabase()
+    public DungeonMechanicDatabase() : base(AgesGameContent.AssetRoot)
     {
         int count = 0;
         GeneratedTable mechanics = GeneratedTable.Load(
@@ -249,7 +224,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(AgesInteractionId.DungeonEvents, 0x09);
-        if (RecordCount != 244 || _constants.Count != 127 || _texts.Count != 2 ||
+        if (RecordCount != 244 || _constants.Count != 72 || _texts.Count != 2 ||
             Constant("ancient-tomb-grave-tile") != 0x02 || Constant("ancient-tomb-solve-wait") != 45 ||
             GetRoomRecords(1, 0x8c) is not [{ Id: AgesInteractionId.Miscellaneous2, SubId: 0x0e, Order: 0, PackedPosition: 0x34 }] ||
             TilePattern(AgesInteractionId.Miscellaneous2, 0x0e).Count != 4 ||
@@ -436,33 +411,14 @@ internal sealed class DungeonMechanicDatabase
         : throw new KeyNotFoundException(
             $"Dungeon mechanic text TX_{textId:x4} was not imported.");
 
-    internal int ClosedTile(int subId) => ((DoorAngle(subId)>>1)&3) switch
-    {
-        0 => Constant("closed-up"),
-        1 => Constant("closed-right"),
-        2 => Constant("closed-down"),
-        3 => Constant("closed-left"),
-        _ => throw new ArgumentOutOfRangeException(
-            nameof(subId), $"Unsupported shutter subid ${subId:x2}.")
-    };
 
     private int Constant(string key) => _constants.TryGetValue(key, out int value)
         ? value
-        : throw new KeyNotFoundException(
-            $"Dungeon mechanic constant '{key}' was not imported.");
+        : PuzzleConstant(key);
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
 }
-
-internal enum TriggerPredicate
-{
-    None,
-    BitSet,
-    Exact
-}
-
-internal readonly record struct DungeonMechanicDatabaseRecord(int Group, int Room, int Order, int Id, int SubId, int PackedPosition, int Parameter, TriggerPredicate Predicate, bool CountSourceComplete);
 
 internal readonly record struct DungeonTilePatternRecord(
     int Id,

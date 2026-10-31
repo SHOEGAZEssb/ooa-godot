@@ -282,8 +282,6 @@ public partial class GameRoot
         _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();
         _entities.TimePortalEntered += portal =>
             _transitions.ApplyTimePortalWarp(_player, portal);
-        _entities.RoomWarpRequested += warp =>
-            _transitions.ApplyWarp(_player, warp);
         _entities.RoomInitializing += InitializeRoomEntryEffects;
         _entities.RoomInitialized += ApplyRoomMusic;
         _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;

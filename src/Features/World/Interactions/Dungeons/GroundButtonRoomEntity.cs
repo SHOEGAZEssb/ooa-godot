@@ -14,7 +14,7 @@ internal sealed partial class GroundButtonRoomEntity : DungeonMechanicRoomEntity
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
-    private readonly DungeonMechanicDatabase _data;
+    private readonly DungeonPuzzleDatabase _data;
     private readonly Action<int, bool> _setTrigger;
     private readonly Action<byte,byte> _setTile;
     private readonly Action<int> _playSound;
@@ -35,13 +35,13 @@ internal sealed partial class GroundButtonRoomEntity : DungeonMechanicRoomEntity
     internal GroundButtonRoomEntity(
         DungeonMechanicDatabaseRecord record,
         OracleRoomData room,
-        DungeonMechanicDatabase data,
+        DungeonPuzzleDatabase data,
         Action<int, bool> setTrigger,
         Action<byte,byte> setTile,
         Action<int> playSound)
         : base(record, $"GroundButton_{record.SubId:x2}_{record.Order}")
     {
-        if (record.Id != InteractionId.SnowDebris)
+        if (record.Id != PartId.Button)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _room = room;

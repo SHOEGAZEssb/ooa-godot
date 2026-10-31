@@ -26,7 +26,7 @@ internal interface IRoomEntityFactory
     IRoomEntity CreateStaticObject(StaticObjectRecord source, OracleRoomData room) =>
         throw new System.NotSupportedException($"{source.Source}: {AssetRoot} has no content binding for static type${source.Type:x2}, ID${source.Id:x2}:${source.SubId:x2}.");
     IEnumerable<IRoomEntity> CreateRoomLoadEntities(int group, OracleRoomData room, EnemyPlacementContext placement) => [];
-    IRoomEntity? CreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room) =>
+    IRoomEntity? CreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room, EnemyPlacementContext placement) =>
         throw new System.NotSupportedException($"{source.Source}: native interaction ${source.Id:x2}:${source.SubId:x2} has no construction binding.");
     IRoomEntity CreatePlacedPart(RoomObjectRecord source, OracleRoomData room) =>
         throw new System.NotSupportedException($"{source.Source}: placed PART ${source.Id:x2}:${source.SubId:x2} has no construction binding.");

@@ -7,7 +7,7 @@ internal sealed partial class RiverZoraCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
     private RiverZoraBehaviorProfile? _behaviorSourceCache;
-    private RiverZoraBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).RiverZora;
+    private RiverZoraBehaviorProfile _behavior => _behaviorSourceCache ??= RiverZoraBehaviorProfile.For(AssetRoot);
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     internal ImportedEnemyDefinition Record { get; private set; }

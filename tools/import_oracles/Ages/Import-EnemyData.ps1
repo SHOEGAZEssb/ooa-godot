@@ -353,6 +353,7 @@ $commonEnemySprites = @{
     0x4d = @($gfxNames[0x8c])
 }
 $commonEnemySpecs = @(
+    @(0x34, 0x00), @(0x34, 0x01), @(0x43, 0x00),
     @(0x0d, 0x00), @(0x0d, 0x01),
     @(0x54, 0x00),
     @(0x7c, 0x00),
@@ -446,7 +447,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations`t$($definition.RawDamage.ToString('x2'))")
 }
-if ($commonEnemyRows.Count -ne 103 -or
+if ($commonEnemyRows.Count -ne 106 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^20\t00\tspr_moblin_ghini\t0\t2\t1\t6\t6\t2\t2\t'
     }) -or
@@ -3381,56 +3382,6 @@ if ($crowCodeSource -notmatch '(?ms)^crow_subid1_state8:.*?cp \$02.*?ld a,60.*?l
 Add-EnemyBehaviorProfile 'crow' 'offscreen-state' @(2,60,240,60,24,0x14,0x05,-6,0x80,0x7f) `
     'object_code/common/enemies/crows.s:crow_subid1'
 
-$gelCodeSource = Read-ImportText (
-    Join-Path $Disassembly 'object_code\common\enemies\gel.s')
-if ($gelCodeSource -notmatch
-        '(?ms)^gel_state_uninitialized:.*?ld a,\$10' -or
-    $gelCodeSource -notmatch
-        '(?ms)^gel_state8:.*?ld \(hl\),\$30.*?' +
-        'ld \(hl\),\$08.*?ld \(hl\),SPEED_40' -or
-    $gelCodeSource -notmatch
-        '(?ms)^gel_stateB:.*?ld c,\$28' -or
-    $gelCodeSource -notmatch
-        '(?ms)^gel_stateC:.*?ld \(hl\),120' -or
-    $gelCodeSource -notmatch
-        '(?ms)^gel_beginHop:.*?ld bc,-\$200.*?' +
-        'ld \(hl\),SPEED_100') {
-    throw 'Gel state-entry behavior profile changed.'
-}
-Add-EnemyBehaviorProfile 'gel' 'state-profile' `
-    @(0x10, 0x30, 0x08, 0x0a, 0x28, -0x200, 0x28, 120) `
-    'object_code/common/enemies/gel.s:state-entry-operands'
-
-$zolCodeSource = Read-ImportText (
-    Join-Path $Disassembly 'object_code\common\enemies\zol.s')
-if ($zolCodeSource -notmatch
-        '(?ms)^zol_state_uninitialized:.*?ld a,SPEED_c0.*?' +
-        'ld \(hl\),\$18' -or
-    $zolCodeSource -notmatch
-        '(?ms)^zol_subid00_state8:.*?ld c,\$28.*?' +
-        'ld bc,-\$200.*?ld \(hl\),\$04' -or
-    $zolCodeSource -notmatch
-        '(?ms)^zol_subid00_state9:.*?ld c,\$28.*?ld \(hl\),\$30' -or
-    $zolCodeSource -notmatch
-        '(?ms)^zol_subid00_stateB:.*?ld c,\$28.*?ld \(hl\),\$30' -or
-    $zolCodeSource -notmatch
-        '(?ms)^zol_subid00_stateC:.*?ld \(hl\),40' -or
-    $zolCodeSource -notmatch
-        '(?ms)^zol_subid01_state8:.*?ld \(hl\),\$10.*?' +
-        'ld \(hl\),SPEED_80.*?ld \(hl\),\$20' -or
-    $zolCodeSource -notmatch
-        '(?ms)^zol_subid01_stateA:.*?ld \(hl\),<\(-\$200\).*?' +
-        'ld \(hl\),SPEED_100' -or
-    $zolCodeSource -notmatch
-        '(?ms)^zol_subid01_stateB:.*?ld \(hl\),\$18' -or
-    $zolCodeSource -notmatch
-        '(?ms)^zol_subid01_stateC:.*?ld \(hl\),18') {
-    throw 'Zol state-entry behavior profile changed.'
-}
-Add-EnemyBehaviorProfile 'zol' 'state-profile' `
-    @(0x28, -0x200, 0x28, 0x18, 4, 0x30, 0x1e, 40,
-      0x10, 0x14, 0x20, 0x28, 0x18, 18, (0x38971 -shr 14)) `
-    'object_code/common/enemies/zol.s:state-entry-operands'
 
 # Red initialization calls enemySetAnimation, which returns A=hRomBank.
 # Verify the clean-US call sequence before exporting its containing bank as speed.
@@ -4479,9 +4430,6 @@ if ($riverZoraCode -notmatch 'ld \(hl\),48' -or
     $buzzblobCode -notmatch 'and \$07\s+add <TX_2f1e') {
     throw 'River Zora $08 or Buzz Blob $18 state operands changed.'
 }
-Add-EnemyBehaviorProfile 'river-zora' 'state-profile' `
-    @(152, 127, 48, 31, 24, 0xf9, 5) `
-    'object_code/common/enemies/riverZora.s:enemyCode08+code/bank0.s:checkTileAtPositionIsWater'
 Add-EnemyBehaviorProfile 'buzzblob' 'state-profile' `
     @(10, 0x1c, 0x30, 0x30, 60, 0x2f1e, 7) `
     'object_code/common/enemies/buzzblob.s:enemyCode18'
@@ -4814,8 +4762,8 @@ $beamBits = ((@(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages
 if ($beamBits -notmatch '^[01]{32}$') { throw 'PART$1b active mask malformed.' }
 Add-EnemyBehaviorProfile 'lynel-beam' 'active-collisions' @($beamBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/partActiveCollisions.s:PART$1b'
 Add-EnemyBehaviorProfile 'lynel-beam' 'effects' @(0..31 | ForEach-Object {$enemyCollisionTableValues[0x6f*32+$_]}) 'data/ages/objectCollisionTable.s:mode$6f'
-if ($enemyBehaviorRows.Count -ne 3219) {
-    throw "Expected 3218 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 3189) {
+    throw "Expected 3188 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

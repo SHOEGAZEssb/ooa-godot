@@ -108,6 +108,12 @@ message and hazard subscriptions detach when the session retires. Shop and
 script chest gates publish the opened tile and shared position without granting
 the ordinary chest reward or writing its room flag.
 
+Selected-game factories bind placed push-block triggers, buttons, shutters and
+enemy-clear stairs to the common puzzle bodies and their selected pack's parameters.
+Scripted chest owners consume the shared opened-chest signal and retain their
+native grant and completion timing. Their queued room warps dispatch through the
+gameplay session's transition owner, whose subscription retires with the session.
+
 Named-key contacts share the counter, hint, retained-key and sprite mechanism.
 Their entrance consequences belong to the selected game's event binding. An
 unbound entrance rejects activation before persistent flags, script signals,

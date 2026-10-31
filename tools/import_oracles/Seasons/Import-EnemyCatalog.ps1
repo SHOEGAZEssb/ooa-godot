@@ -41,9 +41,9 @@ try {
         if (($mode -band 0x7f) -ge 0x73) { throw "Seasons enemy `$$($id.ToString('x2')) collision mode is outside objectCollisionTable." }
         $definition = $definitions[$id]
         $source = "$($definition.Source);data/enemyCodeTable.s:enemyCodeTable+`$$((2 * $id).ToString('x4'))->${target};data/seasons/enemyData.s:enemyData+`$$((4 * $id).ToString('x4'))"
-        $subids = switch ($id) { 0x0c { @(0,1) }; 0x20 { @(0,1) }; 0x22 { @(0,1) }; 0x09 { @(0,1,2) }; 0x10 { @(0,1,2,3) }; 0x17 { @(0,1,2) }; 0x32 { @(0,1) }; 0x51 { @(0,2,3) }; 0x2d { @(0,2,3) }; default { @(0) } }
+        $subids = switch ($id) { 0x0c { @(0,1) }; 0x20 { @(0,1) }; 0x22 { @(0,1) }; 0x09 { @(0,1,2) }; 0x10 { @(0,1,2,3) }; 0x17 { @(0,1,2) }; 0x34 { @(0,1) }; 0x32 { @(0,1) }; 0x51 { @(0,2,3) }; 0x2d { @(0,2,3) }; default { @(0) } }
         foreach ($subid in $subids) {
-            $handler = switch ($id) { 0x0c { 'arrow-moblin' }; 0x20 { 'arrow-moblin' }; 0x22 { 'arrow-moblin' }; 0x09 { 'octorok' }; 0x10 { 'rope' }; 0x16 { 'beamos' }; 0x17 { 'ghini' }; 0x32 { 'keese' }; 0x51 { if ($subid -in @(2,3)) { 'beetle' } else { '-' } }; 0x2d { 'podoboo-tower' }; default { '-' } }
+            $handler = switch ($id) { 0x08 { 'river-zora' }; 0x0c { 'arrow-moblin' }; 0x20 { 'arrow-moblin' }; 0x22 { 'arrow-moblin' }; 0x09 { 'octorok' }; 0x10 { 'rope' }; 0x16 { 'beamos' }; 0x17 { 'ghini' }; 0x34 { 'zol' }; 0x43 { 'gel' }; 0x32 { 'keese' }; 0x51 { if ($subid -in @(2,3)) { 'beetle' } else { '-' } }; 0x2d { 'podoboo-tower' }; default { '-' } }
             $classification = if ($handler -eq '-') { 'unimplemented' } else { 'ordered-implemented' }
             $rows.Add("$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($mode.ToString('x2'))`t$classification`t$handler`t$($definition.Name)`t$source")
         }

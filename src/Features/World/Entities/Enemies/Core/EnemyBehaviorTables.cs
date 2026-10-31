@@ -91,10 +91,10 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorValue> SpinyRockEffects { get; }
     internal IReadOnlyList<EnemyBehaviorValue> SpinyCoverActiveCollisions { get; }
     internal IReadOnlyList<EnemyBehaviorValue> GreenBladeTrap { get; }
-    internal GelBehaviorProfile Gel { get; }
-    internal ZolBehaviorProfile Zol { get; }
+    internal GelBehaviorProfile Gel => GelZolDatabase.For(_assetRoot).Gel;
+    internal ZolBehaviorProfile Zol => GelZolDatabase.For(_assetRoot).Zol;
     internal LeeverBehaviorProfile Leever { get; }
-    internal RiverZoraBehaviorProfile RiverZora { get; }
+    internal RiverZoraBehaviorProfile RiverZora => RiverZoraBehaviorProfile.For(_assetRoot);
     internal IReadOnlyList<EnemyBehaviorValue> GopongaFlower { get; }
     internal IReadOnlyList<EnemyBehaviorValue> GopongaFlowerCollisionEffects { get; }
     internal BuzzBlobBehaviorProfile BuzzBlob { get; }
@@ -298,44 +298,11 @@ internal sealed class EnemyBehaviorTables
         SpinyRockEffects = TakeValues(groups, "spiny-beetle", "cover-effects-52", 32);
         SpinyCoverActiveCollisions = TakeValues(groups, "spiny-beetle", "cover-active-collisions", 32);
         GreenBladeTrap = TakeValues(groups, "blade-trap", "green-state-profile", 4);
-        values = TakeValues(groups, "gel", "state-profile", 8);
-        Gel = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values[3].Value,
-            values[4].Value,
-            values[5].Value,
-            values[6].Value,
-            values[7].Value,
-            values);
 
-        values = TakeValues(groups, "zol", "state-profile", 15);
-        Zol = new(
-            values[0].Value,
-            values[1].Value,
-            values[2].Value,
-            values[3].Value,
-            values[4].Value,
-            values[5].Value,
-            values[6].Value,
-            values[7].Value,
-            values[8].Value,
-            values[9].Value,
-            values[10].Value,
-            values[11].Value,
-            values[12].Value,
-            values[13].Value,
-            values[14].Value,
-            values);
-
-        values = TakeValues(groups, "river-zora", "state-profile", 7);
         GopongaFlower = TakeValues(groups, "goponga-flower", "state-profile", 5);
         ArrowDarknutDirectionMask = TakeValues(groups, "arrow-darknut", "direction-mask", 1);
         ArrowDarknutCollisionEffects = TakeValues(groups, "arrow-darknut", "collision-effects", 32);
         GopongaFlowerCollisionEffects = TakeValues(groups, "goponga-flower", "collision-effects", 32);
-        RiverZora = new(values[0].Value, values[1].Value, values[2].Value,
-            values[3].Value, values[4].Value, values[5].Value, values[6].Value);
         values = TakeValues(groups, "buzzblob", "state-profile", 7);
         BuzzBlob = new(values[0].Value, values[1].Value, values[2].Value,
             values[3].Value, values[4].Value, values[5].Value, values[6].Value);
@@ -712,10 +679,10 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "vire", "behaviors", 16), TakeValues(groups, "vire", "spawn-positions", 24),
             TakeValues(groups, "vire", "bat-z", 8), TakeValues(groups, "vire", "bat-offsets", 2),
             TakeValues(groups, "vire", "collision-effects", 32), TakeValues(groups, "vire", "active-collisions", 32));
-        if (table.Rows.Count != 3218 || groups.Count != 0)
+        if (table.Rows.Count != 3188 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 3218 rows and no " +
+                $"Enemy behavior table contract expected 3188 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

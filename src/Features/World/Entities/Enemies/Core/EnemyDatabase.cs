@@ -70,7 +70,7 @@ public sealed class EnemyDatabase
         if (_cukemanTexts.Count != 8)
             throw new InvalidOperationException("Cukeman requires TX_2f1e through TX_2f25.");
         GeneratedTable table;
-        if (_importedDefinitions.Count != 102 ||
+        if (_importedDefinitions.Count != 105 ||
             ImportedEnemy(EnemyId.LikeLike) is not
                 { Health: 5, DamageQuarters: 2, RadiusY: 6, RadiusX: 6,
                     TileBase: 12, Palette: 3, Animations.Length: 2 } ||

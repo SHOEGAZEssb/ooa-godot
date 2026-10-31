@@ -14,6 +14,8 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
     private DimitriVisualDatabase? _dimitriVisual;
     private CompanionVisualDatabase? _mooshVisual;
     private RickyDatabase? _ricky;
+    private SeasonsHerosCaveDatabase? _herosCave;
+    private SeasonsHerosCaveDatabase HerosCave=>_herosCave??=new();
     public IRoomEntity? CreateStandaloneEnemy(int id, int subId, OracleRoomData room, Vector2 position,
         string source, out string error)
     {
@@ -182,9 +184,40 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         GD.Print($"objects/seasons/mainData.s: group{group:x1}Map{room.Id:x2}ObjectData: layout navigation only; NPCs, enemies and events are unsupported.");
     }
 
-    public IRoomEntity CreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room) =>
-        _common.TryCreateStreamInteraction(source,room) ??
-        new SeasonsOpeningActor(session,source.Id,source.SubId,new(source.X,source.Y),source.Var03);
+    public IRoomEntity CreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room, EnemyPlacementContext placement) =>
+        _common.TryCreateStreamInteraction(source,room,placement) ??
+        (source switch
+        {
+            {Id:0xc6,SubId:0}=>new SeasonsHerosCaveSwordRoomEntity(session,HerosCave,
+                HerosCave.CreateSword(new(source.X,source.Y),session.Data.World.SpritePalettes)),
+            {Id:0xdc,SubId:1 or 2}=>new SeasonsHerosCaveLinkedEntranceRoomEntity(session.Save,source),
+            {Id:InteractionId.DungeonStuff,SubId:0} when session.Rooms.CurrentDungeonIndex==0=>
+                new DungeonEntranceRoomEntity(new(source.X,source.Y),new(0,0x0200,HerosCave.Text(0x0200),0),
+                    HerosCave.Constant("entry-min-y"),HerosCave.Constant("entry-radius"),session.Memory,
+                    placement.Kind==EnemyPlacementEntryKind.ScreenWarp,
+                    dungeon=>StaticObjectState.LoadDungeon(session.Memory,dungeon),
+                    (id,message)=>{session.ShowText(id,message);session.Checkpoints.RecordCurrentPoint();}),
+            {Id:InteractionId.DungeonScript,SubId:1} when session.Rooms.CurrentDungeonIndex==0=>
+                new DungeonTriggerChestScriptRoomEntity(new(source.X,source.Y),session.Memory,1,HerosCave.Constant("chest-wait"),
+                    ()=>owner.ActiveTriggers,()=>session.Save.HasRoomFlag(room.Group,room.Id,OracleSaveData.RoomFlagItem),
+                    owner.IsScriptTextActive,owner.OnSoundRequested,()=>
+                    {if(session.Rooms.TrySetTile((byte)room.GetPackedPosition(new(source.X,source.Y)),ChestDatabase.ClosedTile))owner.OnRoomTileChanged();}),
+            _=>new SeasonsOpeningActor(session,source.Id,source.SubId,new(source.X,source.Y),source.Var03)
+        });
+
+    public IRoomEntity CreatePlacedPart(RoomObjectRecord source,OracleRoomData room)=>_common.TryCreatePlacedPart(source,room)??
+        throw new NotSupportedException($"{source.Source}: Seasons PART${source.Id:x2}:${source.SubId:x2} has no native construction binding.");
+
+    public void ValidateDebugNativeInteractions(OracleRuntimeState memory)
+    {
+        // shortcut: the first-sword sequence has no event snapshot; add one before admitting active captures.
+        for(int slot=2;slot<16;slot++)
+        {
+            int address=((0xd0+slot)<<8)|0x40;
+            if(memory.ReadWramByte(address)!=0 && memory.ReadWramByte(address+1)==0xc6 && memory.ReadWramByte(address+4)>=2)
+                throw new NotSupportedException($"herosCaveSwordChest.s: INTERAC$c6 slot${slot:x2} sequence has no transient debug reconstruction.");
+        }
+    }
 
     public void UpdateSeedTreeRefillState(int group, int room)
     {

@@ -25,8 +25,12 @@ public sealed partial class ValidationRoot
         if (seasons)
         {
             var native = new EnemyHandlerRegistry(rooms.AssetRoot).Handlers.ToArray();
-            FailIf(native.Length != 143 || native.Count(entry => entry.Classification == EnemyHandlerClassification.Unimplemented) != 119 ||
-                native.Where(entry => entry.Id is not (0x09 or 0x0c or 0x10 or 0x17 or 0x20 or 0x22 or 0x2d or 0x32 or 0x51)).Any(entry => entry.SubId != 0 || entry.SupportsCombatSource) ||
+            FailIf(native.Length != 144 || native.Count(entry => entry.Classification == EnemyHandlerClassification.Unimplemented) != 116 ||
+                native.Where(entry => entry.Id is not (0x08 or 0x09 or 0x0c or 0x10 or 0x17 or 0x20 or 0x22 or 0x2d or 0x32 or 0x34 or 0x43 or 0x51)).Any(entry => entry.SubId != 0 || entry.SupportsCombatSource) ||
+                native.Single(entry => entry.Id == 0x08) is not {Handler:EnemyHandlerKind.RiverZora,CollisionMode:0x0f,SupportsStandaloneConstruction:true} ||
+                native.Single(entry => entry.Id == 0x43) is not {Handler:EnemyHandlerKind.Gel,CollisionMode:0xb1,SupportsStandaloneConstruction:true} ||
+                native.Where(entry => entry.Id == 0x34).Any(entry=>entry.SubId is <0 or >1 || entry.Handler!=EnemyHandlerKind.Zol ||
+                    entry.CollisionMode!=0x2a || !entry.SupportsStandaloneConstruction) ||
                 native.Where(entry => entry.Id is 0x0c or 0x20 or 0x22).Any(entry => entry.SubId is < 0 or > 1 ||
                     entry.Handler != EnemyHandlerKind.ArrowMoblin || !entry.SupportsStandaloneConstruction) ||
                 native.Where(entry => entry.Id == 0x09).Any(entry => entry.SubId is < 0 or > 2 ||

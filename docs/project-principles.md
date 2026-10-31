@@ -3,9 +3,9 @@
 ## Target
 
 Reproduce each implemented Oracle game as executed by its supported clean US
-ROM. Ages is currently playable; Seasons supports its standard opening through
-the return of control after Din's capture, followed by overworld and Subrosia layout navigation.
-Later Seasons NPCs, events, warps and progression remain outside the implemented scope.
+ROM. Ages is currently playable; Seasons supports its standard opening and
+Hero's Cave through the first sword, with overworld and Subrosia layout navigation.
+Other town NPCs and later Seasons events, warps and progression remain outside the implemented scope.
 A cleaner abstraction is useful only when it preserves the
 original data, order, timing, arithmetic, and observable behavior. Visual
 similarity in one room is not enough.
@@ -94,3 +94,10 @@ For a behavioral change:
 
 A feature is complete when its data, runtime effects, timing, transitions,
 persistence, and re-entry agree with the original for the supported paths.
+
+Shared-engine completion also requires the supported paths to construct and run
+through selected-game bindings, generated data and shared authoritative owners.
+Apply the [cross-game readiness checks](shared-system-integration.md#cross-game-readiness)
+before making that claim. Separate missing game content from engine dependency
+defects, and state which paths were actually exercised. Moving classes into a
+common directory or passing one game's suite does not close that work.

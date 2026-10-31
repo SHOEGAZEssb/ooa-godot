@@ -7,6 +7,19 @@ foreach ($pack in @(
     $connection = Start-AssemblySourceHost "$($pack.Defines);REGION_US;BUILD_VANILLA;ENABLE_US_BUGFIXES"
     try {
         $enemyData = Read-MenuRomBytes $pack 'enemyData' 512
+        $zoraPath=Join-Path $Disassembly 'object_code/common/enemies/riverZora.s'
+        $zoraCode=(@((Invoke-AssemblySourceHost $connection 'NODES' $zoraPath | ConvertFrom-Json) | Where-Object {
+            $_.IsActive -and $_.Kind -eq 'Instruction'
+        } | ForEach-Object Code) -join "`n")
+        foreach($guard in @('cp \(SCREEN_WIDTH<<4\)-8','res 7,a','ld \(hl\),48','and \$1f\s+add \$18')) {
+            if($zoraCode -notmatch $guard){throw "$($pack.Name): native River Zora behavior changed: $guard."}
+        }
+        $water=Read-MenuRomBytes $pack 'checkTileAtPositionIsWater' 8
+        $expectedWater=if($pack.Name -eq 'ages'){'214,249,254,5,201'}else{'214,250,254,4,201'}
+        if(($water[3..7] -join ',') -ne $expectedWater){throw "$($pack.Name): River Zora water tile range changed."}
+        Write-GeneratedTable((Join-Path $pack.Root 'metadata/river_zora_behavior.tsv'),@(
+            "# spawn-x-limit`tspawn-y-mask`tsurfacing-frames`thidden-mask`thidden-base`twater-base`twater-count`tsource",
+            "152`t127`t48`t31`t24`t$($water[4])`t$($water[6])`tobject_code/common/enemies/riverZora.s;code/bank0.s:checkTileAtPositionIsWater"))
         $selection = Read-MenuRomBytes $pack 'itemDrop_spawnEnemy@enemiesToSpawn' 8
         $path = Join-Path $Disassembly 'object_code/common/parts/itemDrop.s'
         $code = (@((Invoke-AssemblySourceHost $connection 'NODES' $path | ConvertFrom-Json) | Where-Object {

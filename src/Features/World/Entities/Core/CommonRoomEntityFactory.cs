@@ -21,6 +21,8 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
     private RickyDatabase? _ricky;
     private LedgeJumpDatabase? _ledgeJumps;
     private DungeonSpinnerVisualDatabase? _spinner;
+    private DungeonPuzzleDatabase? _puzzles;
+    private DungeonPuzzleDatabase Puzzles => _puzzles ??= new(AssetRoot);
 
     internal DungeonSpinnerRoomEntity CreateSpinner(DungeonObjectRecord record) =>
         new(record, owner.RuntimeState, (_spinner ??= new(AssetRoot)).Visual, owner.OnSoundRequested, owner.BeginScreenShake);
@@ -28,7 +30,7 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
     internal DungeonSpinnerRoomEntity CreateSpinner(DungeonSpinnerPlacement placement) =>
         new(placement, owner.RuntimeState, (_spinner ??= new(AssetRoot)).Visual, owner.OnSoundRequested, owner.BeginScreenShake);
 
-    internal IRoomEntity? TryCreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room) =>
+    internal IRoomEntity? TryCreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room, EnemyPlacementContext placement) =>
         source switch
         {
             { Id:0x7d, SubId:0 or 1 } => CreateSpinner(new DungeonObjectRecord(room.Group, room.Id, 0, DungeonObjectKind.Spinner, source.Id, source.SubId,
@@ -36,8 +38,38 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
             { Id:0x9f, SubId:0 } => CreateExclamation(new(new(source.X,source.Y),Duration:0,PlaySound:false),room),
             { Id:0x05, SubId:0 } => CreatePuff(new(new(source.X,source.Y),SoundId.SndPoof)),
             { Id:0x08, SubId:0 } => CreateKillPuff(new(new(source.X,source.Y))),
+            { Id:InteractionId.PushBlockTrigger, SubId:1 } => new PushBlockTriggerRoomEntity(
+                StreamMechanic(source,room,room.GetPackedPosition(new(source.X,source.Y))),room,Puzzles,
+                ()=>owner.RoomEnemyCount,owner.AnimationTick,owner.ClearRoomEnemyCount,owner.IsOutgoingEntity),
+            { Id:InteractionId.DoorController, SubId:>=4 and <=0x0b } => new DungeonDoorRoomEntity(
+                StreamMechanic(source,room,source.Y),room,Puzzles,()=>owner.RoomEnemyCount,owner.TriggerIsActive,
+                owner.ToScreen,owner.AnimationTick,owner.OnSoundRequested,placement,true,
+                (position,tile)=>SetPuzzleTile(room,position,tile),owner.UpdateBossShutterSignal,
+                owner.IsScriptTextActive,owner.IsOutgoingEntity,()=>owner.DoorPaletteFadeActive),
+            { Id:InteractionId.DungeonStuff, SubId:4 } => new EnemyClearStairsRoomEntity(
+                StreamMechanic(source,room,0),room,Puzzles,owner.SaveData ?? throw new InvalidOperationException("Dungeon stairs require their save owner."),()=>owner.RoomEnemyCount,
+                owner.AnimationTick,owner.OnSoundRequested,owner.TryCreatePuzzlePuff),
             _ => null
         };
+
+    private static DungeonMechanicDatabaseRecord StreamMechanic(NativeObjectInstruction source,OracleRoomData room,int position) =>
+        new(room.Group,room.Id,source.Address,source.Id,source.SubId,position,source.X,TriggerPredicate.None,true);
+
+    private RoomSession RequireActiveRoom(OracleRoomData room) => rooms is not null && ReferenceEquals(rooms.CurrentRoom,room)
+        ?rooms:throw new InvalidOperationException($"{AssetRoot}: native tile mutation requires its active room session.");
+
+    private bool SetPuzzleTile(OracleRoomData room,byte position,byte tile)
+    {
+        bool changed=RequireActiveRoom(room).TrySetTile(position,tile);
+        if(changed)owner.OnRoomTileChanged();
+        return changed;
+    }
+
+    internal IRoomEntity? TryCreatePlacedPart(RoomObjectRecord source,OracleRoomData room) => source.Id==PartId.Button
+        ?new GroundButtonRoomEntity(new(source.Group,source.Room,source.Order,source.Id,source.SubId,source.PackedPosition,
+            0,TriggerPredicate.None,true),room,Puzzles,owner.SetTrigger,
+            (position,tile)=>SetPuzzleTile(room,position,tile),owner.OnSoundRequested)
+        :null;
 
     internal bool CanReconstructCompanion(OracleRuntimeState memory)
     {
@@ -71,6 +103,9 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
         ExclamationMarkSpawn mark => CreateExclamation(mark,room),
         MooshHoverExclamationSpawn mark => CreateMooshHoverExclamation(mark,room),
         GroundTreasureRecordSpawn treasure => CreateGroundTreasure(treasure,room),
+        GroundTreasureGrantSpawn treasure => CreateGroundTreasure(new(treasure.Request.Resolve(_treasures ??=new(AssetRoot)),0),room,hideUntilFirstUpdate:true),
+        GelSpawn gel => CreateNativeEnemy(new(AssetRoot,EnemyId.Gel,0,
+            ObjectCollisionDatabase.For(AssetRoot).EnemyMode(EnemyId.Gel),0,gel.KillableEnemyIndex,"zol.s:split"),room,gel.Position,gel.Name),
         GrassDebrisSpawn grass => CreateGrass(grass),
         RockDebrisSpawn rock => CreateRock(rock),
         EnemySplashSpawn splash => CreateSplash(splash),
@@ -176,10 +211,11 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
             drop=>owner.ItemDrops.DecideBreakableDrop(drop,owner.Random,owner.Inventory,owner.SaveData));
     }
 
-    private IRoomEntity CreateGroundTreasure(GroundTreasureRecordSpawn spawn,OracleRoomData room)
+    private IRoomEntity CreateGroundTreasure(GroundTreasureRecordSpawn spawn,OracleRoomData room,bool hideUntilFirstUpdate=false)
     {
         var treasure=new GroundTreasurePickup {Name=$"GroundTreasure_{spawn.Record.Order}",ZIndex=ObjectDrawPriority.FixedHighPriorityZIndex};
         treasure.Initialize(AssetRoot,spawn.Record,owner.OnSoundRequested,owner.ToScreen,room,owner.TryCreatePuzzlePuff);
+        if(hideUntilFirstUpdate)treasure.Visible=false;
         int id=(_treasures ??=new(AssetRoot)).GetObject(spawn.Record.TreasureObject).TreasureId;
         return new GroundTreasureRoomEntity(treasure,owner.RuntimeState,id,spawn.ZHigh,owner.CanCollectGroundTreasure,owner.OnGroundTreasureCollected);
     }
@@ -224,7 +260,7 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
         if (handler.Handler == EnemyHandlerKind.Ghini)
             return CreateNativeEnemy(handler.CombatSource(source,killableEnemyIndex),room,position,
                 source.SubId==2?$"Ghini_{source.SubId:x2}_{source.Order}_{instance}":$"Ghini_{source.Order}_{instance}");
-        if (handler.Handler is EnemyHandlerKind.Rope or EnemyHandlerKind.Beetle or EnemyHandlerKind.PodobooTower)
+        if (handler.Handler is EnemyHandlerKind.Rope or EnemyHandlerKind.Beetle or EnemyHandlerKind.PodobooTower or EnemyHandlerKind.Gel or EnemyHandlerKind.Zol or EnemyHandlerKind.RiverZora)
             return CreateNativeEnemy(handler.CombatSource(source,killableEnemyIndex),room,position,
                 $"Enemy_{source.Id:x2}_{source.SubId:x2}_{source.Order}_{instance}");
         if (handler.Handler != EnemyHandlerKind.Keese) return null;
@@ -259,6 +295,27 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
             source.Id == EnemyId.PodobooTower ? 0 : source.SubId) with { SubId = source.SubId };
         switch (source.Id)
         {
+            case EnemyId.RiverZora:
+                var zora=new RiverZoraCharacter {Name=name,ZIndex=ObjectDrawPriority.FixedLowPriorityZIndex};
+                zora.Initialize(record,room,position,owner.Random);
+                return new RiverZoraRoomEntity(zora,source,owner.OnSoundRequested,()=>-owner.ToScreen(Vector2.Zero));
+            case EnemyId.Gel:
+                if(record.Sprites.Length!=1 || record.Animations.Length!=3 || !record.SourceGrayscaleInverted)
+                    throw new InvalidOperationException($"{source.Source}: ENEMY_GEL requires one graphic and three native animations.");
+                var gel=new GelCharacter {Name=name,ZIndex=ObjectDrawPriority.BehindLinkZIndex};
+                gel.Initialize(new(AssetRoot,record.Id,record.SubId,record.Sprites[0],record.TileBase,record.Palette,
+                    record.RadiusY,record.RadiusX,record.DamageQuarters,record.Health,
+                    record.Animations[0],record.Animations[1],record.Animations[2],record.RawDamage),room,position,owner.Random);
+                return new GelRoomEntity(gel,source,owner.OnSoundRequested);
+            case EnemyId.Zol:
+                if(record.Sprites.Length!=1 || record.Animations.Length!=6 || !record.SourceGrayscaleInverted)
+                    throw new InvalidOperationException($"{source.Source}: ENEMY_ZOL requires one graphic and six native animations.");
+                var zol=new ZolCharacter {Name=name,ZIndex=ObjectDrawPriority.BehindLinkZIndex};
+                zol.Initialize(new(AssetRoot,room.Group,room.Id,record.Id,record.SubId,source.ObjectFlags,1,true,(int)position.Y,(int)position.X,
+                    record.Sprites[0],record.TileBase,record.Palette,record.RadiusY,record.RadiusX,record.DamageQuarters,record.Health,
+                    record.Animations[0],record.Animations[1],record.Animations[2],record.Animations[3],record.Animations[4],record.Animations[5],
+                    record.RawDamage),room,position,owner.Random,owner.OnSoundRequested);
+                return new ZolRoomEntity(zol,source,owner.OnSoundRequested);
             case EnemyId.Ghini:
                 if(source.SubId==2)
                 {

@@ -2,10 +2,11 @@
 
 ## Goal and source of truth
 
-This repository reconstructs *The Legend of Zelda: Oracle of Ages* and prepares
-the shared engine for *Oracle of Seasons* in Godot 4.7.1/.NET. Ages is currently
-playable; Seasons has launcher preview content only. Each game targets its
-supported clean US source, not a reinterpretation.
+This repository reconstructs *The Legend of Zelda: Oracle of Ages* and
+*Oracle of Seasons* using a shared engine in Godot 4.7.1/.NET. Ages is playable;
+Seasons supports its standard opening and Hero's Cave through the first sword.
+See the README and coverage ledgers for remaining content boundaries. Each game
+targets its supported clean US source, not a reinterpretation.
 
 Always go for 1:1 fidelity using the disassembly.
 When behavior is uncertain, use evidence in this order:
@@ -24,6 +25,11 @@ For gameplay implementations, apply the
 the changed objects and their producers/consumers before designing the change.
 Trace each applicable contract through the runtime owner and regression; a
 matching helper name or implemented interface does not establish correct use.
+For cross-game reuse and shared-engine completion claims, first apply its
+[cross-game readiness checks](docs/shared-system-integration.md#cross-game-readiness).
+Trace selected-game construction and data dependencies, including spawned
+children; common file placement and passing Ages tests do not prove Seasons
+readiness.
 
 Local paths:
 
@@ -43,11 +49,13 @@ launcher's automatic lookup of that Windows filename on `PATH`.
 2. Locate the runtime owner, importer stage, generated data, and validation for
    the feature. Search callers and source tables, not only a promising label.
 3. Trace the original inputs, order, counters, arithmetic, side effects, and
-   persistent state before designing the change.
+   persistent state before designing the change. Verify required room routes
+   and branches before expanding content bindings; keep optional work separate.
 4. Extend the importer first if the runtime lacks source information. Never
    hand-edit `assets/oracle/`.
 5. Implement the smallest general rule supported by the source. Do not add a
-   room exception unless the original has one.
+   room exception unless the original has one. Reuse existing behavior and fix
+   missing construction, ownership or data bindings before adding another handler.
 6. Add or extend a focused headless regression.
 7. If actual game source files changed, build with optimization and run the full
    suite through `tools/validate_parallel.ps1` with 8 workers. Documentation-only edits do not
@@ -124,7 +132,7 @@ Important world invariants:
 | `src/Application/` | Composition, fixed-update scheduling, input, pause ownership |
 | `src/Features/` | Shared gameplay and presentation features by owning use case |
 | `src/Games/Ages/` | Ages content, source-specific catalogs, state layout and composition |
-| `src/Games/Seasons/` | Implemented Seasons content; currently preview bindings only |
+| `src/Games/Seasons/` | Seasons content, source-specific catalogs, state layout and composition |
 | `src/Infrastructure/` | Generated-data and external boundaries |
 | `src/Shared/` | Small behavior-neutral primitives |
 | `scenes/` | Stable Godot scene trees |

@@ -17,7 +17,7 @@ foreach ($pack in @(
         $extra = Read-MenuRomBytes $pack 'extraEnemyData' ($extraRows.Count * 4)
         $gfxPath = Join-Path $Disassembly "data/$($pack.Name)/objectGfxHeaders.s"
         $gfxRows = @((Invoke-AssemblySourceHost $connection 'MACRO_INVOCATIONS' "$gfxPath`0objectGfxHeaderTable`0m_ObjectGfxHeader" | ConvertFrom-Json) | Where-Object IsActive)
-        foreach ($spec in @(@(0x10,@(0,1,2,3)),@(0x51,@(2,3)),@(0x2d,@(0)),@(0x16,@(0)),@(0x0c,@(0,1)),@(0x20,@(0,1)),@(0x22,@(0,1)),@(0x17,@(0,1,2)))) {
+        foreach ($spec in @(@(0x10,@(0,1,2,3)),@(0x51,@(2,3)),@(0x2d,@(0)),@(0x16,@(0)),@(0x0c,@(0,1)),@(0x20,@(0,1)),@(0x22,@(0,1)),@(0x17,@(0,1,2)),@(0x34,@(0,1)),@(0x43,@(0)),@(0x08,@(0)))) {
             $id = $spec[0]; $hex = $id.ToString('x2'); $at = $id * 4
             $nativeRow = $dataRows[$id]
             if ($nativeRow.Operands.Count -notin @(3,4)) { throw "$($pack.Name): ENEMY `$$hex has an unsupported property row." }
@@ -38,7 +38,10 @@ foreach ($pack in @(
                     $sourceRows = @((Invoke-AssemblySourceHost $connection 'MACRO_INVOCATIONS' "$dataPath`0$alias`0m_EnemySubidData" | ConvertFrom-Json) | Where-Object IsActive)
                     if ($sourceRows.Count -eq 0) { continue }
                     $ends = @((Invoke-AssemblySourceHost $connection 'MACRO_INVOCATIONS' "$dataPath`0$alias`0m_EnemySubidDataEnd" | ConvertFrom-Json) | Where-Object IsActive)
-                    if ($ends.Count -ne 1) { throw "$($pack.Name): ${label}: aliased subid rows require one native terminator." }
+                    if ($ends.Count -eq 0) { throw "$($pack.Name): ${label}: aliased subid rows require a native terminator." }
+                    # Unlabelled unused tables may follow the first terminator.
+                    $endLine = ($ends | Sort-Object Line | Select-Object -First 1).Line
+                    $sourceRows = @($sourceRows | Where-Object { $_.Line -lt $endLine })
                     break
                 }
                 if ($sourceRows.Count -eq 0) { throw "$($pack.Name): ${label}: no configured native subid rows, including aliases." }
@@ -89,9 +92,10 @@ foreach ($pack in @(
             $encoded = @(for ($animation = 0; $animation -lt $animations.Count; $animation++) {
                 # Podoboo's sinking handler consumes parameter $ff and stops
                 # advancing this stream until it selects animation $00 again.
-                (Read-NativeEnemyAnimation $pack $animations[$animation] $oam $false ($id -eq 0x2d -and $animation -eq 1)).Encoded
+                $stop = if($id -eq 0x34 -and $animation -in @(0,3)){1}else{-1}
+                (Read-NativeEnemyAnimation $pack $animations[$animation] $oam $false ($id -in @(0x08,0x2d) -and $animation -eq 1) $stop).Encoded
             })
-            if ($encoded.Count -ne $(if ($id -eq 0x51) { 1 } elseif ($id -eq 0x16) { 8 } elseif ($id -in @(0x0c,0x20,0x22)) { 4 } else { 2 })) { throw "$($pack.Name): ENEMY `$$hex animation extent changed." }
+            if ($encoded.Count -ne $(if ($id -eq 0x51) { 1 } elseif ($id -eq 0x16) { 8 } elseif ($id -in @(0x0c,0x20,0x22)) { 4 } elseif ($id -eq 0x34) { 6 } elseif ($id -eq 0x43) { 3 } else { 2 })) { throw "$($pack.Name): ENEMY `$$hex animation extent changed." }
             $base64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($encoded -join "`n"))
             $inverted = [int](Get-ImportSpriteSourceGrayscaleInverted $sprite)
             foreach ($subid in $spec[1]) {

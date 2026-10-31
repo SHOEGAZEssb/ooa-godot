@@ -216,15 +216,6 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
                 return new CrowRoomEntity(
                     crow, combatSource, owner.OnSoundRequested);
 
-            case EnemyHandlerKind.RiverZora:
-                var zora = new RiverZoraCharacter
-                {
-                    Name = $"RiverZora_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
-                };
-                zora.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
-                return new RiverZoraRoomEntity(zora, combatSource, owner.OnSoundRequested,
-                    () => -owner.ToScreen(Vector2.Zero));
-
             case EnemyHandlerKind.GopongaFlower:
                 var flower = new GopongaFlowerCharacter { Name = $"GopongaFlower_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex };
                 flower.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), position, _random);
@@ -279,21 +270,6 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
                 stalfos.Initialize(stalfosRecord, room, position, _random, owner.OnSoundRequested, replacementZHigh);
                 return new StalfosRoomEntity(
                     stalfos, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable);
-
-            case EnemyHandlerKind.Zol:
-                if (!enemies.TryGetZolDefinition(
-                    source, out ZolRecord zolRecord))
-                {
-                    throw MissingEnemyDefinition(handler, source);
-                }
-                var zol = new ZolCharacter
-                {
-                    Name = $"Zol_{source.SubId:x2}_{source.Order}_{instance}",
-                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
-                };
-                zol.Initialize(zolRecord, room, position, _random, owner.OnSoundRequested);
-                return new ZolRoomEntity(
-                    zol, combatSource, owner.OnSoundRequested);
 
             case EnemyHandlerKind.BoomerangMoblin:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -647,12 +623,6 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
                     combatSource.CountsAsEnemy,
                     _random);
 
-            case EnemyHandlerKind.Gel:
-                return CreateGel(
-                    new GelSpawn(
-                        position, $"RoomGel_{source.Order}_{instance}"),
-                    room, combatSource);
-
             default:
                 throw new InvalidOperationException(
                     $"{handler.Source} classified {handler.EnemyName} " +
@@ -726,26 +696,6 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
         RoomObjectRecord source) => new(
             $"{source.Source} resolves through {handler.Source} to " +
             $"'{handler.Handler}', but its typed definition is unavailable.");
-
-    internal IRoomEntity CreateGel(
-        GelSpawn spawn,
-        OracleRoomData room,
-        EnemyCombatSourceDescriptor? combatSource = null)
-    {
-        var gel = new GelCharacter { Name = spawn.Name, ZIndex = ObjectDrawPriority.BehindLinkZIndex };
-        gel.Initialize(enemies.Gel, room, spawn.Position, _random);
-        EnemyCombatSourceDescriptor source = combatSource ??
-            enemies.EnemyHandlers.ResolveHandler(
-                enemies.Gel.Id,
-                enemies.Gel.SubId,
-                $"dynamic {spawn.Name} ENEMY_GEL")
-            .CombatSource(
-                objectFlags: 0,
-                killableEnemyIndex: spawn.KillableEnemyIndex,
-                source: $"dynamic {spawn.Name} ENEMY_GEL");
-        return new GelRoomEntity(
-            gel, source, owner.OnSoundRequested);
-    }
 
     internal IRoomEntity CreateBariChild(BariChildSpawn spawn, OracleRoomData room)
     {

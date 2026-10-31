@@ -9,7 +9,7 @@ namespace Oracles;
 // during scrolling. Its room flag causes deletion on the following update.
 internal sealed partial class EnemyClearStairsRoomEntity(
     DungeonMechanicDatabaseRecord record, OracleRoomData room,
-    DungeonMechanicDatabase data, OracleSaveData save, Func<int> enemyCount,
+    DungeonPuzzleDatabase data, OracleSaveData save, Func<int> enemyCount,
     Func<long> animationTick, Action<int> playSound, Func<Vector2, bool> tryPuff) :
     Node2D, IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,

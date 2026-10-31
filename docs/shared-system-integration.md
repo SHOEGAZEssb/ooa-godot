@@ -7,6 +7,49 @@ review of the whole handoff, including producer, allocator, dispatcher, effect
 and consumer, rather than only the new object's handler.
 The boxes are a reusable review aid, not a feature-completion ledger.
 
+## Cross-game readiness
+
+Apply these checks before implementing a mechanic already present in the other
+game or declaring shared-engine work complete. A common class, namespace or
+interface establishes neither a usable construction path nor selected-game data.
+Missing game-specific content is distinct from a shared handler that requires
+the other game's catalog or bundle to run.
+
+- [ ] **Locate and classify the gap.** Find the existing behavior and its callers.
+  Distinguish a new source-specific sequence from missing pack data, construction
+  bindings or shared ownership. Start with the existing handler when its source
+  behavior matches; a missing Seasons binding does not justify another handler.
+- [ ] **Trace the selected game's whole dependency path.** Follow room admission,
+  object-stream dispatch, registry, factory and constructor through every data
+  loader and importer stage to the generated assets. Include dynamic children,
+  rewards, graphics, palettes, state addresses and cues. Check default roots,
+  static caches and aggregate catalogs for hidden dependencies on the other game.
+  A body that needs unrelated Ages tables to construct in Seasons has a sharing
+  defect even when its C# file lives under `src/Features/`.
+- [ ] **Verify the required scope.** Establish the actual source route, collision
+  access, warp destinations and dungeon neighbors before admitting more rooms or
+  implementing their producers. Separate required dependencies from optional
+  branches; adjacency or an assumed route is insufficient reason to expand scope.
+- [ ] **Repair the smallest missing boundary.** Supply selected-pack data or move
+  the existing construction/parameter ownership to its common feature. Preserve
+  source differences explicitly; matching labels or values in one build do not
+  prove identical addresses, modes, banks or timing in the other. Avoid duplicate
+  handlers, copied catalogs, fallback game roots and speculative abstractions.
+- [ ] **Prove construction and integration.** Exercise the selected game's real
+  room/object path and relevant child allocations through the gameplay loop.
+  Direct helper calls, debug spawning and generated-data comparisons alone do
+  not establish this. When shared dependencies change, cover both games' affected
+  paths with focused, independently derived expectations, then run the required
+  full suite. Keep unsupported variants explicit.
+- [ ] **Scope completion claims to evidence.** Report behavior reuse, imported
+  data, bound producers and exercised paths separately. Do not call the shared
+  engine complete while a claimed shared mechanism in the selected game still
+  requires the other game's factory or bundle. Keep concrete findings and
+  unresolved dependencies in `local-audits/`; tracked documentation records
+  durable boundaries and contracts.
+
+## Runtime handoff checks
+
 - [ ] **Source contract and imported inputs.** Trace callers and construction
   writes as well as the target handler. Retain raw identity, mode, damage,
   flags and fixed construction operands in generated data when needed. Keep

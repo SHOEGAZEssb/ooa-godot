@@ -10,7 +10,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
     IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly EntryRecord _record;
-    private readonly DungeonEntranceInteractionDatabase _data;
+    private readonly int _entryMinimumY, _entryRadius;
     private readonly OracleRuntimeState _runtimeState;
     private readonly Action<int, string> _triggered;
     private readonly Action<int> _initializeStaticObjects;
@@ -20,7 +20,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
     internal DungeonEntranceRoomEntity(
         Vector2 position,
         EntryRecord record,
-        DungeonEntranceInteractionDatabase data,
+        int entryMinimumY, int entryRadius,
         OracleRuntimeState runtimeState,
         bool whiteoutEntry,
         Action<int> initializeStaticObjects,
@@ -29,7 +29,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
     {
         Entity.Position = position;
         _record = record;
-        _data = data;
+        _entryMinimumY = entryMinimumY; _entryRadius = entryRadius;
         _runtimeState = runtimeState;
         _whiteoutEntry = whiteoutEntry;
         _initializeStaticObjects = initializeStaticObjects;
@@ -56,7 +56,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
         if (!_initialized)
         {
             _initialized = true;
-            if (!_whiteoutEntry || frame.Player.Position.Y < _data.EntryMinimumY)
+            if (!_whiteoutEntry || frame.Player.Position.Y < _entryMinimumY)
             {
                 Finished = true;
                 return;
@@ -76,7 +76,7 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
         if (frame.Player.IsDying ||
             !RoomEntityManager.ObjectCollisionZOverlaps(frame.Player.ObjectZHigh, 0, 7) ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(
-                new Rect2(Entity.Position - Vector2.One * _data.EntryRadius, Vector2.One * (_data.EntryRadius * 2)),
+                new Rect2(Entity.Position - Vector2.One * _entryRadius, Vector2.One * (_entryRadius * 2)),
                 new Rect2(frame.Player.Position - Vector2.One * NpcCharacter.LinkCollisionRadius,
                     Vector2.One * (NpcCharacter.LinkCollisionRadius * 2))))
             return;

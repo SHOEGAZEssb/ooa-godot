@@ -446,6 +446,7 @@ public sealed partial class ValidationRoot
         var queue = new Queue<Vector2I>(); queue.Enqueue(start);
         var previous = new Dictionary<Vector2I,Vector2I> { [start] = start };
         Vector2I[] directions = [Vector2I.Up,Vector2I.Right,Vector2I.Down,Vector2I.Left];
+        Vector2[] footprint=[new(-6,-6),new(6,-6),new(-6,6),new(6,6)];
         Vector2I? destination = null;
         byte[] scratch = Enumerable.Range(0,4).Select(index => session.Memory.ReadWramByte(0xcec0 + index)).ToArray();
         try
@@ -456,7 +457,9 @@ public sealed partial class ValidationRoot
                 for (int index = 0; index < directions.Length; index++)
                 {
                     Vector2I next = current + directions[index];
-                    if (next.X is < 6 or > 154 || next.Y is < 6 or > 120 || previous.ContainsKey(next) || session.Collision.Collides(next)) continue;
+                    if (next.X < 6 || next.X > session.Room.Width-6 || next.Y < 6 || next.Y > session.Room.Height-8 || previous.ContainsKey(next) || session.Collision.Collides(next)) continue;
+                    if(footprint.Any(offset=>
+                        session.Room.GetTerrainInfo((Vector2)next+offset).Type is TerrainType.Hole or TerrainType.WarpHole or TerrainType.Water or TerrainType.Lava))continue;
                     Vector2 delta = session.Collision.ResolveNativeMovement(current, 0x28, index * 8, true);
                     if (delta != (Vector2)directions[index]) continue;
                     previous.Add(next, current); queue.Enqueue(next);
@@ -464,7 +467,7 @@ public sealed partial class ValidationRoot
             }
         }
         finally { for (int index = 0; index < 4; index++) session.Memory.SetWramByte(0xcec0 + index, scratch[index]); }
-        FailIf(destination is null, $"No collision-valid Seasons path from {start} in room $00:${session.RoomId:x2}.");
+        FailIf(destination is null, $"No collision-valid Seasons path from {start} in room ${session.Rooms.ActiveGroup:x1}:${session.RoomId:x2}; reachable{previous.Count}, bounds{previous.Keys.Min(p=>p.X)},{previous.Keys.Min(p=>p.Y)}..{previous.Keys.Max(p=>p.X)},{previous.Keys.Max(p=>p.Y)}.");
         var path = new Stack<Vector2I>();
         for (Vector2I point = destination!.Value; point != start; point = previous[point]) path.Push(point);
         while (path.TryPop(out var point))

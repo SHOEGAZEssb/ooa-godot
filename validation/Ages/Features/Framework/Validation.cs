@@ -339,6 +339,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSharedPushTileDataRom, requiresRom: true);
         RunIsolatedValidation(ValidateSharedOpenedChests, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsWorldRooms, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsFirstSwordBindings);
+        RunIsolatedValidation(ValidateSeasonsFirstSwordApproach);
+        RunIsolatedValidation(ValidateSeasonsFirstSwordPuzzles);
+        RunIsolatedValidation(ValidateSeasonsFirstSwordSequence, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsFirstSwordEnemiesRom, requiresRom: true);
         RunIsolatedValidation(ValidateSharedFlagCatalogs);
         RunIsolatedValidation(ValidateSharedMap);
         RunIsolatedValidation(ValidateSharedGameplayScene);

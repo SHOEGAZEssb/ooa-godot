@@ -2594,42 +2594,8 @@ if ($dungeonEventTilePatternRows.Count -ne 58 -or
     throw 'Expected the three $21:$09 goals and 50 source-ordered INTERAC_EXTENDABLE_BRIDGE creation/removal tiles.'
 }
 
-$enemyStairTiles = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'object_code/common/interactions/dungeonStuff.s') '@replacementTiles')
-if (($enemyStairTiles -join ',') -ne '70,71,68,69') {
-    throw 'dungeonStuff.s:@replacementTiles must map $40..$43 to $46,$47,$44,$45.'
-}
-$doorScriptConstants = [Collections.Generic.List[string]]::new()
-foreach ($entry in [regex]::Matches($doorControllerSource,
-    '(?m)^\s*/\* \$(?<subid>1[0-7]) \*/ \.dw mainScripts\.(?<label>\w+)\s*$')) {
-    $subid = $entry.Groups['subid'].Value
-    $label = $entry.Groups['label'].Value
-    $profile = [regex]::Match($commonScriptSource,
-        '(?m)^' + [regex]::Escape($label) + ':\s+setcollisionradii \$(?<y>[0-9a-f]{2}), \$(?<x>[0-9a-f]{2})\s+setangle \$(?<angle>[0-9a-f]{2})(?:\s+setspeed \$(?<speed>[0-9a-f]{2}))?')
-    if (-not $profile.Success) { throw "commonScripts.s:$label has no supported door radii/angle/speed profile." }
-    foreach ($field in @('y','x','angle','speed')) {
-        $value = if ($profile.Groups[$field].Success) {
-            [Convert]::ToInt32($profile.Groups[$field].Value,16)
-        } else { 0 }
-        $doorScriptConstants.Add("door-$field-$subid`t$value")
-    }
-}
-$torchWait = [regex]::Match($commonScriptSource,
-    '(?ms)^doorController_shutUntilTorchesLit:\s+callscript doorController_updateRespawnWhenLinkNotTouching\s+setstate \$03\s+@loop:\s+asm15 scriptHelp\.doorController_checkEnoughTorchesLit\s+jumptable_memoryaddress wTmpcec0\s+\.dw @loop\s+\.dw @torchesLit\s+@torchesLit:\s+wait (?<wait>\d+)\s+playsound SND_SOLVEPUZZLE\s+incstate\s+scriptend')
-$entryFlip = [regex]::Match($commonScriptSource,
-    '(?m)^doorController_closeDoorWhenLinkNotTouchingAndFlipcfc0:\s+callscript doorController_updateRespawnWhenLinkNotTouching\s+setstate \$03\s+xorcfc0bit (?<bit>[0-7])\s+scriptend')
-if ($doorScriptConstants.Count -ne 32 -or -not $torchWait.Success -or -not $entryFlip.Success -or
-    $commonScriptHelperSource -notmatch '(?ms)^doorController_checkEnoughTorchesLit:\s+ld a,\(wNumTorchesLit\)\s+ld b,a\s+ld e,Interaction.speed\s+ld a,\(de\)\s+cp b\s+ld a,\$01\s+jr z,\+\s+dec a\s+\+\s+ld \(wTmpcec0\),a\s+ret') {
-    throw 'INTERAC$1e:$10-$17 entry/torch scripts or exact torch comparison changed.'
-}
-$doorScriptConstants.Add("door-torch-wait`t$($torchWait.Groups['wait'].Value)")
-$doorScriptConstants.Add("door-entry-scratch-mask`t$(1 -shl [int]$entryFlip.Groups['bit'].Value)")
 $dungeonMechanicConstantRows = @(
     "# key`tvalue"
-    $doorScriptConstants
-    "enemy-stair-tile-0`t$($enemyStairTiles[0])"
-    "enemy-stair-tile-1`t$($enemyStairTiles[1])"
-    "enemy-stair-tile-2`t$($enemyStairTiles[2])"
-    "enemy-stair-tile-3`t$($enemyStairTiles[3])"
     "bridge-spawner-wait`t8"
     "bridge-spawner-half-tile`t110"
     "bridge-spawner-full-tile`t109"
@@ -2643,26 +2609,9 @@ $dungeonMechanicConstantRows = @(
     "ancient-tomb-grave-tile`t$ancientTombGraveTile"
     "ancient-tomb-solve-wait`t$ancientTombWait"
     "overworld-switch-on`t158"
-    "pushable-block`t29"
-    "push-delay`t30"
-    "solve-wait`t8"
-    "door-frame-wait`t6"
-    "open-tile`t160"
-    "closed-up`t120"
-    "closed-right`t121"
-    "closed-down`t122"
-    "closed-left`t123"
-    "solve-sound`t77"
-    "door-sound`t112"
     "bridge-step-wait`t10"
     "bridge-first-tile`t106"
     "bridge-tile-count`t6"
-    "button-tile`t12"
-    "pressed-button-tile`t13"
-    "button-radius-y`t2"
-    "button-radius-x`t2"
-    "button-object-release-delay`t28"
-    "button-sound`t135"
     "switch-off-tile`t10"
     "switch-on-tile`t11"
     "switch-radius-y`t4"
@@ -7136,7 +7085,6 @@ $dungeonMechanicConstantsPath = Join-Path $destination "objects\dungeon_mechanic
 Write-GeneratedTable(
     $dungeonMechanicConstantsPath,
     $dungeonMechanicConstantRows)
-Remove-Variable enemyStairTiles
 $dungeonMechanicTextPath = Join-Path $destination "objects\dungeon_mechanic_text.tsv"
 Write-GeneratedTable(
     $dungeonMechanicTextPath,

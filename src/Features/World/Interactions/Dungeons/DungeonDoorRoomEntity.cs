@@ -20,7 +20,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
 
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
-    private readonly DungeonMechanicDatabase _data;
+    private readonly DungeonPuzzleDatabase _data;
     private readonly Func<int> _roomEnemyCount;
     private readonly Func<int, bool> _triggerActive;
     private readonly Func<Vector2, Vector2> _worldToScreen;
@@ -63,7 +63,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     internal DungeonDoorRoomEntity(
         DungeonMechanicDatabaseRecord record,
         OracleRoomData room,
-        DungeonMechanicDatabase data,
+        DungeonPuzzleDatabase data,
         Func<int> roomEnemyCount,
         Func<int, bool> triggerActive,
         Func<Vector2, Vector2> worldToScreen,

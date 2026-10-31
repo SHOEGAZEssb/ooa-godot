@@ -25,7 +25,7 @@ function Read-NativeObjectPointerLabels($pack, [string]$path, [string]$label, $s
     }
     return ,@($labels)
 }
-function Read-NativeEnemyAnimation($pack, [string]$label, [string[]]$oamLabels, [bool]$terminal, [bool]$stopAfterParameterFF = $false) {
+function Read-NativeEnemyAnimation($pack, [string]$label, [string[]]$oamLabels, [bool]$terminal, [bool]$stopAfterParameterFF = $false, [int]$stopAfterParameter = -1) {
     $frames = [Collections.Generic.List[string]]::new()
     $durations = [Collections.Generic.List[int]]::new()
     $starts = [Collections.Generic.List[int]]::new()
@@ -59,7 +59,7 @@ function Read-NativeEnemyAnimation($pack, [string]$label, [string[]]$oamLabels, 
         $cells = @(for ($cell = 0; $cell -lt $count; $cell++) { @($oam[(1 + $cell * 4)..(4 + $cell * 4)] | ForEach-Object { [int]$_ }) -join ',' }) -join ';'
         $metadata = if ($parameter -eq 0) { "$duration" } else { "$duration,$parameter" }
         $starts.Add($offset); $frames.Add("$metadata@$cells"); $durations.Add($duration)
-        if ($stopAfterParameterFF -and $parameter -eq 0xff) {
+        if (($stopAfterParameterFF -and $parameter -eq 0xff) -or $parameter -eq $stopAfterParameter) {
             return @{ Encoded = ($frames -join '|'); Durations = $durations.ToArray() }
         }
         $offset += 3
