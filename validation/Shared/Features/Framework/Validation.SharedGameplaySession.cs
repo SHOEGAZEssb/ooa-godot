@@ -136,6 +136,7 @@ public sealed partial class ValidationRoot
                 CheckSharedRoomInfo(root,batched);
                 CheckSharedTransitions(root,batched);
                 CheckSharedWarpDispatch(root,batched);
+                CheckSharedHoleWarp(root,batched);
                 CheckSharedWarpState(root,batched);
                 CheckSharedScrollLifetimes(root,batched);
                 CheckSharedWalkingAnimation(root,batched);

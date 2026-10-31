@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
                 $"{game}: completion must preserve native standing/hidden state and must not record a second displaced checkpoint.");
         }
         foreach (var example in new (int Source,int Arrival,string Handler)[] { (0,6,game == OracleGame.Ages ? "TimeWarp" : "Trampoline"),
-            (0,0x0b,"SlowFall"),(8,0,"Subrosia"),(9,0,"Hole"),(0,2,"FadeOut") })
+            (0,0x0b,"SlowFall"),(8,0,"Subrosia"),(0,2,"FadeOut") })
         {
             entities.Clear(); player.WarpTo(floor);
             root._scene.Dialogue.ShowMessage("Unsupported native sequence boundary.",floor.Y);

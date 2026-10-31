@@ -302,6 +302,7 @@ public class RoomTransitionController : IDisposable
         _disposed = true;
         _rooms.RoomChanged -= RoomChanged;
         _scroll.Cancel();
+        _player.CancelHoleWarp();
         _warpActive = false;
         _roomPackArrival = null;
         _nativeWarpRequested = false;
@@ -380,6 +381,16 @@ public class RoomTransitionController : IDisposable
         // same single sample here while their Link state is moving.
         if (_warpActive)
             UpdateCamera();
+    }
+
+    internal void CompleteHoleWarpUpdate()
+    {
+        if(_disposed || !_warpActive || _warpPhase!=WarpPhase.HoleFall ||
+            _entities.RuntimeState.ReadField("wWarpTransition2")==0)return;
+        // cutscene01 consumes Link's request after this update's object pass.
+        _entities.RuntimeState.SetField("wWarpTransition2",0);
+        _warpPhase=WarpPhase.FadeOut;_warpFrame=0;
+        SetFade(0);
     }
 
     internal bool AdvanceFadeOutWarpBeforeObjects(double delta)
@@ -996,7 +1007,8 @@ public class RoomTransitionController : IDisposable
             _warpPhase = WarpPhase.AwaitingLinkState;
             return;
         }
-        player.BeginRoomWarpTransition();
+        if(_warps.HandlerFor(warp.SourceTransition)!=WarpTransitionHandler.Hole || delayedFadeOut || forceFadeOut || warp.DirectFadeOut)
+            player.BeginRoomWarpTransition();
         if (delayedFadeOut || forceFadeOut || warp.DirectFadeOut)
         {
             _warpPhase = WarpPhase.FadeOut;
@@ -1005,6 +1017,13 @@ public class RoomTransitionController : IDisposable
         }
         switch (_warps.HandlerFor(warp.SourceTransition))
         {
+            case WarpTransitionHandler.Hole:
+                _warpPhase=WarpPhase.HoleFall;
+                _entities.RuntimeState.SetField("wScrollMode",0);
+                _entities.RuntimeState.SetField("wDisabledObjects",0x1e);
+                _entities.RuntimeState.SetField("wWarpTransition",(byte)(warp.SourceParameter<<4|warp.SourceTransition));
+                player.RequestHoleWarp();SetFade(0);
+                break;
             case WarpTransitionHandler.FadeOut:
                 // link.s warpTransition2: request $6e once on source
                 // initialization, before the fade or destination load.
@@ -1037,7 +1056,7 @@ public class RoomTransitionController : IDisposable
         WarpTransitionHandler source = _warps.HandlerFor(warp.SourceTransition);
         // A direct CUTSCENE_03 load has already bypassed Link's source handler.
         if (!sourceAlreadyHandled && warp.SourceTransition != 0 && source is not
-            (WarpTransitionHandler.FadeOut or WarpTransitionHandler.Walk or WarpTransitionHandler.Instant))
+            (WarpTransitionHandler.FadeOut or WarpTransitionHandler.Walk or WarpTransitionHandler.Instant or WarpTransitionHandler.Hole))
             throw new NotSupportedException($"{AssetRoot}{_warps.HandlerSource(warp.SourceTransition)}: source mode 0x{warp.SourceTransition:x2} " +
                 $"({source}) requires its native sequence before an ordinary room load.");
         if (warp.DestinationIsIndex) return;
@@ -1531,6 +1550,7 @@ internal enum WarpPhase
 {
     None,
     AwaitingLinkState,
+    HoleFall,
     FadeOut,
     LeaveScreen,
     FadeIn,

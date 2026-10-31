@@ -207,6 +207,7 @@ internal sealed class GameplaySession : IDisposable
         _phases.AfterStatusBar(delta);
         if (_phases.CutsceneRequestsAllowed && NativeCutsceneRequest.TrySelect(_memory, _phases.SelectRequestedCutscene)) return;
         _phases.AfterCutsceneRequests(delta);
+        _transitions?.CompleteHoleWarpUpdate();
         if (_phases.ObjectCollisionsAllowed) _entities.ResolvePostObjectCollisions(_scene.Player);
         _phases.AfterObjectCollisions(delta);
         if (_phases.RoomInitializationMayComplete)

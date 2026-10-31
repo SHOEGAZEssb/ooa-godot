@@ -910,6 +910,15 @@ live native state byte written by its control producer, independently of the
 warp parameter nibble. Fade completion does not
 write those checkpoints again.
 
+Hole source mode `$09` uses Link's shared native animation before requesting
+the ordinary fade. Warp selection publishes state `$0a`; Link's next eligible
+visit adds `$08` to Y, centers both coordinates, clears item parents and starts
+the fall cue and animation. The handler checks the previous animation marker
+for `$ff` before advancing it. The main thread consumes its request after that
+object pass and starts the fade at offset zero. Text and ordinary Link-disable
+masks do not freeze the selected warp state. Full Link replacement or scene
+retirement releases its animation ownership.
+
 Hardcoded warp records preserve five distinct bytes: destination group, room,
 Link arrival transition, packed position and main-thread request. Requests
 `$03/$83` select the fade-out cutscene; they are not Link arrival transition

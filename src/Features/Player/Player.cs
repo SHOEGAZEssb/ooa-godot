@@ -995,6 +995,7 @@ public partial class Player : Node2D
         EndNewGameSlowFall();
         EndRoomWarpFall();
         _precisePosition = spawn;
+        CancelHoleWarp();
         _lastSafePosition = spawn;
         _localRespawnFacing = _facing;
         ResetLinkWalkAnimation();
@@ -1055,6 +1056,7 @@ public partial class Player : Node2D
         EndNewGameSlowFall();
         EndRoomWarpFall();
         EndHarpPose();
+        CancelHoleWarp();
         if (!preserveLedgeJump)
             ClearLedgeHop();
         _enemyInvincibilityFrames = 0.0f;
@@ -1965,6 +1967,7 @@ public partial class Player : Node2D
             _topDownDrownPhase=0;_drowning=false;_drowningHazard=HazardType.None;
         }
         if (AdvanceGetItemState()) return;
+        if (AdvanceHoleWarp()) return;
         // state01 checks the shared request after palette/scroll/death, before text/$81.
         if (_inventory.RuntimeState.ReadField("wLinkForceState")!=0 && !IsDying &&
             (_raftRideControlled || NativeCutsceneControlled || !_companionRideControlled && NativeNormalStateForInteraction))
