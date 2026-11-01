@@ -8,15 +8,17 @@ internal static class SeasonsNpcPresentation
 {
     private const string Root = SeasonsGameContent.AssetRoot;
     internal static NpcCharacter CreateActor(GeneratedTableRow row, int id, int subid, Vector2 position,
-        Func<int,string> animationFor, Color[,] palettes)
+        Func<int,string> animationFor, Color[,] palettes, int group = 0, int room = 0, bool canFace = false,
+        NpcCharacter? presenter = null, NpcImplementationClassification implementation = NpcImplementationClassification.EventOwned, int var03 = 0)
     {
         string animation = animationFor(row.UnsignedDecimal(5));
-        var record = new NpcRecord(0, 0, id, subid, (int)position.Y, (int)position.X, 0, 0,
-            row.RequiredString(2), row.UnsignedDecimal(3), row.UnsignedDecimal(4), row.UnsignedDecimal(5), id == 0x9d,
-            id == 0x9d ? animationFor(0) : animation, id == 0x9d ? animationFor(1) : animation,
-            id == 0x9d ? animationFor(2) : animation, id == 0x9d ? animationFor(3) : animation,
-            "", NpcImplementationClassification.EventOwned);
-        var actor = new NpcCharacter { Name = $"Seasons_{id:x2}_{subid:x2}", ZIndex = 5 };
+        var record = new NpcRecord(group, room, id, subid, (int)position.Y, (int)position.X, var03, 0,
+            row.RequiredString(2), row.UnsignedDecimal(3), row.UnsignedDecimal(4), row.UnsignedDecimal(5), canFace || id == 0x9d,
+            canFace || id == 0x9d ? animationFor(0) : animation, canFace || id == 0x9d ? animationFor(1) : animation,
+            canFace || id == 0x9d ? animationFor(2) : animation, canFace || id == 0x9d ? animationFor(3) : animation,
+            "", implementation);
+        var actor = presenter ?? new NpcCharacter();
+        actor.Name=$"Seasons_{id:x2}_{subid:x2}";actor.ZIndex=5;
         actor.Initialize(record, Root);
         actor.SetSourceGrayscaleInverted(row.Decimal(9, 0, 1) != 0);
         foreach (string sprite in row.String(6).Split(',', StringSplitOptions.RemoveEmptyEntries))

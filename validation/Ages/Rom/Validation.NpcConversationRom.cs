@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.Feather,1);
             _inventory.EquipA(0); _inventory.EquipB(TreasureId.Feather);
             _player.WarpTo(new(80, 112)); _player.Face(Vector2I.Down);
-            var birds = _entities.Entities<KnowItAllBirdCharacter>().ToArray();
+            var birds = _entities.Entities<AgesKnowItAllBirdCharacter>().ToArray();
             var seed = _random.CaptureState();
             var rom = new DialogueRom(_saveData);
             rom.InitializeGameplay(_currentRoom, seed, 80, 112);

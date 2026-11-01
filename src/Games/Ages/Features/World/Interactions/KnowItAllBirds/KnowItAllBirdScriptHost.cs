@@ -7,7 +7,7 @@ namespace Oracles;
 /// <summary>One knowItAllBirdScript lane, advanced by its native object slot.</summary>
 internal sealed class KnowItAllBirdScriptHost : CutsceneCommandHost
 {
-    private readonly KnowItAllBirdCharacter _bird;
+    private readonly AgesKnowItAllBirdCharacter _bird;
     private readonly IReadOnlyList<CutsceneCommand> _commands;
     private readonly Func<bool> _textActive;
     private readonly CutsceneCommandRunner _runner;
@@ -17,7 +17,7 @@ internal sealed class KnowItAllBirdScriptHost : CutsceneCommandHost
     private NpcInteractionTarget? _target;
     private bool _pressed;
 
-    internal KnowItAllBirdScriptHost(KnowItAllBirdCharacter bird,
+    internal KnowItAllBirdScriptHost(AgesKnowItAllBirdCharacter bird,
         IReadOnlyList<CutsceneCommand> commands, Func<bool> textActive)
     {
         _bird = bird; _commands = commands; _textActive = textActive;

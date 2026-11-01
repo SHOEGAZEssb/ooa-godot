@@ -150,7 +150,7 @@ $stageContracts = @(
         -inputs @('assemblySourceHost') `
         -outputs @('cutsceneCommandHeader', 'generatedCutsceneCommandStreams') `
         -functionInputs @('Invoke-AssemblySourceHost') `
-        -functionOutputs @('ConvertTo-CutsceneCommandPayload', 'Find-CutsceneCommandSourceLine', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Test-GeneratedCutsceneCommandStreams', 'Write-CutsceneGeneratedTable')
+        -functionOutputs @('ConvertTo-CutsceneCommandPayload', 'Find-CutsceneCommandSourceLine', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Read-AssemblyNpcProgramRows', 'Test-GeneratedCutsceneCommandStreams', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-normalization' 'Shared/Convert-CutsceneCommands.ps1' `
         -inputs @('cutsceneCommandHeader') `
         -functionInputs @('New-CutsceneCommandRow') `
@@ -223,7 +223,7 @@ $stageContracts = @(
         -functionInputs @('ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable', 'Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation')
     New-ImportStageContract 'farore' 'Ages/Import-FaroreData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'interactionGraphics', 'gfxNames') `
-        -functionInputs @('ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable', 'Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation', 'Find-ImportSpriteSource', 'Resolve-InteractionGraphics')
+        -functionInputs @('ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable', 'Read-AssemblyNpcProgramRows', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation', 'Find-ImportSpriteSource', 'Resolve-InteractionGraphics')
     New-ImportStageContract 'shared-npcs' 'Ages/Import-SharedNpcData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader') `
         -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
@@ -355,7 +355,7 @@ $stageContracts = @(
             'Read-AssemblyCutsceneCommands', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable', 'Resolve-OceanText')
     New-ImportStageContract 'farore-memory' 'Ages/Import-FaroreMemory.ps1' `
         -inputs @('gfxNames', 'allTexts', 'globalFlagValues') `
-        -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable',
+        -functionInputs @('Read-AssemblyNpcProgramRows', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable',
             'Resolve-OceanText', 'Resolve-InteractionGraphics', 'Resolve-NpcAnimation', 'Copy-EnemySprite', 'Copy-GeneratedFile', 'Read-PaletteBytes')
     New-ImportStageContract 'octogon-effects' 'Ages/Import-OctogonEffects.ps1' `
         -inputs @('gfxNames','interactionGraphics') `
@@ -439,10 +439,13 @@ $stageContracts = @(
     New-ImportStageContract 'background-animations' 'Shared/Import-BackgroundAnimations.ps1' -inputs @('seasonsRomBytes', 'seasonsSymbols')
     New-ImportStageContract 'seasons-opening' 'Seasons/Import-Opening.ps1' `
         -inputs @('seasonsRomBytes', 'seasonsSymbols') `
-        -outputs @('seasonInventoryTexts', 'seasonMapTexts', 'seasonTreasureTexts', 'seasonTileInteractionTexts', 'seasonFluteTexts') `
+        -outputs @('seasonInventoryTexts', 'seasonMapTexts', 'seasonTreasureTexts', 'seasonTileInteractionTexts', 'seasonFluteTexts', 'seasonNpcTexts') `
         -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes', 'Normalize-DialogueText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames', 'Get-ImportSpriteSourceGrayscaleInverted')
     New-ImportStageContract 'seasons-frontend' 'Seasons/Import-Frontend.ps1' `
         -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes')
+    New-ImportStageContract 'seasons-talk-npcs' 'Seasons/Import-TalkNpcs.ps1' `
+        -inputs @('seasonsRomBytes', 'seasonsSymbols', 'seasonsGlobalFlagValues', 'treasureIds', 'seasonNpcTexts', 'cutsceneCommandHeader') `
+        -functionInputs @('Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-AssemblyNpcProgramRows', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'seasons-room-runtime' 'Seasons/Import-RoomRuntime.ps1' `
         -inputs @('seasonsRomBytes', 'seasonsSymbols')
     New-ImportStageContract 'common-engine' 'Shared/Import-CommonEngineData.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes')

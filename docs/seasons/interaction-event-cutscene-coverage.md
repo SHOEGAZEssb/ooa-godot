@@ -42,8 +42,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 6 | 28 | 191 | 7 | 232 |
-| Expanded placed interaction contexts | 17 | 3 | 1015 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 26 | 41 | 158 | 7 | 232 |
+| Expanded placed interaction contexts | 166 | 9 | 860 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -71,7 +71,8 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | --- | --- |
 | Standard-opening character rows listed as **I** in the NPC ledger | Implemented within the stated standard-opening boundary |
 | Hero's Cave first sword | Runtime route through shared push blocks, floor buttons, key chest, door contacts, shutters and scripted sword return; optional side-view Gasha producer remains unbound |
-| Missing character rows and family variants in the NPC ledger | Missing |
+| Talk-only characters, source story predicates and native child handoffs | Runtime route for 149 positioned rows; spring-boy Link launch and Mittens' trade-owner producer retain their external-system limitations |
+| Missing character rows and family variants in the NPC ledger | Quest, trade, secret, minigame, event and family progression remain missing |
 | Other room placements listed as **M** below | Missing |
 | Additional native/script variants of **P** dispatch families | Missing beyond the explicit runtime boundary |
 | Shared tile-break effect producers | Partial; native Shovel and Bracelet routes are bound; additional producer contexts remain open |
@@ -84,7 +85,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Linked-game introduction and linked troupe/Impa dialogue | Missing |
 | Seasons attract cinematic and title-timeout replay | Missing |
 | Seasons gameplay saving and resuming after the opening | Runtime route through the shared save/checkpoint flow for supported standard overworld and Hero's Cave files |
-| Overworld layout navigation after the opening | Runtime route; room `$00:$98` retains its after-event Octorok stream; other later NPC, enemy, event and warp contexts remain unsupported |
+| Overworld layout navigation after the opening | Runtime route; room `$00:$98` retains its after-event Octorok stream; talk-only NPC rows use native story predicates; other enemy, event and warp contexts remain unsupported |
 | Progression beyond control returning in room `0:b6` | Missing |
 | Exhaustive executed clean-US-ROM comparison | Unproven |
 
@@ -138,36 +139,36 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$22` | [makuCutscenes](../../external/oracles-disasm/object_code/seasons/interactions/makuCutscenes.s) | `$00-$08, $0a` | — | — | 1 | **M** — No Seasons production route. |
 | `$23` | [seasonSpiritsScripts](../../external/oracles-disasm/object_code/seasons/interactions/seasonSpiritsScripts.s) | `$01, $11, $21, $30-$31, $40` | — | — | 0 | **M** — No Seasons production route. |
 | `$24` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00, $03` | — | — | 1 | **M** — No Seasons production route. |
-| `$25` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
-| `$26` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 1 | **M** — No Seasons production route. |
-| `$27` | [sokra](../../external/oracles-disasm/object_code/seasons/interactions/sokra.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
+| `$25` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 0 | **P** — Native dialogue, room-flag selection and jump consumer; the trade-owner `$26:$00` producer remains unbound. |
+| `$26` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 1 | **P** — Post-trade `$01` dialogue and room-flag `$40` predicate; the `$00` trade sequence remains unbound. |
+| `$27` | [sokra](../../external/oracles-disasm/object_code/seasons/interactions/sokra.s) | `$00-$02` | — | — | 0 | **P** — Summer hint `$02`, source finished/summer predicates, room-flag writes and snores; village/portal progression variants remain unbound. |
 | `$28` | [bipin](../../external/oracles-disasm/object_code/common/interactions/bipin.s) | — | — | — | 23 | **M** — No Seasons production route. |
 | `$29` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
-| `$2a` | [bird](../../external/oracles-disasm/object_code/seasons/interactions/bird.s) | `$00-$09, $0b` | — | — | 1 | **M** — No Seasons production route. |
+| `$2a` | [bird](../../external/oracles-disasm/object_code/seasons/interactions/bird.s) | `$00-$09, $0b` | — | — | 1 | **P** — Know-It-All `$00-$09` and panic `$0b` dialogue, shared bird body and native story gates; Impa event `$0a` remains unbound. |
 | `$2b` | [blossom](../../external/oracles-disasm/object_code/common/interactions/blossom.s) | — | — | — | 25 | **M** — No Seasons production route. |
 | `$2c` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00` | — | — | 1 | **M** — No Seasons production route. |
-| `$2d` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80-$86` | — | — | 1 | **M** — No Seasons production route. |
-| `$2e` | [fickleGirl](../../external/oracles-disasm/object_code/seasons/interactions/fickleGirl.s) | `$00-$04` | — | — | 0 | **M** — No Seasons production route. |
+| `$2d` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80-$86` | — | — | 1 | **R** — Common NPC handler; Horon stage-selected talk scripts and source visibility whitelist. |
+| `$2e` | [fickleGirl](../../external/oracles-disasm/object_code/seasons/interactions/fickleGirl.s) | `$00-$04` | — | — | 0 | **R** — Sunken-stage talk scripts, wand `$8e` and PART`$32` bubbles through native interaction/part slots. |
 | `$2f` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80` | — | — | 0 | **M** — No Seasons production route. |
-| `$30` | [subrosian](../../external/oracles-disasm/object_code/seasons/interactions/subrosian.s) | `$00, $02-$0f, $12-$13, $15-$26` | — | — | 1 | **M** — No Seasons production route. |
+| `$30` | [subrosian](../../external/oracles-disasm/object_code/seasons/interactions/subrosian.s) | `$00, $02-$0f, $12-$13, $15-$26` | — | — | 1 | **P** — Talk-only `$02-$0f,$14-$24` scripts, native predicates, palettes and jumps; quest, secret and signs variants remain unbound. |
 | `$31` | [datingRosaEvent](../../external/oracles-disasm/object_code/seasons/interactions/datingRosaEvent.s) | `$00, $02` | — | — | 2 | **M** — No Seasons production route. |
-| `$32` | [subrosianWithBuckets](../../external/oracles-disasm/object_code/seasons/interactions/subrosianWithBuckets.s) | `$00-$05` | — | — | 0 | **M** — No Seasons production route. |
-| `$33` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80-$85` | — | — | 1 | **M** — No Seasons production route. |
+| `$32` | [subrosianWithBuckets](../../external/oracles-disasm/object_code/seasons/interactions/subrosianWithBuckets.s) | `$00-$05` | — | — | 0 | **R** — Bucket Subrosian talk scripts, source-facing distance and native room-layout writes. |
+| `$33` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80-$85` | — | — | 1 | **P** — Common NPC handler; Speaking bathers `$80/$83`; silent/decorative variants remain unbound. |
 | `$34` | [subrosianSmiths](../../external/oracles-disasm/object_code/seasons/interactions/subrosianSmiths.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
 | `$35` | [child](../../external/oracles-disasm/object_code/common/interactions/child.s) | — | — | — | 23 | **M** — No Seasons production route. |
-| `$36` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80-$84` | — | — | 2 | **M** — No Seasons production route. |
-| `$37` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80-$86` | — | — | 1 | **M** — No Seasons production route. |
-| `$38` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00` | — | — | 1 | **M** — No Seasons production route. |
-| `$39` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00-$04` | — | — | 1 | **M** — No Seasons production route. |
+| `$36` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80-$84` | — | — | 2 | **R** — Common NPC handler; Sunken-stage scripts, native positions and source visibility gates. |
+| `$37` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80-$86` | — | — | 1 | **R** — Common NPC handler; Horon-stage scripts and shop `$86` bypass predicate. |
+| `$38` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00` | — | — | 1 | **R** — Common NPC handler; Placed dungeon advice actors with native dungeon-index text selection. |
+| `$39` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00-$04` | — | — | 1 | **R** — Common NPC handler; Sunken-stage treasure-hunter dialogue and visibility. |
 | `$3a` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | — | — | — | 0 | **M** — No Seasons production route. |
-| `$3b` | [goron](../../external/oracles-disasm/object_code/seasons/interactions/goron.s) | `$02, $07, $11, $13-$16, $20` | — | — | 0 | **M** — No Seasons production route. |
-| `$3c` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80` | — | — | 0 | **M** — No Seasons production route. |
-| `$3d` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80` | — | — | 0 | **M** — No Seasons production route. |
-| `$3e` | [miscBoyNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscBoyNpcs.s) | `$00-$04, $10-$13, $20, $30-$34` | — | — | 0 | **M** — No Seasons production route. |
+| `$3b` | [goron](../../external/oracles-disasm/object_code/seasons/interactions/goron.s) | `$02, $07, $11, $13-$16, $20` | — | — | 0 | **P** — Ordinary, popping and pacing Gorons with cold/healed dialogue; ring-box upgrade and secret variants remain unbound. |
+| `$3c` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80` | — | — | 0 | **R** — Common NPC handler; Horon-stage farmer dialogue and source visibility. |
+| `$3d` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80` | — | — | 0 | **R** — Common NPC handler; Horon-stage fountain dialogue, linked text and native collision radii. |
+| `$3e` | [miscBoyNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscBoyNpcs.s) | `$00-$04, $10-$13, $20, $30-$34` | — | — | 0 | **P** — Horon/Sunken talk variants, boy/ball/dog and spring-boy flower signal; shared flower Link-launch states remain unbound. |
 | `$3f` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$80` | — | — | 0 | **M** — No Seasons production route. |
-| `$40` | [piratian](../../external/oracles-disasm/object_code/seasons/interactions/piratian.s) | `$01-$0a, $0d-$0e` | — | — | 1 | **M** — No Seasons production route. |
+| `$40` | [piratian](../../external/oracles-disasm/object_code/seasons/interactions/piratian.s) | `$01-$0a, $0d-$0e` | — | — | 1 | **P** — Roof pirate `$09` dialogue, departure deletion, layout write and native animation/RNG; remaining pirates require quest/event owners. |
 | `$41` | [piratian](../../external/oracles-disasm/object_code/seasons/interactions/piratian.s) | `$00, $0b` | — | — | 0 | **M** — No Seasons production route. |
-| `$42` | [pirateHouseSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/pirateHouseSubrosian.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
+| `$42` | [pirateHouseSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/pirateHouseSubrosian.s) | `$00-$01` | — | — | 0 | **R** — Pirate-house Subrosian dialogue selected by pirates-left flag. |
 | `$43` | [syrup](../../external/oracles-disasm/object_code/common/interactions/syrup.s) | `$80` | `$80` | — | 0 | **M** — No Seasons production route. |
 | `$44` | [zelda](../../external/oracles-disasm/object_code/seasons/interactions/zelda.s) | `$00, $08-$09` | `$00-$01, $05` | — | 6 | **M** — No Seasons production route. |
 | `$45` | [talon](../../external/oracles-disasm/object_code/seasons/interactions/talon.s) | `$00` | — | `$01` | 1 | **M** — No Seasons production route. |
@@ -179,7 +180,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$4b` | [d1RisingStones](../../external/oracles-disasm/object_code/seasons/interactions/d1RisingStones.s) | — | — | — | 2 | **M** — No Seasons production route. |
 | `$4c` | [miscStatusObjects](../../external/oracles-disasm/object_code/seasons/interactions/miscStatusObjects.s) | `$00-$03, $07-$0d` | `$07-$08` | `$09` | 2 | **M** — No Seasons production route. |
 | `$4d` | [pirateSkull](../../external/oracles-disasm/object_code/seasons/interactions/pirateSkull.s) | `$00-$01` | — | — | 2 | **M** — No Seasons production route. |
-| `$4e` | [dinDancingEvent](../../external/oracles-disasm/object_code/seasons/interactions/dinDancingEvent.s) | `$0a-$0b` | `$00-$06, $08-$09` | — | 1 | **P** — Standard opening `$00-$07,$0b`; village/ending actors and linked branches are missing. |
+| `$4e` | [dinDancingEvent](../../external/oracles-disasm/object_code/seasons/interactions/dinDancingEvent.s) | `$0a-$0b` | `$00-$06, $08-$09` | — | 1 | **P** — Standard opening `$00-$07,$0b` and finished-game village dialogue `$0a`; other native/linked variants remain unbound. |
 | `$4f` | [dinImprisonedEvent](../../external/oracles-disasm/object_code/seasons/interactions/dinImprisonedEvent.s) | — | — | — | 6 | **P** — Standard imprisonment `$00-$04`; later variants are missing. |
 | `$50` | [seasonsFairy](../../external/oracles-disasm/object_code/common/interactions/seasonsFairy.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$51` | [smallVolcano](../../external/oracles-disasm/object_code/seasons/interactions/smallVolcano.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
@@ -229,21 +230,21 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$7d` | [spinner](../../external/oracles-disasm/object_code/common/interactions/spinner.s) | `$00` | — | — | 1 | **R** — Native placed parent/arrow handler in `$04:$26`, `$04:$b1`, `$05:$6f`; shared Link state `$08/$0b` handoff. |
 | `$7e` | [minibossPortal](../../external/oracles-disasm/object_code/common/interactions/minibossPortal.s) | `$00-$02` | — | `$00` | 3 | **M** — No Seasons production route. |
 | `$7f` | [essence](../../external/oracles-disasm/object_code/common/interactions/essence.s) | `$00` | — | — | 2 | **M** — No Seasons production route. |
-| `$80` | [fickleOldMan](../../external/oracles-disasm/object_code/seasons/interactions/fickleOldMan.s) | `$00-$03` | — | — | 0 | **M** — No Seasons production route. |
+| `$80` | [fickleOldMan](../../external/oracles-disasm/object_code/seasons/interactions/fickleOldMan.s) | `$00-$03` | — | — | 0 | **R** — Horon-stage old-man dialogue and source visibility whitelist. |
 | `$81` | [subrosianShop](../../external/oracles-disasm/object_code/seasons/interactions/subrosianShop.s) | `$00, $04, $0a, $0c-$0d` | — | — | 0 | **M** — No Seasons production route. |
-| `$82` | [horonDog](../../external/oracles-disasm/object_code/seasons/interactions/horonDog.s) | — | — | — | 1 | **M** — No Seasons production route. |
-| `$83` | [ballThrownToDog](../../external/oracles-disasm/object_code/seasons/interactions/ballThrownToDog.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$82` | [horonDog](../../external/oracles-disasm/object_code/seasons/interactions/horonDog.s) | — | — | — | 1 | **R** — Native dog allocated by ball `$83`, consuming and publishing shared `$cceb` handoff. |
+| `$83` | [ballThrownToDog](../../external/oracles-disasm/object_code/seasons/interactions/ballThrownToDog.s) | — | — | — | 1 | **R** — Native ball allocated by boy `$3e`, spawning dog `$82` and preserving shared RNG/bounce/return order. |
 | `$84` | [sparkle](../../external/oracles-disasm/object_code/seasons/interactions/sparkle.s) | — | — | — | 19 | **M** — No Seasons production route. |
 | `$85` | [introSceneMusic](../../external/oracles-disasm/object_code/seasons/interactions/introSceneMusic.s) | `$00` | — | — | 0 | **R** — Opening carnival-music route `$00`. |
 | `$86` | [templeSinkingExplosion](../../external/oracles-disasm/object_code/seasons/interactions/templeSinkingExplosion.s) | — | — | — | 1 | **R** — Opening temple explosions `$00-$04`. |
 | `$87` | [makuTree](../../external/oracles-disasm/object_code/seasons/interactions/makuTree.s) | `$00` | `$01-$02` | — | 0 | **M** — No Seasons production route. |
 | `$88` | [88](../../external/oracles-disasm/object_code/seasons/interactions/88.s) | `$01` | — | — | 1 | **P** — Opening castle lightning `$00-$01`; the later room/story branches are missing. |
 | `$89` | [vasu](../../external/oracles-disasm/object_code/common/interactions/vasu.s) | `$00-$01, $06` | — | — | 0 | **M** — No Seasons production route. |
-| `$8a` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$04` | — | — | 1 | **M** — No Seasons production route. |
-| `$8b` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$04` | — | — | 2 | **M** — No Seasons production route. |
+| `$8a` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$04` | — | — | 1 | **R** — Sunken-stage flooded-house dialogue and visibility. |
+| `$8b` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$04` | — | — | 2 | **R** — Sunken-stage wife dialogue and Moblin Keep room relocation. |
 | `$8c` | [flyingRooster](../../external/oracles-disasm/object_code/seasons/interactions/flyingRooster.s) | `$00-$01` | — | — | 1 | **M** — No Seasons production route. |
-| `$8d` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$03` | — | — | 1 | **M** — No Seasons production route. |
-| `$8e` | [8e](../../external/oracles-disasm/object_code/seasons/interactions/8e.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$8d` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$03` | — | — | 1 | **P** — Talk-only `$01-$03` with source third-essence and Sunken-stage predicates; the `$00` Flippers reward remains unbound. |
+| `$8e` | [8e](../../external/oracles-disasm/object_code/seasons/interactions/8e.s) | — | — | — | 1 | **R** — Fickle-girl wand child consuming the parent animation restart signal. |
 | `$8f` | [oldManWithJewel](../../external/oracles-disasm/object_code/seasons/interactions/oldManWithJewel.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$90` | [jewelHelper](../../external/oracles-disasm/object_code/seasons/interactions/jewelHelper.s) | `$00-$07` | — | — | 1 | **M** — No Seasons production route. |
 | `$91` | [bubble](../../external/oracles-disasm/object_code/common/interactions/bubble.s) | — | — | — | 2 | **M** — No Seasons production route. |
@@ -257,16 +258,16 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$99` | [oldManWithRupees](../../external/oracles-disasm/object_code/seasons/interactions/oldManWithRupees.s) | `$00-$07` | — | — | 0 | **M** — No Seasons production route. |
 | `$9a` | [9a](../../external/oracles-disasm/object_code/seasons/interactions/9a.s) | `$02` | — | — | 2 | **M** — No Seasons production route. |
 | `$9b` | [9b](../../external/oracles-disasm/object_code/seasons/interactions/9b.s) | — | `$00` | — | 0 | **M** — No Seasons production route. |
-| `$9c` | [springBloomFlower](../../external/oracles-disasm/object_code/seasons/interactions/springBloomFlower.s) | `$00` | `$00` | — | 0 | **M** — No Seasons production route. |
-| `$9d` | [impa](../../external/oracles-disasm/object_code/seasons/interactions/impa.s) | `$00-$01, $03-$05` | — | — | 1 | **P** — Standard opening `$00`, its `$01` handoff and the standard-file `$04` deletion guard; other placed contexts and linked activation are missing. |
+| `$9c` | [springBloomFlower](../../external/oracles-disasm/object_code/seasons/interactions/springBloomFlower.s) | `$00` | `$00` | — | 0 | **P** — Spring-only flower NPC consumer states `$01/$05-$07`; separate Link-launch states `$02-$04` remain unbound. |
+| `$9d` | [impa](../../external/oracles-disasm/object_code/seasons/interactions/impa.s) | `$00-$01, $03-$05` | — | — | 1 | **P** — Standard opening `$00`, source advice `$01`, panic `$05` and standard-file `$04` deletion; linked introduction/event variants remain unbound. |
 | `$9e` | [samasaDesertGate](../../external/oracles-disasm/object_code/seasons/interactions/samasaDesertGate.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$9f` | [exclamationMark](../../external/oracles-disasm/object_code/common/interactions/exclamationMark.s) | — | — | — | 2 | **R** — Shared `$00` body with native pack graphics for opening, helper and silent companion-hover allocations. |
-| `$a0` | [floatingImage](../../external/oracles-disasm/object_code/common/interactions/floatingImage.s) | — | — | — | 1 | **P** — Native music-note `$01` allocation, motion and lifetime; snore `$00` and other producers remain unbound. |
+| `$a0` | [floatingImage](../../external/oracles-disasm/object_code/common/interactions/floatingImage.s) | — | — | — | 1 | **P** — Native music-note `$01` and Sokra snore `$00` allocation, motion and lifetime; other producers remain unbound. |
 | `$a1` | [movingSidescrollPlatform](../../external/oracles-disasm/object_code/common/interactions/movingSidescrollPlatform.s) | `$00-$09, $0b-$0f, $13-$14` | — | — | 0 | **M** — No Seasons production route. |
 | `$a2` | [movingSidescrollConveyor](../../external/oracles-disasm/object_code/common/interactions/movingSidescrollConveyor.s) | `$00-$04` | — | — | 0 | **M** — No Seasons production route. |
 | `$a3` | [disappearingSidescrollPlatform](../../external/oracles-disasm/object_code/seasons/interactions/disappearingSidescrollPlatform.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
 | `$a4` | [subrosianSmithy](../../external/oracles-disasm/object_code/seasons/interactions/subrosianSmithy.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
-| `$a5` | [din](../../external/oracles-disasm/object_code/seasons/interactions/din.s) | `$08-$09` | `$02-$05, $07` | — | 3 | **P** — Standard collapsed-Link discovery `$09`; ending and linked contexts are missing. |
+| `$a5` | [din](../../external/oracles-disasm/object_code/seasons/interactions/din.s) | `$08-$09` | `$02-$05, $07` | — | 3 | **P** — Standard collapsed-Link discovery `$09` and finished-game village dialogue `$08`; other native/linked variants remain unbound. |
 | `$a6` | [dinsCrystalFading](../../external/oracles-disasm/object_code/seasons/interactions/dinsCrystalFading.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$a7` | [endgameCutsceneBipsomFamily](../../external/oracles-disasm/object_code/common/interactions/endgameCutsceneBipsomFamily.s) | — | `$00-$03` | — | 0 | **M** — No Seasons production route. |
 | `$a8` | [a8](../../external/oracles-disasm/object_code/seasons/interactions/a8.s) | — | `$00, $02-$04, $13-$14, $24, $34, $44, $54` | — | 0 | **M** — No Seasons production route. |
@@ -278,14 +279,14 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$ae` | [creditsTextHorizontal](../../external/oracles-disasm/object_code/common/interactions/creditsTextHorizontal.s) | — | — | — | 2 | **M** — No Seasons production route. |
 | `$af` | [creditsTextVertical](../../external/oracles-disasm/object_code/common/interactions/creditsTextVertical.s) | — | — | — | 2 | **M** — No Seasons production route. |
 | `$b0` | [twinrovaFlame](../../external/oracles-disasm/object_code/common/interactions/twinrovaFlame.s) | `$08-$0a` | `$08-$0d` | — | 9 | **M** — No Seasons production route. |
-| `$b1` | [shipPiratian](../../external/oracles-disasm/object_code/seasons/interactions/shipPiratian.s) | `$10-$16, $18-$1a` | `$01, $03, $07-$09, $0d-$0e` | `$02, $0a-$0c` | 4 | **M** — No Seasons production route. |
+| `$b1` | [shipPiratian](../../external/oracles-disasm/object_code/seasons/interactions/shipPiratian.s) | `$10-$16, $18-$1a` | `$01, $03, $07-$09, $0d-$0e` | `$02, $0a-$0c` | 4 | **P** — Docked-ship talk `$10-$16` with source room/global docking predicates; boarding, departure and ghost events remain unbound. |
 | `$b2` | [shipPiratian](../../external/oracles-disasm/object_code/seasons/interactions/shipPiratian.s) | `$02` | `$00` | `$01, $03` | 2 | **M** — No Seasons production route. |
 | `$b3` | [linkedCutscene](../../external/oracles-disasm/object_code/seasons/interactions/linkedCutscene.s) | `$00, $02` | `$01, $03` | — | 1 | **M** — No Seasons production route. |
 | `$b4` | [b4](../../external/oracles-disasm/object_code/seasons/interactions/b4.s) | — | — | — | 3 | **M** — No Seasons production route. |
 | `$b5` | [finalDungeonEnergy](../../external/oracles-disasm/object_code/common/interactions/finalDungeonEnergy.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$b6` | [gashaSpot](../../external/oracles-disasm/object_code/common/interactions/gashaSpot.s) | `$00-$0f` | — | — | 0 | **M** — No Seasons production route. |
 | `$b7` | [kissHeart](../../external/oracles-disasm/object_code/common/interactions/kissHeart.s) | — | — | — | 1 | **M** — No Seasons production route. |
-| `$b8` | [ambi](../../external/oracles-disasm/object_code/seasons/interactions/ambi.s) | `$00-$02, $04` | — | — | 1 | **M** — No Seasons production route. |
+| `$b8` | [ambi](../../external/oracles-disasm/object_code/seasons/interactions/ambi.s) | `$00-$02, $04` | — | — | 1 | **P** — Linked-stage talk `$00-$02/$04`, first/repeat dialogue flag and visibility; entering-house event `$03` remains unbound. |
 | `$b9` | [horonDogCredits](../../external/oracles-disasm/object_code/common/interactions/horonDogCredits.s) | — | `$00-$07` | — | 0 | **M** — No Seasons production route. |
 | `$ba` | [ba](../../external/oracles-disasm/object_code/seasons/interactions/ba.s) | — | — | `$01` | 4 | **M** — No Seasons production route. |
 | `$bb` | [bb](../../external/oracles-disasm/object_code/seasons/interactions/bb.s) | — | `$01-$02` | — | 2 | **M** — No Seasons production route. |
@@ -295,14 +296,14 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$bf` | [bf](../../external/oracles-disasm/object_code/seasons/interactions/bf.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$c0` | [banana](../../external/oracles-disasm/object_code/common/interactions/banana.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$c1` | [c1](../../external/oracles-disasm/object_code/common/interactions/c1.s) | — | `$00` | — | 0 | **M** — No Seasons production route. |
-| `$c2` | [mayorsHouseUnlinkedGirl](../../external/oracles-disasm/object_code/seasons/interactions/mayorsHouseUnlinkedGirl.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
+| `$c2` | [mayorsHouseUnlinkedGirl](../../external/oracles-disasm/object_code/seasons/interactions/mayorsHouseUnlinkedGirl.s) | `$00` | — | — | 0 | **R** — Mayor-house girl talk and finished-game text selection. |
 | `$c3` | [zeldaKidnappedRoom](../../external/oracles-disasm/object_code/seasons/interactions/zeldaKidnappedRoom.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$c4` | [zeldaVillagersRoom](../../external/oracles-disasm/object_code/seasons/interactions/zeldaVillagersRoom.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$c5` | [d4HolesFloortrapRoom](../../external/oracles-disasm/object_code/seasons/interactions/d4HolesFloortrapRoom.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$c6` | [herosCaveSwordChest](../../external/oracles-disasm/object_code/seasons/interactions/herosCaveSwordChest.s) | `$00` | — | — | 0 | **R** — Unlinked Hero's Cave sword chest, native spin handoff and direct return warp. |
 | `$c7` | [createObjectAtEachTileindex](../../external/oracles-disasm/object_code/common/interactions/createObjectAtEachTileindex.s) | `$04, $08, $bc` | `$a0` | — | 0 | **M** — No Seasons production route. |
-| `$c8` | [boomerangSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/boomerangSubrosian.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
-| `$c9` | [boomerang](../../external/oracles-disasm/object_code/seasons/interactions/boomerang.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$c8` | [boomerangSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/boomerangSubrosian.s) | `$00` | — | — | 0 | **R** — Native boomerang Subrosian talk, child `$c9`, return signal and shared RNG. |
+| `$c9` | [boomerang](../../external/oracles-disasm/object_code/seasons/interactions/boomerang.s) | — | — | — | 1 | **R** — Native thrown-boomerang child with source movement, sound and parent completion. |
 | `$ca` | [troy](../../external/oracles-disasm/object_code/seasons/interactions/troy.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$cb` | [linkedGameGhini](../../external/oracles-disasm/object_code/seasons/interactions/linkedGameGhini.s) | `$00, $03` | — | — | 1 | **M** — No Seasons production route. |
 | `$cc` | [goldenCaveSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/goldenCaveSubrosian.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
@@ -330,7 +331,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$e2` | [statueEyeball](../../external/oracles-disasm/object_code/common/interactions/statueEyeball.s) | `$00-$01, $03` | — | — | 1 | **M** — No Seasons production route. |
 | `$e3` | [vire](../../external/oracles-disasm/object_code/seasons/interactions/vire.s) | — | — | — | 0 | **M** — No Seasons production route. |
 | `$e4` | [linkedHerosCaveOldMan](../../external/oracles-disasm/object_code/seasons/interactions/linkedHerosCaveOldMan.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
-| `$e5` | [ringHelpBook](../../external/oracles-disasm/object_code/common/interactions/ringHelpBook.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
+| `$e5` | [ringHelpBook](../../external/oracles-disasm/object_code/common/interactions/ringHelpBook.s) | `$00-$01` | — | — | 0 | **R** — Source book palettes, bottom-positioned non-exitable dialogue, choices and reset/fallthrough paths. |
 | `$e6` | [getRodOfSeasons](../../external/oracles-disasm/object_code/seasons/interactions/getRodOfSeasons.s) | `$00` | — | `$02` | 3 | **M** — No Seasons production route. |
 | `$e7` | [loneZora](../../external/oracles-disasm/object_code/seasons/interactions/loneZora.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 
@@ -351,7 +352,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:0c` | [M] `$8c:$00/v$00` flyingRooster |
 | `0:0d` | [M] `$6b:$03/v$00` miscellaneous1 |
 | `0:0f` | [M] `$6b:$21/v$00` miscellaneous1 |
-| `0:11` | [M] `$9c:$00/v$00` springBloomFlower |
+| `0:11` | [P] `$9c:$00/v$00` springBloomFlower |
 | `0:14` | [M] `$dc:$0e/v$00` miscPuzzles |
 | `0:15` | [M] `$dc:$0e/v$00` miscPuzzles |
 | `0:17` | [M] `$dc:$0e/v$00` miscPuzzles |
@@ -366,7 +367,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:26` | [M] `$dc:$0e/v$00` miscPuzzles |
 | `0:27` | [M] `$dc:$0e/v$00` miscPuzzles |
 | `0:2a` | [M] `$d0:$05/v$00` companionTutorial |
-| `0:2b` | [M] `$9c:$00/v$00` springBloomFlower |
+| `0:2b` | [P] `$9c:$00/v$00` springBloomFlower |
 | `0:2d` | [M] `$6b:$0a/v$00` miscellaneous1 |
 | `0:2e` | [M] `$1f:$02/v$00` specialWarp<br>[M] `$1f:$03/v$00` specialWarp |
 | `0:2f` | [M] `$ce:$06/v$00` businessScrub<br>[M] `$5f:$05/v$00` companionSpawner<br>[M] `$71:$06/v$00` companionScripts |
@@ -380,31 +381,31 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:44` | [M] `$98:$03/v$00` woodenTunnel<br>[M] `$b6:$04/v$00` gashaSpot |
 | `0:45` | [M] `$98:$02/v$00` woodenTunnel |
 | `0:4b` | [M] `$74:$0c/v$00` 74 |
-| `0:4d` | [M] `$36:$81/v$00` miscNpcs<br>[M] `$36:$82/v$00` miscNpcs<br>[M] `$36:$84/v$00` miscNpcs<br>[M] `$1f:$09/v$00` specialWarp |
+| `0:4d` | [R] `$36:$81/v$00` miscNpcs<br>[R] `$36:$82/v$00` miscNpcs<br>[R] `$36:$84/v$00` miscNpcs<br>[M] `$1f:$09/v$00` specialWarp |
 | `0:4e` | [M] `$d0:$03/v$00` companionTutorial |
 | `0:4f` | [M] `$d0:$03/v$00` companionTutorial |
 | `0:52` | [M] `$6b:$06/v$00` miscellaneous1 |
-| `0:53` | [M] `$9c:$00/v$00` springBloomFlower |
+| `0:53` | [P] `$9c:$00/v$00` springBloomFlower |
 | `0:54` | [M] `$5f:$01/v$00` companionSpawner<br>[M] `$71:$03/v$00` companionScripts |
 | `0:56` | [M] `$6b:$11/v$00` miscellaneous1<br>[M] `$98:$00/v$00` woodenTunnel |
 | `0:5a` | [M] `$1f:$04/v$00` specialWarp (season mask $04) |
 | `0:5b` | [M] `$ab:$02/v$00` moblinKeepScenes<br>[M] `$db:$00/v$00` linkedSecredGivers |
 | `0:5c` | [M] `$ab:$00/v$00` moblinKeepScenes |
-| `0:5d` | [M] `$71:$02/v$00` companionScripts<br>[M] `$71:$08/v$00` companionScripts<br>[M] `$36:$80/v$00` miscNpcs<br>[M] `$36:$83/v$00` miscNpcs<br>[M] `$8b:$01/v$00` sunkenCityNpcs<br>[M] `$8b:$02/v$00` sunkenCityNpcs<br>[M] `$8b:$03/v$00` sunkenCityNpcs<br>[M] `$8b:$04/v$00` sunkenCityNpcs<br>[M] `$2e:$00/v$00` fickleGirl<br>[M] `$2e:$01/v$00` fickleGirl<br>[M] `$2e:$04/v$00` fickleGirl |
-| `0:5e` | [M] `$3e:$30/v$00` miscBoyNpcs<br>[M] `$3e:$31/v$00` miscBoyNpcs<br>[M] `$3e:$32/v$00` miscBoyNpcs<br>[M] `$3e:$33/v$00` miscBoyNpcs<br>[M] `$3e:$34/v$00` miscBoyNpcs<br>[M] `$8a:$01/v$00` sunkenCityNpcs<br>[M] `$b8:$01/v$00` ambi |
+| `0:5d` | [M] `$71:$02/v$00` companionScripts<br>[M] `$71:$08/v$00` companionScripts<br>[R] `$36:$80/v$00` miscNpcs<br>[R] `$36:$83/v$00` miscNpcs<br>[R] `$8b:$01/v$00` sunkenCityNpcs<br>[R] `$8b:$02/v$00` sunkenCityNpcs<br>[R] `$8b:$03/v$00` sunkenCityNpcs<br>[R] `$8b:$04/v$00` sunkenCityNpcs<br>[R] `$2e:$00/v$00` fickleGirl<br>[R] `$2e:$01/v$00` fickleGirl<br>[R] `$2e:$04/v$00` fickleGirl |
+| `0:5e` | [R] `$3e:$30/v$00` miscBoyNpcs<br>[R] `$3e:$31/v$00` miscBoyNpcs<br>[R] `$3e:$32/v$00` miscBoyNpcs<br>[R] `$3e:$33/v$00` miscBoyNpcs<br>[R] `$3e:$34/v$00` miscBoyNpcs<br>[R] `$8a:$01/v$00` sunkenCityNpcs<br>[R] `$b8:$01/v$00` ambi |
 | `0:60` | [M] `$22:$02/v$00` makuCutscenes |
 | `0:63` | [M] `$98:$00/v$00` woodenTunnel<br>[M] `$90:$00/v$00` jewelHelper |
 | `0:64` | [M] `$5f:$06/v$00` companionSpawner |
 | `0:66` | [M] `$98:$01/v$00` woodenTunnel<br>[M] `$6b:$1a/v$00` miscellaneous1 |
-| `0:6d` | [M] `$2e:$02/v$00` fickleGirl<br>[M] `$2e:$03/v$00` fickleGirl<br>[M] `$5f:$04/v$00` companionSpawner<br>[M] `$71:$05/v$00` companionScripts<br>[M] `$76:$00/v$00` sunkenCityBullies<br>[M] `$76:$01/v$00` sunkenCityBullies<br>[M] `$76:$02/v$00` sunkenCityBullies |
-| `0:6e` | [M] `$1f:$0d/v$00` specialWarp<br>[M] `$3e:$31/v$00` miscBoyNpcs |
+| `0:6d` | [R] `$2e:$02/v$00` fickleGirl<br>[R] `$2e:$03/v$00` fickleGirl<br>[M] `$5f:$04/v$00` companionSpawner<br>[M] `$71:$05/v$00` companionScripts<br>[M] `$76:$00/v$00` sunkenCityBullies<br>[M] `$76:$01/v$00` sunkenCityBullies<br>[M] `$76:$02/v$00` sunkenCityBullies |
+| `0:6e` | [M] `$1f:$0d/v$00` specialWarp<br>[R] `$3e:$31/v$00` miscBoyNpcs |
 | `0:6f` | [M] `$9a:$02/v$00` 9a<br>[M] `$71:$07/v$00` companionScripts |
-| `0:71` | [M] `$27:$02/v$00` sokra |
+| `0:71` | [R] `$27:$02/v$00` sokra |
 | `0:73` | [M] `$98:$01/v$00` woodenTunnel |
 | `0:74` | [M] `$d0:$00/v$00` companionTutorial |
 | `0:75` | [M] `$b6:$06/v$00` gashaSpot |
 | `0:77` | [M] `$c3:$00/v$00` zeldaKidnappedRoom |
-| `0:7c` | [M] `$9c:$00/v$00` springBloomFlower |
+| `0:7c` | [P] `$9c:$00/v$00` springBloomFlower |
 | `0:7f` | [M] `$1f:$00/v$00` specialWarp<br>[M] `$70:$01/v$00` holly |
 | `0:80` | [M] `$b6:$07/v$00` gashaSpot<br>[M] `$ce:$00/v$00` businessScrub |
 | `0:81` | [M] `$6b:$02/v$00` miscellaneous1 |
@@ -431,97 +432,97 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:b0` | [M] `$e1:$00/v$00` portalSpawner |
 | `0:b1` | [M] `$6b:$0a/v$00` miscellaneous1 |
 | `0:b6` | [R] `$9d:$00/v$00` impa<br>[P] `$9d:$04/v$00` impa |
-| `0:b7` | [M] `$26:$00/v$00` mittensAndOwner<br>[M] `$26:$01/v$00` mittensAndOwner<br>[M] `$25:$00/v$00` mittensAndOwner<br>[M] `$25:$01/v$00` mittensAndOwner |
+| `0:b7` | [M] `$26:$00/v$00` mittensAndOwner<br>[R] `$26:$01/v$00` mittensAndOwner<br>[R] `$25:$00/v$00` mittensAndOwner<br>[R] `$25:$01/v$00` mittensAndOwner |
 | `0:b9` | [M] `$e1:$00/v$00` portalSpawner |
 | `0:bd` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$01/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:be` | [M] `$5e:$00/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:bf` | [M] `$4d:$00/v$00` pirateSkull |
 | `0:c0` | [M] `$b6:$0c/v$00` gashaSpot |
 | `0:c2` | [M] `$d0:$02/v$00` companionTutorial<br>[M] `$d0:$05/v$00` companionTutorial |
-| `0:c5` | [M] `$3c:$80/v$00` miscNpcs<br>[M] `$3e:$10/v$00` miscBoyNpcs |
-| `0:c6` | [M] `$9c:$00/v$00` springBloomFlower<br>[M] `$3e:$20/v$00` miscBoyNpcs<br>[M] `$2d:$80/v$00` miscNpcs<br>[M] `$2d:$86/v$00` miscNpcs<br>[M] `$37:$81/v$00` miscNpcs<br>[M] `$80:$02/v$00` fickleOldMan<br>[M] `$9d:$05/v$00` impa<br>[M] `$2a:$0b/v$00` bird |
+| `0:c5` | [R] `$3c:$80/v$00` miscNpcs<br>[R] `$3e:$10/v$00` miscBoyNpcs |
+| `0:c6` | [P] `$9c:$00/v$00` springBloomFlower<br>[R] `$3e:$20/v$00` miscBoyNpcs<br>[R] `$2d:$80/v$00` miscNpcs<br>[R] `$2d:$86/v$00` miscNpcs<br>[R] `$37:$81/v$00` miscNpcs<br>[R] `$80:$02/v$00` fickleOldMan<br>[R] `$9d:$05/v$00` impa<br>[R] `$2a:$0b/v$00` bird |
 | `0:c8` | [M] `$b6:$0f/v$00` gashaSpot |
 | `0:c9` | [M] `$59:$00/v$00` lostWoodsSword |
 | `0:cb` | [M] `$6c:$00/v$00` subrosiansHiding |
-| `0:cc` | [M] `$9c:$00/v$00` springBloomFlower |
+| `0:cc` | [P] `$9c:$00/v$00` springBloomFlower |
 | `0:cd` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:ce` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand |
 | `0:cf` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand |
 | `0:d0` | [M] `$22:$06/v$00` makuCutscenes |
 | `0:d1` | [M] `$6b:$0a/v$00` miscellaneous1 |
 | `0:d4` | [P] `$dc:$01/v$00` miscPuzzles<br>[P] `$dc:$02/v$00` miscPuzzles |
-| `0:d6` | [M] `$37:$80/v$00` miscNpcs<br>[M] `$2d:$81/v$00` miscNpcs<br>[M] `$2d:$83/v$00` miscNpcs<br>[M] `$2d:$85/v$00` miscNpcs<br>[M] `$3e:$04/v$00` miscBoyNpcs<br>[M] `$3e:$11/v$00` miscBoyNpcs<br>[M] `$a5:$08/v$00` din<br>[M] `$4e:$0a/v$00` dinDancingEvent |
+| `0:d6` | [R] `$37:$80/v$00` miscNpcs<br>[R] `$2d:$81/v$00` miscNpcs<br>[R] `$2d:$83/v$00` miscNpcs<br>[R] `$2d:$85/v$00` miscNpcs<br>[R] `$3e:$04/v$00` miscBoyNpcs<br>[R] `$3e:$11/v$00` miscBoyNpcs<br>[R] `$a5:$08/v$00` din<br>[R] `$4e:$0a/v$00` dinDancingEvent |
 | `0:d7` | [M] `$6b:$1b/v$00` miscellaneous1 |
-| `0:d8` | [M] `$6b:$0a/v$00` miscellaneous1<br>[M] `$8a:$04/v$00` sunkenCityNpcs |
-| `0:d9` | [M] `$22:$0a/v$00` makuCutscenes<br>[M] `$2d:$84/v$00` miscNpcs<br>[M] `$37:$84/v$00` miscNpcs |
+| `0:d8` | [M] `$6b:$0a/v$00` miscellaneous1<br>[R] `$8a:$04/v$00` sunkenCityNpcs |
+| `0:d9` | [M] `$22:$0a/v$00` makuCutscenes<br>[R] `$2d:$84/v$00` miscNpcs<br>[R] `$37:$84/v$00` miscNpcs |
 | `0:da` | [M] `$4c:$00/v$00` miscStatusObjects<br>[M] `$58:$00/v$00` guruguru<br>[M] `$bc:$04/v$00` bc_bd_be |
 | `0:dc` | [M] `$5e:$02/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:dd` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$03/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:de` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:df` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$04/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:e0` | [M] `$6b:$1c/v$00` miscellaneous1 |
-| `0:e2` | [M] `$74:$04/v$00` 74<br>[M] `$b2:$02/v$00` shipPiratian<br>[M] `$b1:$10/v$00` shipPiratian |
+| `0:e2` | [M] `$74:$04/v$00` 74<br>[M] `$b2:$02/v$00` shipPiratian<br>[R] `$b1:$10/v$00` shipPiratian |
 | `0:e4` | [M] `$90:$02/v$00` jewelHelper |
-| `0:e6` | [M] `$2d:$82/v$00` miscNpcs |
-| `0:e7` | [M] `$3d:$80/v$00` miscNpcs<br>[M] `$d8:$00/v$00` linkedFountainLady<br>[M] `$4c:$07/v$00` miscStatusObjects<br>[M] `$4c:$08/v$00` miscStatusObjects |
-| `0:e9` | [M] `$27:$00/v$00` sokra<br>[M] `$37:$83/v$00` miscNpcs<br>[M] `$80:$01/v$00` fickleOldMan<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$3e:$00/v$00` miscBoyNpcs<br>[M] `$3e:$01/v$00` miscBoyNpcs<br>[M] `$3e:$03/v$00` miscBoyNpcs<br>[M] `$3e:$12/v$00` miscBoyNpcs<br>[M] `$3e:$13/v$00` miscBoyNpcs<br>[M] `$c4:$00/v$00` zeldaVillagersRoom |
+| `0:e6` | [R] `$2d:$82/v$00` miscNpcs |
+| `0:e7` | [R] `$3d:$80/v$00` miscNpcs<br>[M] `$d8:$00/v$00` linkedFountainLady<br>[M] `$4c:$07/v$00` miscStatusObjects<br>[M] `$4c:$08/v$00` miscStatusObjects |
+| `0:e9` | [M] `$27:$00/v$00` sokra<br>[R] `$37:$83/v$00` miscNpcs<br>[R] `$80:$01/v$00` fickleOldMan<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[R] `$3e:$00/v$00` miscBoyNpcs<br>[R] `$3e:$01/v$00` miscBoyNpcs<br>[R] `$3e:$03/v$00` miscBoyNpcs<br>[R] `$3e:$12/v$00` miscBoyNpcs<br>[R] `$3e:$13/v$00` miscBoyNpcs<br>[M] `$c4:$00/v$00` zeldaVillagersRoom |
 | `0:ea` | [M] `$98:$00/v$00` woodenTunnel |
 | `0:ec` | [M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:ed` | [M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:ee` | [M] `$74:$02/v$00` 74<br>[M] `$6b:$15/v$00` miscellaneous1 |
 | `0:ef` | [M] `$b6:$0d/v$00` gashaSpot<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:f0` | [M] `$b6:$0e/v$00` gashaSpot |
-| `0:f2` | [M] `$74:$07/v$00` 74<br>[M] `$b1:$11/v$00` shipPiratian |
+| `0:f2` | [M] `$74:$07/v$00` 74<br>[R] `$b1:$11/v$00` shipPiratian |
 | `0:f4` | [M] `$90:$03/v$00` jewelHelper |
-| `0:f6` | [M] `$3e:$02/v$00` miscBoyNpcs |
-| `0:f7` | [M] `$80:$00/v$00` fickleOldMan<br>[M] `$80:$03/v$00` fickleOldMan<br>[M] `$37:$85/v$00` miscNpcs<br>[M] `$dc:$0b/v$00` miscPuzzles |
-| `0:f8` | [M] `$37:$82/v$00` miscNpcs |
+| `0:f6` | [R] `$3e:$02/v$00` miscBoyNpcs |
+| `0:f7` | [R] `$80:$00/v$00` fickleOldMan<br>[R] `$80:$03/v$00` fickleOldMan<br>[R] `$37:$85/v$00` miscNpcs<br>[M] `$dc:$0b/v$00` miscPuzzles |
+| `0:f8` | [R] `$37:$82/v$00` miscNpcs |
 | `0:fa` | [M] `$98:$01/v$00` woodenTunnel |
-| `0:fb` | [M] `$b8:$02/v$00` ambi |
+| `0:fb` | [R] `$b8:$02/v$00` ambi |
 | `0:fc` | [M] `$9e:$00/v$00` samasaDesertGate<br>[M] `$40:$0a/v$00` piratian |
 | `0:fd` | [M] `$5e:$05/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `1:00` | [M] `$b3:$02/v$00` linkedCutscene<br>[M] `$22:$07/v$00` makuCutscenes<br>[M] `$e2:$00/v$00` statueEyeball<br>[M] `$e2:$00/v$00` statueEyeball |
-| `1:03` | [M] `$30:$15/v$00` subrosian<br>[M] `$30:$16/v$00` subrosian |
-| `1:05` | [M] `$e1:$00/v$00` portalSpawner<br>[M] `$30:$17/v$00` subrosian<br>[M] `$30:$18/v$00` subrosian<br>[M] `$6b:$26/v$00` miscellaneous1 |
-| `1:06` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$33:$80/v$00` miscNpcs<br>[M] `$33:$81/v$00` miscNpcs<br>[M] `$33:$82/v$00` miscNpcs |
+| `1:03` | [R] `$30:$15/v$00` subrosian<br>[R] `$30:$16/v$00` subrosian |
+| `1:05` | [M] `$e1:$00/v$00` portalSpawner<br>[R] `$30:$17/v$00` subrosian<br>[R] `$30:$18/v$00` subrosian<br>[M] `$6b:$26/v$00` miscellaneous1 |
+| `1:06` | [M] `$6b:$09/v$00` miscellaneous1<br>[R] `$33:$80/v$00` miscNpcs<br>[M] `$33:$81/v$00` miscNpcs<br>[M] `$33:$82/v$00` miscNpcs |
 | `1:07` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$51:$00/v$00` smallVolcano |
 | `1:0a` | [M] `$53:$00/v$00` headSmelter<br>[M] `$30:$00/v$00` subrosian |
 | `1:0b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:0c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:10` | [M] `$51:$00/v$00` smallVolcano |
-| `1:11` | [M] `$32:$01/v$00` subrosianWithBuckets |
+| `1:11` | [R] `$32:$01/v$00` subrosianWithBuckets |
 | `1:13` | [M] `$e1:$00/v$00` portalSpawner<br>[M] `$6b:$0b/v$00` miscellaneous1 |
-| `1:14` | [M] `$33:$83/v$00` miscNpcs<br>[M] `$33:$84/v$00` miscNpcs<br>[M] `$33:$85/v$00` miscNpcs |
-| `1:15` | [M] `$30:$19/v$00` subrosian |
-| `1:17` | [M] `$32:$02/v$00` subrosianWithBuckets |
-| `1:1a` | [M] `$32:$00/v$00` subrosianWithBuckets |
+| `1:14` | [R] `$33:$83/v$00` miscNpcs<br>[M] `$33:$84/v$00` miscNpcs<br>[M] `$33:$85/v$00` miscNpcs |
+| `1:15` | [R] `$30:$19/v$00` subrosian |
+| `1:17` | [R] `$32:$02/v$00` subrosianWithBuckets |
+| `1:1a` | [R] `$32:$00/v$00` subrosianWithBuckets |
 | `1:1b` | [M] `$6b:$19/v$00` miscellaneous1<br>[M] `$4c:$02/v$00` miscStatusObjects |
 | `1:1c` | [M] `$4c:$02/v$00` miscStatusObjects<br>[M] `$4c:$03/v$00` miscStatusObjects |
 | `1:1d` | [M] `$6b:$19/v$00` miscellaneous1<br>[M] `$4c:$02/v$00` miscStatusObjects<br>[M] `$4c:$03/v$00` miscStatusObjects |
-| `1:20` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$e1:$00/v$00` portalSpawner<br>[M] `$30:$1a/v$00` subrosian |
-| `1:22` | [M] `$30:$1b/v$00` subrosian |
-| `1:25` | [M] `$30:$1c/v$00` subrosian<br>[M] `$c8:$00/v$00` boomerangSubrosian<br>[M] `$32:$03/v$00` subrosianWithBuckets |
-| `1:26` | [M] `$30:$1d/v$00` subrosian |
+| `1:20` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$e1:$00/v$00` portalSpawner<br>[R] `$30:$1a/v$00` subrosian |
+| `1:22` | [R] `$30:$1b/v$00` subrosian |
+| `1:25` | [R] `$30:$1c/v$00` subrosian<br>[R] `$c8:$00/v$00` boomerangSubrosian<br>[R] `$32:$03/v$00` subrosianWithBuckets |
+| `1:26` | [R] `$30:$1d/v$00` subrosian |
 | `1:29` | [M] `$23:$40/v$00` seasonSpiritsScripts |
 | `1:2a` | [M] `$22:$08/v$00` makuCutscenes |
 | `1:2b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:2c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:2d` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:30` | [M] `$51:$00/v$00` smallVolcano |
-| `1:31` | [M] `$30:$1e/v$00` subrosian<br>[M] `$51:$00/v$00` smallVolcano |
+| `1:31` | [R] `$30:$1e/v$00` subrosian<br>[M] `$51:$00/v$00` smallVolcano |
 | `1:34` | [M] `$51:$01/v$00` smallVolcano |
-| `1:37` | [M] `$32:$04/v$00` subrosianWithBuckets |
+| `1:37` | [R] `$32:$04/v$00` subrosianWithBuckets |
 | `1:3a` | [M] `$6b:$09/v$00` miscellaneous1 |
 | `1:3b` | [M] `$93:$00/v$00` makuSeed<br>[M] `$4c:$02/v$00` miscStatusObjects |
 | `1:3c` | [M] `$93:$00/v$00` makuSeed<br>[M] `$6b:$19/v$00` miscellaneous1<br>[M] `$4c:$02/v$00` miscStatusObjects |
 | `1:3d` | [M] `$4c:$02/v$00` miscStatusObjects<br>[M] `$4c:$03/v$00` miscStatusObjects<br>[M] `$4c:$03/v$00` miscStatusObjects |
 | `1:3e` | [M] `$4c:$02/v$00` miscStatusObjects<br>[M] `$4c:$03/v$00` miscStatusObjects<br>[M] `$4c:$03/v$00` miscStatusObjects |
 | `1:40` | [M] `$6b:$18/v$00` miscellaneous1 |
-| `1:41` | [M] `$30:$1f/v$00` subrosian |
-| `1:42` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$30:$20/v$00` subrosian<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$51:$00/v$00` smallVolcano |
-| `1:43` | [M] `$30:$0e/v$00` subrosian |
+| `1:41` | [R] `$30:$1f/v$00` subrosian |
+| `1:42` | [M] `$6b:$09/v$00` miscellaneous1<br>[R] `$30:$20/v$00` subrosian<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$51:$00/v$00` smallVolcano |
+| `1:43` | [R] `$30:$0e/v$00` subrosian |
 | `1:44` | [M] `$6b:$0b/v$00` miscellaneous1 |
-| `1:47` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$32:$05/v$00` subrosianWithBuckets |
+| `1:47` | [M] `$6b:$09/v$00` miscellaneous1<br>[R] `$32:$05/v$00` subrosianWithBuckets |
 | `1:48` | [M] `$6b:$0b/v$00` miscellaneous1 |
 | `1:4a` | [M] `$e1:$00/v$00` portalSpawner |
 | `1:4b` | [M] `$4c:$02/v$00` miscStatusObjects<br>[M] `$4c:$03/v$00` miscStatusObjects |
@@ -529,55 +530,55 @@ An opening implementation of the same ID does not cover another room's placement
 | `1:4d` | [M] `$4c:$02/v$00` miscStatusObjects |
 | `1:4e` | [M] `$4c:$02/v$00` miscStatusObjects |
 | `1:51` | [M] `$6d:$00/v$00` subrosiansHiding |
-| `1:52` | [M] `$6e:$02/v$00` stealingFeather<br>[M] `$30:$21/v$00` subrosian |
+| `1:52` | [M] `$6e:$02/v$00` stealingFeather<br>[R] `$30:$21/v$00` subrosian |
 | `1:53` | [M] `$e1:$00/v$00` portalSpawner<br>[M] `$6e:$01/v$00` stealingFeather |
-| `1:54` | [M] `$30:$0f/v$00` subrosian |
-| `1:55` | [M] `$30:$22/v$00` subrosian<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$6b:$0b/v$00` miscellaneous1 |
-| `1:56` | [M] `$30:$0a/v$00` subrosian<br>[M] `$30:$0b/v$00` subrosian |
+| `1:54` | [R] `$30:$0f/v$00` subrosian |
+| `1:55` | [R] `$30:$22/v$00` subrosian<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$6b:$0b/v$00` miscellaneous1 |
+| `1:56` | [R] `$30:$0a/v$00` subrosian<br>[R] `$30:$0b/v$00` subrosian |
 | `1:57` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$e1:$00/v$00` portalSpawner<br>[M] `$51:$01/v$00` smallVolcano |
 | `1:5b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:5c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:5d` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:5e` | [M] `$87:$00/v$00` makuTree<br>[M] `$e1:$01/v$00` portalSpawner |
-| `1:65` | [M] `$30:$07/v$00` subrosian |
-| `1:66` | [M] `$30:$08/v$00` subrosian<br>[M] `$31:$02/v$00` datingRosaEvent |
-| `1:67` | [M] `$30:$24/v$00` subrosian |
+| `1:65` | [R] `$30:$07/v$00` subrosian |
+| `1:66` | [R] `$30:$08/v$00` subrosian<br>[M] `$31:$02/v$00` datingRosaEvent |
+| `1:67` | [R] `$30:$24/v$00` subrosian |
 | `1:69` | [M] `$6f:$00/v$00` bombFlower<br>[M] `$30:$25/v$00` subrosian |
 | `1:6a` | [M] `$51:$01/v$00` smallVolcano |
-| `1:72` | [M] `$e1:$00/v$00` portalSpawner<br>[M] `$40:$09/v$00` piratian<br>[M] `$dc:$0b/v$00` miscPuzzles |
+| `1:72` | [M] `$e1:$00/v$00` portalSpawner<br>[R] `$40:$09/v$00` piratian<br>[M] `$dc:$0b/v$00` miscPuzzles |
 | `1:74` | [M] `$41:$0b/v$00` piratian<br>[M] `$40:$0d/v$00` piratian<br>[M] `$40:$0e/v$00` piratian |
-| `1:75` | [M] `$30:$09/v$00` subrosian |
-| `1:76` | [M] `$30:$06/v$00` subrosian |
+| `1:75` | [R] `$30:$09/v$00` subrosian |
+| `1:76` | [R] `$30:$06/v$00` subrosian |
 | `1:77` | [M] `$31:$00/v$00` datingRosaEvent |
 | `1:7b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:80` | [M] `$2f:$80/v$00` miscNpcs |
-| `1:82` | [M] `$9d:$01/v$00` impa<br>[M] `$44:$09/v$00` zelda |
+| `1:82` | [R] `$9d:$01/v$00` impa<br>[M] `$44:$09/v$00` zelda |
 | `1:83` | [M] `$3f:$80/v$00` miscNpcs |
-| `1:84` | [M] `$2a:$08/v$00` bird<br>[M] `$2a:$09/v$00` bird<br>[M] `$2a:$06/v$00` bird<br>[M] `$2a:$07/v$00` bird<br>[M] `$2a:$04/v$00` bird<br>[M] `$2a:$05/v$00` bird<br>[M] `$2a:$02/v$00` bird<br>[M] `$2a:$03/v$00` bird<br>[M] `$2a:$00/v$00` bird<br>[M] `$2a:$01/v$00` bird |
-| `1:85` | [M] `$c2:$00/v$00` mayorsHouseUnlinkedGirl<br>[M] `$24:$03/v$00` miscNpcs |
+| `1:84` | [R] `$2a:$08/v$00` bird<br>[R] `$2a:$09/v$00` bird<br>[R] `$2a:$06/v$00` bird<br>[R] `$2a:$07/v$00` bird<br>[R] `$2a:$04/v$00` bird<br>[R] `$2a:$05/v$00` bird<br>[R] `$2a:$02/v$00` bird<br>[R] `$2a:$03/v$00` bird<br>[R] `$2a:$00/v$00` bird<br>[R] `$2a:$01/v$00` bird |
+| `1:85` | [R] `$c2:$00/v$00` mayorsHouseUnlinkedGirl<br>[M] `$24:$03/v$00` miscNpcs |
 | `1:86` | [M] `$24:$00/v$00` miscNpcs |
 | `1:87` | [M] `$6b:$19/v$00` miscellaneous1 |
 | `1:88` | [M] `$cb:$03/v$00` linkedGameGhini |
-| `1:8a` | [M] `$41:$00/v$00` piratian<br>[M] `$40:$01/v$00` piratian<br>[M] `$40:$02/v$00` piratian<br>[M] `$40:$03/v$00` piratian<br>[M] `$40:$04/v$00` piratian<br>[M] `$40:$05/v$00` piratian<br>[M] `$40:$06/v$00` piratian<br>[M] `$42:$01/v$00` pirateHouseSubrosian<br>[M] `$b8:$04/v$00` ambi |
-| `1:8b` | [M] `$40:$07/v$00` piratian<br>[M] `$40:$08/v$00` piratian<br>[M] `$42:$00/v$00` pirateHouseSubrosian |
-| `1:8e` | [M] `$53:$01/v$00` headSmelter<br>[M] `$30:$04/v$00` subrosian<br>[M] `$30:$05/v$00` subrosian<br>[M] `$6b:$22/v$00` miscellaneous1 |
+| `1:8a` | [M] `$41:$00/v$00` piratian<br>[M] `$40:$01/v$00` piratian<br>[M] `$40:$02/v$00` piratian<br>[M] `$40:$03/v$00` piratian<br>[M] `$40:$04/v$00` piratian<br>[M] `$40:$05/v$00` piratian<br>[M] `$40:$06/v$00` piratian<br>[R] `$42:$01/v$00` pirateHouseSubrosian<br>[R] `$b8:$04/v$00` ambi |
+| `1:8b` | [M] `$40:$07/v$00` piratian<br>[M] `$40:$08/v$00` piratian<br>[R] `$42:$00/v$00` pirateHouseSubrosian |
+| `1:8e` | [M] `$53:$01/v$00` headSmelter<br>[R] `$30:$04/v$00` subrosian<br>[R] `$30:$05/v$00` subrosian<br>[M] `$6b:$22/v$00` miscellaneous1 |
 | `1:8f` | [M] `$5c:$00/v$00` lavaSoupSubrosian |
-| `1:91` | [M] `$89:$00/v$00` vasu<br>[M] `$89:$01/v$00` vasu<br>[M] `$89:$06/v$00` vasu<br>[M] `$e5:$00/v$00` ringHelpBook<br>[M] `$e5:$01/v$00` ringHelpBook |
+| `1:91` | [M] `$89:$00/v$00` vasu<br>[M] `$89:$01/v$00` vasu<br>[M] `$89:$06/v$00` vasu<br>[R] `$e5:$00/v$00` ringHelpBook<br>[R] `$e5:$01/v$00` ringHelpBook |
 | `1:92` | [M] `$ac:$00/v$00` bipinBlossomFamilySpawner |
 | `1:93` | [M] `$4c:$01/v$00` miscStatusObjects<br>[M] `$4c:$01/v$00` miscStatusObjects<br>[M] `$ac:$01/v$00` bipinBlossomFamilySpawner |
 | `1:94` | [M] `$8f:$00/v$00` oldManWithJewel |
 | `1:95` | [M] `$6a:$00/v$00` danceHallMinigame |
-| `1:96` | [M] `$30:$23/v$00` subrosian |
+| `1:96` | [R] `$30:$23/v$00` subrosian |
 | `1:97` | [M] `$34:$00/v$00` subrosianSmiths<br>[M] `$34:$01/v$00` subrosianSmiths<br>[M] `$a4:$00/v$00` subrosianSmithy |
 | `1:98` | [M] `$7f:$00/v$00` essence |
 | `1:99` | [M] `$57:$00/v$00` ingo<br>[M] `$4c:$09/v$00` miscStatusObjects |
 | `1:9a` | [M] `$99:$00/v$00` oldManWithRupees |
 | `1:9c` | [M] `$43:$80/v$00` syrup<br>[M] `$49:$80/v$00` syrupCucco |
-| `1:9d` | [M] `$8a:$00/v$00` sunkenCityNpcs<br>[M] `$8a:$02/v$00` sunkenCityNpcs<br>[M] `$8a:$03/v$00` sunkenCityNpcs |
-| `1:9e` | [M] `$30:$02/v$00` subrosian<br>[M] `$30:$03/v$00` subrosian |
-| `1:9f` | [M] `$39:$00/v$00` miscNpcs<br>[M] `$39:$01/v$00` miscNpcs<br>[M] `$39:$02/v$00` miscNpcs<br>[M] `$39:$03/v$00` miscNpcs<br>[M] `$39:$04/v$00` miscNpcs |
-| `1:a0` | [M] `$30:$0c/v$00` subrosian<br>[M] `$81:$00/v$00` subrosianShop<br>[M] `$81:$04/v$00` subrosianShop<br>[M] `$81:$0a/v$00` subrosianShop<br>[M] `$81:$0c/v$00` subrosianShop<br>[M] `$81:$0d/v$00` subrosianShop |
-| `1:a1` | [M] `$30:$0d/v$00` subrosian<br>[M] `$6b:$19/v$00` miscellaneous1 |
+| `1:9d` | [R] `$8a:$00/v$00` sunkenCityNpcs<br>[R] `$8a:$02/v$00` sunkenCityNpcs<br>[R] `$8a:$03/v$00` sunkenCityNpcs |
+| `1:9e` | [R] `$30:$02/v$00` subrosian<br>[R] `$30:$03/v$00` subrosian |
+| `1:9f` | [R] `$39:$00/v$00` miscNpcs<br>[R] `$39:$01/v$00` miscNpcs<br>[R] `$39:$02/v$00` miscNpcs<br>[R] `$39:$03/v$00` miscNpcs<br>[R] `$39:$04/v$00` miscNpcs |
+| `1:a0` | [R] `$30:$0c/v$00` subrosian<br>[M] `$81:$00/v$00` subrosianShop<br>[M] `$81:$04/v$00` subrosianShop<br>[M] `$81:$0a/v$00` subrosianShop<br>[M] `$81:$0c/v$00` subrosianShop<br>[M] `$81:$0d/v$00` subrosianShop |
+| `1:a1` | [R] `$30:$0d/v$00` subrosian<br>[M] `$6b:$19/v$00` miscellaneous1 |
 | `1:a3` | [M] `$70:$00/v$00` holly<br>[M] `$db:$02/v$00` linkedSecredGivers |
 | `1:a4` | [M] `$2c:$00/v$00` miscNpcs |
 | `1:a6` | [M] `$47:$01/v$00` shopItem<br>[M] `$47:$03/v$00` shopItem<br>[M] `$47:$04/v$00` shopItem<br>[M] `$46:$00/v$00` shopkeeper |
@@ -587,13 +588,13 @@ An opening implementation of the same ID does not cover another room's placement
 | `1:ab` | [M] `$e1:$00/v$00` portalSpawner<br>[M] `$6b:$17/v$00` miscellaneous1 |
 | `1:ac` | [M] `$4c:$0a/v$00` miscStatusObjects<br>[M] `$4c:$0b/v$00` miscStatusObjects<br>[M] `$4c:$0d/v$00` miscStatusObjects<br>[M] `$4c:$0c/v$00` miscStatusObjects<br>[M] `$e6:$00/v$00` getRodOfSeasons |
 | `1:ad` | [M] `$d5:$00/v$00` greatFairy |
-| `1:af` | [M] `$47:$0e/v$00` shopItem<br>[M] `$47:$0f/v$00` shopItem<br>[M] `$47:$10/v$00` shopItem<br>[M] `$46:$02/v$00` shopkeeper<br>[M] `$37:$86/v$00` miscNpcs |
+| `1:af` | [M] `$47:$0e/v$00` shopItem<br>[M] `$47:$0f/v$00` shopItem<br>[M] `$47:$10/v$00` shopItem<br>[M] `$46:$02/v$00` shopkeeper<br>[R] `$37:$86/v$00` miscNpcs |
 | `1:b0` | [M] `$47:$00/v$00` shopItem<br>[M] `$47:$02/v$00` shopItem<br>[M] `$47:$05/v$00` shopItem<br>[M] `$46:$01/v$00` shopkeeper |
 | `1:b2` | [M] `$30:$12/v$00` subrosian<br>[M] `$30:$13/v$00` subrosian |
-| `1:b3` | [M] `$29:$00/v$00` miscNpcs<br>[M] `$b8:$00/v$00` ambi |
+| `1:b3` | [M] `$29:$00/v$00` miscNpcs<br>[R] `$b8:$00/v$00` ambi |
 | `1:b4` | [M] `$5a:$00/v$00` blainoScript |
 | `1:b5` | [M] `$6b:$00/v$00` miscellaneous1<br>[M] `$6b:$01/v$00` miscellaneous1<br>[M] `$6b:$04/v$00` miscellaneous1<br>[M] `$db:$01/v$00` linkedSecredGivers |
-| `1:b6` | [M] `$8b:$00/v$00` sunkenCityNpcs<br>[M] `$8b:$01/v$00` sunkenCityNpcs<br>[M] `$cd:$00/v$00` linkedMasterDiver |
+| `1:b6` | [R] `$8b:$00/v$00` sunkenCityNpcs<br>[R] `$8b:$01/v$00` sunkenCityNpcs<br>[M] `$cd:$00/v$00` linkedMasterDiver |
 | `1:b9` | [M] `$ab:$01/v$00` moblinKeepScenes |
 | `1:ba` | [M] `$cb:$00/v$00` linkedGameGhini |
 | `4:01` | [M] `$6b:$1f/v$00` miscellaneous1 |
@@ -612,7 +613,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `4:13` | [M] `$7f:$00/v$00` essence |
 | `4:14` | [M] `$12:$02/v$00` dungeonStuff |
 | `4:15` | [M] `$1e:$0a/v$00` doorController<br>[M] `$1e:$15/v$00` doorController<br>[M] `$7e:$00/v$00` minibossPortal<br>[M] `$c7:$08/v$00` createObjectAtEachTileindex |
-| `4:16` | [M] `$38:$00/v$00` miscNpcs |
+| `4:16` | [R] `$38:$00/v$00` miscNpcs |
 | `4:19` | [M] `$1e:$08/v$00` doorController<br>[M] `$1e:$09/v$00` doorController<br>[M] `$12:$02/v$00` dungeonStuff |
 | `4:1a` | [M] `$13:$01/v$00` pushblockTrigger<br>[M] `$1e:$08/v$00` doorController<br>[M] `$1e:$09/v$00` doorController<br>[M] `$1e:$0a/v$00` doorController |
 | `4:1b` | [M] `$1e:$14/v$00` doorController<br>[M] `$12:$01/v$00` dungeonStuff<br>[M] `$1e:$0b/v$00` doorController<br>[M] `$c7:$08/v$00` createObjectAtEachTileindex |
@@ -668,7 +669,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `4:63` | [M] `$ce:$0a/v$00` businessScrub |
 | `4:64` | [M] `$20:$02/v$00` dungeonScript<br>[M] `$c7:$08/v$00` createObjectAtEachTileindex |
 | `4:6a` | [M] `$1e:$08/v$00` doorController<br>[M] `$1e:$09/v$00` doorController<br>[M] `$1e:$0a/v$00` doorController<br>[M] `$20:$05/v$00` dungeonScript<br>[M] `$7e:$00/v$00` minibossPortal<br>[M] `$c7:$04/v$00` createObjectAtEachTileindex |
-| `4:6b` | [M] `$38:$00/v$00` miscNpcs |
+| `4:6b` | [R] `$38:$00/v$00` miscNpcs |
 | `4:6c` | [M] `$20:$03/v$00` dungeonScript |
 | `4:6e` | [M] `$1e:$08/v$00` doorController |
 | `4:6f` | [M] `$78:$01/v$00` switchTileToggler |
@@ -774,7 +775,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `5:2d` | [M] `$dc:$03/v$00` miscPuzzles<br>[M] `$1e:$06/v$00` doorController<br>[M] `$7a:$01/v$00` roller<br>[M] `$7a:$01/v$00` roller |
 | `5:2e` | [M] `$dc:$03/v$00` miscPuzzles<br>[M] `$1e:$05/v$00` doorController |
 | `5:2f` | [M] `$20:$01/v$00` dungeonScript<br>[M] `$dc:$04/v$00` miscPuzzles<br>[M] `$7e:$02/v$00` minibossPortal<br>[M] `$e1:$01/v$00` portalSpawner<br>[M] `$7a:$01/v$00` roller |
-| `5:30` | [M] `$12:$00/v$00` dungeonStuff<br>[M] `$7e:$01/v$00` minibossPortal<br>[M] `$38:$00/v$00` miscNpcs<br>[M] `$e2:$01/v$00` statueEyeball<br>[M] `$dc:$0a/v$00` miscPuzzles |
+| `5:30` | [M] `$12:$00/v$00` dungeonStuff<br>[M] `$7e:$01/v$00` minibossPortal<br>[R] `$38:$00/v$00` miscNpcs<br>[M] `$e2:$01/v$00` statueEyeball<br>[M] `$dc:$0a/v$00` miscPuzzles |
 | `5:31` | [M] `$dc:$04/v$00` miscPuzzles<br>[M] `$7e:$02/v$00` minibossPortal<br>[M] `$e1:$01/v$00` portalSpawner<br>[M] `$dc:$05/v$00` miscPuzzles |
 | `5:32` | [M] `$20:$00/v$00` dungeonScript |
 | `5:33` | [M] `$e1:$01/v$00` portalSpawner<br>[M] `$e7:$00/v$00` loneZora |
@@ -857,15 +858,15 @@ An opening implementation of the same ID does not cover another room's placement
 | `5:b6` | [M] `$45:$00/v$00` talon |
 | `5:bb` | [M] `$79:$05/v$00` movingPlatform<br>[M] `$6b:$0d/v$00` miscellaneous1 |
 | `5:bc` | [M] `$1f:$05/v$00` specialWarp<br>[M] `$6b:$0e/v$00` miscellaneous1 |
-| `5:bd` | [M] `$1f:$06/v$00` specialWarp<br>[M] `$8d:$00/v$00` sunkenCityNpcs<br>[M] `$8d:$01/v$00` sunkenCityNpcs<br>[M] `$8d:$02/v$00` sunkenCityNpcs<br>[M] `$8d:$03/v$00` sunkenCityNpcs |
+| `5:bd` | [M] `$1f:$06/v$00` specialWarp<br>[M] `$8d:$00/v$00` sunkenCityNpcs<br>[R] `$8d:$01/v$00` sunkenCityNpcs<br>[R] `$8d:$02/v$00` sunkenCityNpcs<br>[R] `$8d:$03/v$00` sunkenCityNpcs |
 | `5:c5` | [M] `$3b:$16/v$00` goron |
 | `5:c7` | [M] `$6b:$0a/v$00` miscellaneous1 |
-| `5:c8` | [M] `$3b:$14/v$00` goron<br>[M] `$3b:$15/v$00` goron<br>[M] `$3b:$07/v$00` goron |
-| `5:c9` | [M] `$3b:$20/v$00` goron<br>[M] `$3b:$11/v$00` goron<br>[M] `$3b:$02/v$00` goron<br>[M] `$3b:$13/v$00` goron |
+| `5:c8` | [R] `$3b:$14/v$00` goron<br>[R] `$3b:$15/v$00` goron<br>[M] `$3b:$07/v$00` goron |
+| `5:c9` | [R] `$3b:$20/v$00` goron<br>[R] `$3b:$11/v$00` goron<br>[R] `$3b:$02/v$00` goron<br>[R] `$3b:$13/v$00` goron |
 | `5:cf` | [M] `$b1:$18/v$00` shipPiratian<br>[M] `$b1:$19/v$00` shipPiratian<br>[M] `$b1:$1a/v$00` shipPiratian |
 | `5:d1` | [M] `$ce:$03/v$00` businessScrub |
 | `5:d2` | [M] `$6b:$0c/v$00` miscellaneous1<br>[M] `$6b:$0f/v$00` miscellaneous1<br>[M] `$4d:$01/v$00` pirateSkull |
-| `5:d4` | [M] `$b1:$12/v$00` shipPiratian<br>[M] `$b1:$13/v$00` shipPiratian<br>[M] `$b1:$14/v$00` shipPiratian<br>[M] `$b1:$15/v$00` shipPiratian<br>[M] `$b1:$16/v$00` shipPiratian |
+| `5:d4` | [R] `$b1:$12/v$00` shipPiratian<br>[R] `$b1:$13/v$00` shipPiratian<br>[R] `$b1:$14/v$00` shipPiratian<br>[R] `$b1:$15/v$00` shipPiratian<br>[R] `$b1:$16/v$00` shipPiratian |
 | `5:e2` | [M] `$a1:$00/v$00` movingSidescrollPlatform<br>[M] `$a1:$01/v$00` movingSidescrollPlatform |
 | `5:e3` | [M] `$6b:$19/v$00` miscellaneous1<br>[M] `$a1:$02/v$00` movingSidescrollPlatform |
 | `5:e5` | [M] `$90:$01/v$00` jewelHelper |

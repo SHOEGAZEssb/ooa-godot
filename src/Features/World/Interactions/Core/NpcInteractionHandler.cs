@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Oracles;
 
@@ -54,6 +55,10 @@ internal sealed class NpcInteractionHandler
             npcHandler: null,
             handler);
     }
+
+    internal static NpcInteractionHandler ForEntityScripts(RoomEntityManager entities) =>
+        ForNpc("sharedNpcScript",(target,player) => entities.EntityAdapters<NpcRoomEntity>()
+            .FirstOrDefault(entity => ReferenceEquals(entity.Npc,target.Npc))?.Script?.TryInteract(target,player)==true);
 
     public bool TryBegin(NpcInteractionTarget? target, Player player)
     {

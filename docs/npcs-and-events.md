@@ -93,6 +93,21 @@ while conversation lanes retain their foreground update phase. Moving their
 composition must preserve handler priority, room-change cancellation and
 palette-before-object ordering.
 
+The ordinary NPC adapter also owns the standard entity-script update sequence.
+Native bindings supply initialization, work before the script, and the animation tail.
+A native binding that runs its whole update also owns that visit's script call;
+the common sequence must not dispatch it again. Initialization remains on the
+first eligible slot visit, independently of graphics construction and preload.
+
+Common native NPC families use the shared slot entity with a selected-game
+initializer and their imported scripts. Their live interaction bytes back the
+presenter's coordinates, hitbox, text ID, facing counter and pending A button,
+and the script runner's waits and movement registers. Native writes and script
+commands therefore address the same fields. Godot positions are projected from
+those bytes after gameplay, including frozen object passes; projection advances
+neither counters nor scripts. Retiring a binding detaches its presenter before
+the physical slot can be reused.
+
 The gameplay session composes and retires the common interaction service with
 its selected pack's sign, chest and fallback data. Native script hosts are an
 optional content binding; entity-owned scripts do not require an ordinary NPC

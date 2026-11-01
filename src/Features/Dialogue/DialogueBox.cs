@@ -316,9 +316,10 @@ public partial class DialogueBox : Node2D
         string message,
         float linkY,
         int textboxFlags,
-        int? textPosition = null)
+        int? textPosition = null,
+        int? sourceTextId = null)
     {
-        ShowMessageCore(message, GameplayScreen(linkY), textPosition ?? 0, textboxFlags);
+        ShowMessageCore(message, GameplayScreen(linkY), textPosition ?? 0, textboxFlags,sourceTextId);
     }
 
     public void ShowMessage(string message, float linkY, int textPosition)
@@ -471,9 +472,11 @@ public partial class DialogueBox : Node2D
         float linkY,
         int initialChoice = 0,
         int? textPosition = null,
-        int textboxFlags = 0)
+        int textboxFlags = 0,
+        int? sourceTextId = null)
     {
         ShowChoiceMessage(message, GameplayScreen(linkY), initialChoice, textPosition, textboxFlags);
+        SourceTextId=sourceTextId;
     }
 
     /// <summary>
@@ -516,6 +519,15 @@ public partial class DialogueBox : Node2D
         _choicePhase = -1;
         _ownerClosing = true;
         Visible = false;
+    }
+
+    // wTextIsActive=$01 resumes the thread stopped at $80 after a non-exitable message.
+    internal void ResumeNativeText()
+    {
+        if(!_open||!_nonExitableReady)return;
+        _nonExitableReady=false;
+        if(_choicePhase==3){_choicePhase=-1;_choiceClosingUpdates=3;}
+        else _closing=true;
     }
 
     public void Close()

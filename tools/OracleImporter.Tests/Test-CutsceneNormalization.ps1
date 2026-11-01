@@ -129,3 +129,25 @@ foreach ($actor in 'Family','Farore') {
     Assert-Normalization ($rows[4].Split([char]9)[6] -eq '1' -and
         $rows[5].Split([char]9)[6] -eq '0') 'NPC macro lost internal or external branch targets.'
 }
+
+# The books' earlier reset label falls through into their entry without a yield;
+# their explicit scriptjump still yields. Aliases retain the same entry position.
+function Read-AssemblyNodes([string]$path) {
+    $line=0
+    foreach($entry in @(
+        @('Label','reset',''),@('MacroInvocation','writememory','wTextIsActive, $01'),
+        @('Label','book',''),@('Label','alias',''),@('MacroInvocation','initcollisions',''),
+        @('MacroInvocation','checkabutton',''),@('MacroInvocation','jumpiftextoptioneq','$01, done'),
+        @('MacroInvocation','scriptjump','reset'),@('Label','done',''),@('MacroInvocation','scriptend',''))){
+        [pscustomobject]@{Path=$path;Line=++$line;Kind=$entry[0];Name=$entry[1];EnclosingGlobalLabel='book';Operands=@($entry[2] -split ',\s*')}
+    }
+}
+$program=@(Read-AssemblyNpcProgramRows @('fixture.s') @('book','alias'))
+$rows=@(ConvertTo-NpcProgramRows $program 'Self' @{} -symbols @{wTextIsActive='wTextIsActive'} -yieldOnJump $true)
+foreach($name in 'book','alias'){
+    $commands=@($rows | Select-Object -Skip 1 | ForEach-Object {,$_.Split([char]9)} | Where-Object {$_[0] -eq $name})
+    Assert-Normalization ($commands.Count -eq 7 -and $commands[0][4] -eq 'initcollisions') 'Reachable reset labels displaced the aliased entry.'
+    Assert-Normalization ($commands[3][4] -eq 'scriptjumpyield' -and $commands[3][6] -eq '5') 'Explicit backward jump lost its yield or reset target.'
+    Assert-Normalization ($commands[6][4] -eq 'scriptjump' -and $commands[6][6] -eq '0') 'Synthetic reset fallthrough added a native update.'
+}
+Write-Host 'Shared NPC program fixtures passed (aliases, backward reset fallthrough and explicit jump yields).'

@@ -7,8 +7,13 @@ namespace Oracles;
 
 public sealed partial class ValidationRoot
 {
-    private static T SomariaPrivate<T>(object owner, string field) =>
-        (T)owner.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(owner)!;
+    private static T SomariaPrivate<T>(object owner, string field)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var type = owner.GetType();
+        return type.GetField(field, flags) is { } storage ? (T)storage.GetValue(owner)! :
+            (T)(type.GetProperty(field, flags) ?? throw new MissingMemberException(type.Name, field)).GetValue(owner)!;
+    }
 
     private SomariaRom PrepareSomariaMotionRom(int direction, int level = 1, int ring = 0xff, bool primary = true,
         bool pushRoute = false)

@@ -141,6 +141,80 @@ function Test-GeneratedCutsceneCommandStreams {
     }
 }
 
+function Read-AssemblyNpcProgramRows {
+    param([string[]]$paths,[string[]]$scripts,[hashtable]$takenBranches=@{})
+    $operations=[Collections.Generic.List[object]]::new();$labels=@{};$anonymous=@{}
+    foreach($path in $paths){foreach($node in Read-AssemblyNodes $path){
+        if($node.Kind -eq 'Label'){
+            $name=$node.Name
+            if($name -match '^[+-]+$'){
+                $key=$node.Path+'|'+$name
+                if(!$anonymous.ContainsKey($key)){$anonymous[$key]=[Collections.Generic.List[int]]::new()}
+                $anonymous[$key].Add($operations.Count)
+            }else{
+                if($name.StartsWith('@')){$name=$node.EnclosingGlobalLabel+$name}
+                $labels[$name]=$operations.Count
+            }
+        }elseif($node.Kind -in @('MacroInvocation','Instruction','Data')){$operations.Add($node)}
+    }}
+    function Resolve-ProgramTarget([string]$name,[object]$node,[int]$index){
+        $name=$name.Replace('mainScripts.','')
+        if($name.StartsWith('@')){$name=$node.EnclosingGlobalLabel+$name}
+        if($name -match '^[+-]+$'){
+            $found=@($anonymous[$node.Path+'|'+$name] | Where-Object {if($name[0] -eq '+'){$_ -gt $index}else{$_ -le $index}})
+            if($found.Count -eq 0){throw "$($node.Path):$($node.Line): missing anonymous label $name."}
+            return $(if($name[0] -eq '+'){$found[0]}else{$found[-1]})
+        }
+        if(!$labels.ContainsKey($name)){throw "$($node.Path):$($node.Line): missing script label $name."}
+        return [int]$labels[$name]
+    }
+    $rows=[Collections.Generic.List[string]]::new()
+    $rows.Add("# script`tlabel`tindex`tsource-line`topcode`toperands-base64`tjump-targets`tsource-path")
+    foreach($script in @($scripts | Sort-Object)){
+        if(!$labels.ContainsKey($script)){throw "Missing script entry $script."}
+        $pending=[Collections.Generic.Queue[int]]::new();$pending.Enqueue($labels[$script])
+        $reached=[Collections.Generic.HashSet[int]]::new();$graph=@{}
+        while($pending.Count -gt 0){
+            $index=$pending.Dequeue();if(!$reached.Add($index)){continue}
+            if($index -ge $operations.Count){throw "${script}: unterminated script fallthrough."}
+            $node=$operations[$index];$op=$node.Name.ToLowerInvariant();$parts=@($node.Operands);$targets=@();$next=$index+1;$fallthrough=-1
+            if($op -eq 'stopifroomflag80set'){$op='jumpifroomflagset';$parts=@('$80','stubScript')}
+            $taken=$takenBranches.ContainsKey($script) -and $takenBranches[$script] -eq ($op+' '+$parts[0])
+            if($op -in @('scriptjump','callscript') -or $op.StartsWith('jumpif')){
+                $targets+=Resolve-ProgramTarget $parts[-1] $node $index
+                $parts[-1]='node'+$targets[-1]
+            }
+            if($op.StartsWith('jumptable_')){
+                while($next -lt $operations.Count -and $operations[$next].Name -eq '.dw'){
+                    foreach($target in $operations[$next].Operands){$targets+=Resolve-ProgramTarget $target $node $index};$next++
+                }
+                if($targets.Count -eq 0){throw "$($node.Path):$($node.Line): empty jump table in $script."}
+            }elseif($op -notin @('scriptjump','rungenericnpc','rungenericnpclowindex','scriptend','retscript') -and !$taken){
+                $targets+=$next;$fallthrough=$next
+            }
+            foreach($target in $targets){$pending.Enqueue($target)}
+            $graph[$index]=[pscustomobject]@{Node=$node;Op=$op;Operands=($parts -join ', ');Targets=$targets;Fallthrough=$fallthrough}
+        }
+        $order=@($reached | Where-Object {$_ -ge $labels[$script]} | Sort-Object)+@($reached | Where-Object {$_ -lt $labels[$script]} | Sort-Object)
+        $rowIndex=0
+        for($at=0;$at -lt $order.Count;$at++){
+            $index=$order[$at];$entry=$graph[$index]
+            $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($entry.Operands))
+            $targets=(@($entry.Targets | ForEach-Object {'node'+$_}) -join ',')
+            $rows.Add("$script`tnode$index`t$rowIndex`t$($entry.Node.Line)`t$($entry.Op)`t$encoded`t$targets`t$($entry.Node.Path)")
+            $rowIndex++
+            $nextOutput=if($at+1 -lt $order.Count){$order[$at+1]}else{-1}
+            if($entry.Fallthrough -ge 0 -and $entry.Fallthrough -ne $nextOutput){
+                # A reset before the entry point can fall through across the emitted boundary without yielding.
+                $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('node'+$entry.Fallthrough))
+                $rows.Add("$script`t__fallthrough$index`t$rowIndex`t$($entry.Node.Line)`tscriptjump`t$encoded`t`t$($entry.Node.Path)")
+                $rowIndex++
+            }
+        }
+    }
+    return $rows
+}
+
 function Read-AssemblyCutsceneCommands {
     param(
         [string]$path,

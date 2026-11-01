@@ -35,11 +35,11 @@ public sealed partial class ValidationRoot
             ResetValidationInput();
             LoadValidationRoom(3, 0xf7);
             _player.WarpTo(new Vector2(80, 112));
-            var birds = _entities.Entities<KnowItAllBirdCharacter>().ToArray();
+            var birds = _entities.Entities<AgesKnowItAllBirdCharacter>().ToArray();
             FailIf(!birds.Select(b => b.Record.SubId).SequenceEqual(order),
                 "Room 3:f7 lost its ten $e3 slots in source order $08,$09,$06,$07,$04,$05,$02,$03,$00,$01.");
             var observations = new List<string>();
-            void CheckDrawOrder(KnowItAllBirdCharacter[] actors)
+            void CheckDrawOrder(AgesKnowItAllBirdCharacter[] actors)
             {
                 if (actors.Length == 0) return;
                 var parent = (Node2D)actors[0].GetParent();
@@ -57,7 +57,7 @@ public sealed partial class ValidationRoot
             void Step(int count)
             {
                 StepGameplayUpdates(count, Vector2.Zero, batched: batched);
-                CheckDrawOrder(_entities.Entities<KnowItAllBirdCharacter>().ToArray());
+                CheckDrawOrder(_entities.Entities<AgesKnowItAllBirdCharacter>().ToArray());
             }
             var random = (OracleRandom)typeof(RoomEntityManager).GetField("_random",
                 BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_entities)!;
@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
                 FailIf(_rooms.CurrentRoom.IsSolid(_player.Position) || _entities.BlocksLink(_player.Position),
                     $"3:f7 approach placed Link inside solid geometry at {_player.Position}.");
             }
-            void Open(KnowItAllBirdCharacter bird)
+            void Open(AgesKnowItAllBirdCharacter bird)
             {
                 int retainedPriority = bird.ZIndex;
                 _player.Face(bird.Position.X < 80 ? Vector2I.Left : Vector2I.Right);
@@ -220,8 +220,8 @@ public sealed partial class ValidationRoot
             FailIf(_entities.PlayerUpdatesFrozen || _dialogue.IsOpen,
                 "3:f7 room invalidation retained a bird's $91 input lease or text.");
             Step(3);
-            FailIf(_entities.Entities<KnowItAllBirdCharacter>().Count != 10 ||
-                _entities.Entities<KnowItAllBirdCharacter>().Any(b => b.Talking || b.TextId != 0x3200 + b.Record.SubId),
+            FailIf(_entities.Entities<AgesKnowItAllBirdCharacter>().Count != 10 ||
+                _entities.Entities<AgesKnowItAllBirdCharacter>().Any(b => b.Talking || b.TextId != 0x3200 + b.Record.SubId),
                 "3:f7 re-entry retained tutorial text, var37, or missing birds.");
 
             // enabled bit $80 survives the scroll dispatcher. Preloading does
@@ -229,7 +229,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(3, 0xf8);
             int callsBeforeScroll = _entities.RandomCalls;
             _entities.BeginScreenTransition(3, _world.LoadRoom(3, 0xf7), new Vector2(160, 0), _player);
-            var incoming = _entities.Entities<KnowItAllBirdCharacter>().ToArray();
+            var incoming = _entities.Entities<AgesKnowItAllBirdCharacter>().ToArray();
             CheckDrawOrder(incoming);
             FailIf(incoming.Length != 10 || incoming.Any(b => !b.Initialized || b.TurnCounter != 30),
                 "3:f7 incoming bird state 0 was not preloaded in source order.");

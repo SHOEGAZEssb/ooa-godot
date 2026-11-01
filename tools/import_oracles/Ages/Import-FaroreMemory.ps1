@@ -1,14 +1,13 @@
 $scriptPath = Join-Path $Disassembly 'scripts/common/commonScripts.s'
 $ops = [Collections.Generic.HashSet[string]]::new([string[]]@('initcollisions','enableinput','checkabutton',
     'setdisabledobjectsto91','showtext','jumpiftextoptioneq','wait','scriptjump','asm15'))
-$rows = [Collections.Generic.List[string]]::new()
-$rows.Add("# script`tlabel`tindex`tsource-line`topcode`toperands-base64`tjump-targets")
-foreach ($command in Read-AssemblyCutsceneCommands $scriptPath 'faroresMemoryScript' $ops) {
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($command.Operands))
-    $rows.Add("$($command.Script)`t$($command.Label)`t$($command.Index)`t$($command.Line)`t$($command.Opcode)`t$encoded`t")
+$program=@(Read-AssemblyNpcProgramRows @($scriptPath) @('faroresMemoryScript'))
+foreach($row in $program | Select-Object -Skip 1){
+    $fields=$row.Split([char]9)
+    if(!$ops.Contains($fields[4])){throw "$scriptPath`:$($fields[3]): unsupported memory-book opcode $($fields[4])."}
 }
 $texts = @{ 0x551b = (Resolve-OceanText 0x551b ([Collections.Generic.HashSet[int]]::new())) }
-Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/farore_memory.tsv'), (ConvertTo-NpcProgramRows @($rows) 'Book' $texts))
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/farore_memory.tsv'), (ConvertTo-NpcProgramRows $program 'Book' $texts))
 $graphic = Resolve-InteractionGraphics 0x1c 0
 $sprite = $gfxNames[$graphic.Gfx]; Copy-EnemySprite $sprite
 Write-GeneratedTable((Join-Path $destination 'objects/farore_memory.tsv'), @(
@@ -21,7 +20,7 @@ foreach ($asset in @('gfx_secret_list_menu.png','map_secret_list_menu.bin','flg_
 Write-GeneratedBytes((Join-Path $destination 'menu/secret_list_bg.bin'), (Read-PaletteBytes 'paletteData58c8' 16))
 Write-GeneratedBytes((Join-Path $destination 'menu/secret_list_obj.bin'), (Read-PaletteBytes 'paletteData4138' 32))
 $bank = Join-Path $Disassembly 'code/bank2.s'
-$rows.Clear(); $rows.Add("# linked`tindex`tname-mode`tflag`tsecret-index`tsource")
+$rows=[Collections.Generic.List[string]]::new(); $rows.Add("# linked`tindex`tname-mode`tflag`tsecret-index`tsource")
 $nodes = @(Read-AssemblyLabelNodes $bank 'secretListMenu_getSecretData')
 foreach ($linked in 0..1) {
     $label = if ($linked) { '@linked' } else { '@unlinked' }

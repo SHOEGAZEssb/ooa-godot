@@ -163,6 +163,7 @@ internal sealed class GameplaySession : IDisposable
             {
                 DialogueBox? dialogue = _phases.FrameDialogue;
                 if (GodotObject.IsInstanceValid(dialogue)) dialogue!.AdvanceApplicationUpdate();
+                _entities.ProjectNativeNpcPositions();
                 // Preloaded scenes can retain enabled cameras; foreground session ownership selects the active one.
                 if (_scene.RoomCamera.Enabled && !_scene.RoomCamera.IsCurrent()) _scene.RoomCamera.MakeCurrent();
                 _phases.ApplyPresentation(_hudBottom());

@@ -30,11 +30,21 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     private IReadOnlyDictionary<int, Color[]>? _scriptPaletteOverrides;
     private Image _sourceImage = null!;
     private NpcCharacterFacing _facing = NpcCharacterFacing.Down;
-    private int _nativeNpcAngle;
+    private int _unboundNativeAngle;
+    private int _nativeNpcAngle
+    {
+        get => NativeState?[0x49] ?? _unboundNativeAngle;
+        set { if (NativeState is { } state) state[0x49] = value; else _unboundNativeAngle = value; }
+    }
     private int _animationFrame;
     private bool _animationParameterConsumed;
     private double _animationTicks;
-    private double _faceCooldownFrames;
+    private double _unboundFaceCooldown;
+    private double _faceCooldownFrames
+    {
+        get => NativeState?[0x6b] ?? _unboundFaceCooldown;
+        set { if (NativeState is { } state) state[0x6b] = (int)value; else _unboundFaceCooldown = value; }
+    }
     private Vector2 _scriptDrawOffset;
     private bool _scriptAnimationActive;
     private int _scriptAnimationLoopStart;
@@ -55,8 +65,17 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         _terrainEffectsEnabled ? (int)_scriptDrawOffset.Y : null;
     internal LinkTerrainEffectFrame? CurrentTerrainEffect => GetGroundTerrainEffect(
         ((ITerrainShadowSource)this).TerrainShadowZHigh);
-    private float _collisionRadiusY = CollisionRadius;
-    private float _collisionRadiusX = CollisionRadius;
+    private float _unboundRadiusY = CollisionRadius, _unboundRadiusX = CollisionRadius;
+    private float _collisionRadiusY
+    {
+        get => NativeState?[0x66] ?? _unboundRadiusY;
+        set { if (NativeState is { } state) state[0x66] = (int)value; else _unboundRadiusY = value; }
+    }
+    private float _collisionRadiusX
+    {
+        get => NativeState?[0x67] ?? _unboundRadiusX;
+        set { if (NativeState is { } state) state[0x67] = (int)value; else _unboundRadiusX = value; }
+    }
     private int _graphicsSourceOffset;
     private bool _scriptButtonSensitive;
     private int? _fixedDrawPriority;
@@ -71,7 +90,17 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     internal bool TimeWarpSolidMarked { get; set; } = true;
     public bool Active => _active && _flagVisible;
     public string Message => Record.Message;
-    public int TextId => Record.TextId;
+    public int TextId => NativeState?.Word(0x72) ?? Record.TextId;
+    internal NativeInteractionState? NativeState { get; private set; }
+    public new Vector2 Position
+    {
+        get => NativeState?.Position ?? base.Position;
+        set { if (NativeState is { } state) state.Position = value; base.Position = NativeState?.Position ?? value; }
+    }
+    internal void BindNativeState(NativeInteractionState? state)
+    { ProjectNativePosition(); NativeState = state; ProjectNativePosition(); }
+    internal void ProjectNativePosition()
+    { if (NativeState is { } state) base.Position = state.Position; }
     public int TextPosition => _textPosition;
     public const float CollisionRadius = 6.0f;
     public const float LinkCollisionRadius = 6.0f;
@@ -313,6 +342,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
             Message = message,
             CanFace = canFace
         };
+        NativeState?.SetWord(0x72, textId);
         _textPosition = textPosition;
     }
 

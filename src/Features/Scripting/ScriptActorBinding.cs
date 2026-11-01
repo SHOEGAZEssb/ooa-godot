@@ -10,7 +10,12 @@ internal sealed class ScriptActorBinding<TActor>(string name) where TActor : Npc
 {
     public TActor? Actor { get; private set; }
     public bool ButtonSensitive => Actor?.ScriptButtonSensitive == true;
-    public bool ButtonPending { get; private set; }
+    private bool _buttonPending;
+    public bool ButtonPending
+    {
+        get => Actor?.NativeState is { } state ? state[0x71] != 0 : _buttonPending;
+        private set { if (Actor?.NativeState is { } state) state[0x71] = value ? 1 : 0; else _buttonPending = value; }
+    }
     public bool Matches(CutsceneActorId actor) => actor.Value == name;
 
     public void Bind(TActor actor)
@@ -58,7 +63,8 @@ internal sealed class ScriptActorBinding<TActor>(string name) where TActor : Npc
             actor.Retired -= OnActorRetired;
             actor.SetScriptButtonSensitive(false);
         }
-        Actor = null;
         ClearPendingButton();
+        Actor = null;
+        _buttonPending = false;
     }
 }

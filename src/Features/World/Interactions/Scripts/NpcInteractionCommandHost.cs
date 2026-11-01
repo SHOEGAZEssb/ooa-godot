@@ -18,6 +18,12 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     private readonly NativeScriptInputControl _input;
     private bool InputControlHeld => _input.LinkDisabled;
     private ICutsceneCommandTraceSink? _traceSink;
+    private readonly NativeNpcRoomEntity? _native;
+    private int? _shownText;
+    protected NpcInteractionCommandHost(NativeNpcRoomEntity owner, RoomSession rooms,
+        RoomEntityManager entities, DialogueBox dialogue, IReadOnlyList<CutsceneCommand> commands)
+        : this("Self", rooms, entities, dialogue, commands)
+    { _native = owner; _runner = new(this, owner.Npc.NativeState); BindObject(owner.Npc); }
 
     protected NpcInteractionCommandHost(
         string actorName,
@@ -59,7 +65,10 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     internal int Counter => _runner.Counter;
     internal int NativeCounter1 => _runner.NativeCounter1;
     internal bool InputDisabled => InputControlHeld;
+    internal bool CanSelect => !ObjectButtonPending;
+    internal void AdvanceObjectUpdate(Player player) => AdvanceObject(player);
     protected int ActorMovementCounter(CutsceneActorId actor) => _runner.MovementCounter(actor);
+    protected int ActorAngle(CutsceneActorId actor) => _runner.ActorAngle(actor);
     protected bool ObjectButtonPending => _binding.ButtonPending;
     protected void ClearObjectButton() => _binding.ClearPendingButton();
     protected void SetNativeObjectButton(bool pressed) => _binding.SetNativeButton(pressed);
@@ -73,6 +82,8 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         NpcInteractionTarget target,
         Player player)
     {
+        if (_native is { } native)
+            return MatchesAndPrepare(target.Npc) && (native.TryNativeTalk(target) || QueueObjectInteraction(target, player));
         NpcCharacter npc = target.Npc;
         if (!MatchesAndPrepare(npc))
             return false;
@@ -167,7 +178,32 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         return choice == value;
     }
 
-    protected abstract bool MatchesAndPrepare(NpcCharacter npc);
+    protected virtual bool MatchesAndPrepare(NpcCharacter npc) => _native is { } owner && ReferenceEquals(npc, owner.Npc);
+    public override bool RoomFlagSet(int flag) => (Rooms.SaveData.GetRoomFlags(Rooms.ActiveGroup, Rooms.CurrentRoom.Id) & flag) != 0;
+    public override void SetGlobalFlag(int flag) => Rooms.SaveData.SetGlobalFlag(flag);
+    public override void ShowText(int textId, string message)
+        => ShowNpcText(textId, message, 0, null);
+    protected void ShowNpcText(int textId, string message, int flags, int? position)
+    {
+        _shownText = textId;
+        float y = Entities.WorldToScreen(ScriptPlayer.Position).Y;
+        if (message.Contains("\\opt(", StringComparison.Ordinal))
+            Dialogue.ShowGameplayChoiceMessage(message, y, textPosition: position, textboxFlags: flags, sourceTextId: textId);
+        else Dialogue.ShowGameplayMessageWithFlags(message, y, flags, textPosition: position, sourceTextId: textId);
+    }
+    public override void ShowLoadedText() => ShowText(ScriptActor.TextId, _native?.Text(ScriptActor.TextId) ?? ScriptActor.Message);
+    public override void SetActorAnimation(string actor, int animation, string encodedAnimation) =>
+        (_native ?? throw UnsupportedCommand("set native NPC animation")).SetAnimation(animation);
+    public override void SetActorCoordinates(string actor, int y, int x)
+    {
+        var owner = _native ?? throw UnsupportedCommand("set native NPC coordinates");
+        owner.WriteByte(0x4b, y); owner.WriteByte(0x4d, x);
+    }
+    public override void WriteObjectByte(string actor, int address, int value) =>
+        (_native ?? throw UnsupportedCommand("write native NPC byte")).WriteByte(address, value);
+    public override void MoveActorAtSpeed(string actor, int speed, int angle) =>
+        (_native ?? throw UnsupportedCommand("move native NPC")).Move(speed, angle);
+    public override void ScriptEnded() => (_native ?? throw UnsupportedCommand("delete native NPC")).Delete();
     public override void SetActorTextId(string actor, int textId, string message)
     {
         NpcCharacter npc = RequireActor(actor);
@@ -176,6 +212,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
 
     protected virtual void BeforeAdvanceFrame()
     {
+        if (!Dialogue.IsOpen) _shownText = null;
     }
 
     protected virtual void OnTextOptionConsumed(int choice)
@@ -184,6 +221,8 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
 
     protected virtual void ResetHostState()
     {
+        if (_shownText is int id && Dialogue.IsOpen && Dialogue.SourceTextId == id) Dialogue.Close();
+        _shownText = null;
     }
 
     protected NpcCharacter RequireActor(string actor) => _binding.Require(actor);

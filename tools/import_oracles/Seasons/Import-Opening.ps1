@@ -93,7 +93,7 @@ foreach ($group in @(0,1,4,5,6,7)) {
     $assignment = if ($group -lt 6) { $group } else { $group - 2 }
     $groupTilesets = [IO.File]::ReadAllBytes((Join-Path $Disassembly "rooms/seasons/group${assignment}Tilesets.bin"))
     # Hero's Cave, shared placed spinners and the sliding-block puzzle.
-    $selectedRooms = if ($group -eq 4) { @((0x02..0x08) + @(0x26, 0xb1)) } elseif ($group -eq 5) { @(0x6f, 0x86) } else { 0..255 }
+    $selectedRooms = if ($group -eq 4) { @((0x02..0x08) + @(0x16, 0x26, 0x6b, 0xb1)) } elseif ($group -eq 5) { @(0x30, 0x6f, 0x86, 0xbd, 0xc8, 0xc9, 0xd4) } else { 0..255 }
 foreach ($room in $selectedRooms) {
     $tileset = $groupTilesets[$room] -band 0x7f
     $block = [regex]::Match($tilesetSource, '(?ms)^tileset' + $tileset.ToString('x2') + 'Seasons:\s*(?<body>.*?)(?=^\w+:|\z)')
@@ -255,6 +255,10 @@ foreach ($id in @((0x0c00..0x0c18) + (0x1e00..0x1e06) + (0x2500..0x2505))) {
 Write-GeneratedTable((Join-Path $seasonDestination 'opening/text.tsv'), $textRows)
 
 $seasonTreasureTexts = @{}
+$seasonNpcTexts = @{}
+foreach ($id in @($rawTexts.Keys | Sort-Object)) {
+    $seasonNpcTexts[$id] = Resolve-SeasonText $id ([Collections.Generic.HashSet[int]]::new())
+}
 $seasonFluteTexts = @{}
 foreach ($id in @(0x510c,0x510f)) {
     $seasonFluteTexts[$id] = Resolve-SeasonText $id ([Collections.Generic.HashSet[int]]::new())

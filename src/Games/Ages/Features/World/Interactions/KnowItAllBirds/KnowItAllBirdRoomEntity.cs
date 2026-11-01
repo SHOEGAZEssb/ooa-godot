@@ -3,8 +3,8 @@ using System.Collections.Generic;
 
 namespace Oracles;
 
-internal sealed class KnowItAllBirdRoomEntity(KnowItAllBirdCharacter bird)
-    : RoomEntityAdapter<KnowItAllBirdCharacter>(bird, bird.SetTransitionDrawOffset),
+internal sealed class KnowItAllBirdRoomEntity(AgesKnowItAllBirdCharacter bird)
+    : RoomEntityAdapter<AgesKnowItAllBirdCharacter>(bird, bird.SetTransitionDrawOffset),
         IFixedRoomEntity, ITalkTarget, IRoomBlocker, IOrdinaryNpcEntity,
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
         IRoomEntityUpdateFreeze, IPlayerRestriction, IScreenTransitionPreloadRoomEntity,

@@ -25,7 +25,6 @@ internal sealed class AgesNpcScriptHost : NpcInteractionCommandHost
             save.HasRoomFlag(slot.Npc.Record.Group, slot.Npc.Record.Room, 0x40) ? 1 : 0;
         BindObject(slot.Npc);
     }
-    internal void Advance(Player player) => AdvanceObject(player);
     protected override bool MatchesAndPrepare(NpcCharacter npc) => ReferenceEquals(npc, _slot.Npc);
     public override bool TryInteract(NpcInteractionTarget target, Player player) =>
         MatchesAndPrepare(target.Npc) && QueueObjectInteraction(target, player);

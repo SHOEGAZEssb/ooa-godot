@@ -15,6 +15,37 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
     private CompanionVisualDatabase? _mooshVisual;
     private RickyDatabase? _ricky;
     private SeasonsHerosCaveDatabase? _herosCave;
+    private SeasonsTalkNpcDatabase? _talkNpcs;
+    private SeasonsTalkNpcDatabase TalkNpcs => _talkNpcs ??= new();
+    private NativeNpcRoomEntity CreateTalkNpc(NativeObjectInstruction source, OracleRoomData room)
+    {
+        var data = TalkNpcs;
+        if (!SeasonsTalkNpcDatabase.UsesMiscNpcHandler(source.Id)) return new SeasonsTalkNpcRoomEntity(session, data, source, room);
+        return new(data.Create(source, room, session.Data.World.SpritePalettes), session.Memory, session.Link,
+            index => data.Animation(source.Id, index), data.Text, (owner, player) =>
+            {
+                // miscNpcs.s:miscNPC_state0. State selection is sampled only on this slot visit.
+                owner.WriteByte(0x44, 1);
+                var selected = data.Select(owner.Npc.Record, session.Save, session.Memory);
+                if (!selected.Visible) { owner.Delete(); return; }
+                int subid = source.SubId & 0x7f;
+                owner.WriteByte(0x43, (source.SubId & 0x80) != 0 ? source.SubId : source.Var03);
+                owner.WriteByte(0x42, source.Id is 0x2d or 0x37 or 0x3c or 0x3d
+                    ? source.Id == 0x37 && subid == 6 ? 11 : SeasonsNpcStoryState.HoronStage(session.Save, session.Memory) : subid);
+                owner.Npc.SetCollisionRadii(0, 0);
+                owner.Npc.SetScriptVisible(true);
+                owner.Script = new SeasonsTalkNpcScriptHost(owner, session, selected.Script);
+                if (source.Id == 0x38)
+                {
+                    int dungeon = Math.Max(0, session.Rooms.CurrentDungeonIndex - 1);
+                    int text = dungeon == 3 ? 0x3301 : dungeon == 10 ? 0x3302 : 0x3300;
+                    owner.Npc.SetDialogue(text, data.Text(text), owner.Npc.Record.CanFace);
+                }
+                if (source.Id is 0x33 or 0x36)
+                { owner.Script.AdvanceObjectUpdate(player); owner.Script.AdvanceObjectUpdate(player); }
+                owner.Npc.AnimateAsNpcOneUpdate(player);
+            });
+    }
     private SeasonsHerosCaveDatabase HerosCave=>_herosCave??=new();
     public IRoomEntity? CreateStandaloneEnemy(int id, int subId, OracleRoomData room, Vector2 position,
         string source, out string error)
@@ -45,7 +76,8 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
     }
     public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn is CompanionInitializationSpawn initialization
         ?CreateCompanionInitializer(initialization.Id,initialization.Position,room):
-        spawn is RickyCompanionSpawn ricky
+        spawn is SeasonsNpcBubbleSpawn bubble
+        ?new SeasonsNpcBubbleRoomEntity(session,TalkNpcs,bubble):spawn is RickyCompanionSpawn ricky
         ?CreateRicky(ricky,room):
         spawn is DimitriCompanionSpawn dimitri
         ?CreateDimitri(dimitri,room):spawn is MooshCompanionSpawn moosh
@@ -181,7 +213,23 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
                 NativeObjectStreamDatabase.For(AssetRoot).Root(group,room.Id),placement)) yield return entity;
             yield break;
         }
-        GD.Print($"objects/seasons/mainData.s: group{group:x1}Map{room.Id:x2}ObjectData: layout navigation only; NPCs, enemies and events are unsupported.");
+        var data = NativeObjectStreamDatabase.For(AssetRoot);
+        var reader = new NativeObjectStreamReader(data, session.Memory, () => session.Save.GetRoomFlags(group, room.Id));
+        foreach (var instruction in reader.Read(data.Root(group, room.Id)))
+        {
+            if (instruction.Id == 0x9c && instruction.Opcode is 1 or 2)
+            {
+                if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
+                yield return new SeasonsNpcSpringBloomRoomEntity(session, TalkNpcs, instruction, room);
+                continue;
+            }
+            if ((instruction.Opcode is 1 or 2 || instruction.Opcode == 9 && instruction.Flags == 0) && SeasonsTalkNpcDatabase.Supports(instruction.Id,instruction.SubId))
+            {
+                if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
+                yield return CreateTalkNpc(instruction, room);
+            }
+            else GD.Print($"{instruction.Source}: layout navigation; unbound object ${instruction.Id:x2}:${instruction.SubId:x2} opcode ${instruction.Opcode:x2} remains unsupported.");
+        }
     }
 
     public IRoomEntity CreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room, EnemyPlacementContext placement) =>
@@ -210,11 +258,16 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
 
     public void ValidateDebugNativeInteractions(OracleRuntimeState memory)
     {
-        // shortcut: the first-sword sequence has no event snapshot; add one before admitting active captures.
         for(int slot=2;slot<16;slot++)
         {
             int address=((0xd0+slot)<<8)|0x40;
-            if(memory.ReadWramByte(address)!=0 && memory.ReadWramByte(address+1)==0xc6 && memory.ReadWramByte(address+4)>=2)
+            if(memory.ReadWramByte(address)==0)continue;
+            int id=memory.ReadWramByte(address+1),subid=memory.ReadWramByte(address+2);
+            // shortcut: native dialogue/flower lanes need transient reconstruction before admitting debug captures.
+            if(id==0x9c || SeasonsTalkNpcDatabase.Supports(id,subid))
+                throw new NotSupportedException($"Seasons INTERAC${id:x2}:${subid:x2} slot${slot:x2}: native dialogue/flower state has no transient debug reconstruction.");
+            // shortcut: the first-sword sequence has no event snapshot; add one before admitting active captures.
+            if(id==0xc6 && memory.ReadWramByte(address+4)>=2)
                 throw new NotSupportedException($"herosCaveSwordChest.s: INTERAC$c6 slot${slot:x2} sequence has no transient debug reconstruction.");
         }
     }

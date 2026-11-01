@@ -4,21 +4,16 @@ using System.Collections.Generic;
 namespace Oracles;
 
 // The actor slot owns interactionRunScript and its native animation/collision tail.
-internal sealed class AgesScriptNpcRoomEntity : NpcCharacterRoomEntityAdapter,
-    IFixedRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
+internal sealed class AgesScriptNpcRoomEntity : NpcRoomEntity
 {
-    private bool _initialized, _storyInitialized;
-    internal AgesNpcScriptHost? Script { get; set; }
-    public NpcCharacter Npc => Entity;
-    public bool RefreshStoryState => !_storyInitialized;
-    public void CompleteStoryInitialization()
+    public override void CompleteStoryInitialization()
     {
-        _storyInitialized = true;
+        base.CompleteStoryInitialization();
         Entity.ShowInitializedPresentation();
     }
     private readonly RoomEntityManager _entities;
     internal AgesScriptNpcRoomEntity(NpcCharacter npc, AgesNpcScriptDatabase data, RoomEntityManager entities)
-        : base(npc, npc.SetTransitionDrawOffset)
+        : base(npc)
     {
         _entities = entities;
         npc.SetScriptButtonSensitive(true);
@@ -32,17 +27,15 @@ internal sealed class AgesScriptNpcRoomEntity : NpcCharacterRoomEntityAdapter,
         if (npc.Record.Id == 0x39) npc.SetScriptAnimation(data.Animation(0x39, 5));
         if (npc.Record.Id == 0x5d) npc.SetDialogue(0x5714, data.Text(0x5714), false);
     }
-    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    protected override bool CanUpdateNpc => Entity.Active;
+    protected override bool InitializeNpc(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
-        if (!Entity.Active) return;
-        if (!_initialized)
-        {
-            _initialized = true;
-            if (Entity.Record.Id == 0x36)
-                _entities.RequestNativeMusicSelection(SoundId.MusOverworld, 0xff);
-            // These state-zero handlers return after graphics/script setup.
-            if (Entity.Record.Id is not (0x37 or 0x2e)) return;
-        }
+        if (Entity.Record.Id == 0x36)
+            _entities.RequestNativeMusicSelection(SoundId.MusOverworld, 0xff);
+        return Entity.Record.Id is 0x37 or 0x2e;
+    }
+    protected override bool UpdateNativeNpc(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
+    {
         if (Entity.Record.Id == 0x36)
         {
             int parameter = Entity.ConsumeAnimationParameter();
@@ -50,8 +43,11 @@ internal sealed class AgesScriptNpcRoomEntity : NpcCharacterRoomEntityAdapter,
                 FloatingMusicNoteRoomEntity.Spawn(_entities,
                     Entity.Position + new Vector2(parameter == 1 ? -6 : 8, -4), parameter == 1);
         }
-        Script?.Advance(frame.Player);
-        if (Entity.Record.Id != 0x2e && Script?.AnimationDisabled != true) Entity.AdvanceAnimationUpdates(1);
+        return false;
+    }
+    protected override void AdvanceNpc(RoomEntityFrame frame)
+    {
+        if (Entity.Record.Id != 0x2e && (Script as AgesNpcScriptHost)?.AnimationDisabled != true) Entity.AdvanceAnimationUpdates(1);
         if (Entity.Record.Id == 0x2e) Entity.FaceLinkAndAnimateOneUpdate(frame.Player);
         else if (Entity.Record.Id is 0x36 or 0x37)
         {
@@ -60,6 +56,5 @@ internal sealed class AgesScriptNpcRoomEntity : NpcCharacterRoomEntityAdapter,
         }
         else Entity.PushPlayerAwayAndUpdateDrawPriority(frame.Player);
     }
-    public bool BlocksLink(Vector2 center) => Entity.BlocksLinkCenter(center);
-    public NpcCharacter? FindTalkTarget(Player player) => Entity.CanTalkTo(player) ? Entity : null;
+    public override NpcCharacter? FindTalkTarget(Player player) => Entity.CanTalkTo(player) ? Entity : null;
 }

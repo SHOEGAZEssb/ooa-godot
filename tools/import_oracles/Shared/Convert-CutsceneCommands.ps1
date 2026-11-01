@@ -1,11 +1,12 @@
 function ConvertTo-NpcProgramRows {
-    param([string[]]$sourceRows, [string]$actor, [hashtable]$texts, [hashtable]$animations = @{}, [hashtable]$symbols = @{})
+    param([string[]]$sourceRows, [string]$actor, [hashtable]$texts, [hashtable]$animations = @{}, [hashtable]$symbols = @{},
+        [hashtable]$sourceBindings=@{}, [hashtable]$memoryBindings=@{}, [bool]$yieldOnJump=$false)
     $programs = [ordered]@{}
     foreach ($row in $sourceRows | Select-Object -Skip 1) {
         $fields = $row.Split([char]9)
         $name = $fields[0]
         if (-not $programs.Contains($name)) { $programs[$name] = [Collections.Generic.List[object]]::new() }
-        $programs[$name].Add([pscustomobject]@{ Path=$name; Script=$name; Label=$fields[1]; Line=[int]$fields[3]
+        $programs[$name].Add([pscustomobject]@{ Path=$(if($fields.Length -gt 7){$fields[7]}else{$name}); Script=$name; Label=$fields[1]; Line=[int]$fields[3]
             Opcode=$fields[4]; Operands=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($fields[5])); JumpTargets=$fields[6] })
     }
     $result = [Collections.Generic.List[string]]::new()
@@ -13,11 +14,12 @@ function ConvertTo-NpcProgramRows {
     foreach ($program in $programs.Values) {
         $expanded = [Collections.Generic.List[object]]::new()
         foreach ($command in $program) {
-            if ($command.Opcode -eq 'rungenericnpclowindex') {
+            if ($command.Opcode -in @('rungenericnpc','rungenericnpclowindex')) {
                 # Both native macros retain the check/show/jump loop after collision initialization.
                 $loop = '__generic_' + $expanded.Count
+                $show=if($command.Opcode -eq 'rungenericnpc'){'showtext'}else{'showtextlowindex'}
                 foreach ($entry in @(@('initcollisions','',$command.Label), @('checkabutton','',$loop),
-                    @('showtextlowindex',$command.Operands,$loop), @('scriptjump',$loop,$loop))) {
+                    @($show,$command.Operands,$loop), @('scriptjump',$loop,$loop))) {
                     $expanded.Add([pscustomobject]@{ Path=$command.Path; Script=$command.Script; Label=$entry[2]
                         Line=$command.Line; Index=$expanded.Count; Opcode=$entry[0]; Operands=$entry[1]; JumpTargets='' })
                 }
@@ -33,13 +35,19 @@ function ConvertTo-NpcProgramRows {
             $parts = @($c.Operands -split ',\s*')
             $binding = $null
             switch ($c.Opcode) {
-                'setdisabledobjectsto91' { $binding=@{Opcode='setdisabledobjects';Arg0='91'} }
+                {$_ -in @('setdisabledobjectsto11','setdisabledobjectsto91')} { $binding=@{Opcode='setdisabledobjects';Arg0=$c.Opcode.Substring(20)} }
                 'enableallobjects' { $binding=@{Opcode='setdisabledobjects';Arg0='00'} }
-                { $_ -in @('jumpifmemoryeq','jumpifobjectbyteeq','jumpifglobalflagset') } {
-                    $value = if ($c.Opcode -eq 'jumpifglobalflagset') { '01' } else { $parts[1].TrimStart('$') }
+                { $_ -in @('jumpifmemoryeq','jumpifobjectbyteeq','jumpifglobalflagset','jumpifitemobtained') } {
+                    $value = if ($c.Opcode -in @('jumpifglobalflagset','jumpifitemobtained')) { '01' } else { $parts[1].TrimStart('$') }
                     $target = $parts[-1]
                     if (-not $targets.ContainsKey($target)) { throw "$($c.Path):$($c.Line): unresolved target $target." }
-                    $binding=@{Opcode='jumpifmemoryeq';Arg0=$value;Arg1=[string]$targets[$target];Payload=$parts[0]}
+                    $payload=if($memoryBindings.ContainsKey($parts[0])){$memoryBindings[$parts[0]]}else{$parts[0]}
+                    $binding=@{Opcode='jumpifmemoryeq';Arg0=$value;Arg1=[string]$targets[$target];Payload=$payload}
+                }
+                'jumpifmemoryset' {
+                    $key=$parts[0]+','+$parts[1]
+                    if(!$memoryBindings.ContainsKey($key)){throw "$($c.Path):$($c.Line): unbound memory mask $key."}
+                    $binding=@{Opcode='jumpifmemoryeq';Arg0='01';Arg1=[string]$targets[$parts[2]];Payload=$memoryBindings[$key]}
                 }
                 { $_ -in @('jumptable_memoryaddress','jumptable_objectbyte') } {
                     $indices = foreach ($target in $c.JumpTargets.Split(',')) {
@@ -65,12 +73,15 @@ function ConvertTo-NpcProgramRows {
                     $binding=@{Opcode='nativeyield';Payload='ClearCfc0Bit1'}
                 }
             }
+            if($c.Label.StartsWith('__fallthrough')){$binding=@{Opcode='scriptjump';Arg0=[string]$targets[$c.Operands]}}
+            $key=$c.Opcode+'|'+$c.Operands
+            if($sourceBindings.ContainsKey($key)){$binding=$sourceBindings[$key]}
             if ($null -ne $binding) { $bindings[$c.Index.ToString()+'|'+$c.Opcode+'|'+$c.Operands]=$binding }
         }
         $positions = @{}
         if ($actor -eq 'Farore') { foreach ($id in $texts.Keys) { $positions[$id]=2 } }
         $rows = @(ConvertTo-CutsceneCommandRows @($expanded) $actor -texts $texts -animations $animations `
-            -symbols $symbols -bindings $bindings -positions $positions)
+            -symbols $symbols -bindings $bindings -positions $positions -yieldOnJump $yieldOnJump)
         foreach ($row in $rows | Select-Object -Skip 1) { $result.Add($row) }
     }
     return $result

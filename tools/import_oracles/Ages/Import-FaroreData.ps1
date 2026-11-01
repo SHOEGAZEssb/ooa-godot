@@ -12,39 +12,12 @@ foreach ($name in @('jumptable_memoryaddress','jumpifglobalflagset',
     'setdisabledobjectsto91','showtextlowindex','jumpiftextoptioneq',
     'scriptjump','askforsecret','asm15','jumptable_objectbyte','wait',
     'disableinput','checkcfc0bit','xorcfc0bit')) { [void]$scriptOps.Add($name) }
-$lines = @((Read-ImportText $scriptPath) -split '\r?\n')
-$rows = [Collections.Generic.List[string]]::new()
-$rows.Add("# script`tlabel`tindex`tsource-line`topcode`toperands-base64`tjump-targets")
-foreach ($script in @('faroreUnlinked','faroreLinked')) {
-    $end = if ($script -eq 'faroreUnlinked') { 'faroreLinked' } else { 'dropSmallKeyWhenNoEnemiesScript' }
-    $commands = @(Read-AssemblyCutsceneCommands $scriptPath $script $scriptOps $end)
-    if ($commands.Count -lt 15) { throw "$scriptPath`: $script unexpectedly short." }
-    $labels = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-    foreach ($command in $commands) { [void]$labels.Add([string]$command.Label) }
-    foreach ($command in $commands) {
-    $operands = [string]$command.Operands.Trim()
-    $targets = [Collections.Generic.List[string]]::new()
-    if ($command.Opcode -in @('jumptable_memoryaddress','jumptable_objectbyte')) {
-        for ($line = $command.Line; $line -lt $lines.Count; $line++) {
-            $value = $lines[$line].Split(';')[0].Trim()
-            if ([string]::IsNullOrWhiteSpace($value)) { continue }
-            if ($value -notmatch '^\.dw\s+(\S+)$') { break }
-            $targets.Add($Matches[1])
-        }
-        if ($targets.Count -eq 0) { throw "$scriptPath`:$($command.Line): missing Farore jump table." }
-    }
-    if ($command.Opcode -eq 'scriptjump') { $targets.Add($operands) }
-    if ($command.Opcode -eq 'jumpifglobalflagset' -or
-        $command.Opcode -eq 'jumpiftextoptioneq') {
-        $targets.Add(($operands.Split(',')[-1]).Trim())
-    }
-    foreach ($target in $targets) {
-        if (-not $labels.Contains($target)) {
-            throw "$scriptPath`:$($command.Line): missing Farore target $target."
-        }
-    }
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($operands))
-    $rows.Add("$script`t$($command.Label)`t$($command.Index)`t$($command.Line)`t$($command.Opcode)`t$encoded`t$($targets -join ',')")
+$rows=@(Read-AssemblyNpcProgramRows @($scriptPath) @('faroreUnlinked','faroreLinked'))
+foreach($script in @('faroreUnlinked','faroreLinked')){
+    $commands=@($rows | Select-Object -Skip 1 | ForEach-Object {,$_.Split([char]9)} | Where-Object {$_[0] -eq $script})
+    if($commands.Count -lt 15){throw "$scriptPath`: $script unexpectedly short."}
+    foreach($command in $commands){
+        if(!$scriptOps.Contains($command[4])){throw "$scriptPath`:$($command[3]): unsupported Farore opcode $($command[4])."}
     }
 }
 

@@ -51,8 +51,11 @@ public sealed class NpcVisibilityRuleDatabase
                 "essence" => FlagKind.Essence,
                 "wram" => FlagKind.Wram,
                 "runtime-equals" => FlagKind.RuntimeEquals,
+                "room-id" => FlagKind.RoomId,
                 "game-progress-1" => FlagKind.GameProgress1,
                 "game-progress-2" => FlagKind.GameProgress2,
+                "seasons-horon" => FlagKind.SeasonsHoron,
+                "seasons-sunken" => FlagKind.SeasonsSunken,
                 _ => throw row.Invalid(4, "a supported NPC visibility kind")
             };
             int group = row.DecimalOrSentinel(5, "-", -1);
@@ -71,6 +74,8 @@ public sealed class NpcVisibilityRuleDatabase
                     room is < OracleRuntimeState.WramStart or > OracleRuntimeState.WramEnd ||
                 kind == FlagKind.GameProgress1 && value > 5 ||
                 kind == FlagKind.GameProgress2 && value > 7 ||
+                kind == FlagKind.SeasonsHoron && value > 10 ||
+                kind == FlagKind.SeasonsSunken && value > 4 ||
                 kind == FlagKind.SpecificRoom && (group is < 0 or > 7 || room is < 0 or > 0xff))
             {
                 throw new InvalidOperationException(
@@ -124,8 +129,11 @@ public sealed class NpcVisibilityRuleDatabase
             FlagKind.Wram => (save.ReadWramByte(rule.Room) & rule.Value) != 0,
             FlagKind.RuntimeEquals =>
                 runtimeState.ReadWramByte(rule.Room) == rule.Value,
+            FlagKind.RoomId => npc.Room == rule.Value,
             FlagKind.GameProgress1 => AgesNpcStoryState.GetGameProgress1(save) == rule.Value,
             FlagKind.GameProgress2 => AgesNpcStoryState.GetGameProgress2(save) == rule.Value,
+            FlagKind.SeasonsHoron => SeasonsNpcStoryState.HoronStage(save,runtimeState) == rule.Value,
+            FlagKind.SeasonsSunken => SeasonsNpcStoryState.SunkenStage(save) == rule.Value,
             _ => throw new InvalidOperationException(
                 $"Unhandled NPC visibility rule from {rule.Source}.")
         };
@@ -146,8 +154,11 @@ internal enum FlagKind
     Essence,
     Wram,
     RuntimeEquals,
+    RoomId,
     GameProgress1,
-    GameProgress2
+    GameProgress2,
+    SeasonsHoron,
+    SeasonsSunken
 }
 
 internal readonly record struct NpcVisibilityRuleDatabaseRule(int Var03, int Alternative, FlagKind Kind, int Group, int Room, int Value, bool ExpectedSet, string Source);

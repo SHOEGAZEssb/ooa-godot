@@ -4,8 +4,9 @@
 
 Reproduce each implemented Oracle game as executed by its supported clean US
 ROM. Ages is currently playable; Seasons supports its standard opening and
-Hero's Cave through the first sword, with overworld and Subrosia layout navigation.
-Other town NPCs and later Seasons events, warps and progression remain outside the implemented scope.
+Hero's Cave through the first sword, talk-only NPCs with source story predicates,
+and overworld and Subrosia layout navigation. Later Seasons events, warps and
+progression remain outside the implemented scope.
 A cleaner abstraction is useful only when it preserves the
 original data, order, timing, arithmetic, and observable behavior. Visual
 similarity in one room is not enough.

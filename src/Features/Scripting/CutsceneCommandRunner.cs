@@ -9,7 +9,7 @@ namespace Oracles;
 /// Each command explicitly preserves whether the original handler yielded or
 /// continued dispatching commands in the same update.
 /// </summary>
-internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
+internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host, NativeInteractionState? nativeState = null)
 {
     private IReadOnlyList<CutsceneCommand> _commands = Array.Empty<CutsceneCommand>();
     private readonly Dictionary<(CutsceneActorId Actor, int Address), int> _objectBytes = new();
@@ -29,16 +29,24 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     private int _nativeCounter1;
 
     public bool Active { get; private set; }
-    public int Counter { get; private set; }
+    private int _counter;
+    private int NativeCounterAddress => CurrentCommand is CutsceneWaitCommand ? 0x46 :
+        CurrentCommand is CutsceneMoveCommand or CutsceneApplySpeedCommand ? 0x47 : 0;
+    public int Counter
+    {
+        get => nativeState is not null && NativeCounterAddress != 0 ? nativeState[NativeCounterAddress] : _counter;
+        private set { if (nativeState is not null && NativeCounterAddress != 0) nativeState[NativeCounterAddress] = value; else _counter = value; }
+    }
     // A native handler can overwrite/decrement the same counter1 used by
     // a source wait. Keep that alias separate from active motion's counter2.
     internal int NativeCounter1
     {
-        get => UsesCommandCounter1 ? Counter : _nativeCounter1;
+        get => nativeState?[0x46] ?? (UsesCommandCounter1 ? Counter : _nativeCounter1);
         set
         {
             if (value is < 0 or > 0xff) throw new ArgumentOutOfRangeException(nameof(value));
-            if (UsesCommandCounter1) SetCounter(value);
+            if (nativeState is not null) nativeState[0x46] = value;
+            else if (UsesCommandCounter1) SetCounter(value);
             else _nativeCounter1 = value;
         }
     }
@@ -51,16 +59,18 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         Active && _instruction < _commands.Count ? _commands[_instruction] : null;
 
     public int ActorSpeed(CutsceneActorId actor) =>
-        _speeds.TryGetValue(actor, out int speed) ? speed : 0;
+        nativeState?[0x50] ?? (_speeds.TryGetValue(actor, out int speed) ? speed : 0);
     internal void SetNativeActorSpeed(CutsceneActorId actor,int speed)
     {
         if(speed is <0 or >0xff)throw new ArgumentOutOfRangeException(nameof(speed));
-        _speeds[actor]=speed;
+        if (nativeState is not null) nativeState[0x50] = speed;
+        else _speeds[actor] = speed;
     }
     internal int ActorAngle(CutsceneActorId actor) =>
-        _angles.TryGetValue(actor, out int angle) ? angle : 0;
+        nativeState?[0x49] ?? (_angles.TryGetValue(actor, out int angle) ? angle : 0);
 
-    internal void SetNativeActorAngle(CutsceneActorId actor, int angle) => _angles[actor] = angle & 0xff;
+    internal void SetNativeActorAngle(CutsceneActorId actor, int angle)
+    { if (nativeState is not null) nativeState[0x49] = angle; else _angles[actor] = angle & 0xff; }
 
     // counter2 belongs to a started movement operation, not an ordinary wait
     // using counter1. On movement's zero update the runner has already yielded
@@ -84,8 +94,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             throw new InvalidOperationException(
                 "Initial cutscene motion registers must be set before the first script update.");
         }
-        _speeds[actor] = speed;
-        _angles[actor] = angle;
+        SetNativeActorSpeed(actor, speed);
+        SetNativeActorAngle(actor, angle);
     }
 
     public void Start(
@@ -185,8 +195,13 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         if (!Active || host.ScriptExecutionBlocked)
             return;
 
-        if (_nativeCounter1 != 0 && --_nativeCounter1 != 0)
-            return;
+        if (nativeState is not null)
+        {
+            // An active wait consumes the same byte in Execute; a native write
+            // before any other opcode is consumed here, as in interactionRunScript.
+            if (!UsesCommandCounter1 && NativeCounter1 != 0 && --NativeCounter1 != 0) return;
+        }
+        else if (_nativeCounter1 != 0 && --_nativeCounter1 != 0) return;
 
         if (_nativeCounterPending)
         {
@@ -472,11 +487,11 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                     : CommandResult.Block;
 
             case CutsceneSetSpeedCommand speed:
-                _speeds[speed.Actor] = speed.Speed;
+                SetNativeActorSpeed(speed.ActorId, speed.Speed);
                 return CommandResult.Yield;
 
             case CutsceneSetAngleCommand angle:
-                _angles[angle.Actor] = angle.Angle;
+                SetNativeActorAngle(angle.ActorId, angle.Angle);
                 return CommandResult.Yield;
 
             case CutsceneSetCoordinatesCommand coordinates:
@@ -496,8 +511,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 {
                     host.MoveActorAtSpeed(
                         movement.Actor,
-                        _speeds[movement.Actor],
-                        _angles[movement.Actor]);
+                        ActorSpeed(movement.ActorId),
+                        ActorAngle(movement.ActorId));
                     return CommandResult.Block;
                 }
                 return CommandResult.Yield;
@@ -506,7 +521,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 if (_commandUpdates == 0)
                 {
                     RequireRegister(_speeds, movement.Actor, "speed", movement.Source);
-                    _angles[movement.Actor] = movement.Angle;
+                    SetNativeActorAngle(movement.ActorId, movement.Angle);
                     host.SetActorMovementAnimation(
                         movement.Actor, movement.Angle, movement.EncodedAnimation);
                     SetCounter(movement.Counter);
@@ -517,7 +532,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 {
                     host.MoveActorAtSpeed(
                         movement.Actor,
-                        _speeds[movement.Actor],
+                        ActorSpeed(movement.ActorId),
                         movement.Angle);
                     return CommandResult.Block;
                 }
@@ -550,7 +565,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 return CommandResult.Yield;
 
             case CutsceneWriteObjectByteCommand write:
-                _objectBytes[(write.Actor, write.Address)] = write.Value;
+                if (nativeState is null) _objectBytes[(write.Actor, write.Address)] = write.Value;
                 host.WriteObjectByte(write.Actor, write.Address, write.Value);
                 SetCounter(write.Value);
                 return CommandResult.Yield;
@@ -578,7 +593,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             case CutsceneFlickerCommand flicker:
                 (CutsceneActorId Actor, int Address) key =
                     (flicker.Actor, flicker.CounterAddress);
-                if (!_objectBytes.TryGetValue(key, out int value))
+                int value = nativeState?[flicker.CounterAddress] ?? 0;
+                if (nativeState is null && !_objectBytes.TryGetValue(key, out value))
                 {
                     throw new InvalidOperationException(
                         $"{flicker.Source} reads unset object byte ${flicker.CounterAddress:x2} " +
@@ -588,7 +604,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                     flicker.Actor,
                     (host.FrameCounter & flicker.FrameMask) != 0);
                 value--;
-                _objectBytes[key] = value;
+                if (nativeState is not null) nativeState[flicker.CounterAddress] = value;
+                else _objectBytes[key] = value;
                 SetCounter(value);
                 return value == 0 ? CommandResult.Continue : CommandResult.Block;
 
@@ -720,13 +737,13 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         Counter = value;
     }
 
-    private static void RequireRegister(
+    private void RequireRegister(
         IReadOnlyDictionary<CutsceneActorId, int> registers,
         CutsceneActorId actor,
         string register,
         CutsceneCommandSource source)
     {
-        if (!registers.ContainsKey(actor))
+        if (nativeState is null && !registers.ContainsKey(actor))
         {
             throw new InvalidOperationException(
                 $"{source} uses actor '{actor}' before setting its {register}.");

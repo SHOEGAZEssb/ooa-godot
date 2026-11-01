@@ -1548,6 +1548,12 @@ public sealed partial class RoomEntityManager : IDisposable
         return new NpcInteractionTarget(npc, lifecycle);
     }
 
+    internal void ProjectNativeNpcPositions()
+    {
+        foreach (var entity in _activeEntities.Concat(_outgoingEntities))
+            if (entity.PresentationNode is NpcCharacter npc) npc.ProjectNativePosition();
+    }
+
     internal bool TryQueueOrdinaryNpcDialogue(NpcCharacter npc, Func<bool> tryShowDialogue)
     {
         foreach (var entity in _activeEntities.OfType<IOrdinaryNpcEntity>())
@@ -3107,10 +3113,12 @@ public sealed partial class RoomEntityManager : IDisposable
 
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
+        _partSlots.ContainsKey(entity) ? 1 :
+        _interactionSlots.ContainsKey(entity) || entity is INativeInteractionRoomEntity ? 2 :
         entity is LightningRoomEntity ? 1 :
           entity is VeranAcidPoolRoomEntity or VeranSpiderwebRoomEntity or VeranBeeProjectileRoomEntity or TwinrovaProjectileRoomEntity or TwinrovaAttackPart or GanonAttackPart or RoomOfRitesBoulderRoomEntity ? 1 :
         entity is RamrockPart or BlueStalfosProjectileRoomEntity or LynelBeamRoomEntity or PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or VeranFairyProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
-            or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or BlackTowerFlameRoomEntity or FallingFireRoomEntity or SmallFairyRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
+            or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or BlackTowerFlameRoomEntity or FallingFireRoomEntity or SmallFairyRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity or SeasonsNpcBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
             or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity or RespawnableBushRoomEntity

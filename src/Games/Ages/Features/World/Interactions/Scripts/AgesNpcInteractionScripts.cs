@@ -90,15 +90,10 @@ internal sealed class AgesNpcInteractionScripts : INpcInteractionScripts
                     if (host.TryInteract(target, player)) return true;
                 return false;
             }),
-            NpcInteractionHandler.ForNpc("sharedNpcScript", (target, player) =>
-            {
-                foreach (var host in _shared)
-                    if (host.TryInteract(target, player)) return true;
-                return false;
-            }),
+            NpcInteractionHandler.ForEntityScripts(entities),
             NpcInteractionHandler.ForNpc("knowItAllBirdScript", (target, player) =>
             {
-                if (target.Npc is not KnowItAllBirdCharacter bird) return false;
+                if (target.Npc is not AgesKnowItAllBirdCharacter bird) return false;
                 if (!bird.Script.TryInteract(target, player, dialogue, entities.WorldToScreen)) return false;
                 _birdTalk = bird.Script;
                 return true;

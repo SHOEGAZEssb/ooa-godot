@@ -95,6 +95,7 @@ public sealed class InteractionController : IDisposable
         if (_npcScripts is not null)
             foreach (NpcInteractionHandler handler in _npcScripts.Handlers)
                 interactionHandlers.Add(handler);
+        else interactionHandlers.Add(NpcInteractionHandler.ForEntityScripts(_entities));
         interactionHandlers.Add(NpcInteractionHandler.ForNpc(
             "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
             TryStartOrdinaryNpcInteraction));

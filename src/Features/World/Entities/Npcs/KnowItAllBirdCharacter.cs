@@ -3,12 +3,14 @@ using System;
 
 namespace Oracles;
 
-internal sealed partial class KnowItAllBirdCharacter : NpcCharacter
+internal partial class KnowItAllBirdCharacter : NpcCharacter
 {
-    private KnowItAllBirdRecord _data = null!;
+    private string[] _animations = null!;
     private OracleRandom _random = null!;
     private int _zFixed;
     private int _speedZ = -0xc0;
+    private Action<Player> _advanceScript = null!;
+    private Action _startScript = null!;
     internal bool Initialized { get; private set; }
     internal int Direction { get; set; }
     internal int TurnCounter { get; private set; }
@@ -16,23 +18,19 @@ internal sealed partial class KnowItAllBirdCharacter : NpcCharacter
     internal bool Talking { get; private set; }
     internal int ZFixed => _zFixed;
     internal int SpeedZ => _speedZ;
-    internal KnowItAllBirdScriptHost Script { get; private set; } = null!;
 
-    internal void InitializeBird(NpcRecord record, KnowItAllBirdDatabase database,
-        OracleRandom random, Func<bool> textActive)
+    internal void InitializeBirdBody(NpcRecord record,string[] animations,string assetRoot,
+        OracleRandom random,Action<Player> advanceScript,Action startScript)
     {
-        AssetRoot = AgesGameContent.AssetRoot;
-        Initialize(record, AgesGameContent.AssetRoot);
-        _data = database.Get(record.SubId);
-        _random = random;
-        Script = new(this, database.Commands, textActive);
+        AssetRoot=assetRoot;
+        Initialize(record,assetRoot);
+        _animations=animations;_random=random;_advanceScript=advanceScript;_startScript=startScript;
         SetScriptVisible(false);
         SetBlocksLink(false);
     }
 
     internal void InitializeNative()
     {
-        AssetRoot = AgesGameContent.AssetRoot;
         if (Initialized) return;
         Initialized = true;
         Direction = _random.Next().Value & 1;
@@ -40,14 +38,14 @@ internal sealed partial class KnowItAllBirdCharacter : NpcCharacter
         SelectAnimation(Direction);
         SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // objectSetVisible82
         SetScriptVisible(true);
-        Script.Start();
+        _startScript();
     }
 
     internal void UpdateBird(Player player)
     {
         if (!Initialized) { InitializeNative(); return; }
         // interactionRunScript precedes the native substate on every slot visit.
-        Script.Advance(player);
+        _advanceScript(player);
         if (!Talking)
         {
             if (TalkingSignal)
@@ -87,9 +85,5 @@ internal sealed partial class KnowItAllBirdCharacter : NpcCharacter
         SetScriptDrawOffset(new Vector2(0, _zFixed >> 8));
     }
 
-    internal void SelectText(bool tutorial) => SetDialogue(
-        tutorial ? _data.TutorialTextId : BaseRecord.TextId,
-        tutorial ? _data.Tutorial : BaseRecord.Message, canFace: false);
-
-    private void SelectAnimation(int animation) => SetScriptAnimation(_data.Animations[animation]);
+    private void SelectAnimation(int animation) => SetScriptAnimation(_animations[animation]);
 }

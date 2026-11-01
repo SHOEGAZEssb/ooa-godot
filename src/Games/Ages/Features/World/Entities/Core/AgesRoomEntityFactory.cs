@@ -3366,7 +3366,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 
         if (record.Id == AgesInteractionId.KnowItAllBird)
         {
-            var bird = new KnowItAllBirdCharacter { Name = $"Npc_e3_{record.SubId:x2}" };
+            var bird = new AgesKnowItAllBirdCharacter { Name = $"Npc_e3_{record.SubId:x2}" };
             bird.InitializeBird(record, Resources.KnowItAllBirds, _random, owner.IsTextActive);
             return new KnowItAllBirdRoomEntity(bird);
         }
