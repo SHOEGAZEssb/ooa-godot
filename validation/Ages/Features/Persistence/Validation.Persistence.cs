@@ -426,6 +426,17 @@ public sealed partial class ValidationRoot
                 OracleSaveStore.LoadOrCreate(primary, game).LinkName != "ONE",
                 $"The first save did not write identical native primary/backup images: {result.ErrorMessage}");
 
+            string exported = Path.Combine(directory, "export.sav");
+            FailIf(!OracleSaveStore.Export(save, exported).Success ||
+                !OracleSaveStore.ReadImport(exported, game, out var imported).Success ||
+                !imported!.Serialize().SequenceEqual(save.Serialize()) || File.Exists(exported + ".bak"),
+                "Save transfers must preserve the native image in a single file.");
+            foreach (OracleGame protectedGame in new[] { OracleGame.Ages, OracleGame.Seasons })
+            for (int slot = 0; slot < OracleSaveStore.SlotCount; slot++)
+            foreach (string suffix in new[] { "", ".bak", ".tmp", ".bak.tmp" })
+                FailIf(OracleSaveStore.Export(save, OracleSaveStore.PathForSlot(slot, protectedGame) + suffix).Success,
+                    "Export must reject managed save files and their sidecars before writing.");
+
             OracleGame otherGame = game == OracleGame.Ages ? OracleGame.Seasons : OracleGame.Ages;
             bool wrongGameRejected = false;
             try { OracleSaveStore.LoadOrCreate(primary, otherGame); }

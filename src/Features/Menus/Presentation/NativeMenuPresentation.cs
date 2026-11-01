@@ -88,16 +88,42 @@ internal sealed class NativeMenuPresentation(string assetRoot)
 
     internal Texture2D BuildOptions(Image original, bool noclip, bool overlay, bool hudBottom)
     {
-        using Image output = ClearChoices(original);
+        using Image output = ClearOptions(original);
+        DrawChoice(output, original, noclip ? "NOCLIP: ON" : "NOCLIP: OFF", 56, left: 44);
+        DrawChoice(output, original, overlay ? "ROOM ID: ON" : "ROOM ID: OFF", 80, left: 44);
+        DrawChoice(output, original, hudBottom ? "HUD: BOTTOM" : "HUD: TOP", 104, left: 40);
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    internal Texture2D BuildSaveTransfer()
+    {
+        using Texture2D background = BuildBackground(gameOver: false);
+        using Image original = background.GetImage();
+        using Image output = ClearOptions(original);
+        string[] choices = { "", "IMPORT", "EXPORT", "RETURN" };
+        for (int row = 0; row < choices.Length; row++)
+            DrawChoice(output, original, choices[row], 48 + row * 24);
+        Image sprites = LoadPng(assetRoot + "menu/spr_fileselect_decorations.png");
+        Color[,] palette = LoadPalette(assetRoot + "menu/palette_file_sprites.bin");
+        foreach (MenuOamPart part in FileMenuPresentation.LoadOam(assetRoot)["decorations"])
+        {
+            Texture2D cell = GetOamCellTexture(sprites, part.Tile - 0x20, (byte)part.Attributes,
+                palette, sourceGrayscaleInverted: false);
+            using Image image = cell.GetImage();
+            output.BlendRect(image, new Rect2I(0, 0, 8, 16), (Vector2I)FileMenuPresentation.OamScreenPosition(part));
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private Image ClearOptions(Image original)
+    {
+        Image output = ClearChoices(original);
         // Retain the title's native top/bottom edges, replacing only its text.
         for (int y = 9; y < 23; y++)
         for (int x = 48; x < 112; x++)
             output.SetPixel(x, y, original.GetPixel(112 + x % 8, y));
         DrawWord(output, "OPTIONS", 8, title: true);
-        DrawChoice(output, original, noclip ? "NOCLIP: ON" : "NOCLIP: OFF", 56, left: 44);
-        DrawChoice(output, original, overlay ? "ROOM ID: ON" : "ROOM ID: OFF", 80, left: 44);
-        DrawChoice(output, original, hudBottom ? "HUD: BOTTOM" : "HUD: TOP", 104, left: 40);
-        return ImageTexture.CreateFromImage(output);
+        return output;
     }
 
     private Image ClearChoices(Image original)
@@ -155,6 +181,11 @@ internal sealed class NativeMenuPresentation(string assetRoot)
                     if (letter == 'H') ink = x < 2 || x >= 4 || y is 4 or 5;
                     if (letter == 'U') ink = y < 9 ? x < 2 || x >= 4 : ink;
                     if (letter == 'B') ink = x < 2 || (y is 0 or 1 or 4 or 5 or 9 or 10 ? x < 5 : x >= 4);
+                    if (letter == 'X')
+                    {
+                        int inset = Math.Min(y, 10 - y) / 2;
+                        ink = x >= inset && x < inset + 2 || x >= 4 - inset && x < 6 - inset;
+                    }
                     // Leave the panel grain continuous instead of pasting
                     // rectangular wood fragments from unrelated letter sheets.
                     if (ink)
@@ -170,14 +201,14 @@ internal sealed class NativeMenuPresentation(string assetRoot)
         ' ' or ':' => ("", 0, 0, 2, false),
         'C' => ("gfx_savescreen", 18, 20, 6, false),
         'O' or 'D' or 'U' or 'B' => ("gfx_savescreen", 26, 20, 6, false),
-        'N' or 'H' => ("gfx_savescreen", 34, 20, 6, false),
+        'N' or 'H' or 'X' => ("gfx_savescreen", 34, 20, 6, false),
         'T' => ("gfx_savescreen", 42, 20, 6, false),
         'I' => ("gfx_savescreen", 50, 20, 2, false),
         'S' => ("gfx_savescreen", 106, 20, 6, false),
         'P' => ("gfx_copy", 25, 4, 6, false),
         'R' => ("gfx_copywhatwhere", 102, 2, 6, true),
         'M' => ("gfx_name", 21, 2, 7, true),
-        'L' or 'F' => ("gfx_savescreen", 70, 20, 6, false),
+        'E' or 'L' or 'F' => ("gfx_savescreen", 70, 20, 6, false),
         _ => throw new InvalidOperationException($"No native file-menu letter cell for '{c}'.")
     };
 }

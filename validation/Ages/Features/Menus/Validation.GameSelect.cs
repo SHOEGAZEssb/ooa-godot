@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Linq;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Oracles;
@@ -101,6 +102,17 @@ public sealed partial class ValidationRoot
                 var seasonsOptions = seasons.GetNode<TextureButton>("Options");
                 var agesCursor = agesOptions.GetNode<TextureRect>("Acorn");
                 var seasonsCursor = seasonsOptions.GetNode<TextureRect>("Acorn");
+                agesOptions.EmitSignal(BaseButton.SignalName.Pressed);
+                screen.RequestPointerSelection(OracleGame.Ages, false);
+                root.Step(1, batched);
+                FailIf(!screen.IsActive || screen.OptionsSelected || screen.Options.Visible,
+                    "An Options click followed by hovering the same game's preview must not launch the game.");
+                screen.RequestPointerSelection(OracleGame.Ages, true);
+                screen.RequestOptionsSelection(OracleGame.Ages);
+                root.Step(1, batched);
+                FailIf(!screen.IsActive || !screen.OptionsSelected || screen.Options.Visible,
+                    "A preview click followed by hovering Options must not confirm the Options menu.");
+                root.Step(1, batched, "move_left");
                 root.Step(1, batched, "move_right");
                 FailIf(!screen.OptionsSelected || !agesCursor.Visible || seasonsCursor.Visible ||
                     agesCursor.Texture?.GetSize() != new Vector2(8, 16),
@@ -109,8 +121,11 @@ public sealed partial class ValidationRoot
                     afterUpdate: () => FailIf(!agesCursor.Visible || seasonsCursor.Visible,
                         "The selected Options acorn must remain visible on every update without blinking."));
                 root.Step(4, batched, "attack", "inventory");
-                FailIf(!screen.IsActive || !screen.OptionsSelected || root._gameSelect != screen,
-                    "Confirming Options must not launch Ages while its menu is unwired.");
+                FailIf(!screen.IsActive || !screen.OptionsSelected || !screen.Options.Visible || root._gameSelect != screen,
+                    "Confirming Options must open its save menu without launching Ages.");
+                root.Step(1, batched, "item");
+                FailIf(screen.Options.Visible || !screen.OptionsSelected,
+                    "B must close the save menu and retain Options focus.");
                 root.Step(1, batched, "move_down");
                 FailIf(screen.SelectedGame != OracleGame.Seasons || !screen.OptionsSelected ||
                     agesCursor.Visible || !seasonsCursor.Visible,
@@ -123,6 +138,9 @@ public sealed partial class ValidationRoot
                 FailIf(screen.SelectedGame != OracleGame.Ages || !screen.OptionsSelected || !screen.IsActive,
                     "Clicking Ages Options must select its button without passing through to launch.");
                 root.Step(1, batched, "item", "attack");
+                FailIf(screen.Options.Visible || !screen.OptionsSelected || !screen.IsActive,
+                    "B must close the save menu without launching or moving the Options cursor.");
+                root.Step(1, batched, "item");
                 FailIf(screen.OptionsSelected || !screen.IsActive,
                     "B must leave Options without also consuming a simultaneous confirm as a launch.");
                 seasonsOptions.EmitSignal(Control.SignalName.MouseEntered);
@@ -162,6 +180,7 @@ public sealed partial class ValidationRoot
                             "Native Options planks must stay inside each panel's bottom-right corner, inherit its palette state and block launch clicks.");
                     }
                 }
+                ValidateGameSelectTransfers(root, screen, batched);
                 screen.RequestPointerSelection(OracleGame.Ages, true);
                 root.Step(4, batched);
                 FailIf(screen.Visible || screen.IsActive || root._gameSelect is not null || root._frontendIntro is not null ||
@@ -187,6 +206,181 @@ public sealed partial class ValidationRoot
         GD.Print("Validated split-screen selection, paused previews, grayscale, resizing, input batching and Ages boot handoff.");
     }
 
+    private static void ValidateGameSelectTransfers(FrontendValidationRoot root, GameSelectScreen screen, bool batched)
+    {
+        Vector2I originalWindowSize = screen.GetWindow().Size;
+        screen.GetWindow().Size = new Vector2I(640, 576);
+        screen.Size = screen.GetViewportRect().Size;
+        string directory = Path.Combine(Path.GetTempPath(), $"oracle-transfer-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            foreach (OracleGame game in new[] { OracleGame.Ages, OracleGame.Seasons })
+            {
+                var existing = OracleSaveData.CreateStandardGame(game);
+                existing.SetLinkName("OLD");
+                root.SeedFileSlot(0, existing);
+                root.SeedFileSlot(2, existing);
+                var incoming = OracleSaveData.CreateStandardGame(game);
+                incoming.SetLinkName("NEW");
+                string source = Path.Combine(directory, "source.sav");
+                File.WriteAllBytes(source, incoming.Serialize());
+                screen.Preview(game).GetNode<TextureButton>("Options").EmitSignal(BaseButton.SignalName.Pressed);
+                root.Step(1, batched);
+                var options = screen.Options;
+                var files = options.GetNode<FileDialog>("Files");
+                files.UseNativeDialog = false;
+                var replace = options.GetNode<Control>("Board/Replace");
+                var notice = options.GetNode<Control>("Board/Notice");
+                var import = options.GetNode<TextureButton>("Board/Import");
+                var export = options.GetNode<TextureButton>("Board/Export");
+                var board = options.GetNode<Control>("Board");
+                var previous = options.GetNode<TextureButton>("Board/PreviousSlot");
+                var next = options.GetNode<TextureButton>("Board/NextSlot");
+                FailIf(options.Background.GetSize() != new Vector2(160, 144) || board.Size != new Vector2(160, 144) ||
+                    import.Position != new Vector2(32, 72) || export.Position != new Vector2(32, 96) ||
+                    options.HasNode("Center") || options.HasNode("Replace"),
+                    "Save options must use native 160x144 graphics and controls instead of themed panels or confirmation windows.");
+                var sounds = root._sound.AttachPlayRequestAudit();
+                options.GetViewport().NotifyMouseEntered();
+                foreach (var (button, selected) in new[] { (previous, 2), (next, 0), (next, 1), (previous, 0) })
+                {
+                    Vector2 position = button.GetGlobalTransformWithCanvas() * (button.Size / 2);
+                    sounds.Clear();
+                    options.GetViewport().PushInput(new InputEventMouseMotion { Position = position, GlobalPosition = position }, true);
+                    options.GetViewport().PushInput(new InputEventMouseButton
+                        { Position = position, GlobalPosition = position, ButtonIndex = MouseButton.Left, Pressed = true }, true);
+                    options.GetViewport().PushInput(new InputEventMouseButton
+                        { Position = position, GlobalPosition = position, ButtonIndex = MouseButton.Left, Pressed = false }, true);
+                    root.Step(1, batched);
+                    FailIf(options.SelectedSlot != selected || !sounds.Requests.SequenceEqual(new[] { 0x84 }) ||
+                        !options.Visible || !screen.IsActive,
+                        $"{game}, {button.Name}: selected {options.SelectedSlot}, expected {selected}; sounds [{string.Join(",", sounds.Requests)}]. Arrow clicks must wrap once and play $84.");
+                }
+                options.GetViewport().PushInput(new InputEventMouseMotion(), true);
+                options.GetViewport().NotifyMouseExited();
+                using (Image native = options.Background.GetImage())
+                using (Texture2D template = new NativeMenuPresentation(OracleAssetPack.ForGame(game)).BuildBackground(false))
+                using (Image original = template.GetImage())
+                {
+                    for (int row = 0; row < 4; row++)
+                    for (int y = 3; y < 16; y++)
+                    foreach (int x in new[] { 32, 33, 126, 127 })
+                        FailIf(native.GetPixel(x, 48 + row * 24 + y) != original.GetPixel(x, 56 + y),
+                            "Save-transfer planks must preserve the native CONTINUE panel end caps and palette.");
+                }
+
+                void DismissNotice()
+                {
+                    for (int page = 0; notice.Visible && page < 32; page++)
+                    {
+                        root.Step(1, batched, "attack");
+                        root.Step(1, batched);
+                    }
+                    FailIf(notice.Visible, "Native save messages must be dismissible without launching a game.");
+                }
+
+                void Pick(TextureButton button, string path)
+                {
+                    DismissNotice();
+                    button.EmitSignal(BaseButton.SignalName.Pressed);
+                    FailIf(!files.Visible, "Save transfer must open a file picker.");
+                    root.Step(4, batched, "move_down", "attack");
+                    FailIf(!options.Visible || screen.SelectedGame != game || !screen.IsActive,
+                        "The file picker must block game navigation and launch.");
+                    int slot = options.SelectedSlot;
+                    previous.EmitSignal(BaseButton.SignalName.Pressed);
+                    next.EmitSignal(BaseButton.SignalName.Pressed);
+                    FailIf(options.SelectedSlot != slot, "Slot arrows must not change the target while a file picker is open.");
+                    files.Hide();
+                    files.EmitSignal(FileDialog.SignalName.FileSelected, path);
+                    root.Step(1, batched);
+                }
+                void Confirm()
+                {
+                    FailIf(!replace.Visible, "A valid import must ask before replacing a slot.");
+                    replace.GetNode<TextureButton>("Import").EmitSignal(BaseButton.SignalName.Pressed);
+                    root.Step(1, batched);
+                }
+
+                Pick(import, source);
+                previous.EmitSignal(BaseButton.SignalName.Pressed);
+                next.EmitSignal(BaseButton.SignalName.Pressed);
+                FailIf(options.SelectedSlot != 0, "Slot arrows must not change the target during replacement confirmation.");
+                FailIf(!root.FileSlotSnapshot(0, game).SequenceEqual(existing.Serialize()),
+                    "Choosing an import file must not commit before confirmation.");
+                root.Step(1, batched, "item");
+                root.Step(1, batched);
+                FailIf(!root.FileSlotSnapshot(0, game).SequenceEqual(existing.Serialize()),
+                    "Canceling replacement changed the slot.");
+
+                OracleGame other = game == OracleGame.Ages ? OracleGame.Seasons : OracleGame.Ages;
+                byte[] corrupt = incoming.Serialize();
+                corrupt[0x20] ^= 1;
+                foreach (byte[] invalid in new[] { new byte[0x8000], corrupt,
+                    OracleSaveData.CreateStandardGame(other).Serialize() })
+                {
+                    string rejected = Path.Combine(directory, "invalid.sav");
+                    File.WriteAllBytes(rejected, invalid);
+                    Pick(import, rejected);
+                    FailIf(replace.Visible || !root.FileSlotSnapshot(0, game).SequenceEqual(existing.Serialize()),
+                        "Wrong-size, corrupt and wrong-game imports must leave the slot untouched.");
+                }
+                Pick(import, Path.Combine(directory, "missing.sav"));
+                FailIf(replace.Visible || string.IsNullOrEmpty(options.Status), "Unreadable imports must report failure.");
+                Pick(import, source);
+                root.NextSaveFailure = "Transfer validation write failure";
+                Confirm();
+                FailIf(options.Status != "Transfer validation write failure" ||
+                    !root.FileSlotSnapshot(0, game).SequenceEqual(existing.Serialize()),
+                    "Import write failures must remain visible and preserve the committed slot.");
+                Pick(import, source);
+                Confirm();
+                FailIf(!root.FileSlotSnapshot(0, game).SequenceEqual(incoming.Serialize()) ||
+                    !root.FileSlotSnapshot(2, game).SequenceEqual(existing.Serialize()) || root.FileSlotExists(1, game),
+                    "Import must replace only the selected game's selected slot.");
+
+                string destination = Path.Combine(directory, $"{game}.sav");
+                File.WriteAllBytes(destination, new byte[] { 0 });
+                Pick(export, destination);
+                FailIf(!File.ReadAllBytes(destination).SequenceEqual(incoming.Serialize()) ||
+                    File.Exists(destination + ".bak") || File.Exists(destination + ".tmp") ||
+                    !File.ReadAllBytes(source).SequenceEqual(incoming.Serialize()),
+                    "Export must replace one file with the committed slot, without changing the import source or leaving sidecars.");
+                Pick(export, directory);
+                FailIf(options.Status == "Save exported." || !options.Visible,
+                    "An export I/O failure must keep the options menu open with an error.");
+
+                DismissNotice();
+                root.Step(1, batched, "move_up");
+                root.Step(1, batched, "move_up");
+                root.Step(1, batched, "move_right");
+                FailIf(options.SelectedSlot != 1,
+                    "Right must select the next save slot without switching games.");
+                export.EmitSignal(BaseButton.SignalName.Pressed);
+                FailIf(files.Visible || options.Status != "This slot has no readable save to export.",
+                    "An empty slot must not export a new-game image.");
+                Pick(import, destination);
+                Confirm();
+                FailIf(!root.FileSlotSnapshot(1, game).SequenceEqual(incoming.Serialize()),
+                    "An exported save must import unchanged into another slot.");
+                DismissNotice();
+                import.EmitSignal(BaseButton.SignalName.Pressed);
+                files.Hide();
+                files.EmitSignal(FileDialog.SignalName.Canceled);
+                root.Step(1, batched);
+                root.Step(1, batched, "item", "attack");
+                FailIf(options.Visible || !screen.IsActive || !screen.OptionsSelected || screen.SelectedGame != game,
+                    "Canceling save transfer must return to the same Options button without launching.");
+            }
+        }
+        finally
+        {
+            screen.GetWindow().Size = originalWindowSize;
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private async Task CaptureGameSelectScreens()
     {
         string directory = OS.GetEnvironment("OOA_GAME_SELECT_SCREENSHOT_OUTPUT");
@@ -201,6 +395,7 @@ public sealed partial class ValidationRoot
         {
             GetWindow().Size = new Vector2I(1280, 720);
             screen.Begin();
+            screen.Options.Configure(OracleSaveStore.LoadSlot, OracleSaveStore.SaveSlot);
             foreach (var game in new[] { OracleGame.Ages, OracleGame.Seasons })
             {
                 screen.RequestPointerSelection(game, false);
@@ -213,11 +408,44 @@ public sealed partial class ValidationRoot
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 using Image focused = GetViewport().GetTexture().GetImage();
                 focused.SavePng(System.IO.Path.Combine(directory, $"game-select-{game.ToString().ToLowerInvariant()}-options.png"));
+                screen.Options.Open(game);
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                using Image menu = GetViewport().GetTexture().GetImage();
+                menu.SavePng(System.IO.Path.Combine(directory, $"game-select-{game.ToString().ToLowerInvariant()}-save-transfer.png"));
+                string importPath = Path.Combine(Path.GetTempPath(), $"oracle-preview-{Guid.NewGuid():N}.sav");
+                try
+                {
+                    var incoming = OracleSaveData.CreateStandardGame(game);
+                    incoming.SetLinkName("LINK");
+                    File.WriteAllBytes(importPath, incoming.Serialize());
+                    var files = screen.Options.GetNode<FileDialog>("Files");
+                    files.EmitSignal(FileDialog.SignalName.FileSelected, importPath);
+                    await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                    using Image confirmation = GetViewport().GetTexture().GetImage();
+                    confirmation.SavePng(Path.Combine(directory, $"game-select-{game.ToString().ToLowerInvariant()}-import-confirm.png"));
+                    screen.Options.GetNode<TextureButton>("Board/Replace/Cancel").EmitSignal(BaseButton.SignalName.Pressed);
+                    files.EmitSignal(FileDialog.SignalName.FileSelected, importPath + ".missing");
+                    await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                    using Image notice = GetViewport().GetTexture().GetImage();
+                    notice.SavePng(Path.Combine(directory, $"game-select-{game.ToString().ToLowerInvariant()}-transfer-notice.png"));
+                }
+                finally { File.Delete(importPath); }
+                screen.Options.Close();
             }
             GetWindow().Size = new Vector2I(640, 576);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             using Image portrait = GetViewport().GetTexture().GetImage();
             portrait.SavePng(System.IO.Path.Combine(directory, "game-select-default.png"));
+            foreach (Vector2I size in new[] { new Vector2I(640, 576), new Vector2I(960, 540), new Vector2I(720, 1280) })
+            {
+                GetWindow().Size = size;
+                screen.Options.Open(OracleGame.Ages);
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                using Image menu = GetViewport().GetTexture().GetImage();
+                menu.SavePng(Path.Combine(directory, $"game-select-save-transfer-{size.X}x{size.Y}.png"));
+                screen.Options.Close();
+            }
         }
         finally
         {

@@ -129,11 +129,12 @@ public partial class OracleSoundEngine : Node
     public override void _Process(double delta)
     {
         if (_driver is null) return;
-        if (!ApplicationUpdateOwned) _updates.Advance(delta, Tick);
+        if (!ApplicationUpdateOwned) AdvancePresentation(delta);
         FillAudioBuffer();
     }
 
     internal void AdvanceApplicationUpdate() => Tick();
+    internal void AdvancePresentation(double delta) => _updates.Advance(delta, Tick);
     public void PlayRoomMusic(int group, int room)
     {
         int music=SelectRoomMusic(group,room);

@@ -1,8 +1,9 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://src/Application/GameSelect/GameSelectScreen.cs" id="1_screen"]
 [ext_resource type="Script" path="res://src/Application/GameSelect/GameSelectPreview.cs" id="2_preview"]
 [ext_resource type="Shader" path="res://src/Application/GameSelect/inactive_preview.gdshader" id="3_inactive"]
+[ext_resource type="PackedScene" path="res://scenes/launcher/game_select_options.tscn" id="4_options"]
 
 [sub_resource type="ShaderMaterial" id="Material_ages"]
 resource_local_to_scene = true
@@ -85,7 +86,7 @@ offset_left = -112.0
 offset_top = -32.0
 offset_right = -16.0
 offset_bottom = -16.0
-tooltip_text = "Options coming soon"
+tooltip_text = "Import or export saves"
 mouse_filter = 0
 focus_mode = 0
 ignore_texture_size = true
@@ -154,7 +155,7 @@ offset_left = -112.0
 offset_top = -32.0
 offset_right = -16.0
 offset_bottom = -16.0
-tooltip_text = "Options coming soon"
+tooltip_text = "Import or export saves"
 mouse_filter = 0
 focus_mode = 0
 ignore_texture_size = true
@@ -177,3 +178,5 @@ offset_top = -1.0
 offset_bottom = 1.0
 mouse_filter = 2
 color = Color(0.06, 0.06, 0.08, 1)
+
+[node name="SaveOptions" parent="." instance=ExtResource("4_options")]

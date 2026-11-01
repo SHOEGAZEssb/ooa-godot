@@ -1,0 +1,117 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/Application/GameSelect/GameSelectOptions.cs" id="1_options"]
+
+[node name="SaveOptions" type="Control"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture_filter = 1
+script = ExtResource("1_options")
+
+[node name="Board" type="Control" parent="."]
+layout_mode = 0
+offset_right = 160.0
+offset_bottom = 144.0
+
+[node name="Slot" type="TextureButton" parent="Board"]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 48.0
+offset_right = 128.0
+offset_bottom = 64.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Import" type="TextureButton" parent="Board"]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 72.0
+offset_right = 128.0
+offset_bottom = 88.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="PreviousSlot" type="TextureButton" parent="Board"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 48.0
+offset_right = 28.0
+offset_bottom = 64.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="NextSlot" type="TextureButton" parent="Board"]
+layout_mode = 0
+offset_left = 132.0
+offset_top = 48.0
+offset_right = 148.0
+offset_bottom = 64.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Export" type="TextureButton" parent="Board"]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 96.0
+offset_right = 128.0
+offset_bottom = 112.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Back" type="TextureButton" parent="Board"]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 120.0
+offset_right = 128.0
+offset_bottom = 136.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Replace" type="Control" parent="Board"]
+visible = false
+layout_mode = 0
+offset_right = 160.0
+offset_bottom = 144.0
+
+[node name="Import" type="TextureButton" parent="Board/Replace"]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 100.0
+offset_right = 88.0
+offset_bottom = 124.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Cancel" type="TextureButton" parent="Board/Replace"]
+layout_mode = 0
+offset_left = 88.0
+offset_top = 100.0
+offset_right = 144.0
+offset_bottom = 124.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Notice" type="Control" parent="Board"]
+visible = false
+layout_mode = 0
+offset_right = 160.0
+offset_bottom = 144.0
+
+[node name="Dismiss" type="TextureButton" parent="Board/Notice"]
+layout_mode = 0
+offset_right = 160.0
+offset_bottom = 144.0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Files" type="FileDialog" parent="."]
+title = "Import Save"
+size = Vector2i(640, 400)
+access = 2
+filters = PackedStringArray("*.sav;Single-slot port save")
+use_native_dialog = true

@@ -86,6 +86,13 @@ overridable slot-store boundary. The ordinary host uses `OracleSaveStore`;
 validation hosts can provide isolated committed images while preserving the
 same save decisions and normal saved-spawn behavior.
 
+The game selector transfers individual committed 0x550-byte port saves, rather
+than emulator SRAM dumps or development savestates. Import validates the selected
+game and checksum before confirming replacement, then commits through the same
+slot store, including its backup. Export writes a validated single file and
+cannot target the managed slot files or backups. Neither operation initializes
+gameplay or commits a live session.
+
 Restart and death behavior must distinguish:
 
 - live state before a save decision;

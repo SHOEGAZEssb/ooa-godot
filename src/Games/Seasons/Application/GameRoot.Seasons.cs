@@ -13,7 +13,8 @@ public partial class GameRoot
         screen.AgesSelected -= StartAgesFromGameSelect;
         screen.SeasonsSelected -= StartSeasonsFromGameSelect;
         screen.End(); _gameSelect = null; _applicationInput.Clear();
-        _sound.SelectContent(new OracleSoundData(SeasonsGameContent.AssetRoot));
+        if (_sound.Data.Game != OracleGame.Seasons)
+            _sound.SelectContent(new OracleSoundData(SeasonsGameContent.AssetRoot));
         BeginBootLoading(GetNode<BootLoadingScreen>("%BootLoading"), OracleGame.Seasons);
     }
     private void OpenSeasonsMainMenu()

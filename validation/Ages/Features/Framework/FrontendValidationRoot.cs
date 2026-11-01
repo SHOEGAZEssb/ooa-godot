@@ -32,10 +32,10 @@ internal partial class FrontendValidationRoot : GameRoot
             ? DebugSavestateLoadResult.Loaded(state!) : DebugSavestateLoadResult.Failed("Invalid isolated debug state.");
     }
 
-    protected override OracleSaveData? LoadFileSlot(int slot)
+    internal override OracleSaveData? LoadFileSlot(int slot, OracleGame game)
     {
-        if (Slots(_selectedGame)[slot] is not { } bytes) return null;
-        if (!OracleSaveData.TryDeserialize(bytes, _selectedGame, out var save))
+        if (Slots(game)[slot] is not { } bytes) return null;
+        if (!OracleSaveData.TryDeserialize(bytes, game, out var save))
             throw new InvalidOperationException("Frontend fixture could not reload its isolated save.");
         return save;
     }

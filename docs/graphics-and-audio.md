@@ -275,6 +275,8 @@ individual sheets; correct pixels alone cannot detect a mismatched layout.
 original 16-byte ring; each application update applies the pending music volume,
 drains requests in order, then advances the driver once. Restarting sound clears
 the queue while retaining the source driver's volume, fade and disable state.
+Boot resource loading advances only the sound owner's presentation clock, so
+the selector's confirmation can finish while original game dispatch stays frozen.
 
 The sound owner also retains the native room-selection gate independently of
 the requested driver track. A native `playSound` request preserves that gate;

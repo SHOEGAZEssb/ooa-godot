@@ -127,7 +127,20 @@ backdrops and inherit their preview's inactive palette state.
 Each half's Options button uses native wooden-panel lettering and an acorn
 cursor. Right focuses Options; Left or B returns to the game selection, while
 Up/Down retain that column when switching games. Hover or click also focuses
-Options without launching a game. Option menus are not yet connected.
+Options without launching a game. Confirming or clicking opens that game's
+save-transfer menu. It selects one of three slots and imports or exports a
+single committed port save; file dialogs suspend selector navigation. Import
+checks the selected game's signature and checksum before confirming slot
+replacement. Closing returns to the same Options button.
+The transfer screen reuses the selected game's native save-menu panels, bitmap
+font, palettes, decorations and acorn cursor on a 160 by 144 canvas. It scales
+by whole display pixels, including its slot hit targets, confirmation and paged
+result messages. The slot arrows support mouse clicks as well as Left/Right
+input. Only the host file chooser uses the platform dialog.
+Selector and transfer-menu cursor changes request the original file-menu
+`SND_MENU_MOVE` ($84); confirmations request `SND_SELECTITEM` ($56). The
+application sound owner binds the highlighted game's audio pack. Repeated
+hover over the same choice and inactive modal navigation remain silent.
 
 The Gale Seed menu shares the map presentation and menu lifecycle. It selects
 only visited destinations from the imported ordered tree table, including the

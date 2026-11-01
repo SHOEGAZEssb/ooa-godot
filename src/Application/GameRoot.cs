@@ -121,7 +121,19 @@ public partial class GameRoot : Node2D
         _applicationInput.Clear();
         screen.AgesSelected += StartAgesFromGameSelect;
         screen.SeasonsSelected += StartSeasonsFromGameSelect;
+        screen.SoundRequested += PlayGameSelectSound;
+        screen.Options.SoundRequested += PlayGameSelectSound;
+        screen.Options.Configure(LoadFileSlot, StoreFileSlot);
         screen.Begin();
+    }
+
+    private void PlayGameSelectSound(int sound)
+    {
+        OracleGame game = _gameSelect!.SelectedGame;
+        if (_sound.Data.Game != game)
+            _sound.SelectContent(new OracleSoundData(OracleAssetPack.ForGame(game)));
+        // bank2.s:fileSelectSetCursor / fileSelectMode1 use $84 / $56.
+        _sound.PlaySound(sound);
     }
 
 
@@ -240,6 +252,7 @@ public partial class GameRoot : Node2D
     {
         if (_bootLoading is not null)
         {
+            _sound.AdvancePresentation(delta);
             AdvanceBootLoading(delta);
             return;
         }
@@ -286,7 +299,8 @@ public partial class GameRoot : Node2D
     // File-menu and gameplay commits share the same persistence boundary.
     // Alternative hosts can provide an isolated store without changing save
     // decisions, restart locations, or the lifetime of the live save image.
-    protected virtual OracleSaveData? LoadFileSlot(int slot) => OracleSaveStore.LoadSlot(slot, _selectedGame);
+    protected virtual OracleSaveData? LoadFileSlot(int slot) => LoadFileSlot(slot, _selectedGame);
+    internal virtual OracleSaveData? LoadFileSlot(int slot, OracleGame game) => OracleSaveStore.LoadSlot(slot, game);
     protected virtual SaveResult StoreFileSlot(int slot, OracleSaveData save) => OracleSaveStore.SaveSlot(slot, save);
     protected virtual void EraseFileSlot(int slot) => OracleSaveStore.EraseSlot(slot, _selectedGame);
 }

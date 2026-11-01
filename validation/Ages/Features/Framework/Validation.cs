@@ -879,6 +879,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateImpaGraphicsContinuation);
         RunIsolatedValidation(ValidateBootLoading);
         RunIsolatedValidation(ValidateGameSelect);
+        RunIsolatedValidation(ValidateGameSelectAudio);
         RunIsolatedValidation(ValidateSoundEngine);
         RunIsolatedValidation(ValidateSoundDriverControls);
         RunIsolatedValidation(ValidateSoundDriverHandoffs);
