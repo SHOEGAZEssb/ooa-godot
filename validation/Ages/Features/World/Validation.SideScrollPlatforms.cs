@@ -1,13 +1,18 @@
-using Godot;
-using System.Linq;
 
 namespace Oracles;
 
 public sealed partial class ValidationRoot
 {
+    private static NativeObjectInstruction[] SideViewObjectInstructions(int group, int room)
+    {
+        var data = NativeObjectStreamDatabase.For(AgesGameContent.AssetRoot);
+        var memory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
+        data.InitializeLoadFlags(memory);
+        return new NativeObjectStreamReader(data, memory, () => 0).Read(data.Root(group, room)).ToArray();
+    }
+
     private void ValidateMovingSideScrollPlatforms()
     {
-        var placements = new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot);
         var interactions = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
         var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
 
@@ -21,8 +26,7 @@ public sealed partial class ValidationRoot
         })
         {
             var preview = new MovingSideScrollPlatformRoomEntity(
-                new MovingSideScrollPlatformPlacement(
-                    5, 0x06, 0, 0xa1, subId, 0, 0, "validation"),
+                Vector2.Zero,
                 interactions.SidePlatform(subId),
                 visuals.Visual("moving-side-platform"));
             FailIf(
@@ -36,8 +40,8 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            placements.GetRoomRecords(5, 0x06) is not
-                [{ Order: 0, Id: 0xa1, SubId: 0x0b, Y: 0x68, X: 0x68 }],
+            SideViewObjectInstructions(5, 0x06) is not
+                [{ Opcode: 2, Id: 0xa1, SubId: 0x0b, Y: 0x68, X: 0x68 }],
             "Room 7:06 did not retain group5Map06ObjectData's source " +
             "INTERAC_MOVING_SIDESCROLL_PLATFORM $a1:$0b placement.");
         MovingSideScrollPlatformRecord script = interactions.SidePlatform(0x0b);
@@ -72,6 +76,42 @@ public sealed partial class ValidationRoot
             "source position ($68,$68) with the full 32x48 positioned OAM " +
             "frame aligned to collision radius Y=$19.");
 
+        ReinitializeGameplayForValidation();
+    }
+
+    private void ValidateNativePlatformPlacement()
+    {
+        foreach (bool batched in new[] { false, true })
+        foreach (int free in new[] { 0, 1, 2, 3 })
+        {
+            ReinitializeGameplayForValidation();
+            LoadValidationRoom(6, 0x29);
+            _entities.Clear();
+            for (int slot = 2; slot < 16 - free; slot++)
+                _entities.Spawn<StationaryDebrisEffect>(new PuzzlePuffSpawn(new(200, 120), SoundId.MusNone));
+            _runtimeState.SetField("wcc05", 0xff);
+            _runtimeState.SetField("wcc85", 1); // Suppress the enemy pointer, retaining main interactions.
+            var random = _random.CaptureState();
+            var factory = SomariaPrivate<AgesRoomEntityFactory>(_entities, "_factory");
+            foreach (var entity in factory.CreateRoomEntities(6, _currentRoom, EnemyPlacementContext.Unrestricted))
+                _entities.AddEntity(entity);
+            var platforms = _entities.Entities<MovingSideScrollPlatformRoomEntity>().OrderBy(_entities.InteractionSlot).ToArray();
+            var after = _random.CaptureState();
+            FailIf(platforms.Length != System.Math.Min(free, 2) || after.Calls != random.Calls ||
+                after.Rng1 != random.Rng1 || after.Rng2 != random.Rng2 || after.LastResult != random.LastResult ||
+                after.PlacementIndex != random.PlacementIndex || after.PlacementBufferReady != random.PlacementBufferReady ||
+                !after.PlacementBuffer.SequenceEqual(random.PlacementBuffer) ||
+                _runtimeState.ReadField("wcc85") != 1,
+                $"INTERAC$a1 native construction/free{free}: allocation-run admission, RNG or pointer gate changed.");
+            for (int i = 0; i < platforms.Length; i++)
+                FailIf(_entities.InteractionSlot(platforms[i]) != 16 - free + i ||
+                    platforms[i].Position != (i == 0 ? new Vector2(0x58, 0x58) : new Vector2(0x98, 0x68)),
+                    $"INTERAC$a1 native construction/free{free}: compressed object run changed source order or position.");
+            _player.WarpTo(new(24, 56));
+            StepGameplayUpdates(2, Vector2.Zero, batched: batched);
+            FailIf(platforms.Any(platform => platform.UpdatesDuringDialogue),
+                "Native platform construction must retain ordinary state-zero initialization in the gameplay loop.");
+        }
         ReinitializeGameplayForValidation();
     }
 }

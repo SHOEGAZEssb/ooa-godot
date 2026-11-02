@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 
@@ -42,21 +40,6 @@ internal static class OracleGraphicsData
         return result;
     }
 
-    public static Color[,] LoadPaletteWithCommonBackgroundFallback(
-        string path,
-        int count,
-        int firstPalette)
-    {
-        Color[] fallback = LoadCommonBackgroundPalette(OracleAssetPack.RootFor(path));
-        Color[,] result = LoadPalette(path, count, firstPalette);
-        for (int palette = 0; palette < result.GetLength(0); palette++)
-        for (int shade = 0; shade < result.GetLength(1); shade++)
-        {
-            if (palette < firstPalette || palette >= firstPalette + count)
-                result[palette, shade] = fallback[shade];
-        }
-        return result;
-    }
 
     public static Color[] LoadCommonBackgroundPalette(string assetRoot) =>
         LoadPaletteColors(assetRoot + "metadata/commonBgPalette0.bin");

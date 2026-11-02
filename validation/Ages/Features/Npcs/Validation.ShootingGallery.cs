@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 
 namespace Oracles;
@@ -48,11 +44,7 @@ public sealed partial class ValidationRoot
         var inventorySnapshot = new byte[0x39];
         _saveData.ReadWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         OracleRandomState randomSnapshot = _random.CaptureState();
-        MethodInfo reloadInventory = typeof(InventoryState).GetMethod(
-            "LoadFromSaveData",
-            BindingFlags.Instance | BindingFlags.NonPublic) ??
-            throw new InvalidOperationException(
-                "Could not reload shooting-gallery validation inventory.");
+
 
         try
         {
@@ -476,7 +468,7 @@ public sealed partial class ValidationRoot
         {
             _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
             _random.RestoreState(randomSnapshot);
             if (_dialogue.IsOpen)
                 _dialogue.Close();

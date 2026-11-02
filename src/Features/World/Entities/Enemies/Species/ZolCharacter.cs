@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 
@@ -28,7 +26,7 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
     private bool _emergeSoundPlayed;
     private Action<int> _sound = static _ => { };
 
-    public ZolRecord Record { get; private set; }
+    internal ImportedEnemyDefinition Record { get; private set; }
     internal ZolState State => _state;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
@@ -41,7 +39,7 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
         new(-16, -16 + (_verticalMotion.ZFixed >> 8));
 
     internal void Initialize(
-        ZolRecord record,
+        ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position,
         OracleRandom random,
@@ -55,25 +53,7 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
         _movement = new EnemyTerrainMovement(this, room);
         _verticalMotion = new EnemyVerticalMotion(this, _behavior.Gravity);
 
-        string[] encodedAnimations =
-        {
-            record.EmergeAnimation,
-            record.WaitAnimation,
-            record.HopAnimation,
-            record.DisappearAnimation,
-            record.RedIdleAnimation,
-            record.RedShakeAnimation
-        };
-        InitializeEnemy(
-            position,
-            EnemyCharacterConfiguration.FromSprite(record.AssetRoot,
-                record.Health,
-                record.CollisionRadiusX,
-                record.CollisionRadiusY,
-                record.SpriteName,
-                encodedAnimations,
-                record.TileBase,
-                record.Palette));
+        InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain,

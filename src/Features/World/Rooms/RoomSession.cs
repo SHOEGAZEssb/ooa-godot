@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -31,8 +28,6 @@ public sealed partial class RoomSession
     }
 
     internal byte InformativeTextsShown => _runtimeState.ReadField("wInformativeTextsShown");
-    internal bool TileInfoTextShown(int textId) =>
-        (InformativeTextsShown & _tileInfoTexts.Get(textId).Mask) != 0;
     internal string? PrepareTileInfoMessage(int textId)
     {
         TilePushCounter = 20; // showInfoTextForTile resets even a suppressed hint.

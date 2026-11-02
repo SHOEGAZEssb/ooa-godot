@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -30,6 +29,7 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     public virtual bool BlocksGameplay => InputControlHeld;
     public override RoomEventContext Context => _context;
     protected TActor? ScriptActor => _binding.Actor;
+    protected string ScriptActorName => _actorId.Value;
     protected bool PendingActorButton => _binding.ButtonPending;
     protected int ScriptActorSpeed => _runner.ActorSpeed(_actorId);
     internal int CurrentCommandIndex =>

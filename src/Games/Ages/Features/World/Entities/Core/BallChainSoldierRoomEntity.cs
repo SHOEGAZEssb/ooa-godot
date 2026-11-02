@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -13,7 +10,7 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
     protected override bool BoomerangHitPending => Entity.PendingHit;
     protected override void MarkBoomerangHit() => Entity.MarkContact();
     private readonly Func<int, bool> _enemySlots;
-    private readonly SpikedBallDatabase _weapon;
+    private readonly AnimatedPartDatabase _weapon;
     public bool MeleeReportsContact => true;
     public bool UpdatesDuringDialogue => Entity.State == 0;
     public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;
@@ -26,7 +23,7 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
         CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
     }
     internal BallChainSoldierRoomEntity(BallChainSoldierCharacter soldier, EnemyCombatSourceDescriptor source,
-        Action<int> sound, Func<int, bool> enemySlots, SpikedBallDatabase weapon)
+        Action<int> sound, Func<int, bool> enemySlots, AnimatedPartDatabase weapon)
         : base(soldier, soldier.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, soldier, soldier.Record.DamageQuarters,
                 soldier.TakeSwordHit, _ => false, (_, _) => { }, sound),

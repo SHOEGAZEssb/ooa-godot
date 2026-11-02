@@ -380,62 +380,6 @@ Write-GeneratedTable(
 
 $sidePlatformSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\movingSidescrollPlatform.s')
-$sidePlatformPlacements = @(
-    @(4, 0x29, 0, 0x06, 0x58, 0x58),
-    @(4, 0x29, 1, 0x07, 0x68, 0x98),
-    @(4, 0x2a, 0, 0x08, 0x98, 0x58),
-    @(4, 0x2a, 1, 0x09, 0x48, 0xd8),
-    @(4, 0x68, 0, 0x01, 0x48, 0x58),
-    @(4, 0x68, 1, 0x01, 0x48, 0x98),
-    @(4, 0x95, 0, 0x0a, 0x68, 0x88),
-    @(4, 0x96, 0, 0x02, 0x68, 0x30),
-    @(4, 0x96, 1, 0x03, 0x88, 0x90),
-    @(4, 0x97, 0, 0x04, 0x88, 0x58),
-    @(4, 0x97, 1, 0x05, 0x58, 0x78),
-    @(4, 0x97, 2, 0x05, 0x38, 0x98),
-    @(5, 0x02, 0, 0x0c, 0x38, 0x40),
-    @(5, 0x02, 1, 0x0d, 0x68, 0x40),
-    @(5, 0x06, 0, 0x0b, 0x68, 0x68),
-    @(5, 0x11, 0, 0x0e, 0x58, 0x78),
-    @(5, 0xe7, 1, 0x00, 0x78, 0x58)
-)
-$sidePlatformPlacementRows = [Collections.Generic.List[string]]::new()
-$sidePlatformPlacementRows.Add(
-    '# group`troom`torder`tid`tsubid`ty`tx`tsource'.Replace('`t', "`t"))
-foreach ($placement in $sidePlatformPlacements) {
-    $group = [int]$placement[0]
-    $room = [int]$placement[1]
-    $order = [int]$placement[2]
-    $subid = [int]$placement[3]
-    $y = [int]$placement[4]
-    $x = [int]$placement[5]
-    $label = "group$($group.ToString('x1'))Map$($room.ToString('x2'))ObjectData"
-    $block = [regex]::Match(
-        $mainObjectSource,
-        '(?ms)^' + [regex]::Escape($label) +
-            ':\s*(?<body>.*?)(?=^[A-Za-z_][A-Za-z0-9_]*:|\z)')
-    $expected =
-        "obj_Interaction `$a1 `$$($subid.ToString('x2')) " +
-        "`$$($y.ToString('x2')) `$$($x.ToString('x2'))"
-    $sourceRecords = @([regex]::Matches(
-        $block.Groups['body'].Value,
-        '(?m)^\s*obj_(?!End\b)[^\r\n]+') |
-        ForEach-Object { $_.Value.Trim() })
-    if (-not $block.Success -or $order -ge $sourceRecords.Count -or
-        $sourceRecords[$order] -ne $expected) {
-        throw "Moving side-scroll platform placement '$expected' is missing or out of order in $label."
-    }
-    $sidePlatformPlacementRows.Add(
-        "$group`t$($room.ToString('x2'))`t$order`ta1`t" +
-        "$($subid.ToString('x2'))`t$($y.ToString('x2'))`t" +
-        "$($x.ToString('x2'))`tmainData.s:$label")
-}
-if ($sidePlatformPlacementRows.Count -ne 18) {
-    throw "Moving side-scroll platform placement count changed: $($sidePlatformPlacementRows.Count - 1)."
-}
-Write-GeneratedTable(
-    (Join-Path $destination 'objects\moving_side_scroll_platform_placements.tsv'),
-    $sidePlatformPlacementRows)
 
 $sidePlatformHandlerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\movingSidescrollPlatform.s')

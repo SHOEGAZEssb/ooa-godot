@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 
@@ -24,7 +22,7 @@ public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
     internal void ClearAttachmentRestriction() => AttachmentRestrictionActive = false;
 
     public bool IsAttached => !IsDead && _state == GelState.Attached;
-    internal GelDefinition Definition { get; private set; }
+    internal ImportedEnemyDefinition Definition { get; private set; }
     internal GelState State => _state;
     internal int Counter2 => _counter2;
     internal int Counter1 => _counter1;
@@ -38,7 +36,7 @@ public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
         new(-16, -16 + (_verticalMotion.ZFixed >> 8));
 
     internal void Initialize(
-        GelDefinition definition,
+        ImportedEnemyDefinition definition,
         OracleRoomData room,
         Vector2 position,
         OracleRandom random)
@@ -52,22 +50,7 @@ public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
         _counter1 = _behavior.InitialWaitFrames;
         _collisionEnabled = true;
 
-        string[] encodedAnimations =
-        {
-            definition.NormalAnimation,
-            definition.AttachedAnimation,
-            definition.ShakeAnimation
-        };
-        InitializeEnemy(
-            position,
-            EnemyCharacterConfiguration.FromSprite(definition.AssetRoot,
-                definition.Health,
-                definition.CollisionRadiusX,
-                definition.CollisionRadiusY,
-                definition.SpriteName,
-                encodedAnimations,
-                definition.TileBase,
-                definition.Palette));
+        InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(definition));
         ConfigureSwordKnockback(room, EnemyKnockbackMotion.Terrain);
         ConfigureHazards(
             room,

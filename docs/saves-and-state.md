@@ -179,7 +179,10 @@ Ages room initialization publishes its layout/underwater/companion modifier;
 Seasons retains the season selected by its initialization or transition owner.
 
 `InventoryState` is a typed view over imported treasure behavior and save
-fields. Every imported treasure variable/mode must have a checked
+fields. Scalar properties and inventory arrays access that same live byte image;
+inventory mutations do not copy a private image back over native writes. An
+isolated inventory owns an ordinary in-memory save image and uses the same path.
+Every imported treasure variable/mode must have a checked
 implementation or fail at startup with the treasure ID and source data. Unknown
 values never default to zero or silently discard a write.
 

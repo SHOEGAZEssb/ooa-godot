@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 
@@ -13,7 +11,7 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
     private SwordBeamDatabase? _swordBeam;
     private BreakableTileDatabase? _breakables;
     private ZoraFireDatabase? _zoraFire;
-    private BeamosBeamDatabase? _beamosBeam;
+    private AnimatedPartDatabase? _beamosBeam;
     private TreasureDatabase? _treasures;
     private DimitriDatabase? _dimitri;
     private MooshDatabase? _moosh;
@@ -126,7 +124,7 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
         EmberSeedSpawn seed => CreateSeed(seed,room),
         BurningEnemySpawn burn => CreateBurningEnemy(burn),
         BeamosBeamSpawn beam => new BeamosBeamRoomEntity(new BeamosBeamPart(beam,
-            _beamosBeam ??= new(AssetRoot), room, owner.RuntimeState)),
+            _beamosBeam ??= AnimatedPartDatabase.Beam(AssetRoot), room, owner.RuntimeState)),
         OctorokRockSpawn rock => CreateRock(rock, room),
         EnemyArrowSpawn arrow => CreateArrow(arrow, room),
         PuzzlePuffSpawn puff => CreatePuff(puff),
@@ -303,18 +301,13 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
                 if(record.Sprites.Length!=1 || record.Animations.Length!=3 || !record.SourceGrayscaleInverted)
                     throw new InvalidOperationException($"{source.Source}: ENEMY_GEL requires one graphic and three native animations.");
                 var gel=new GelCharacter {Name=name,ZIndex=ObjectDrawPriority.BehindLinkZIndex};
-                gel.Initialize(new(AssetRoot,record.Id,record.SubId,record.Sprites[0],record.TileBase,record.Palette,
-                    record.RadiusY,record.RadiusX,record.DamageQuarters,record.Health,
-                    record.Animations[0],record.Animations[1],record.Animations[2],record.RawDamage),room,position,owner.Random);
+                gel.Initialize(record,room,position,owner.Random);
                 return new GelRoomEntity(gel,source,owner.OnSoundRequested);
             case EnemyId.Zol:
                 if(record.Sprites.Length!=1 || record.Animations.Length!=6 || !record.SourceGrayscaleInverted)
                     throw new InvalidOperationException($"{source.Source}: ENEMY_ZOL requires one graphic and six native animations.");
                 var zol=new ZolCharacter {Name=name,ZIndex=ObjectDrawPriority.BehindLinkZIndex};
-                zol.Initialize(new(AssetRoot,room.Group,room.Id,record.Id,record.SubId,source.ObjectFlags,1,true,(int)position.Y,(int)position.X,
-                    record.Sprites[0],record.TileBase,record.Palette,record.RadiusY,record.RadiusX,record.DamageQuarters,record.Health,
-                    record.Animations[0],record.Animations[1],record.Animations[2],record.Animations[3],record.Animations[4],record.Animations[5],
-                    record.RawDamage),room,position,owner.Random,owner.OnSoundRequested);
+                zol.Initialize(record,room,position,owner.Random,owner.OnSoundRequested);
                 return new ZolRoomEntity(zol,source,owner.OnSoundRequested);
             case EnemyId.Ghini:
                 if(source.SubId==2)

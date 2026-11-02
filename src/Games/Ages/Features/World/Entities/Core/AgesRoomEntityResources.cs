@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System;
-using System.Linq;
 
 namespace Oracles;
 
@@ -159,8 +156,8 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     internal SeedShooterEyeStatueDatabase EyeStatues => _eyeStatuesData ??= new();
     private DungeonChestPatternDatabase? _chestPatternsData;
     internal DungeonChestPatternDatabase ChestPatterns => _chestPatternsData ??= new();
-    private SpikedBallDatabase? _spikedBallData;
-    internal SpikedBallDatabase SpikedBall => _spikedBallData ??= new(AgesGameContent.AssetRoot);
+    private AnimatedPartDatabase? _spikedBallData;
+    internal AnimatedPartDatabase SpikedBall => _spikedBallData ??= AnimatedPartDatabase.SpikedBall(AgesGameContent.AssetRoot);
     private FountainFairyDatabase? _fountainFairiesData;
     internal FountainFairyDatabase FountainFairies => _fountainFairiesData ??= new(AgesGameContent.AssetRoot);
     private WaterfallWarpDatabase? _waterfallWarpsData;
@@ -293,8 +290,6 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     internal LeverLavaDatabase LeverLava => _leverLavaData ??= new();
     private MovingPlatformDatabase? _movingPlatformsData;
     internal MovingPlatformDatabase MovingPlatforms => _movingPlatformsData ??= new(AgesGameContent.AssetRoot);
-    private MovingSideScrollPlatformDatabase? _sidePlatformsData;
-    internal MovingSideScrollPlatformDatabase SidePlatforms => _sidePlatformsData ??= new(AgesGameContent.AssetRoot);
     private GroundTreasureDatabase? _groundTreasuresData;
     internal GroundTreasureDatabase GroundTreasures => _groundTreasuresData ??= new(AgesGameContent.AssetRoot);
     private DungeonMechanicDatabase? _dungeonMechanicsData;
@@ -485,7 +480,6 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
         _ = MovingPlatforms;
         yield return false;
         yield return false;
-        _ = SidePlatforms;
         yield return false;
         _ = GroundTreasures;
         yield return false;

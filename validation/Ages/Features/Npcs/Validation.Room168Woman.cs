@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Linq;
 
 namespace Oracles;
 
@@ -19,15 +16,7 @@ public sealed partial class ValidationRoot
             if (stage == 6 && !linked)
                 continue;
             ReinitializeGameplayForValidation();
-            _saveData.SetLinkedGame(linked);
-            _saveData.WriteWramByte(AgesWramAddress.wEssencesObtained,
-                (byte)(stage == 0 ? 0 : stage == 1 ? 0x02 : stage is 2 or 3 ? 0x08 : 0x40));
-            _saveData.CommitInventoryChange();
-            _saveData.SetGlobalFlag(AgesGlobalFlag.SavedNayru, stage == 3);
-            _saveData.SetGlobalFlag(AgesGlobalFlag.SawTwinrovaBeforeEndgame, stage == 5);
-            _saveData.SetGlobalFlag(AgesGlobalFlag.FinishedGame, stage == 7);
-            if (stage == 6)
-                _saveData.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
+            SetNpcProgressStage(linked, stage);
             LoadValidationRoom(1, 0x68);
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
             var woman = _entities.Entities<NpcCharacter>().Single(n =>
@@ -57,20 +46,7 @@ public sealed partial class ValidationRoot
                 !woman.Message.Contains(sourceWords[stage], StringComparison.Ordinal) ||
                 woman.ObjectCollisionBounds.Size != new Vector2(12, 12),
                 $"Room 1:68 $3b:$03 lost source TX_{text:x4} or solid $06/$06 radii.");
-            ApproachLibraryActor(woman, batched);
-            for (int repeat = 0; repeat < 2; repeat++)
-            {
-                StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-                FailIf(!_dialogue.IsOpen ||
-                    PlainWords(_dialogue.CurrentMessage) != PlainWords(woman.Message),
-                    $"Room 1:68 TX_{text:x4} was unreachable on conversation {repeat}.");
-                int frame = woman.CurrentAnimationFrame;
-                StepGameplayUpdates(1, Vector2.Zero, batched: batched);
-                FailIf(woman.CurrentAnimationFrame != frame,
-                    "Room 1:68 $3b:$03 animated during active text.");
-                _dialogue.Close();
-                StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            }
+            RepeatNpcConversation(woman, batched, $"Room 1:68 $3b:$03 TX_{text:x4}");
             _saveData.SetGlobalFlag(AgesGlobalFlag.FinishedGame, false);
             _saveData.SetGlobalFlag(AgesGlobalFlag.SawTwinrovaBeforeEndgame, false);
             _saveData.SetGlobalFlag(AgesGlobalFlag.SavedNayru, false);

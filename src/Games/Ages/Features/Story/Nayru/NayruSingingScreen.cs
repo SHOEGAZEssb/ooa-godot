@@ -1,5 +1,3 @@
-using Godot;
-using System;
 using static Oracles.OracleGraphicsData;
 
 namespace Oracles;

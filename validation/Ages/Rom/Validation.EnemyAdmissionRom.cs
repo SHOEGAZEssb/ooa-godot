@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
@@ -59,7 +55,7 @@ public sealed partial class ValidationRoot
             if (id == 0x34)
             {
                 var source = redSource;
-                FailIf(!enemies.TryGetZolDefinition(source, out var definition), "Missing source red Zol placement.");
+                FailIf(!enemies.TryGetImportedEnemyDefinition(source, out var definition), "Missing source red Zol placement.");
                 var zol = new ZolCharacter(); zol.Initialize(definition, _currentRoom, new(80, 72), _random, _entities.OnSoundRequested);
                 parent = new ZolRoomEntity(zol, enemies.EnemyHandlers.ResolveHandler(source).CombatSource(source, 1), _entities.OnSoundRequested);
                 F1Set(zol, "_state", ZolState.RedSplitDelay); F1Set(zol, "_counter2", 1);

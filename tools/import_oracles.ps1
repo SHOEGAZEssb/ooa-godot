@@ -214,7 +214,7 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-trade-dialogue' 'Ages/Import-TradeDialogueData.ps1' `
         -inputs @('allTexts', 'cutsceneCommandHeader', 'mainObjectSource', 'treasureObjectRecords') `
         -outputs @('musicSource', 'roomFlagSource', 'tradeItemSource') `
-        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Write-CutsceneGeneratedTable')
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-npc-scripts' 'Ages/Import-NpcScriptData.ps1' `
         -inputs @('allTexts', 'cutsceneCommandHeader', 'mainObjectSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
         -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
@@ -268,7 +268,7 @@ $stageContracts = @(
         -inputs @('agesSymbols', 'allTextFallthroughIds', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-carpenters' 'Ages/Import-CarpenterData.ps1' `
-        -inputs @('allTexts', 'globalFlagValues') `
+        -inputs @('allTexts', 'allTextFallthroughIds', 'globalFlagValues') `
         -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-mamamu' 'Ages/Import-MamamuData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'globalFlagValues', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics') `
@@ -294,32 +294,32 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-validation' 'Ages/Validate-CutsceneData.ps1' `
         -inputs @('cutsceneCommandSchemas', 'generatedCutsceneCommandStreams') `
         -functionInputs @('Test-GeneratedCutsceneCommandStreams')
+    New-ImportStageContract 'object-streams' 'Shared/Import-ObjectStreams.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
     New-ImportStageContract 'enemies' 'Ages/Import-EnemyData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'gfxNames', 'paletteHeaderSource') `
         -outputs @(
-            'commonEnemyRows', 'crowRows', 'gelInstanceCount', 'keeseInstanceCount',
-            'octorokInstanceCount', 'octorokDefinitionRows', 'orderedObjectRows', 'orderedObjectSources', 'partAnimationSource',
-            'partDataSource', 'partOamSource', 'stalfosInstanceCount',
-            'zolInstanceCount') `
+            'commonEnemyRows', 'octorokDefinitionRows', 'partAnimationSource', 'partDataSource') `
         -functionInputs @('Read-PaletteBytes', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted') `
         -functionOutputs @(
             'Copy-EnemySprite', 'Get-EnemyDefinition', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
     New-ImportStageContract 'volcano' 'Ages/Import-VolcanoData.ps1' `
-        -inputs @('mainObjectLines', 'globalFlagValues', 'soundIds', 'partOamSource') `
+        -inputs @('mainObjectLines', 'globalFlagValues', 'soundIds') `
         -functionInputs @('Copy-EnemySprite', 'Resolve-Oam')
     New-ImportStageContract 'falling-boulders' 'Ages/Import-FallingBoulderData.ps1' `
-        -inputs @('gfxNames', 'partOamSource') `
+        -inputs @('gfxNames') `
         -functionInputs @('Copy-EnemySprite', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
     New-ImportStageContract 'seed-trees' 'Ages/Import-SeedTreeData.ps1' `
         -inputs @(
             'allTexts', 'gfxNames', 'mainObjectLines', 'partAnimationSource',
-            'partDataSource', 'partOamSource') `
+            'partDataSource') `
         -functionInputs @(
             'Copy-EnemySprite', 'Get-AssemblyLabelBody', 'Resolve-Oam')
     New-ImportStageContract 'maple' 'Ages/Import-MapleData.ps1' `
         -inputs @(
             'allTexts', 'gfxNames', 'interactionGraphics',
-            'partAnimationSource', 'partOamSource') `
+            'partAnimationSource') `
         -functionInputs @(
             'Get-AssemblyLabelBody', 'Resolve-NpcAnimation', 'Resolve-Oam')
     New-ImportStageContract 'spirits-grave' 'Ages/Import-SpiritsGrave.ps1' `
@@ -327,7 +327,7 @@ $stageContracts = @(
             'allTexts', 'gfxNames', 'interactionAnimationSource',
             'interactionGraphics', 'mainObjectSource', 'npcAnimationTables',
             'npcOamBlocks', 'npcOamPointerTables', 'paletteHeaderSource',
-            'partAnimationSource', 'partOamSource') `
+            'partAnimationSource') `
         -functionInputs @(
             'Copy-EnemySprite', 'Get-AssemblyLabelBody', 'Get-EnemyDefinition',
             'Get-EnemySpriteSourceGrayscaleInverted', 'Read-PaletteBytes', 'Resolve-Oam')
@@ -395,10 +395,9 @@ $stageContracts = @(
         -inputs @('allTexts', 'allTextPositions', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'musicConstantSource') `
         -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-SoundConstant', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
     New-ImportStageContract 'black-tower-flames' 'Ages/Import-BlackTowerFlames.ps1' `
-        -inputs @('partOamSource') `
         -functionInputs @('Copy-EnemySprite', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
     New-ImportStageContract 'placed-parts' 'Ages/Import-PlacedParts.ps1' `
-        -inputs @('partOamSource', 'gfxNames') `
+        -inputs @('gfxNames') `
         -functionInputs @('Copy-EnemySprite', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
     New-ImportStageContract 'black-tower-possession' 'Ages/Import-BlackTowerPossession.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics') `
@@ -449,9 +448,6 @@ $stageContracts = @(
     New-ImportStageContract 'seasons-room-runtime' 'Seasons/Import-RoomRuntime.ps1' `
         -inputs @('seasonsRomBytes', 'seasonsSymbols')
     New-ImportStageContract 'common-engine' 'Shared/Import-CommonEngineData.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes')
-    New-ImportStageContract 'object-streams' 'Shared/Import-ObjectStreams.ps1' `
-        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'orderedObjectRows', 'orderedObjectSources') `
-        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
     New-ImportStageContract 'minecart-native' 'Shared/Import-MinecartData.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
         -functionInputs @('Read-AssemblyConstants')
@@ -623,6 +619,8 @@ $stageContracts = @(
 
 $commonStageInputs = @('destination', 'previewDestination', 'Disassembly', 'romBytes')
 $commonStageFunctionInputs = @(
+    'Read-NativePlacementRows',
+    'Resolve-DialogueText',
     'Convert-AssemblyInteger', 'Copy-GeneratedFile', 'Get-AssemblyLabelBody',
     'Find-AssemblySourceLine', 'Read-AssemblyNodeRange',
     'Read-AssemblyAnimationDefinitions', 'Read-AssemblyConstants',

@@ -1,21 +1,13 @@
-using System;
 using System.IO;
 
 namespace Oracles;
 
 // Original clean-US giveTreasure/removeRupeeValue, including bank-$3f
 // collection modes, extra grants, inventory placement and sound requests.
-internal sealed class TreasureRom
+internal sealed class TreasureRom : RomFixture
 {
-    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
-    private readonly byte[] _memory = new byte[0x10000];
-    private readonly OracleCpu _cpu;
-    private byte[] _caller = [];
-    private int _bank;
-    internal TreasureRom()
+    internal TreasureRom() : base("Treasure")
     {
-        _cpu = new OracleCpu(Read, Write, static _ => { },
-            (pc, detail) => new InvalidDataException($"Treasure ROM ${_bank:x2}:${pc:x4}: {detail}."));
     }
     internal byte this[int address] => _memory[address];
     internal void Seed(OracleSaveData save, int dungeon = 0, int upgrades = 0)
@@ -39,22 +31,10 @@ internal sealed class TreasureRom
         if (_bank != 1 || _memory[0xff97] != 1)
             throw new InvalidDataException("Treasure ROM lost bank restoration.");
     }
-    private int Read(int address)
-    {
-        if (address < 0x4000) return _rom.Span[address];
-        if (address < 0x8000 && _bank == 0x3f) return _rom.Span[0xfc000 + address - 0x4000];
-        if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
-        if (Allowed(address)) return _memory[address];
-        throw new InvalidDataException($"Treasure ROM ${_cpu.InstructionAddress:x4}: undeclared read ${address:x4}.");
-    }
-    private void Write(int address, int value)
-    {
-        if (address == 0x2222) { _bank = value; return; }
-        if (Allowed(address)) { _memory[address] = (byte)value; return; }
-        throw new InvalidDataException($"Treasure ROM ${_cpu.InstructionAddress:x4}: undeclared write ${address:x4}.");
-    }
     // Ring overflow counts duplicates in bank-4 w4TmpRingBuffer $d3a0;
     // this bounded helper uses no other bank's storage at that address.
-    private static bool Allowed(int address) => address == 0xff70 ||
+    protected override bool RomBankAllowed(int bank) => bank == 0x3f;
+
+    protected override bool Allowed(int address) => address == 0xff70 ||
         address is >= 0xc000 and < 0xe000 or >= 0xff80 and < 0xffc0;
 }

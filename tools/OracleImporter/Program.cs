@@ -64,6 +64,9 @@ internal static class Program
                         : utf8.GetString(Convert.FromBase64String(request[(separator + 1)..]));
                     switch (command)
                     {
+                        case "NATIVE_PLACEMENTS":
+                            WriteSuccess(System.Text.Json.JsonSerializer.Serialize(NativePlacementRows.Read(payload)), utf8);
+                            break;
                         case "CACHE_BEGIN":
                         {
                             if (importCache is not null)

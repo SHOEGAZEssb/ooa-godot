@@ -1,22 +1,7 @@
 # Resolve the first dialogue command reached by a script label, following the
 # common scriptjump indirection used by generic NPCs.
-function Resolve-OceanText([int]$id,[Collections.Generic.HashSet[int]]$visited) {
-    if(!$allTexts.ContainsKey($id) -or !$visited.Add($id)){throw "Unresolved or recursive ocean TX_$($id.ToString('x4'))."}
-    $message=[string]$allTexts[$id]
-    if($allTextPositions.ContainsKey($id)) { $message='\pos('+$allTextPositions[$id]+')'+$message }
-    while($true) {
-        $call=[regex]::Match($message,'\\call\(TX_([0-9a-f]{4})\)')
-        if(!$call.Success){break}
-        $message=$message.Substring(0,$call.Index)+(Resolve-OceanText ([Convert]::ToInt32($call.Groups[1].Value,16)) $visited)+$message.Substring($call.Index+$call.Length)
-    }
-    $jump=[regex]::Match($message,'\\jump\(TX_([0-9a-f]{4})\)')
-    if($jump.Success) { $message=$message.Substring(0,$jump.Index)+(Resolve-OceanText ([Convert]::ToInt32($jump.Groups[1].Value,16)) $visited) }
-    elseif($allTextFallthroughIds.ContainsKey($id)) {
-        if($message.EndsWith('\n',[StringComparison]::Ordinal)){$message=$message.Substring(0,$message.Length-2)+"`n"}
-        $message+=Resolve-OceanText $allTextFallthroughIds[$id] $visited
-    }
-    [void]$visited.Remove($id)
-    return $message
+function Resolve-OceanText([int]$id, [Collections.Generic.HashSet[int]]$visited) {
+    return Resolve-DialogueText $id $allTexts $allTextFallthroughIds $allTextPositions $visited
 }
 $scriptSources = @(
     (Join-Path $Disassembly "scripts\ages\scripts.s"),

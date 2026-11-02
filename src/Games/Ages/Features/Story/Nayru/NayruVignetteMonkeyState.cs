@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 internal sealed class NayruVignetteMonkeyState(NpcCharacter actor, VignetteMonkeyRecord record, int startupDelay, int jumpSpeedZ)

@@ -1,22 +1,15 @@
-using Godot;
-using System;
 using System.IO;
 
 namespace Oracles;
 
 // Stops at the native room-pack handoff after applyWarpDest_b04's lookup and branch.
-internal sealed class WarpDestinationRom
+internal sealed class WarpDestinationRom : RomFixture
 {
-    private readonly ReadOnlyMemory<byte> _rom;
-    private readonly OracleCpu _cpu;
-    private readonly byte[] _memory = new byte[0x10000];
     private readonly bool _ages;
-    private int _bank;
     private bool _stopping, _season;
-    internal WarpDestinationRom(OracleGame game)
+    internal WarpDestinationRom(OracleGame game) : base($"{game} warp destination", game: game)
     {
-        _ages = game == OracleGame.Ages; _rom = ValidationRom.LoadCleanUs(game);
-        _cpu = new(Read,Write,static _ => { },(pc,detail) => new InvalidDataException($"{game} warp destination ROM ${_bank:x2}:${pc:x4}: {detail}."));
+        _ages = game == OracleGame.Ages;
     }
     internal bool Apply(int sourceGroup, int sourceDungeon, int rawGroup, int room, int position, int growth = 0)
     {
@@ -62,20 +55,11 @@ internal sealed class WarpDestinationRom
     internal int Room => _memory[_ages ? 0xcc30 : 0xcc4c];
     internal int Transition => _memory[_ages ? 0xcc49 : 0xcc65];
     internal Vector2 Position => new(_memory[0xd00d],_memory[0xd00b]);
-    private int Read(int address)
+    protected override int Read(int address)
     {
         if (_stopping && address == _cpu.InstructionAddress && (_ages ? address == 0x341a : _bank == 4 && address is 0x4659 or 0x465f))
         { _season = !_ages && address == 0x4659; throw new OperationCanceledException(); }
-        if (address < 0x4000) return _rom.Span[address];
-        if (address < 0x8000) return _rom.Span[_bank * 0x4000 + (address & 0x3fff)];
-        if (Allowed(address)) return _memory[address];
-        throw new InvalidDataException($"Native warp destination read undeclared ${address:x4}.");
+        return base.Read(address);
     }
-    private void Write(int address, int value)
-    {
-        if (address == 0x2222) { _bank = value; return; }
-        if (Allowed(address)) { _memory[address] = (byte)value; return; }
-        throw new InvalidDataException($"Native warp destination wrote undeclared ${address:x4}.");
-    }
-    private static bool Allowed(int address) => address is >= 0xc000 and < 0xe000 or >= 0xff80;
+    protected override bool Allowed(int address) => address is >= 0xc000 and < 0xe000 or >= 0xff80;
 }

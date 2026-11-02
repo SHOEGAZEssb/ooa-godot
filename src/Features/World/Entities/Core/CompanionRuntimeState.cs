@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 
@@ -48,11 +46,6 @@ internal static class CompanionRuntimeState
         // Native replacement retains enabled, rather than allocating again.
         state.SetWramByte(Id,(byte)id);state.SetWramByte(0xd102,(byte)subid);
         state.SetWramByte(0xd10b,(byte)position.Y);state.SetWramByte(0xd10d,(byte)position.X);
-    }
-    internal static void ClearCutscene(OracleRuntimeState state)
-    {
-        if(ReadCutsceneId(state) is not(0x0f or 0x10 or 0x11))return;
-        for(int address=Active;address<0xd140;address++)state.SetWramByte(address,0);
     }
     internal static int ReadScriptSignals(OracleRuntimeState state)=>state.ReadWramByte(0xd13e);
     internal static void OrScriptSignals(OracleRuntimeState state,int mask)=>state.SetWramByte(0xd13e,(byte)(ReadScriptSignals(state)|mask));

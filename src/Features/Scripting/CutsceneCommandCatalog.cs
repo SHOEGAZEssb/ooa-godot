@@ -1,10 +1,6 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Threading;
-using System.Linq;
 
 namespace Oracles;
 

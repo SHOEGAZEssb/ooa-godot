@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Linq;
 using System.Reflection;
 
 namespace Oracles;
@@ -17,15 +14,11 @@ public sealed partial class ValidationRoot
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         var inventorySnapshot = new byte[0x39];
         _saveData.ReadWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
-        MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
-            "LoadFromSaveData",
-            BindingFlags.Instance | BindingFlags.NonPublic);
+
         Vector2 originalFadePosition = _warpFade.Position;
         Vector2 originalFadeSize = _warpFade.Size;
         int originalFadeZ = _warpFade.ZIndex;
-        FailIf(
-            reloadInventory is null,
-            "Could not resolve InventoryState.LoadFromSaveData for room 3:ae validation.");
+
 
         void RestoreRoomFlags(byte flags)
         {
@@ -47,7 +40,7 @@ public sealed partial class ValidationRoot
                 _saveData,
                 TreasureId.TuneOfEchoes,
                 value: false);
-            reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
 
             _saveData.SetRoomFlag(
                 group,
@@ -495,7 +488,7 @@ public sealed partial class ValidationRoot
                 _dialogue.Close();
             _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
             RestoreRoomFlags(originalRoomFlags);
             LoadValidationRoom(0, 0x11);
         }

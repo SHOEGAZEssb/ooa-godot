@@ -1,8 +1,4 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace Oracles;
 
@@ -37,10 +33,10 @@ public sealed partial class ValidationRoot
                 subids.Contains(source.SubId))
             .ToList();
 
-    private static EnemyDatabaseEnemyRecord ResolveKeese(
+    private static KeeseDefinition ResolveKeese(
         EnemyDatabase database,
         RoomObjectRecord source) =>
-        database.TryGetKeeseDefinition(source, out EnemyDatabaseEnemyRecord record)
+        database.TryGetKeeseDefinition(source, out KeeseDefinition record)
             ? record
             : throw new InvalidOperationException(
                 $"{source.Source} has no typed Keese definition.");
@@ -61,10 +57,10 @@ public sealed partial class ValidationRoot
             : throw new InvalidOperationException(
                 $"{source.Source} has no typed Stalfos definition.");
 
-    private static ZolRecord ResolveZol(
+    private static ImportedEnemyDefinition ResolveZol(
         EnemyDatabase database,
         RoomObjectRecord source) =>
-        database.TryGetZolDefinition(source, out ZolRecord record)
+        source.Id == EnemyId.Zol && database.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition record)
             ? record
             : throw new InvalidOperationException(
                 $"{source.Source} has no typed Zol definition.");
@@ -1443,8 +1439,7 @@ public sealed partial class ValidationRoot
                 AssetRoot: AgesGameContent.AssetRoot
             } ||
             room5b0[0].Source !=
-                "objects/ages/enemyData.s:" +
-                "group5Mapb0EnemyObjectData[0]",
+                "objects/ages/enemyData.s:160:group5Mapb0EnemyObjectData: room $5:$b0 object[0] at $4171",
             "The enemy handler registry lost its 822-row implementation " +
             "classification, 787-row/214-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
@@ -3098,7 +3093,7 @@ public sealed partial class ValidationRoot
             normalKeese.Counter1 is < 0xc0 or > 0xff,
             "Normal Keese did not choose its original random `$c0-`$ff flight counter and angle.");
 
-        EnemyDatabaseEnemyRecord boundaryRecord =
+        KeeseDefinition boundaryRecord =
             ResolveKeese(
                 database,
                 RoomEnemyPlacements(database, 4, 0xcb, EnemyId.Keese, 0x00)[0]);
@@ -4860,7 +4855,7 @@ public sealed partial class ValidationRoot
 
         var gel = new GelCharacter();
         gel.Initialize(
-            database.Gel, holeRoom, holeEntry, new OracleRandom());
+            database.ImportedEnemy(EnemyId.Gel), holeRoom, holeEntry, new OracleRandom());
         gel.SetStateForValidation(
             GelState.Waiting,
             counter1: 1000,
@@ -4945,7 +4940,7 @@ public sealed partial class ValidationRoot
         FailIf(
             stalfosPlacements.Count != 34 ||
             stalfosPlacements.Sum(source => source.Count) != 37 ||
-            room406 is not
+            RoomEnemyPlacements(database, 4, 0x06, EnemyId.Stalfos, 0x00) is not
             [
                 { SubId: 0x00, Y: 0x68, X: 0x68 },
                 { SubId: 0x00, Y: 0x68, X: 0x98 }
@@ -5118,11 +5113,11 @@ public sealed partial class ValidationRoot
             $"{gelPlacements.Count} / " +
             $"{gelPlacements.Sum(source => source.Count)}.");
         FailIf(
-            database.Gel is not { Id: EnemyId.Gel, SubId: 0x00 } ||
-            database.Gel.TileBase != 0 ||
-            database.Gel.Palette != 2 || database.Gel.CollisionRadiusY != 2 ||
-            database.Gel.CollisionRadiusX != 2 || database.Gel.DamageQuarters != 2 ||
-            database.Gel.Health != 1,
+            database.ImportedEnemy(EnemyId.Gel) is not { Id: EnemyId.Gel, SubId: 0x00 } ||
+            database.ImportedEnemy(EnemyId.Gel).TileBase != 0 ||
+            database.ImportedEnemy(EnemyId.Gel).Palette != 2 || database.ImportedEnemy(EnemyId.Gel).RadiusY != 2 ||
+            database.ImportedEnemy(EnemyId.Gel).RadiusX != 2 || database.ImportedEnemy(EnemyId.Gel).DamageQuarters != 2 ||
+            database.ImportedEnemy(EnemyId.Gel).Health != 1,
             "ENEMY_GEL did not retain id `$43, tile base 0, palette 2, radius 2x2, " +
             "half-heart damage, and one health.");
 
@@ -5152,7 +5147,7 @@ public sealed partial class ValidationRoot
             !_entities.Entities<GelCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero),
             "Zol/Gel transition ownership and offsets were not normalized after scrolling.");
 
-        ZolRecord greenRecord = ResolveZol(
+        ImportedEnemyDefinition greenRecord = ResolveZol(
             database,
             RoomEnemyPlacements(database, 4, 0xcc, EnemyId.Zol, 0x00)[0]);
         FailIf(

@@ -1,6 +1,3 @@
-using Godot;
-using System.Linq;
-using System.Collections.Generic;
 
 namespace Oracles;
 

@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 internal sealed class ChildLane(ChildRole role, NpcCharacter actor)

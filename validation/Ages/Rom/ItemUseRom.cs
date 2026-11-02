@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 
 namespace Oracles;
@@ -6,20 +5,13 @@ namespace Oracles;
 // Clean-US bank $06 checkUseItems/checkItemUsed/chooseParentItemSlot.
 // Allocation stops at the original parent-update boundary: no ROM instruction
 // is replaced. UpdateParents separately executes the original parent pass.
-internal sealed class ItemUseRom
+internal sealed class ItemUseRom : RomFixture
 {
-    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
-    private readonly byte[] _memory = new byte[0x10000];
-    private readonly OracleCpu _cpu;
-    private byte[] _caller = [];
     private bool _observeAllocation;
-    private int _bank = 6;
     private sealed class AllocationComplete : Exception { }
 
-    internal ItemUseRom()
+    internal ItemUseRom() : base("Item-use", 6)
     {
-        _cpu = new OracleCpu(Read, Write, static _ => { },
-            (pc, detail) => new InvalidDataException($"Item-use ROM ${_bank:x2}:${pc:x4}: {detail}."));
     }
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
     internal (int Usage, bool JustPressed) Usage(int item) =>
@@ -59,21 +51,16 @@ internal sealed class ItemUseRom
         finally { _observeAllocation = false; }
     }
     internal void UpdateParents() => _cpu.RunCall(0x4922);
-    private int Read(int address)
+    protected override int Read(int address)
     {
         if (_observeAllocation && _bank == 6 && address == 0x4922 && _cpu.InstructionAddress == address)
             throw new AllocationComplete();
-        if (address < 0x4000) return _rom.Span[address];
-        if (address < 0x8000) return _rom.Span[_bank * 0x4000 + address - 0x4000];
-        if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
-        if (Allowed(address)) return _memory[address];
-        throw new InvalidDataException($"Item-use ROM ${_cpu.InstructionAddress:x4}: undeclared read ${address:x4}.");
+        return base.Read(address);
     }
-    private void Write(int address, int value)
+    protected override void Write(int address, int value)
     {
-        if (address == 0x2222 && value < 0x40) { _bank = value; return; }
-        if (Allowed(address)) { _memory[address] = (byte)value; return; }
-        throw new InvalidDataException($"Item-use ROM ${_cpu.InstructionAddress:x4}: undeclared write ${address:x4}.");
+        if (address == 0x2222 && value >= 0x40) throw Undeclared("write", address);
+        base.Write(address, value);
     }
-    private static bool Allowed(int address) => address is >= 0xc000 and < 0xe000 or >= 0xff80 and < 0xffc0;
+    protected override bool Allowed(int address) => address is >= 0xc000 and < 0xe000 or >= 0xff80 and < 0xffc0;
 }

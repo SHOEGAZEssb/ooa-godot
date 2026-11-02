@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
@@ -41,7 +37,6 @@ public sealed partial class ValidationRoot
             .ToArray();
         var data = new WingDungeonDatabase();
         var interactions = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
-        var sidePlatforms = new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot);
 
         void SetAllRoomFlags(bool value)
         {
@@ -267,8 +262,8 @@ public sealed partial class ValidationRoot
             kindCounts.GetValueOrDefault(DungeonObjectKind.HeadThwomp) != 1 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.Swoop) != 1 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.Essence) != 1 ||
-            sidePlatforms.GetRoomRecords(4, 0x29).Count != 2 ||
-            sidePlatforms.GetRoomRecords(4, 0x2a).Count != 2 ||
+            SideViewObjectInstructions(4, 0x29).Count(row => row.Id == 0xa1 && row.Opcode is 1 or 2) != 2 ||
+            SideViewObjectInstructions(4, 0x2a).Count(row => row.Id == 0xa1 && row.Opcode is 1 or 2) != 2 ||
             data.Pattern(DungeonObjectKind.FloorPatternKey, 1)
                 .SequenceEqual(new byte[] { 0x67, 0x77 }) == false ||
             data.Pattern(DungeonObjectKind.FloorPatternKey, 2)

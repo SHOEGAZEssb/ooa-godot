@@ -525,7 +525,7 @@ function Resolve-DungeonEnergyAnimation([string]$label) {
         if ($pointerIndex -ge $script:energyOamLabels.Count) {
             throw "$label references missing energy-bead OAM pointer $pointerIndex."
         }
-        $frames.Add("$duration,$parameter@$(Resolve-Oam $script:partOamSource $script:energyOamLabels[$pointerIndex])")
+        $frames.Add("$duration,$parameter@$(Resolve-Oam 'data/ages/partOamData.s' $script:energyOamLabels[$pointerIndex])")
         if ($parameter -band 0x80) {
             break
         }
@@ -597,7 +597,7 @@ foreach ($frame in [regex]::Matches(
         throw "Pumpkin Head projectile OAM pointer $pointerIndex is out of range."
     }
     $pumpkinProjectileFrames.Add(
-        "$duration@$(Resolve-Oam $partOamSource $pumpkinProjectileOamLabels[$pointerIndex])")
+        "$duration@$(Resolve-Oam 'data/ages/partOamData.s' $pumpkinProjectileOamLabels[$pointerIndex])")
 }
 if ($pumpkinProjectileFrames.Count -ne 3) {
     throw 'PART_PUMPKIN_HEAD_PROJECTILE must retain three animation frames.'
@@ -727,7 +727,7 @@ function Get-DungeonPartVisual(
             }
             $metadata = if ($parameter -eq 0) { "$duration" } else { "$duration,$parameter" }
             $frames.Add(
-                "$metadata@$(Resolve-Oam $partOamSource $oamLabels[$pointerIndex])")
+                "$metadata@$(Resolve-Oam 'data/ages/partOamData.s' $oamLabels[$pointerIndex])")
             # Most native visuals consumed here only need their first
             # parameter-signalled sequence. PART_SUBTERROR_DIRT is different:
             # $83/$82 are visible-frame parameters and its fifth frame writes

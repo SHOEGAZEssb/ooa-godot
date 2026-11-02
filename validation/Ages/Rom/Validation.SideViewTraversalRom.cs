@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Linq;
 using System.Reflection;
 
 namespace Oracles;
@@ -20,6 +17,14 @@ public sealed partial class ValidationRoot
             _inventory.EquipA(TreasureId.Feather);
         }
         LoadValidationRoom(group, room);
+        if (platforms)
+        {
+            var placed = _entities.Entities<MovingSideScrollPlatformRoomEntity>().OrderBy(_entities.InteractionSlot).ToArray();
+            var expected = SideViewObjectInstructions(group - 2, room)
+                .Where(row => row.Opcode is 1 or 2 && row.Id == 0xa1).Select(row => new Vector2(row.X, row.Y));
+            FailIf(!placed.Select(actor => actor.Position).SequenceEqual(expected),
+                $"Sideview ${group:x1}:${room:x2}: native room construction changed platform positions or slot order.");
+        }
         _entities.Clear();
         _player.WarpTo(start);
         FailIf(_collision.Collides(start), $"Sideview ${group:x1}:${room:x2} start {start} must be reachable open geometry.");
@@ -27,12 +32,12 @@ public sealed partial class ValidationRoot
         if (platforms)
         {
             var visual = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("moving-side-platform");
-            foreach (var placement in new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot).GetRoomRecords(group - 2, room))
+            foreach (var placement in SideViewObjectInstructions(group - 2, room).Where(row => row.Opcode is 1 or 2 && row.Id == 0xa1))
             {
-                var platform = new MovingSideScrollPlatformRoomEntity(placement,
+                var platform = new MovingSideScrollPlatformRoomEntity(new(placement.X, placement.Y),
                     SideViewInteractionData.SidePlatform(placement.SubId), visual);
                 _entities.AddEntity(platform);
-                rom.AddPlatform(0xd0 + _entities.InteractionSlot(platform), placement.SubId, placement.Position);
+                rom.AddPlatform(0xd0 + _entities.InteractionSlot(platform), placement.SubId, new(placement.X, placement.Y));
             }
         }
         return rom;
@@ -297,8 +302,9 @@ public sealed partial class ValidationRoot
                 (7, 0xe7) => "1:00:78:58",
                 _ => throw new InvalidOperationException("Missing independent sideview platform placement expectations.")
             };
-            var rows = new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot).GetRoomRecords(test.Group - 2, test.Room);
-            string actualRows = string.Join(',', rows.Select(row => $"{row.Order}:{row.SubId:x2}:{row.Y:x2}:{row.X:x2}"));
+            var rows = SideViewObjectInstructions(test.Group - 2, test.Room)
+                .Select((row, order) => (row, order)).Where(value => value.row.Opcode is 1 or 2 && value.row.Id == 0xa1);
+            string actualRows = string.Join(',', rows.Select(row => $"{row.order}:{row.row.SubId:x2}:{row.row.Y:x2}:{row.row.X:x2}"));
             FailIf(actualRows != expectedRows,
                 $"Sideview ${test.Group:x1}:${test.Room:x2} source $a1 placements expected=[{expectedRows}], imported=[{actualRows}].");
             var rom = PrepareSideViewRom(test.Group, test.Room, test.Start, platforms: true);

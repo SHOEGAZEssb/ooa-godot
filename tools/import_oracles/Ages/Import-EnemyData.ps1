@@ -170,9 +170,7 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\enemy_bounce_angles.tsv'),
     $bounceAngleRows)
 
-function Resolve-Oam([string]$source, [string]$label) {
-    $path = Resolve-AssemblySourceTextPath $source
-    if ($null -eq $path) { throw "OAM source for $label is untracked." }
+function Resolve-Oam([string]$path, [string]$label) {
     $rows = @(Read-AssemblyDataDirectives $path $label '.db')
     if ($rows.Count -eq 0 -or $rows[0].Operands.Count -eq 0) {
         throw "OAM count missing for $label."
@@ -193,7 +191,6 @@ function Resolve-Oam([string]$source, [string]$label) {
 
 $enemyAnimationPath = Join-Path $Disassembly "data\ages\enemyAnimations.s"
 $enemyAnimationSource = Read-ImportText $enemyAnimationPath
-$enemyOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\enemyOamData.s")
 
 $enemyAnimationTables = Read-AssemblyDwTables `
     $enemyAnimationPath 'enemy[0-9a-f]{2}Animations' 'enemyAnimation[0-9a-f]+'
@@ -249,7 +246,7 @@ function Resolve-EnemyAnimations(
                 "$($frame.Duration)"
             }
             $frames.Add(
-                "$metadata@$(Resolve-Oam $enemyOamSource $pointers[$pointerIndex])")
+                "$metadata@$(Resolve-Oam 'data/ages/enemyOamData.s' $pointers[$pointerIndex])")
         }
         if (-not $valid) { break }
         $value = $frames -join '|'
@@ -642,43 +639,6 @@ if ($keeseIdleAnimation -ne '127@8,4,2,0' -or
     throw "ENEMY_KEESE animation/OAM data no longer matches the folded/flying records."
 }
 
-$keeseRows = [Collections.Generic.List[string]]::new()
-$keeseRows.Add("# group`troom`tid`tsubid`tflags`tcount`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tidle-animation`tfly-animation")
-$keeseAliases = [Collections.Generic.List[object]]::new()
-foreach ($line in Read-ImportLines (Join-Path $Disassembly "objects\ages\enemyData.s")) {
-    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
-        $keeseAliases.Add(@{
-            Group = [int]$Matches['group']
-            Room = $Matches['room']
-        })
-        continue
-    }
-    if ($keeseAliases.Count -eq 0) { continue }
-    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$32\s+\$(?<subid>[0-9a-f]{2})') {
-        $flags = [Convert]::ToInt32($Matches['flags'], 16)
-        $count = ($flags -shr 5) -band 7
-        foreach ($alias in $keeseAliases) {
-            $keeseRows.Add(
-                "$($alias.Group)`t$($alias.Room)`t32`t$($Matches['subid'])`t$($Matches['flags'])`t$count`t$($gfxNames[$keeseGfx])`t$(($keeseGraphicFlags -band 0x0f) * 2)`t$(($keeseGraphicFlags -shr 4) -band 7)`t$keeseRadiusY`t$keeseRadiusX`t$keeseDamageQuarters`t$keeseHealth`t$keeseIdleAnimation`t$keeseFlyAnimation")
-        }
-        continue
-    }
-    if ($line -match '^\s*obj_EndPointer') {
-        $keeseAliases.Clear()
-        continue
-    }
-    if ($line -match '^[A-Za-z0-9_@]+:') { $keeseAliases.Clear() }
-}
-$keeseInstanceCount = ($keeseRows | Select-Object -Skip 1 | ForEach-Object {
-    [int](($_ -split "`t")[5])
-} | Measure-Object -Sum).Sum
-if ($keeseRows.Count -ne 54 -or $keeseInstanceCount -ne 158) {
-    throw "Expected 53 Keese room records / 158 instances, parsed $($keeseRows.Count - 1) / $keeseInstanceCount."
-}
-if (-not ($keeseRows | Where-Object { $_ -match '^4\t39\t32\t01\t40\t2\t' })) {
-    throw "Canonical subid-1 Keese room 4:39 was not extracted."
-}
-
 $keeseSpriteName = $gfxNames[$keeseGfx]
 $keeseSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$keeseSpriteName.png" } |
@@ -723,69 +683,6 @@ if ($octorokDefinitions[0].Health -ne 2 -or
     throw 'ENEMY_OCTOROK subid attributes no longer match red/fast-red/blue behavior.'
 }
 
-$octorokRows = [Collections.Generic.List[string]]::new()
-$octorokRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tcounter-mask`tup-animation`tright-animation`tdown-animation`tleft-animation")
-$octorokAliases = [Collections.Generic.List[object]]::new()
-$octorokLastSpecificFlags = '00'
-foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
-    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
-        $octorokAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
-        continue
-    }
-    if ($octorokAliases.Count -eq 0) { continue }
-
-    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$09\s+\$(?<subid>[0-9a-f]{2})') {
-        $subid = [Convert]::ToInt32($Matches['subid'], 16)
-        if (-not $octorokDefinitions.ContainsKey($subid)) {
-            throw "Room data uses unsupported ENEMY_OCTOROK subid `$($subid.ToString('x2'))."
-        }
-        $definition = $octorokDefinitions[$subid]
-        $flags = [Convert]::ToInt32($Matches['flags'], 16)
-        $count = ($flags -shr 5) -band 7
-        foreach ($alias in $octorokAliases) {
-            $octorokRows.Add("$($alias.Group)`t$($alias.Room)`t09`t$($Matches['subid'])`t$($Matches['flags'])`t$count`tR`t-1`t-1`t$($gfxNames[$octorokGfx])`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($definition.SpeedRaw)`t$($definition.CounterMask)`t$($octorokAnimations[0])`t$($octorokAnimations[1])`t$($octorokAnimations[2])`t$($octorokAnimations[3])")
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
-        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
-            ForEach-Object { $_.Groups['value'].Value })
-        if ($values.Count -eq 5) {
-            $octorokLastSpecificFlags = $values[0]
-            $id, $subidHex, $y, $x = $values[1..4]
-        } else {
-            $id, $subidHex, $y, $x = $values
-        }
-        if ($id -eq '09') {
-            $subid = [Convert]::ToInt32($subidHex, 16)
-            if (-not $octorokDefinitions.ContainsKey($subid)) {
-                throw "Room data uses unsupported fixed ENEMY_OCTOROK subid `$subidHex."
-            }
-            $definition = $octorokDefinitions[$subid]
-            foreach ($alias in $octorokAliases) {
-                $octorokRows.Add("$($alias.Group)`t$($alias.Room)`t09`t$subidHex`t$octorokLastSpecificFlags`t1`tF`t$y`t$x`t$($gfxNames[$octorokGfx])`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($definition.SpeedRaw)`t$($definition.CounterMask)`t$($octorokAnimations[0])`t$($octorokAnimations[1])`t$($octorokAnimations[2])`t$($octorokAnimations[3])")
-            }
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_EndPointer' -or $line -match '^[A-Za-z0-9_@]+:') {
-        $octorokAliases.Clear()
-    }
-}
-$octorokInstanceCount = ($octorokRows | Select-Object -Skip 1 | ForEach-Object {
-    [int](($_ -split "`t")[5])
-} | Measure-Object -Sum).Sum
-if ($octorokRows.Count -ne 34 -or $octorokInstanceCount -ne 48) {
-    throw "Expected 33 Octorok room records / 48 instances, parsed $($octorokRows.Count - 1) / $octorokInstanceCount."
-}
-if (-not ($octorokRows | Where-Object { $_ -match '^0\t74\t09\t00\t20\t1\tR\t' }) -or
-    -not ($octorokRows | Where-Object { $_ -match '^0\t74\t09\t01\t20\t1\tR\t' }) -or
-    -not ($octorokRows | Where-Object { $_ -match '^1\tbc\t09\t02\t00\t1\tF\t48\t48\t' })) {
-    throw 'Canonical Octorok records in rooms 0:74 and 1:bc were not extracted.'
-}
-
 $octorokSpriteName = $gfxNames[$octorokGfx]
 $octorokSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$octorokSpriteName.png" } |
@@ -828,59 +725,6 @@ if ($stalfosDefinition.TileBase -ne 4 -or $stalfosDefinition.Palette -ne 1 -or
     throw 'ENEMY_STALFOS subid `$00 no longer matches tile base 4, palette 1, radii 6x6, half-heart damage, and two health.'
 }
 
-$stalfosRows = [Collections.Generic.List[string]]::new()
-$stalfosRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`twalk-animation`tjump-animation")
-$stalfosAliases = [Collections.Generic.List[object]]::new()
-$stalfosLastSpecificFlags = '00'
-foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
-    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
-        $stalfosAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
-        continue
-    }
-    if ($stalfosAliases.Count -eq 0) { continue }
-
-    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$31\s+\$(?<subid>[0-9a-f]{2})') {
-        if ($Matches['subid'] -ne '00') { continue }
-        $flags = [Convert]::ToInt32($Matches['flags'], 16)
-        $count = ($flags -shr 5) -band 7
-        foreach ($alias in $stalfosAliases) {
-            $stalfosRows.Add("$($alias.Group)`t$($alias.Room)`t31`t00`t$($Matches['flags'])`t$count`tR`t-1`t-1`t$($gfxNames[$stalfosGfx])`t$($stalfosDefinition.TileBase)`t$($stalfosDefinition.Palette)`t$($stalfosDefinition.RadiusY)`t$($stalfosDefinition.RadiusX)`t$($stalfosDefinition.DamageQuarters)`t$($stalfosDefinition.Health)`t$($stalfosDefinition.SpeedRaw)`t$($stalfosAnimations[0])`t$($stalfosAnimations[1])")
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
-        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
-            ForEach-Object { $_.Groups['value'].Value })
-        if ($values.Count -eq 5) {
-            $stalfosLastSpecificFlags = $values[0]
-            $id, $subidHex, $y, $x = $values[1..4]
-        } else {
-            $id, $subidHex, $y, $x = $values
-        }
-        if ($id -eq '31' -and $subidHex -eq '00') {
-            foreach ($alias in $stalfosAliases) {
-                $stalfosRows.Add("$($alias.Group)`t$($alias.Room)`t31`t00`t$stalfosLastSpecificFlags`t1`tF`t$y`t$x`t$($gfxNames[$stalfosGfx])`t$($stalfosDefinition.TileBase)`t$($stalfosDefinition.Palette)`t$($stalfosDefinition.RadiusY)`t$($stalfosDefinition.RadiusX)`t$($stalfosDefinition.DamageQuarters)`t$($stalfosDefinition.Health)`t$($stalfosDefinition.SpeedRaw)`t$($stalfosAnimations[0])`t$($stalfosAnimations[1])")
-            }
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_EndPointer' -or $line -match '^[A-Za-z0-9_@]+:') {
-        $stalfosAliases.Clear()
-    }
-}
-$stalfosInstanceCount = ($stalfosRows | Select-Object -Skip 1 | ForEach-Object {
-    [int](($_ -split "`t")[5])
-} | Measure-Object -Sum).Sum
-if ($stalfosRows.Count -ne 35 -or $stalfosInstanceCount -ne 37) {
-    throw "Expected 34 ordinary Stalfos room records / 37 instances, parsed $($stalfosRows.Count - 1) / $stalfosInstanceCount."
-}
-if (($stalfosRows | Where-Object { $_ -match '^4\t06\t31\t00\t00\t1\tF\t68\t68\t' }).Count -ne 1 -or
-    ($stalfosRows | Where-Object { $_ -match '^4\t06\t31\t00\t00\t1\tF\t68\t98\t' }).Count -ne 1) {
-    throw 'Canonical room 4:06 Stalfos records at `$68,`$68 and `$68,`$98 were not extracted.'
-}
-
 $stalfosSpriteName = $gfxNames[$stalfosGfx]
 $stalfosSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$stalfosSpriteName.png" } |
@@ -906,150 +750,6 @@ $stalfosDefinitionRows.Add(
 # random-position room record. Export both definitions with animation
 # parameters intact: the terminal parameters on Zol animations 0 and 3 drive
 # the emerge/disappear state changes.
-$zolBase = Get-EnemyDefinition 0x34 0
-if ($zolBase.Gfx -ne 0x97 -or $zolBase.Collision -ne 0x29) {
-    throw 'ENEMY_ZOL no longer resolves to gfx `$97 / collision mode `$29.'
-}
-$zolGfx = $zolBase.Gfx
-$gelDefinition = Get-EnemyDefinition 0x43 0
-if ($gelDefinition.Gfx -ne 0x97 -or $gelDefinition.Collision -ne 0xb3 -or
-    $gelDefinition.ExtraIndex -ne 0x06 -or
-    $gelDefinition.GraphicFlags -ne 0x20) {
-    throw 'ENEMY_GEL no longer resolves to gfx `$97 / collision `$b3 / extra `$06 / flags `$20.'
-}
-
-$zolAnimations = @(Resolve-EnemyAnimations 0x34 $true)
-$gelAnimations = @(Resolve-EnemyAnimations 0x43 $true)
-if ($zolAnimations.Count -ne 6 -or $gelAnimations.Count -ne 3) {
-    throw 'Expected six Zol and three Gel animations.'
-}
-if ($zolAnimations[0] -ne '16,0@12,4,0,0|16,0@8,0,4,0;8,8,4,32|127,1@8,0,2,0;8,8,2,32' -or
-    $zolAnimations[3] -ne '8,0@8,0,2,0;8,8,2,32|16,0@8,0,4,0;8,8,4,32|16,0@12,4,0,0|127,1@12,4,0,0' -or
-    $gelAnimations[1] -ne '4,0@6,2,0,0|4,0@10,6,0,0|4,0@6,6,0,0|4,0@10,2,0,0') {
-    throw "ENEMY_ZOL/ENEMY_GEL animation data no longer matches the original records: z0=$($zolAnimations[0]); z3=$($zolAnimations[3]); g1=$($gelAnimations[1])"
-}
-
-$zolDefinitions = @{}
-foreach ($subid in 0..1) {
-    $zolDefinitions[$subid] = Get-EnemyDefinition 0x34 $subid
-}
-if ($zolDefinitions[0].Health -ne 2 -or $zolDefinitions[0].Palette -ne 0 -or
-    $zolDefinitions[1].Health -ne 3 -or $zolDefinitions[1].Palette -ne 2 -or
-    $zolDefinitions[0].DamageQuarters -ne 2 -or
-    $zolDefinitions[0].RadiusY -ne 6 -or $zolDefinitions[0].RadiusX -ne 6) {
-    throw 'ENEMY_ZOL subid attributes no longer match green/red behavior.'
-}
-
-if ($gelDefinition.TileBase -ne 0 -or $gelDefinition.Palette -ne 2 -or
-    $gelDefinition.RadiusY -ne 2 -or $gelDefinition.RadiusX -ne 2 -or
-    $gelDefinition.DamageQuarters -ne 2 -or $gelDefinition.Health -ne 1) {
-    throw 'ENEMY_GEL attributes no longer match radius 2x2, half-heart damage, and one health.'
-}
-
-$zolRows = [Collections.Generic.List[string]]::new()
-$zolRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2`tanimation-3`tanimation-4`tanimation-5")
-$gelRows = [Collections.Generic.List[string]]::new()
-$gelRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2")
-$zolAliases = [Collections.Generic.List[object]]::new()
-$zolLastSpecificFlags = '00'
-foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
-    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
-        $zolAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
-        continue
-    }
-    if ($zolAliases.Count -eq 0) { continue }
-
-    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$(?<id>34|43)\s+\$(?<subid>[0-9a-f]{2})') {
-        $id = $Matches['id']
-        $subid = [Convert]::ToInt32($Matches['subid'], 16)
-        $flags = [Convert]::ToInt32($Matches['flags'], 16)
-        $count = ($flags -shr 5) -band 7
-        foreach ($alias in $zolAliases) {
-            if ($id -eq '34') {
-                if (-not $zolDefinitions.ContainsKey($subid)) {
-                    throw "Room data uses unsupported ENEMY_ZOL subid `$($subid.ToString('x2'))."
-                }
-                $definition = $zolDefinitions[$subid]
-                $zolRows.Add("$($alias.Group)`t$($alias.Room)`t34`t$($Matches['subid'])`t$($Matches['flags'])`t$count`tR`t-1`t-1`t$($gfxNames[$zolGfx])`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($zolAnimations -join "`t")")
-            } else {
-                if ($subid -ne 0) { throw "Room data uses unsupported ENEMY_GEL subid `$($Matches['subid'])." }
-                $gelRows.Add("$($alias.Group)`t$($alias.Room)`t43`t00`t$($Matches['flags'])`t$count`tR`t-1`t-1`t$($gfxNames[$zolGfx])`t$($gelDefinition.TileBase)`t$($gelDefinition.Palette)`t$($gelDefinition.RadiusY)`t$($gelDefinition.RadiusX)`t$($gelDefinition.DamageQuarters)`t$($gelDefinition.Health)`t$($gelAnimations -join "`t")")
-            }
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
-        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
-            ForEach-Object { $_.Groups['value'].Value })
-        if ($values.Count -eq 5) {
-            $zolLastSpecificFlags = $values[0]
-            $id, $subidHex, $y, $x = $values[1..4]
-        } else {
-            $id, $subidHex, $y, $x = $values
-        }
-        if ($id -eq '34') {
-            $subid = [Convert]::ToInt32($subidHex, 16)
-            if (-not $zolDefinitions.ContainsKey($subid)) {
-                throw "Room data uses unsupported fixed ENEMY_ZOL subid `$subidHex."
-            }
-            $definition = $zolDefinitions[$subid]
-            foreach ($alias in $zolAliases) {
-                $zolRows.Add("$($alias.Group)`t$($alias.Room)`t34`t$subidHex`t$zolLastSpecificFlags`t1`tF`t$y`t$x`t$($gfxNames[$zolGfx])`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($zolAnimations -join "`t")")
-            }
-        } elseif ($id -eq '43') {
-            if ($subidHex -ne '00') { throw "Room data uses unsupported fixed ENEMY_GEL subid `$subidHex." }
-            foreach ($alias in $zolAliases) {
-                $gelRows.Add("$($alias.Group)`t$($alias.Room)`t43`t00`t$zolLastSpecificFlags`t1`tF`t$y`t$x`t$($gfxNames[$zolGfx])`t$($gelDefinition.TileBase)`t$($gelDefinition.Palette)`t$($gelDefinition.RadiusY)`t$($gelDefinition.RadiusX)`t$($gelDefinition.DamageQuarters)`t$($gelDefinition.Health)`t$($gelAnimations -join "`t")")
-            }
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_EndPointer' -or $line -match '^[A-Za-z0-9_@]+:') {
-        $zolAliases.Clear()
-    }
-}
-$zolInstanceCount = ($zolRows | Select-Object -Skip 1 | ForEach-Object {
-    [int](($_ -split "`t")[5])
-} | Measure-Object -Sum).Sum
-$gelInstanceCount = ($gelRows | Select-Object -Skip 1 | ForEach-Object {
-    [int](($_ -split "`t")[5])
-} | Measure-Object -Sum).Sum
-if ($zolRows.Count -ne 62 -or $zolInstanceCount -ne 79) {
-    throw "Expected 61 Zol room records / 79 instances, parsed $($zolRows.Count - 1) / $zolInstanceCount."
-}
-if ($gelRows.Count -ne 2 -or $gelInstanceCount -ne 3) {
-    throw "Expected one direct Gel room record / 3 instances, parsed $($gelRows.Count - 1) / $gelInstanceCount."
-}
-if (($zolRows | Where-Object { $_ -match '^4\tcc\t34\t00\t00\t1\tF\t78\t58\t' }).Count -ne 1 -or
-    ($zolRows | Where-Object { $_ -match '^4\tcc\t34\t01\t00\t1\tF\t98\t48\t' }).Count -ne 1) {
-    throw 'Canonical room 4:cc green/red Zol records were not extracted.'
-}
-
-$zolSpriteName = $gfxNames[$zolGfx]
-$zolSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
-    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$zolSpriteName.png" } |
-    Select-Object -First 1
-if ($null -eq $zolSourceSprite) { throw "Zol/Gel sprite not found: $zolSpriteName.png" }
-Copy-Item -LiteralPath $zolSourceSprite.FullName -Destination (Join-Path $destination "gfx\$zolSpriteName.png") -Force
-$zolDefinitionRows = [Collections.Generic.List[string]]::new()
-$zolDefinitionRows.Add(
-    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2`tanimation-3`tanimation-4`tanimation-5`traw-damage")
-foreach ($subid in 0..1) {
-    $definition = $zolDefinitions[$subid]
-    $zolDefinitionRows.Add(
-        "34`t$($subid.ToString('x2'))`t$zolSpriteName`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($zolAnimations -join "`t")`t$($definition.RawDamage.ToString('x2'))")
-}
-$gelDefinitionRows = [Collections.Generic.List[string]]::new()
-$gelDefinitionRows.Add(
-    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2`traw-damage")
-$gelDefinitionRows.Add(
-    "43`t00`t$zolSpriteName`t$($gelDefinition.TileBase)`t$($gelDefinition.Palette)`t$($gelDefinition.RadiusY)`t$($gelDefinition.RadiusX)`t$($gelDefinition.DamageQuarters)`t$($gelDefinition.Health)`t$($gelAnimations -join "`t")`t$($gelDefinition.RawDamage.ToString('x2'))")
-
-# Perched Crows (`$41:$00) are fixed-position enemies. Their shared graphics
-# header, standard attributes, and four directional/flight animations are
-# resolved here and shared with the off-screen flock subid `$01.
 $crowDefinition = Get-EnemyDefinition 0x41 0
 if ($crowDefinition.Gfx -ne 0x93 -or $crowDefinition.Collision -ne 0x31 -or
     $crowDefinition.ExtraIndex -ne 0x3d -or
@@ -1076,42 +776,6 @@ if ($crowAnimations[0] -ne '127,0@8,0,0,0;8,8,2,0' -or
     throw "ENEMY_CROW animation/OAM data no longer matches the original records: $($crowAnimations -join '; ')"
 }
 
-$crowRows = [Collections.Generic.List[string]]::new()
-$crowRows.Add("# group`troom`tid`tsubid`tflags`tcount`tposition-mode`ty`tx`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tperched-right`tperched-left`tflight-right`tflight-left")
-$crowAliases = [Collections.Generic.List[object]]::new()
-$crowLastSpecificFlags = '00'
-foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
-    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
-        $crowAliases.Add(@{ Group = [int]$Matches['group']; Room = $Matches['room'] })
-        continue
-    }
-    if ($crowAliases.Count -eq 0) { continue }
-    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
-        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
-            ForEach-Object { $_.Groups['value'].Value })
-        if ($values.Count -eq 5) {
-            $crowLastSpecificFlags = $values[0]
-            $id, $subid, $y, $x = $values[1..4]
-        } elseif ($values.Count -eq 4) {
-            $id, $subid, $y, $x = $values
-        } else {
-            throw "Malformed Crow obj_SpecificEnemyA row: $line"
-        }
-        if ($id -eq '41' -and $subid -eq '00') {
-            foreach ($alias in $crowAliases) {
-                $crowRows.Add("$($alias.Group)`t$($alias.Room)`t41`t00`t$crowLastSpecificFlags`t1`tF`t$y`t$x`t$($gfxNames[$crowGfx])`t0`t3`t$crowRadiusY`t$crowRadiusX`t$crowDamageQuarters`t$crowHealth`t50`t$($crowAnimations -join "`t")")
-            }
-        }
-        continue
-    }
-    if ($line -match '^\s*obj_EndPointer') { $crowAliases.Clear(); continue }
-    if ($line -match '^[A-Za-z0-9_@]+:') { $crowAliases.Clear() }
-}
-if ($crowRows.Count -ne 4 -or
-    ($crowRows | Where-Object { $_ -match '^0\t5d\t41\t00\t00\t1\tF\t78\t78\t' }).Count -ne 1 -or
-    ($crowRows | Where-Object { $_ -match '^0\t6d\t41\t00\t00\t1\tF\t38\t(18|88)\t' }).Count -ne 2) {
-    throw "Expected the three fixed subid-0 Crows in rooms 0:5d/0:6d, got $($crowRows.Count - 1)."
-}
 $crowSpriteName = $gfxNames[$crowGfx]
 $crowSourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$crowSpriteName.png" } |
@@ -1126,391 +790,33 @@ $crowDefinitionRows.Add(
 $crowDefinitionRows.Add(
     "41`t01`t$crowSpriteName`t0`t3`t$crowRadiusY`t$crowRadiusX`t$crowDamageQuarters`t$crowHealth`t20`t$($crowAnimations -join "`t")")
 
-# Preserve parseObjectData order independently of the currently implemented
-# enemy species. Random/fixed enemies, reserving parts, and item-drop producers
-# all affect wPlacedEnemyPositions; parameterized enemies/parts consume their
-# respective object slots without reserving a tile.
-$orderedObjectRows = [Collections.Generic.List[string]]::new()
-$dropProducerConstant = @(Read-AssemblyConstants (Join-Path $Disassembly 'constants/common/enemies.s') '' 'ENEMY_ITEM_DROP_PRODUCER')
-if ($dropProducerConstant.Count -ne 1 -or (Convert-AssemblyInteger $dropProducerConstant[0].Operands[0]) -ne 0x59) {
-    throw 'objectDataOpA requires native ENEMY_ITEM_DROP_PRODUCER $59.'
-}
-$dropProducerId = (Convert-AssemblyInteger $dropProducerConstant[0].Operands[0]).ToString('x2')
-$orderedObjectRows.Add(
-    "# group`troom`torder`tkind`tid`tsubid`tflags`tcount`ty`tx`tpacked-position`tcondition-mask`tvar03")
-$orderedAliases = [Collections.Generic.List[object]]::new()
-$orderedActiveCondition = 'ff'
-$orderedActiveOpcode = ''
-$orderedSpecificFlags = '00'
-$orderedItemFlags = '00'
-$orderedIncludeLine = $true
-$orderedRegionConditional = ''
-$orderedObjectSources = @{}
-$orderedSourceLine = 0
-
-foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyData.s')) {
-    $orderedSourceLine++
-    if ($line -match '^\.ifdef\s+(?<symbol>[A-Za-z0-9_]+)\s*$') {
-        if ($orderedRegionConditional -ne '' -or
-            $Matches['symbol'] -ne 'REGION_JP') {
-            throw "Unsupported ordered object conditional: $line"
-        }
-        $orderedRegionConditional = $Matches['symbol']
-        $orderedIncludeLine = $false
-        continue
-    }
-    if ($line -match '^\.else\s*$') {
-        if ($orderedRegionConditional -ne 'REGION_JP') {
-            throw "Unexpected ordered object .else: $line"
-        }
-        $orderedIncludeLine = $true
-        continue
-    }
-    if ($line -match '^\.endif\s*$') {
-        if ($orderedRegionConditional -ne 'REGION_JP') {
-            throw "Unexpected ordered object .endif: $line"
-        }
-        $orderedRegionConditional = ''
-        $orderedIncludeLine = $true
-        continue
-    }
-    if (-not $orderedIncludeLine) { continue }
-
-    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
-        if ($orderedAliases.Count -eq 0) {
-            $orderedActiveCondition = 'ff'
-            $orderedActiveOpcode = ''
-            $orderedSpecificFlags = '00'
-            $orderedItemFlags = '00'
-        }
-        $orderedAliases.Add(@{
-            Group = [int]$Matches['group']
-            Room = $Matches['room']
-            Order = 0
-        })
-        continue
-    }
-    if ($orderedAliases.Count -eq 0) { continue }
-
-    if ($line -match '^\s*obj_Condition\s+\$(?<mask>[0-9a-f]{2})') {
-        # objectDataOp0 skips whole opcode runs until another $f0 or
-        # pointer/end opcode. A new enemy's flags do not end the condition.
-        $orderedActiveCondition = $Matches['mask']
-        $orderedActiveOpcode = ''
-        continue
-    }
-
-    if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})') {
-        $orderedActiveOpcode = 'R'
-        $count = ([Convert]::ToInt32($Matches['flags'], 16) -shr 5) -band 7
-        foreach ($alias in $orderedAliases) {
-            $orderedObjectSources["$($alias.Group):$($alias.Room):$($alias.Order)"] = "objects/ages/enemyData.s:$orderedSourceLine"
-            $orderedObjectRows.Add(
-                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tR`t$($Matches['id'])`t$($Matches['subid'])`t$($Matches['flags'])`t$count`t-1`t-1`t-1`t$orderedActiveCondition")
-            $alias.Order = [int]$alias.Order + 1
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_SpecificEnemyA\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
-        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
-            ForEach-Object { $_.Groups['value'].Value })
-        if ($values.Count -eq 5) {
-            $orderedActiveOpcode = 'F'
-            $orderedSpecificFlags = $values[0]
-            $id, $subid, $y, $x = $values[1..4]
-        } elseif ($values.Count -eq 4 -and $orderedActiveOpcode -eq 'F') {
-            $id, $subid, $y, $x = $values
-        } else {
-            throw "Malformed ordered obj_SpecificEnemyA row: $line"
-        }
-        $packed = ([Convert]::ToInt32($y, 16) -band 0xf0) -bor
-            (([Convert]::ToInt32($x, 16) -shr 4) -band 0x0f)
-        foreach ($alias in $orderedAliases) {
-            $orderedObjectSources["$($alias.Group):$($alias.Room):$($alias.Order)"] = "objects/ages/enemyData.s:$orderedSourceLine"
-            $orderedObjectRows.Add(
-                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tF`t$id`t$subid`t$orderedSpecificFlags`t1`t$y`t$x`t$($packed.ToString('x2'))`t$orderedActiveCondition")
-            $alias.Order = [int]$alias.Order + 1
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_Part\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
-        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
-            ForEach-Object { $_.Groups['value'].Value })
-        if ($values.Count -eq 3) {
-            $orderedActiveOpcode = 'P'
-            $id, $subid, $packed = $values
-            $kind = 'P'
-            $y = '-1'
-            $x = '-1'
-        } elseif ($values.Count -eq 5) {
-            $orderedActiveOpcode = '9'
-            $id, $subid, $y, $x, $null = $values
-            $packedValue = ([Convert]::ToInt32($y, 16) -band 0xf0) -bor
-                (([Convert]::ToInt32($x, 16) -shr 4) -band 0x0f)
-            $packed = $packedValue.ToString('x2')
-            $kind = 'Q'
-        } else {
-            throw "Malformed ordered obj_Part row: $line"
-        }
-        foreach ($alias in $orderedAliases) {
-            $orderedObjectSources["$($alias.Group):$($alias.Room):$($alias.Order)"] = "objects/ages/enemyData.s:$orderedSourceLine"
-            $orderedObjectRows.Add(
-                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`t$kind`t$id`t$subid`t00`t1`t$y`t$x`t$packed`t$orderedActiveCondition")
-            $alias.Order = [int]$alias.Order + 1
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_SpecificEnemyB\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<var03>[0-9a-f]{2})') {
-        $orderedActiveOpcode = '9'
-        $packed = ([Convert]::ToInt32($Matches['y'], 16) -band 0xf0) -bor
-            (([Convert]::ToInt32($Matches['x'], 16) -shr 4) -band 0x0f)
-        foreach ($alias in $orderedAliases) {
-            $orderedObjectSources["$($alias.Group):$($alias.Room):$($alias.Order)"] = "objects/ages/enemyData.s:$orderedSourceLine"
-            $orderedObjectRows.Add(
-                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tB`t$($Matches['id'])`t$($Matches['subid'])`t00`t1`t$($Matches['y'])`t$($Matches['x'])`t$($packed.ToString('x2'))`t$orderedActiveCondition`t$($Matches['var03'])")
-            $alias.Order = [int]$alias.Order + 1
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_ItemDrop\s+(?<values>(?:\$[0-9a-f]{2}\s*)+)$') {
-        $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
-            ForEach-Object { $_.Groups['value'].Value })
-        if ($values.Count -eq 3) {
-            $orderedActiveOpcode = 'I'
-            $orderedItemFlags, $item, $packed = $values
-        } elseif ($values.Count -eq 2 -and $orderedActiveOpcode -eq 'I') {
-            $item, $packed = $values
-        } else {
-            throw "Malformed ordered obj_ItemDrop row: $line"
-        }
-        foreach ($alias in $orderedAliases) {
-            $orderedObjectSources["$($alias.Group):$($alias.Room):$($alias.Order)"] = "objects/ages/enemyData.s:$orderedSourceLine"
-            $orderedObjectRows.Add(
-                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tI`t$dropProducerId`t$item`t$orderedItemFlags`t1`t-1`t-1`t$packed`t$orderedActiveCondition")
-            $alias.Order = [int]$alias.Order + 1
-        }
-        continue
-    }
-
-    if ($line -match '^\s*obj_EndPointer') {
-        $orderedAliases.Clear()
-        continue
-    }
-    if ($line -match '^\s*obj_[A-Za-z0-9_]+') {
-        $orderedActiveOpcode = 'X'
-        continue
-    }
-    if ($line -match '^[A-Za-z0-9_@]+:') {
-        $orderedAliases.Clear()
-    }
-}
-
-if ($orderedRegionConditional -ne '') {
-    throw "Ordered object conditional $orderedRegionConditional was not closed."
-}
-
-# mainData.s parses the direct vine enemy before any following enemy pointer.
-# Prepend those five records to the same authoritative ordered stream and
-# shift pointer-owned orders in the two rooms which contain both forms.
-$directVines = @{}
-$directVineSources = @{}
-$directPlacementSources = @{}
-$directTowerParts = [Collections.Generic.List[string]]::new()
-$directFinalEnemies = [Collections.Generic.List[string]]::new()
-$mainObjectGroup = -1
-$mainObjectRoom = -1
-$mainObjectLine = 0
-foreach ($line in Read-ImportLines (
-    Join-Path $Disassembly 'objects\ages\mainData.s')) {
-    $mainObjectLine++
-    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})ObjectData:') {
-        $mainObjectGroup = [int]$Matches['group']
-        $mainObjectRoom = [Convert]::ToInt32($Matches['room'], 16)
-        continue
-    }
-    if ($mainObjectGroup -lt 0) { continue }
-    if ($line -match '^\s*obj_SpecificEnemyA\s+\$(?<flags>[0-9a-f]{2})\s+\$02\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s*$') {
-        $directPlacementSources["$mainObjectGroup`:$($mainObjectRoom.ToString('x2')):0"] = "objects/ages/mainData.s:$mainObjectLine"
-        $packed=([Convert]::ToInt32($Matches['y'],16) -band 0xf0) -bor ([Convert]::ToInt32($Matches['x'],16) -shr 4)
-        $directFinalEnemies.Add("$mainObjectGroup`t$($mainObjectRoom.ToString('x2'))`t0`tF`t02`t$($Matches['subid'])`t$($Matches['flags'])`t1`t$($Matches['y'])`t$($Matches['x'])`t$($packed.ToString('x2'))`tff")
-        continue
-    }
-    if ($line -match '^\s*obj_Part\s+\$59\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<packed>[0-9a-f]{2})\s*$') {
-        $directPlacementSources["$mainObjectGroup`:$($mainObjectRoom.ToString('x2')):$($directTowerParts.Count)"] = "objects/ages/mainData.s:$mainObjectLine"
-        $directTowerParts.Add("$mainObjectGroup`t$($mainObjectRoom.ToString('x2'))`t$($directTowerParts.Count)`tP`t59`t$($Matches['subid'])`t00`t1`t-1`t-1`t$($Matches['packed'])`tff")
-        continue
-    }
-    if ($line -match
-        '^\s*obj_SpecificEnemyA\s+\$00\s+\$62\s+\$(?<subid>[0-9a-f]{2})\s+\$00\s+\$00\s*$') {
-        $key = "$mainObjectGroup`:$($mainObjectRoom.ToString('x2'))"
-        if ($directVines.ContainsKey($key)) {
-            throw "Room $key contains more than one direct ENEMY_VINE_SPROUT."
-        }
-        $directVines[$key] = $Matches['subid']
-        $directVineSources[$key] = "objects/ages/mainData.s:$mainObjectLine"
-        continue
-    }
-    if ($line -match '^\s*obj_End\s*$' -or
-        $line -match '^[A-Za-z0-9_@]+:') {
-        $mainObjectGroup = -1
-        $mainObjectRoom = -1
-    }
-}
-if ($directVines.Count -ne 5 -or
-    $directVines['1:2c'] -ne '00' -or
-    $directVines['1:61'] -ne '01' -or
-    $directVines['1:ba'] -ne '02' -or
-    $directVines['1:cc'] -ne '03' -or
-    $directVines['1:da'] -ne '04') {
-    throw 'Expected the five direct ENEMY_VINE_SPROUT placements from mainData.s.'
-}
-$mergedOrderedRows = [Collections.Generic.List[string]]::new()
-$mergedOrderedSources = @{}
-$mergedOrderedRows.Add($orderedObjectRows[0])
-$insertedDirectVines = [Collections.Generic.HashSet[string]]::new(
-    [StringComparer]::Ordinal)
-foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
-    $columns = $row -split "`t"
-    $key = "$($columns[0]):$($columns[1])"
-    if ($directVines.ContainsKey($key)) {
-        if ($insertedDirectVines.Add($key)) {
-            $mergedOrderedSources["${key}:0"] = $directVineSources[$key]
-            $mergedOrderedRows.Add(
-                "$($columns[0])`t$($columns[1])`t0`tF`t62`t" +
-                "$($directVines[$key])`t00`t1`t00`t00`t00`tff")
-        }
-    }
-    $source = $orderedObjectSources["$($columns[0]):$($columns[1]):$($columns[2])"]
-    if ($directVines.ContainsKey($key)) { $columns[2] = ([int]$columns[2] + 1).ToString() }
-    $mergedOrderedSources["$($columns[0]):$($columns[1]):$($columns[2])"] = $source
-    $mergedOrderedRows.Add($columns -join "`t")
-}
-foreach ($key in $directVines.Keys | Sort-Object) {
-    if ($insertedDirectVines.Contains($key)) { continue }
-    $group, $room = $key -split ':'
-    $mergedOrderedSources["${key}:0"] = $directVineSources[$key]
-    $mergedOrderedRows.Add(
-        "$group`t$room`t0`tF`t62`t$($directVines[$key])`t00`t1`t00`t00`t00`tff")
-    [void]$insertedDirectVines.Add($key)
-}
-$orderedObjectRows = $mergedOrderedRows
-$orderedObjectSources = $mergedOrderedSources
-foreach ($key in $directPlacementSources.Keys) { $orderedObjectSources[$key] = $directPlacementSources[$key] }
-
-# These direct PARTs occupy an otherwise empty main-data stream. Reject a
-# new interleaving rather than reordering it relative to an enemy pointer.
-if ($directTowerParts.Count -ne 4 -or
-    ($directTowerParts | Where-Object {$_ -notmatch '^4\td2\t[0-3]\tP\t59\t0[0-3]\t'}) -or
-    ($orderedObjectRows | Where-Object {$_ -match '^4\td2\t'})) {
-    throw 'mainData.s: expected four ordered direct PART $59 placements without an interleaved pointer.'
-}
-foreach ($row in $directTowerParts) { $orderedObjectRows.Add($row) }
-if ($directFinalEnemies.Count -ne 1 -or $directFinalEnemies[0] -ne "4`td4`t0`tF`t02`t00`t00`t1`t40`t78`t47`tff" -or
-    ($orderedObjectRows | Where-Object {$_ -match '^4\td4\t'})) {
-    throw 'mainData.s: expected the direct ENEMY $02:$00 at $4:d4 before respawningBushBombs.'
-}
-foreach ($row in $directFinalEnemies) { $orderedObjectRows.Add($row) }
+# Native instructions own placement; this projection supplies admission metadata only.
+$orderedObjectRows = @(Read-NativePlacementRows $destination)
 if ($orderedObjectRows.Count -ne 1151) {
-    throw "Expected 1150 clean-US ordered placement records, parsed $($orderedObjectRows.Count - 1)."
+    throw "Expected 1150 clean-US native placement declarations, got $($orderedObjectRows.Count - 1)."
 }
-if (-not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t0\tF\t1b\t01\t00\t1\t68\t38\t63\tff$' }) -or
-    -not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t1\tF\t34\t00\t00\t1\t78\t58\t75\tff$' }) -or
-    -not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t2\tR\t32\t00\t40\t2\t-1\t-1\t-1\tff$' }) -or
-    -not ($orderedObjectRows | Where-Object { $_ -match '^5\tdb\t0\tI\t59\t01\t00\t1\t-1\t-1\t1d\tff$' }) -or
-    -not ($orderedObjectRows | Where-Object { $_ -match '^5\t01\t0\tP\t23\t01\t00\t1\t-1\t-1\t08\tff$' }) -or
-    -not ($orderedObjectRows | Where-Object { $_ -match '^1\t0e\t0\tP\t13\t13\t00\t1\t-1\t-1\t23\tff$' }) -or
-    ($orderedObjectRows | Where-Object { $_ -match '^1\t0e\t\d+\tP\t13\t09\t' })) {
-    throw 'Canonical ordered enemy/fixed-enemy/item-drop/part placement records were not extracted.'
-}
-
-# The former per-species room tables are retained only as an importer-local
-# migration oracle. Generated runtime species tables contain definitions only,
-# so every supported placement must have an exact ordered-stream row.
-function Assert-SpeciesPlacementMigration(
-    [string]$name,
-    [object]$legacyRows,
-    [string]$id,
-    [string[]]$subids,
-    [bool]$hasPosition
-) {
-    $legacyProjection = @($legacyRows | Select-Object -Skip 1 | ForEach-Object {
-        $columns = $_ -split "`t"
-        if ($hasPosition) {
-            $kind = $columns[6]
-            $y = $columns[7]
-            $x = $columns[8]
-            $packed = if ($kind -eq 'F') {
-                $value = ([Convert]::ToInt32($y, 16) -band 0xf0) -bor
-                    (([Convert]::ToInt32($x, 16) -shr 4) -band 0x0f)
-                $value.ToString('x2')
-            } else {
-                '-1'
-            }
-        } else {
-            $kind = 'R'
-            $y = '-1'
-            $x = '-1'
-            $packed = '-1'
-        }
-        "$($columns[0])`t$($columns[1])`t$kind`t$($columns[2])`t$($columns[3])`t$($columns[4])`t$($columns[5])`t$y`t$x`t$packed"
-    } | Sort-Object)
-
-    $subidSet = @{}
-    foreach ($subid in $subids) { $subidSet[$subid] = $true }
-    $orderedProjection = @($orderedObjectRows | Select-Object -Skip 1 |
-        ForEach-Object {
-            $columns = $_ -split "`t"
-            if ($columns[4] -eq $id -and $subidSet.ContainsKey($columns[5])) {
-                "$($columns[0])`t$($columns[1])`t$($columns[3])`t$($columns[4])`t$($columns[5])`t$($columns[6])`t$($columns[7])`t$($columns[8])`t$($columns[9])`t$($columns[10])"
-            }
-        } | Sort-Object)
-
-    if ($legacyProjection.Count -ne $orderedProjection.Count -or
-        -not [string]::Equals(
-            ($legacyProjection -join "`n"),
-            ($orderedProjection -join "`n"),
-            [StringComparison]::Ordinal)) {
-        $difference = Compare-Object $legacyProjection $orderedProjection |
-            Select-Object -First 4 |
-            Out-String
-        throw "$name placement migration mismatch: legacy=$($legacyProjection.Count), ordered=$($orderedProjection.Count). $difference"
+foreach ($spec in @(
+    @('Keese','32',@('00','01'),53,158), @('Octorok','09',@('00','01','02'),33,48),
+    @('Stalfos','31',@('00'),34,37), @('Zol','34',@('00','01'),61,79),
+    @('Gel','43',@('00'),1,3), @('Crow','41',@('00'),3,3)
+)) {
+    $placements = @($orderedObjectRows | Select-Object -Skip 1 | ForEach-Object {
+        $fields = $_ -split "`t"
+        if ($fields[4] -eq $spec[1] -and $fields[5] -in $spec[2]) { ,$fields }
+    })
+    $instances = ($placements | ForEach-Object { [int]$_[7] } | Measure-Object -Sum).Sum
+    if ($placements.Count -ne $spec[3] -or $instances -ne $spec[4]) {
+        throw "$($spec[0]) native placement extent changed: $($placements.Count) rows / $instances instances."
     }
 }
-
-Assert-SpeciesPlacementMigration 'Keese' $keeseRows '32' @('00', '01') $false
-Assert-SpeciesPlacementMigration 'Octorok' $octorokRows '09' @('00', '01', '02') $true
-Assert-SpeciesPlacementMigration 'Stalfos' $stalfosRows '31' @('00') $true
-Assert-SpeciesPlacementMigration 'Zol' $zolRows '34' @('00', '01') $true
-Assert-SpeciesPlacementMigration 'Gel' $gelRows '43' @('00') $true
-Assert-SpeciesPlacementMigration 'Crow' $crowRows '41' @('00') $true
 
 Write-GeneratedTable(
     $octorokPath, $octorokDefinitionRows)
 Write-GeneratedTable(
     $stalfosPath, $stalfosDefinitionRows)
 Write-GeneratedTable(
-    (Join-Path $destination 'objects\zols.tsv'),
-    $zolDefinitionRows)
-Write-GeneratedTable(
-    (Join-Path $destination 'objects\gels.tsv'),
-    $gelDefinitionRows)
-Write-GeneratedTable(
     (Join-Path $destination 'objects\crows.tsv'),
     $crowDefinitionRows)
-# Only opcode $09 writes var03; ordinary allocations leave the byte zero.
-for ($index = 1; $index -lt $orderedObjectRows.Count; $index++) {
-    if (($orderedObjectRows[$index] -split "`t").Count -eq 12) {
-        $orderedObjectRows[$index] += "`t00"
-    }
-}
-Write-GeneratedTable(
-    (Join-Path $destination 'objects\enemy_object_stream.tsv'),
-    $orderedObjectRows)
-
 # Keep ordered enemy construction capability separate from species data and
 # from the placement opcode. The registry is keyed only by the original enemy
 # ID/subid; each room-object row still owns its source order, count, flags, and
@@ -1859,7 +1165,6 @@ if ($deathPuffTileBase -ne 0x0c -or $deathPuffOamFlags -ne 0x0a) {
 }
 
 $partAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\partAnimations.s")
-$partOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\partOamData.s")
 
 $boneCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\stalfosBone.s')
 if ($partDataSource -notmatch '(?m)^\s*\.db \$9b \$86 \$22 \$fc \$40 \$0a \$02 \$00 ; \$1c' -or
@@ -1878,7 +1183,7 @@ foreach ($frame in [regex]::Matches((Get-AssemblyLabelBody $partAnimationSource 
     '(?m)^\s*\.db \$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<param>[0-9a-f]{2})')) {
     $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
     $index = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
-    $boneFrames.Add("$duration@$(Resolve-Oam $partOamSource $boneOam[$index])")
+    $boneFrames.Add("$duration@$(Resolve-Oam 'data/ages/partOamData.s' $boneOam[$index])")
 }
 if ($boneFrames.Count -ne 2) { throw 'Stalfos bone must have two four-update OAM frames.' }
 Write-GeneratedTable((Join-Path $destination 'effects\stalfos_bone.tsv'), @(
@@ -1894,7 +1199,7 @@ $burnDefinitions = Read-AssemblyAnimationDefinitions $burnPartPath 'partAnimatio
 $burnAnimation = $burnDefinitions[$burnTables['part12Animations'][0]]
 $burnOam = $burnPointers['part12OamDataPointers']
 $burnFrames = @($burnAnimation.Frames | ForEach-Object {
-    "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $burnOam[[int]($_.PointerOffset / 2)])"
+    "$($_.Duration),$($_.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $burnOam[[int]($_.PointerOffset / 2)])"
 })
 $burnCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\flame.s')
 if ($burnFrames.Count -ne 6 -or $burnAnimation.LoopStart -ne 3 -or
@@ -1945,7 +1250,7 @@ foreach ($frame in [regex]::Matches(
         throw "Moblin boomerang OAM pointer $pointerIndex is out of range."
     }
     $boomerangFrames.Add(
-        "$duration@$(Resolve-Oam $partOamSource $boomerangOamLabels[$pointerIndex])")
+        "$duration@$(Resolve-Oam 'data/ages/partOamData.s' $boomerangOamLabels[$pointerIndex])")
 }
 if ($boomerangFrames.Count -ne 4) {
     throw 'PART_MOBLIN_BOOMERANG must retain four animation frames.'
@@ -2009,7 +1314,7 @@ foreach ($frame in [regex]::Matches(
     }
     $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
     $bossExplosionFrames.Add(
-        "$duration@$(Resolve-Oam $partOamSource $bossExplosionOamLabels[$pointerIndex])")
+        "$duration@$(Resolve-Oam 'data/ages/partOamData.s' $bossExplosionOamLabels[$pointerIndex])")
 }
 $bossExplosionDuration = ($bossExplosionFrames | ForEach-Object {
     [int](($_ -split '@')[0])
@@ -2076,7 +1381,7 @@ foreach ($index in 0..3) {
         throw "PART_SHADOW animation $index no longer contains its static source frame."
     }
     $bossShadowFrames.Add((
-        Resolve-Oam $partOamSource $bossShadowOamLabels[$index]))
+        Resolve-Oam 'data/ages/partOamData.s' $bossShadowOamLabels[$index]))
 }
 $bossShadowSprite = $gfxNames[$bossShadowGfx]
 if ($bossShadowGfx -ne 0xa7 -or $bossShadowSprite -ne 'spr_projectiles_3' -or
@@ -2106,7 +1411,7 @@ Copy-Item -LiteralPath $bossShadowSpriteSource.FullName `
 # sprite sheet is loaded at tile zero.
 $terrainEffectSource = Read-ImportText (
     Join-Path $Disassembly 'data\terrainEffects.s')
-$terrainShadowOam = Resolve-Oam $terrainEffectSource 'shadowAnimation'
+$terrainShadowOam = Resolve-Oam 'data/terrainEffects.s' 'shadowAnimation'
 if ($terrainShadowOam -ne '19,4,32,8') {
     throw "The default terrain shadow no longer matches OAM `$13/`$04, tile `$20, flags `$08."
 }
@@ -2264,7 +1569,7 @@ $expectedPuddleTerrainOam = @(
 )
 $linkTerrainEffectRows = [Collections.Generic.List[string]]::new()
 for ($frame = 0; $frame -lt $grassTerrainLabels.Count; $frame++) {
-    $oam = Resolve-Oam $terrainEffectSource $grassTerrainLabels[$frame]
+    $oam = Resolve-Oam 'data/terrainEffects.s' $grassTerrainLabels[$frame]
     if ($oam -ne $expectedGrassTerrainOam[$frame]) {
         throw "Link grass terrain-effect frame $frame changed."
     }
@@ -2272,7 +1577,7 @@ for ($frame = 0; $frame -lt $grassTerrainLabels.Count; $frame++) {
         "grass`t$($grassTile.ToString('x2'))`t$frame`t0`t00`t0`t0`t0`tspr_common_sprites`t0`t0`t$oam`tdata/terrainEffects.s:$($grassTerrainLabels[$frame])+code/bank0.s:_drawObjectTerrainEffects")
 }
 for ($frame = 0; $frame -lt $puddleTerrainLabels.Count; $frame++) {
-    $oam = Resolve-Oam $terrainEffectSource $puddleTerrainLabels[$frame]
+    $oam = Resolve-Oam 'data/terrainEffects.s' $puddleTerrainLabels[$frame]
     if ($oam -ne $expectedPuddleTerrainOam[$frame]) {
         throw "Link puddle terrain-effect frame $frame changed."
     }
@@ -2290,8 +1595,6 @@ Write-GeneratedTable(
 $interactionDataSource = Read-ImportText (Join-Path $Disassembly 'data\ages\interactionData.s')
 $interactionAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionAnimations.s')
-$interactionOamSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\interactionOamData.s')
 
 # PART_OWL_STATUE (`$13) is a reserving enemy-pointer part. Mystery Seeds set
 # its collision status to `$9a`; the part then emits six ordinary
@@ -2354,7 +1657,7 @@ for ($animationIndex = 0;
     $parameter = [Convert]::ToInt32(
         $frame.Groups['parameter'].Value, 16)
     $owlAnimations.Add(
-        "$duration,$parameter@$(Resolve-Oam $partOamSource $owlOamLabels[$pointerIndex])~0")
+        "$duration,$parameter@$(Resolve-Oam 'data/ages/partOamData.s' $owlOamLabels[$pointerIndex])~0")
 }
 
 $owlSparkleData = [regex]::Match(
@@ -2411,7 +1714,7 @@ foreach ($frame in [regex]::Matches(
     $parameter = [Convert]::ToInt32(
         $frame.Groups['parameter'].Value, 16)
     $owlSparkleFrames.Add(
-        "$duration,$parameter@$(Resolve-Oam $interactionOamSource $owlSparkleOamLabels[$pointerOffset / 2])")
+        "$duration,$parameter@$(Resolve-Oam 'data/ages/interactionOamData.s' $owlSparkleOamLabels[$pointerOffset / 2])")
 }
 if ($owlSparkleFrames.Count -ne 5 -or
     $owlSparkleFrames[$owlSparkleFrames.Count - 1] -notmatch '^1,255@') {
@@ -2487,7 +1790,7 @@ for ($index = 0; $index -lt 2; $index++) {
     $frame = $frames[0]
     $pointer = [int]($frame.PointerOffset / 2)
     if ($pointer -ge $spikedBallOam.Count) { throw 'PART_SPIKED_BALL OAM pointer out of range.' }
-    $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $spikedBallOam[$pointer])"
+    $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $spikedBallOam[$pointer])"
     $spikedBallRows.Add("$index`t$($gfxNames[$spikedBallBytes[0]])`t$($spikedBallBytes[5])`t$($spikedBallBytes[6] -band 7)`t6`t6`t2`t$animation`tdata/ages/partAnimations.s:$($spikedBallLabels[$index])")
 }
 Copy-EnemySprite $gfxNames[$spikedBallBytes[0]]
@@ -2507,7 +1810,7 @@ function Export-SmogProjectileData {
         foreach ($frame in $definition.Frames) {
             $pointer = [int]($frame.PointerOffset / 2)
             if ($pointer -ge $pointers.Count) { throw "PART_SMOG_PROJECTILE animation $index OAM pointer out of range." }
-            $frames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])")
+            $frames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers[$pointer])")
         }
         $animation = $frames -join '|'
         if ($definition.LoopStart -gt 0) { $animation += "~$($definition.LoopStart)" }
@@ -2553,7 +1856,7 @@ function Export-WizzrobeProjectileData {
         $frame = $frames[0]
         $pointer = [int]($frame.PointerOffset / 2)
         if ($pointer -ge $pointers.Count) { throw 'PART$1f OAM pointer out of range.' }
-        $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])"
+        $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers[$pointer])"
         $rows.Add("$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6] -band 7)`t$([int](Get-EnemySpriteSourceGrayscaleInverted $gfxNames[$bytes[0]]))`t$animation`tdata/ages/partAnimations.s:$($labels[$index])")
     }
     Copy-EnemySprite $gfxNames[$bytes[0]]
@@ -2573,7 +1876,7 @@ function Export-LynelBeamData {
         $frame = $frames[0]
         $pointer = [int]($frame.PointerOffset / 2)
         if ($pointer -ge $pointers.Count) { throw 'PART$1b OAM pointer out of range.' }
-        $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])"
+        $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers[$pointer])"
         $rows += "$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6])`t$([int](Get-EnemySpriteSourceGrayscaleInverted $gfxNames[$bytes[0]]))`t$animation`tdata/ages/partAnimations.s:$($labels[$index])"
     }
     Copy-EnemySprite $gfxNames[$bytes[0]]
@@ -2590,7 +1893,7 @@ function Export-CandleFlameData {
         if ($frames.Count -ne 3) { throw "PART$36 animation $index must retain three frames." }
         $animation = @($frames | ForEach-Object {
             if ($_.Duration -ne 4 -or $_.Parameter -ne 0) { throw 'PART$36 frame timing/parameter changed.' }
-            "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $pointers[[int]($_.PointerOffset / 2)])"
+            "$($_.Duration),$($_.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers[[int]($_.PointerOffset / 2)])"
         }) -join '|'
         $inverted = [int](Get-EnemySpriteSourceGrayscaleInverted 'spr_common_sprites')
         $rows += "$index`tspr_common_sprites`t6`t2`t$inverted`t$animation`tdata/ages/partAnimations.s:$($labels[$index])"
@@ -2613,7 +1916,7 @@ function Export-VireProjectileData {
         $frames = @($definition.Frames | ForEach-Object {
             $pointer = [int]($_.PointerOffset / 2)
             if ($pointer -ge $pointers.Count) { throw 'PART$3a OAM pointer out of range.' }
-            "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])"
+            "$($_.Duration),$($_.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers[$pointer])"
         })
         if ($frames.Count -ne $(if ($index -eq 0) { 4 } else { 2 }) -or $definition.LoopStart -ne 0) { throw 'PART$3a animation frame/loop contract changed.' }
         $rows += "$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6])`t$([int](Get-EnemySpriteSourceGrayscaleInverted $gfxNames[$bytes[0]]))`t$($frames -join '|')`tdata/ages/partAnimations.s:$($labels[$index]);part3aAnimations+$(($index * 2).ToString('x2'))"
@@ -2666,7 +1969,7 @@ function Export-DungeonBossPartData {
             $frames = @($definition.Frames | ForEach-Object {
                 $pointer = [int]($_.PointerOffset / 2)
                 if ($pointer -ge $pointers.Count) { throw "PART`$${hex}: OAM pointer out of range." }
-                "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])"
+                "$($_.Duration),$($_.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers[$pointer])"
             })
             $animation = $frames -join '|'
             if ($definition.LoopStart -ne 0) { $animation += "~$($definition.LoopStart)" }
@@ -2758,7 +2061,7 @@ $zoraFrames = [Collections.Generic.List[string]]::new()
 foreach ($frame in $zoraAnimation.Frames) {
     $index = [int]($frame.PointerOffset / 2)
     if ($index -ge $zoraOam.Count) { throw 'PART_ZORA_FIRE $19 OAM index out of range.' }
-    $zoraFrames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $zoraOam[$index])")
+    $zoraFrames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $zoraOam[$index])")
 }
 $zoraPartData = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\ages\partData.s') 'partData' '.db')[0x19]
 $zoraBytes = @($zoraPartData.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
@@ -4808,7 +4111,7 @@ $heartFrameBody = Get-AssemblyLabelBody $partAnimationSource $heartAnimationLabe
 if ($heartFrameBody -notmatch '\.db \$7f \$00 \$00') { throw 'Great Fairy heart initial OAM frame changed.' }
 $heartOamTables = Read-AssemblyDwTables (Join-Path $Disassembly 'data\ages\partAnimations.s') 'part[0-9a-f]{2}OamDataPointers' 'partOamData[0-9a-f]+'
 $heartOamLabel = $heartOamTables['part30OamDataPointers'][0]
-$heartAnimation = "127@$(Resolve-Oam $partOamSource $heartOamLabel)"
+$heartAnimation = "127@$(Resolve-Oam 'data/ages/partOamData.s' $heartOamLabel)"
 $heartSprite = $gfxNames[$heartBytes[0]]
 Copy-EnemySprite $heartSprite
 $heartInverted = [int](Get-EnemySpriteSourceGrayscaleInverted $heartSprite)

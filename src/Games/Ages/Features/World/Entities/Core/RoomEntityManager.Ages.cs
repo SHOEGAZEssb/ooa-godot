@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
@@ -49,7 +45,6 @@ public sealed partial class RoomEntityManager
     internal KeyholeControllerDatabase KeyholeControllers => _agesFactory.Resources.KeyholeControllers;
     internal FairiesWoodsDatabase FairiesWoodsData => _agesFactory.Resources.FairiesWoods;
     internal void BindFairiesWoods(FairiesWoodsEvent owner) => _agesFactory.FairiesWoods = owner;
-    internal CompanionForestDatabase CompanionForestData => _agesFactory.Resources.CompanionForest;
     internal void BindCompanionForest(CompanionForestEvent owner) => _agesFactory.CompanionForest = owner;
     internal void BindMooshRescue(MooshRescueEvent owner) => _agesFactory.MooshRescue = owner;
     internal void BindRickyGloves(RickyGlovesEvent owner) => _agesFactory.RickyGloves = owner;

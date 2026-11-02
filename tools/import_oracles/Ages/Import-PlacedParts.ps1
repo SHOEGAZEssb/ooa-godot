@@ -26,7 +26,7 @@ foreach ($id in @(0x23, 0x28)) {
         $frames = @(foreach ($frame in $definition.Frames) {
             $index = [int]($frame.PointerOffset / 2)
             if ($index -ge $pointers["part${hex}OamDataPointers"].Count) { throw "PART `$$hex invalid OAM offset." }
-            "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers["part${hex}OamDataPointers"][$index])"
+            "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers["part${hex}OamDataPointers"][$index])"
         })
         if (!$frames.Count) { throw "PART `$$hex missing animation frames." }
         "$($frames -join '|')~$($definition.LoopStart)"

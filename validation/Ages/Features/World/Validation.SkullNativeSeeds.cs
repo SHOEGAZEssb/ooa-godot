@@ -1,8 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 
 namespace Oracles;
 
@@ -10,7 +5,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullNativeSeeds()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var initialSave);
         var random = CaptureOracleRandomForValidation();
         var entityState = _entities.CaptureDebugState();
@@ -26,7 +20,7 @@ public sealed partial class ValidationRoot
             _saveData.RestoreFrom(initialSave!);
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
-            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
+
             _seedShooter.InterruptShooter();
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
             _inventory.GiveTreasure(TreasureId.Shooter, 1);

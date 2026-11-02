@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
@@ -455,14 +451,7 @@ public sealed partial class ValidationRoot
                 originalSaveImage, OracleGame.Ages, out OracleSaveData? originalSave),
             "Could not restore the pre-palace save image after validation.");
         _saveData.RestoreFrom(originalSave!);
-        var reloadInventory = typeof(InventoryState).GetMethod(
-            "LoadFromSaveData",
-            System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic);
-        FailIf(
-            reloadInventory is null,
-            "Could not resolve InventoryState.LoadFromSaveData after palace validation.");
-        reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
 
         GD.Print(
             "Validated the complete Mystery Seeds palace sequence: 1:46/1:36/" +

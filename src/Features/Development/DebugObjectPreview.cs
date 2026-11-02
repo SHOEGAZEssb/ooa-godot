@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -73,16 +70,8 @@ internal sealed class DebugObjectPreview(string assetRoot)
                 id == 0x47 ? Enemies.ColorChangingGelPalettes : null);
         if (Enemies.TryGetStalfosDefinition(source, out var stalfos))
             return new([stalfos.SpriteName], [stalfos.WalkAnimation], stalfos.TileBase, stalfos.Palette);
-        if (Enemies.TryGetZolDefinition(source, out var zol))
-            return new([zol.SpriteName], [subId == 0 ? zol.WaitAnimation : zol.RedIdleAnimation],
-                zol.TileBase, zol.Palette);
         if (Enemies.TryGetCrowDefinition(source, out var crow))
             return new([crow.SpriteName], [crow.PerchedRightAnimation], crow.TileBase, crow.Palette);
-        if (id == Enemies.Gel.Id && subId == Enemies.Gel.SubId)
-        {
-            GelDefinition gel = Enemies.Gel;
-            return new([gel.SpriteName], [gel.NormalAnimation], gel.TileBase, gel.Palette);
-        }
         return null;
     }
 

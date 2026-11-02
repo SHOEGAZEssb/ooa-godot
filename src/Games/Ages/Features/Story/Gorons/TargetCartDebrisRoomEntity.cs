@@ -1,5 +1,3 @@
-using Godot;
-using System.Collections.Generic;
 namespace Oracles;
 internal sealed class TargetCartDebrisRoomEntity(NpcCharacter actor,Vector2 position,int direction,OracleRuntimeState memory)
     :RoomEntityAdapter<NpcCharacter>(actor,actor.SetTransitionDrawOffset),IFixedRoomEntity,IRoomEntityLifetime,IUpdatesDuringDialogueRoomEntity

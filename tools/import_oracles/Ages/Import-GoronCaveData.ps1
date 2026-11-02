@@ -1,24 +1,8 @@
 # Shared Goron scripts, including global-label fallthrough, anonymous forward
 # branches, and the scriptHelp copies used by the guards and gallery keepers.
 $goronCommands = [Collections.Generic.List[object]]::new()
-function Resolve-GoronText([int]$id,[Collections.Generic.HashSet[int]]$visited) {
-    if(!$allTexts.ContainsKey($id) -or !$visited.Add($id)){throw "Unresolved or recursive Goron TX_$($id.ToString('x4'))."}
-    $message=[string]$allTexts[$id]
-    while($true) {
-        $call=[regex]::Match($message,'\\call\(TX_([0-9a-f]{4})\)')
-        if(!$call.Success){break}
-        $called=Resolve-GoronText ([Convert]::ToInt32($call.Groups[1].Value,16)) $visited
-        $message=$message.Substring(0,$call.Index)+$called+$message.Substring($call.Index+$call.Length)
-    }
-    $jump=[regex]::Match($message,'\\jump\(TX_([0-9a-f]{4})\)')
-    if($jump.Success) {
-        $message=$message.Substring(0,$jump.Index)+(Resolve-GoronText ([Convert]::ToInt32($jump.Groups[1].Value,16)) $visited)
-    } elseif($allTextFallthroughIds.ContainsKey($id)) {
-        if($message.EndsWith('\n',[StringComparison]::Ordinal)){$message=$message.Substring(0,$message.Length-2)+"`n"}
-        $message+=Resolve-GoronText $allTextFallthroughIds[$id] $visited
-    }
-    [void]$visited.Remove($id)
-    return $message
+function Resolve-GoronText([int]$id, [Collections.Generic.HashSet[int]]$visited) {
+    return Resolve-DialogueText $id $allTexts $allTextFallthroughIds @{} $visited
 }
 $goronLabels = [Collections.Generic.List[object]]::new()
 foreach ($range in @(

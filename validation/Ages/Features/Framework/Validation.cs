@@ -1,9 +1,5 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
@@ -584,6 +580,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateTreasureRupeeValues);
         RunIsolatedValidation(ValidateCpuDecimalArithmetic);
         RunIsolatedValidation(ValidateCpuCallBoundaries);
+        RunIsolatedValidation(ValidateRomFixtureMemory, requiresRom: true);
         RunIsolatedValidation(ValidateAnimationCounterBoundaries);
         RunIsolatedValidation(ValidateRoomEventTimeline);
         RunIsolatedValidation(ValidateRoomEventScheduling);
@@ -1640,6 +1637,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateChests);
         RunIsolatedValidation(ValidateChestRoomLookupRom, requiresRom: true);
         RunIsolatedValidation(ValidateInventoryFoundation);
+        RunIsolatedValidation(ValidateInventoryByteOwnership);
         RunIsolatedValidation(ValidateSaveOptions);
         RunIsolatedValidation(ValidateSaveMenuBackgroundIsolation);
         RunIsolatedValidation(ValidateInventoryIconFidelity);
@@ -1893,6 +1891,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDebugSavestateCompanions);
         RunIsolatedValidation(ValidateInventoryFlagIsolation);
         RunIsolatedValidation(ValidateMovingSideScrollPlatforms);
+        RunIsolatedValidation(ValidateNativePlatformPlacement);
+        RunIsolatedValidation(ValidateNativePlacementDeclarations);
         RunIsolatedValidation(ValidateWingDungeon, requiresRom:true);
         RunIsolatedValidation(ValidateHeadThwompFidelity);
 

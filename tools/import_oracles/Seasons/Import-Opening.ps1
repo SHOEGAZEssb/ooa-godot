@@ -226,24 +226,15 @@ foreach ($entry in [regex]::Matches($yaml, '(?ms)^  - name:(?<names>[^\r\n]*\r?\
     }
     if ($names.Count -gt 0) { $textOrder.Add($names[0]) }
 }
+$seasonTextFallthroughIds = @{}
+foreach ($id in $rawTexts.Keys) {
+    if (-not $fallthroughs[$id]) { continue }
+    $next = $textEntries[$id] + 1
+    if ($next -ge $textOrder.Count) { throw "Seasons TX_$($id.ToString('x4')) falls outside the text table." }
+    $seasonTextFallthroughIds[$id] = $textOrder[$next]
+}
 function Resolve-SeasonText([int]$id, [Collections.Generic.HashSet[int]]$visiting) {
-    if (-not $rawTexts.ContainsKey($id) -or -not $visiting.Add($id)) { throw "Seasons unresolved/recursive TX_$($id.ToString('x4'))." }
-    $raw = $rawTexts[$id]
-    $message = $raw
-    $remaining = $message; $message = ''; $jumped = $false
-    while ($true) {
-        $match = [regex]::Match($remaining, '\\(?<kind>call|jump)\(TX_(?<target>[0-9a-f]{4})\)')
-        if (-not $match.Success) { $message += $remaining; break }
-        $message += $remaining.Substring(0, $match.Index) + (Resolve-SeasonText ([Convert]::ToInt32($match.Groups['target'].Value, 16)) $visiting)
-        if ($match.Groups['kind'].Value -eq 'jump') { $jumped = $true; break }
-        $remaining = $remaining.Substring($match.Index + $match.Length)
-    }
-    if (-not $jumped -and $fallthroughs[$id]) {
-        $next = $textEntries[$id] + 1
-        if ($next -ge $textOrder.Count) { throw "Seasons TX_$($id.ToString('x4')) falls outside the text table." }
-        $message += Resolve-SeasonText $textOrder[$next] $visiting
-    }
-    [void]$visiting.Remove($id)
+    $message = Resolve-DialogueText $id $rawTexts $seasonTextFallthroughIds @{} $visiting $false 'text/seasons/text.yaml'
     return Normalize-DialogueText $message -preservePosition $true
 }
 $texts = @{}; $textRows = [Collections.Generic.List[string]]::new(); $textRows.Add("# id`tmessage-base64`tsource")

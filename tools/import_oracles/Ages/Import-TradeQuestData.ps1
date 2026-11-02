@@ -272,38 +272,10 @@ if ($null -eq $dumbbellManTreasure -or
     $tradeItemSource -notmatch 'TRADEITEM_CHEESY_MUSTACHE\s+db ; \$06') {
     throw 'Dumbbell Man trade $05 -> $06, reward, or room flag $20 changed.'
 }
-$dumbbellManRows = [Collections.Generic.List[string]]::new()
-$dumbbellManRows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
-foreach ($command in $dumbbellManCommands) {
-    $opcode = $command.Opcode
-    $actor = ''; $arg0 = ''; $arg1 = ''; $payload = ''
-    $parts = @($command.Operands -split ',\s*')
-    switch ($opcode) {
-        'initcollisions' { $actor = 'DumbbellMan' }
-        'checkabutton' { $actor = 'DumbbellMan' }
-        'jumpifroomflagset' { $arg0 = '20'; $arg1 = $dumbbellManTargets[$parts[1]].ToString() }
-        'setanimation' {
-            $actor = 'DumbbellMan'; $arg0 = $parts[0].Substring(1)
-            $payload = $dumbbellManAnimations[[Convert]::ToInt32($arg0, 16)]
-        }
-        'scriptjump' {
-            # loadscript copies this helper into wBigBuffer; local jumps
-            # return carry-clear from scriptCmd_jump and yield one update.
-            $opcode = 'scriptjumpyield'; $arg0 = $dumbbellManTargets[$parts[0]].ToString()
-        }
-        'showtextlowindex' {
-            $opcode = 'showtext'; $arg0 = $parts[0].Substring(4)
-            $textId = [Convert]::ToInt32($arg0, 16)
-            if (-not $allTexts.ContainsKey($textId)) { throw "Missing Dumbbell Man TX_$arg0." }
-            $payload = $allTexts[$textId]
-        }
-        'wait' { $arg0 = '30' }
-        'jumpiftradeitemeq' { $arg0 = '05'; $arg1 = $dumbbellManTargets[$parts[1]].ToString() }
-        'jumpiftextoptioneq' { $arg0 = '00'; $arg1 = $dumbbellManTargets[$parts[1]].ToString() }
-        'giveitem' { $arg0 = '41'; $arg1 = '06' }
-    }
-    $dumbbellManRows.Add((New-CutsceneCommandRow $command.Script $command.Index $command.Label $command.Line $opcode $actor "$arg0" "$arg1" $payload))
-}
+# loadscript copies the helper into WRAM; local jumps yield one update.
+$dumbbellManRows = ConvertTo-CutsceneCommandRows $dumbbellManCommands 'DumbbellMan' `
+    -symbols @{ ROOMFLAG_ITEM=0x20; TRADEITEM_DUMBBELL=0x05; TREASURE_TRADEITEM=0x41 } `
+    -texts $allTexts -animations $dumbbellManAnimations -yieldOnJump $true
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\dumbbell_man_commands.tsv'),
     $dumbbellManRows)

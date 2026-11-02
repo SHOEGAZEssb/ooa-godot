@@ -1,29 +1,8 @@
 # Shared palace soldiers: import the complete native script, including calls,
 # patrol-counter flag writes, and all sixteen source-selected texts.
 $palaceScriptsPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
-function Resolve-PalaceText([int]$textId, [Collections.Generic.HashSet[int]]$visited) {
-    if (-not $allTexts.ContainsKey($textId) -or -not $visited.Add($textId)) {
-        throw "Palace dialogue: missing/recursive TX_$($textId.ToString('x4'))."
-    }
-    $message = [string]$allTexts[$textId]
-    if ($allTextPositions.ContainsKey($textId)) { $message = '\pos(' + $allTextPositions[$textId] + ')' + $message }
-    while ($true) {
-        $call = [regex]::Match($message, '\\call\(TX_(?<id>[0-9a-f]{4})\)')
-        if (-not $call.Success) { break }
-        $message = $message.Substring(0, $call.Index) +
-            (Resolve-PalaceText ([Convert]::ToInt32($call.Groups['id'].Value, 16)) $visited) +
-            $message.Substring($call.Index + $call.Length)
-    }
-    $jump = [regex]::Match($message, '\\jump\(TX_(?<id>[0-9a-f]{4})\)')
-    if ($jump.Success) {
-        $message = $message.Substring(0, $jump.Index) +
-            (Resolve-PalaceText ([Convert]::ToInt32($jump.Groups['id'].Value, 16)) $visited)
-    } elseif ($allTextFallthroughIds.ContainsKey($textId)) {
-        if ($message.EndsWith('\n', [StringComparison]::Ordinal)) { $message = $message.Substring(0, $message.Length - 2) + "`n" }
-        $message += Resolve-PalaceText ([int]$allTextFallthroughIds[$textId]) $visited
-    }
-    [void]$visited.Remove($textId)
-    return $message
+function Resolve-PalaceText([int]$id, [Collections.Generic.HashSet[int]]$visited) {
+    return Resolve-DialogueText $id $allTexts $allTextFallthroughIds $allTextPositions $visited
 }
 $palaceResolvedTexts = @{}
 foreach ($textId in (@(0x590a, 0x2a08) + @(0x5910..0x5915))) {

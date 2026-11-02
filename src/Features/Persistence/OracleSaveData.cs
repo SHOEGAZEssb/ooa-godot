@@ -1,4 +1,3 @@
-using System;
 using System.Buffers.Binary;
 using System.Text;
 using static Oracles.OracleSaveLayout;
@@ -488,6 +487,9 @@ public sealed partial class OracleSaveData
 
     internal byte ReadField(string symbol, int offset = 0) =>
         OracleWramLayout.Shared.Value.Resolve(Game, symbol, offset) is int actual ? ReadWramByte(actual) : (byte)0;
+
+    internal Span<byte> FieldBytes(string symbol, int count) =>
+        _data.AsSpan(OffsetForWram(OracleWramLayout.Shared.Value.Require(Game, symbol)), count);
 
     internal bool WriteField(string symbol, byte value, int offset = 0)
     {

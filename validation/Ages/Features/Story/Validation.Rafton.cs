@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 
 namespace Oracles;
@@ -471,10 +467,7 @@ public sealed partial class ValidationRoot
             _saveData.HasGlobalFlag(record.ChangedRoomsFlag);
         var inventorySnapshot = new byte[0x39];
         _saveData.ReadWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
-        MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
-            "LoadFromSaveData",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        FailIf(reloadInventory is null, "Could not reload Rafton validation inventory.");
+
 
         void SetTreasureFlag(int treasure, bool obtained)
         {
@@ -513,7 +506,7 @@ public sealed partial class ValidationRoot
                 tradeItemAddress,
                 magicOar ? (byte)record.RequiredTradeItem : (byte)0);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
 
             _saveData.SetGlobalFlag(record.GaveRopeFlag, gaveRope);
             _saveData.SetGlobalFlag(record.ChangedRoomsFlag, changedRooms);
@@ -953,7 +946,7 @@ public sealed partial class ValidationRoot
 
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
         _saveData.SetGlobalFlag(record.GaveRopeFlag, originalGaveRope);
         _saveData.SetGlobalFlag(record.ChangedRoomsFlag, originalChangedRooms);
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })

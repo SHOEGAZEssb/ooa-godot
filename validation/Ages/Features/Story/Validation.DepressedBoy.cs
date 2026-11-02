@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 
 namespace Oracles;
@@ -24,11 +20,7 @@ public sealed partial class ValidationRoot
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         var inventorySnapshot = new byte[0x39];
         _saveData.ReadWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
-        MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
-            "LoadFromSaveData",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        FailIf(reloadInventory is null,
-            "Could not reload depressed-boy validation inventory.");
+
 
         void SetTradeItem(int tradeItem, bool obtained)
         {
@@ -39,7 +31,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(tradeItemAddress, (byte)tradeItem);
             _saveData.WriteWramByte(tradeObtainedAddress, flags);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
         }
 
         CutsceneShowTextCommand Text(int textId) =>
@@ -334,7 +326,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x55);
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
         {
             _saveData.SetRoomFlag(

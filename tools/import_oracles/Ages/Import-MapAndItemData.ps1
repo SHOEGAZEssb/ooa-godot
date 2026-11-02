@@ -95,36 +95,8 @@ Write-GeneratedTable((Join-Path $destination 'metadata\underwater_surface_rooms.
 
 $mapTextRows = [Collections.Generic.List[string]]::new()
 $mapTextRows.Add('# text-id`tposition`tmessage-base64')
-function Resolve-MapText([int]$textId, [Collections.Generic.HashSet[int]]$visited) {
-    if (-not $allTexts.ContainsKey($textId) -or -not $visited.Add($textId)) {
-        throw "text/ages/text.yaml: missing or recursive map TX_$($textId.ToString('x4'))."
-    }
-    try {
-        $remaining = [string]$allTexts[$textId]
-        $message = ''
-        # Resolve commands in execution order. A jump ends the current stream;
-        # calls return to its suffix. Dynamic \call(0xfd) remains symbolic for
-        # the Gale owner, which supplies the selected area's resolved message.
-        while ($true) {
-            $command = [regex]::Match($remaining, '\\(?<kind>call|jump)\(TX_(?<id>[0-9a-f]{4})\)')
-            if (-not $command.Success) { break }
-            $target = [Convert]::ToInt32($command.Groups['id'].Value, 16)
-            $message += $remaining.Substring(0, $command.Index) + (Resolve-MapText $target $visited)
-            if ($command.Groups['kind'].Value -eq 'jump') { return $message }
-            $remaining = $remaining.Substring($command.Index + $command.Length)
-        }
-        $message += $remaining
-        if ($allTextFallthroughIds.ContainsKey($textId)) {
-            # The trailing source newline is a text control, not a terminator.
-            if ($message.EndsWith('\n', [StringComparison]::Ordinal)) {
-                $message = $message.Substring(0, $message.Length - 2) + "`n"
-            }
-            $message += Resolve-MapText $allTextFallthroughIds[$textId] $visited
-        }
-        return $message
-    } finally {
-        [void]$visited.Remove($textId)
-    }
+function Resolve-MapText([int]$id, [Collections.Generic.HashSet[int]]$visited) {
+    return Resolve-DialogueText $id $allTexts $allTextFallthroughIds @{} $visited
 }
 foreach ($textId in @($allTexts.Keys | Sort-Object)) {
     if ($textId -lt 0x0200 -or $textId -ge 0x0600) { continue }

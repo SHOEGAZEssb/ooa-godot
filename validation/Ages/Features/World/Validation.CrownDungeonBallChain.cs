@@ -1,7 +1,3 @@
-using Godot;
-using System.Linq;
-using System.Collections.Generic;
-using System;
 using System.Reflection;
 
 namespace Oracles;
@@ -112,7 +108,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSpikedBallCollisions()
     {
-        var visual = new SpikedBallDatabase(AgesGameContent.AssetRoot);
+        var visual = AnimatedPartDatabase.SpikedBall(AgesGameContent.AssetRoot);
         foreach (var (state, level, recoil, invincibility) in new[] {
             (SwordActionState.Swing, 1, 11, -28),
             // sword.s:@state4 writes $08 for every level, selecting effect $1b.
@@ -193,7 +189,7 @@ public partial class ValidationRoot
         soldier.Initialize(new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), random);
         var movementMemory = OracleRuntimeState.CreateInitialized(OracleGame.Ages);
         soldier.BindMovementMemory(movementMemory);
-        var visual = new SpikedBallDatabase(AgesGameContent.AssetRoot);
+        var visual = AnimatedPartDatabase.SpikedBall(AgesGameContent.AssetRoot);
         SpikedBallPart[] parts = [];
         Vector2 link = new(64,100);
         void Spawn()
@@ -326,7 +322,7 @@ public partial class ValidationRoot
             enemy.Animations[0] != "16@8,0,0,0;8,8,2,0|16,1@8,0,4,0;8,8,6,0" ||
             enemy.Animations[1] != "8@8,0,0,0;8,8,2,0|8@8,0,4,0;8,8,6,0",
             "$4b soldier health, graphics, OAM or animation timing changed.");
-        var weapon = new SpikedBallDatabase(AgesGameContent.AssetRoot);
+        var weapon = AnimatedPartDatabase.SpikedBall(AgesGameContent.AssetRoot);
         FailIf(weapon.Sprite != "spr_ballandchain_likelike" || weapon.TileBase != 8 ||
             weapon.Palette != 2 || weapon.RadiusX != 6 || weapon.RadiusY != 6 || weapon.Damage != 2 ||
             weapon.Animations[0] != "127,0@8,0,0,0;8,8,0,32" ||

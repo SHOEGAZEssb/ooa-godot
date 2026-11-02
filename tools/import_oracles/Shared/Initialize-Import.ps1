@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+. (Join-Path $importRoot 'import_oracles/Shared/Resolve-DialogueText.ps1')
 $project = Split-Path $importRoot -Parent
 $assetRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(
     $OutputDirectory)
@@ -137,6 +138,10 @@ $assemblySourceHost = Start-AssemblySourceHost
 $assemblyTextCache = @{}
 $assemblyNodeCache = @{}
 $assemblyAnimationCache = @{}
+
+function Read-NativePlacementRows([string]$root) {
+    return @(Invoke-AssemblySourceHost $assemblySourceHost 'NATIVE_PLACEMENTS' $root | ConvertFrom-Json)
+}
 
 function Find-AssemblySourceLine(
     [string]$path, [int]$start, [int]$end, [string]$pattern, [int]$occurrence = 0

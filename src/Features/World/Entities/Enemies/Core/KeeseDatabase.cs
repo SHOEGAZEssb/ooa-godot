@@ -1,7 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
@@ -88,36 +85,15 @@ internal sealed class KeeseDatabase
             throw new InvalidOperationException($"{behavior.Path}: expected $1e fully consumed native behavior rows.");
     }
 
-    internal bool TryGetDefinition(RoomObjectRecord source, out EnemyDatabaseEnemyRecord record)
+    internal bool TryGetDefinition(RoomObjectRecord source, out KeeseDefinition record)
     {
-        if (source.Id != 0x32 ||
-            !_definitions.TryGetValue(source.SubId, out KeeseDefinition definition))
-        {
-            record = default;
-            return false;
-        }
-        record = new EnemyDatabaseEnemyRecord(AssetRoot,
-            source.Group,
-            source.Room,
-            definition.Id,
-            definition.SubId,
-            source.Flags,
-            source.Count,
-            definition.SpriteName,
-            definition.TileBase,
-            definition.Palette,
-            definition.CollisionRadiusY,
-            definition.CollisionRadiusX,
-            definition.DamageQuarters,
-            definition.Health,
-            definition.IdleAnimation,
-            definition.FlyAnimation, definition.RawDamage);
-        return true;
+        record = default;
+        return source.Id == EnemyId.Keese && _definitions.TryGetValue(source.SubId, out record);
     }
 
 }
 
-internal readonly record struct KeeseDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
+public readonly record struct KeeseDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
 
 internal readonly record struct KeeseStateBehaviorProfile(
     int NormalSpeedRaw,

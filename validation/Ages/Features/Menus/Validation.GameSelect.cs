@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
 

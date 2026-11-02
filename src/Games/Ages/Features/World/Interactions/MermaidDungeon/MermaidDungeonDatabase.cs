@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
 internal sealed class MermaidDungeonDatabase
 {
     private readonly Lookup<int, DungeonObjectRecord> _records = new();
-    private readonly Dictionary<(int Group,int Room,int Id,int SubId),int> _enemyOrders = new();
     internal IReadOnlyList<KeyValuePair<int,byte>> OctogonInitialization { get; }
     internal DungeonEssenceDefinition Essence { get; }
     internal MermaidDungeonDatabase()
@@ -57,16 +53,6 @@ internal sealed class MermaidDungeonDatabase
         if (Essence.Index != 5 || essence.HexWord(1) != 0x0013 || Essence.ExitWarp is not
             {DestinationGroup:3,DestinationRoom:0x0f,DestinationPosition:0x16,DestinationTransition:WarpDestinationTransition.SetRespawn})
             throw new InvalidOperationException("Mermaid Essence source text/exit mapping is incomplete.");
-        var orders = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_enemy_orders.tsv",
-            new GeneratedTableSchema("Mermaid native enemy insertion",GeneratedTableKeySemantics.Unique,
-                ["group","room","id","subid","enemy-stream-order","source"],
-                ["group","room","id","subid"],headerRequired:true));
-        foreach (var row in orders.Rows)
-        {
-            _ = row.RequiredString(5);
-            _enemyOrders.Add((row.Decimal(0,0,7),row.HexByte(1),row.HexByte(2),row.HexByte(3)),row.UnsignedDecimal(4));
-        }
-        if (orders.Rows.Count != 3) throw new InvalidOperationException("Mermaid native enemies require three source insertion points.");
         var initial = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/octogon_initial_state.tsv",
             new GeneratedTableSchema("Octogon encounter initialization",GeneratedTableKeySemantics.Unique,
                 ["field","address","value","source"],["field"],headerRequired:true));
@@ -81,7 +67,4 @@ internal sealed class MermaidDungeonDatabase
         }).ToArray();
     }
     internal IReadOnlyList<DungeonObjectRecord> GetRoomRecords(int group,int room) => _records.ValuesOrEmpty((group << 8) | room);
-    internal int EnemyStreamOrder(DungeonObjectRecord record) =>
-        _enemyOrders.TryGetValue((record.Group,record.Room,record.Id,record.SubId),out int order) ? order :
-        throw new InvalidOperationException($"{record.Source}: missing enemy-stream insertion for ENEMY${record.Id:x2}:${record.SubId:x2}.");
 }

@@ -1,20 +1,13 @@
-using System;
 using System.IO;
-using System.Linq;
 
 namespace Oracles;
 
 // Executes original object animation setters/advancers and their ROM tables.
 // Only the register-loading caller is synthetic; no routine or stream is replaced.
-internal sealed class ObjectAnimationRom
+internal sealed class ObjectAnimationRom : RomFixture
 {
-    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
-    private readonly byte[] _memory = new byte[0x10000];
-    private readonly OracleCpu _cpu;
     private readonly int _animate, _set, _object, _streamBank, _oamBank;
-    private byte[] _caller = [];
-    private int _bank;
-    internal ObjectAnimationRom(int kind, int id)
+    internal ObjectAnimationRom(int kind, int id) : base("Animation")
     {
         (_animate, _set, _object, _streamBank, _oamBank) = kind switch
         {
@@ -25,8 +18,6 @@ internal sealed class ObjectAnimationRom
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
         _memory[_object + 1] = (byte)id;
-        _cpu = new OracleCpu(Read, Write, static _ => { },
-            (pc, detail) => new InvalidDataException($"Animation ROM ${_bank:x2}:${pc:x4}: {detail}."));
     }
     internal int Counter { get => _memory[_object + 0x20]; set => _memory[_object + 0x20] = (byte)value; }
     internal int Parameter { get => _memory[_object + 0x21]; set => _memory[_object + 0x21] = (byte)value; }
@@ -66,20 +57,7 @@ internal sealed class ObjectAnimationRom
             throw new InvalidDataException("Animation helper lost its return bank.");
     }
     private int Rom(int bank, int address) => _rom.Span[bank * 0x4000 + (address & 0x3fff)];
-    private int Read(int address)
-    {
-        if (address < 0x4000) return _rom.Span[address];
-        if (address < 0x8000 && _bank is 0x07 or 0x0d or 0x16) return Rom(_bank, address);
-        if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
-        if (Allowed(address)) return _memory[address];
-        throw new InvalidDataException($"Animation ROM ${_cpu.InstructionAddress:x4}: undeclared read ${address:x4}.");
-    }
-    private void Write(int address, int value)
-    {
-        if (address == 0x2222) { _bank = value; return; }
-        if (Allowed(address)) { _memory[address] = (byte)value; return; }
-        throw new InvalidDataException($"Animation ROM ${_cpu.InstructionAddress:x4}: undeclared write ${address:x4}.");
-    }
-    private bool Allowed(int address) => address is >= 0xd000 and < 0xe000 or
+    protected override bool RomBankAllowed(int bank) => bank is 0x07 or 0x0d or 0x16;
+    protected override bool Allowed(int address) => address is >= 0xd000 and < 0xe000 or
         0xcba0 or 0xcc8a or 0xcd00 or 0xff97 or 0xffae or 0xffaf;
 }

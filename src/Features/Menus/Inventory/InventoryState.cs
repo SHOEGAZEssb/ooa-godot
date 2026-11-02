@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -15,31 +12,25 @@ public sealed class InventoryState
 
     private readonly TreasureDatabase _treasures;
     internal string AssetRoot => _treasures.AssetRoot;
-    private readonly OracleSaveData? _saveData;
+    private readonly OracleSaveData _saveData;
     private readonly OracleRuntimeState _runtimeState;
     internal OracleRuntimeState RuntimeState => _runtimeState;
-    internal OracleSaveData? SaveData => _saveData;
+    internal OracleSaveData SaveData => _saveData;
     private readonly Func<int> _currentDungeonIndex;
-    private readonly byte[] _obtainedTreasureFlags = new byte[16];
-    private readonly byte[] _inventoryStorage = new byte[InventoryCapacity];
-    private readonly byte[] _dungeonSmallKeys = new byte[16];
-    private readonly byte[] _dungeonBossKeys = new byte[2];
-    private readonly byte[] _dungeonCompasses = new byte[2];
-    private readonly byte[] _dungeonMaps = new byte[2];
-    private readonly byte[] _ringBoxContents = new byte[5];
-    private readonly byte[] _ringsObtained = new byte[RingsObtainedByteCount];
-    private readonly byte[] _unappraisedRings = new byte[UnappraisedRingCapacity];
-    private readonly HashSet<TreasureVariable> _dirtyAuxiliaryVariables = new();
-    private int _dummyC608;
-    private byte _unappraisedRingCountBcd;
-    private int _shortSecretIndex;
-    private int _satchelSelectedSeeds;
-    private int _shooterSelectedSeeds;
-    private int _boomerangLevel;
-    private int _featherLevel;
-    private int _braceletLevel;
-    private int _oreChunks;
-    private int _pirateBellState;
+    private Span<byte> _obtainedTreasureFlags => _saveData.FieldBytes("wObtainedTreasureFlags", 16);
+    private Span<byte> _inventoryStorage => _saveData.FieldBytes("wInventoryStorage", InventoryCapacity);
+    private Span<byte> _dungeonSmallKeys => _saveData.FieldBytes("wDungeonSmallKeys", 16);
+    private Span<byte> _dungeonBossKeys => _saveData.FieldBytes("wDungeonBossKeys", 2);
+    private Span<byte> _dungeonCompasses => _saveData.FieldBytes("wDungeonCompasses", 2);
+    private Span<byte> _dungeonMaps => _saveData.FieldBytes("wDungeonMaps", 2);
+    private Span<byte> _ringBoxContents => _saveData.FieldBytes("wRingBoxContents", 5);
+    private Span<byte> _ringsObtained => _saveData.FieldBytes("wRingsObtained", RingsObtainedByteCount);
+    private Span<byte> _unappraisedRings => _saveData.FieldBytes("wUnappraisedRings", UnappraisedRingCapacity);
+    private byte _unappraisedRingCountBcd
+    {
+        get => _saveData.ReadField("wNumUnappraisedRingsBcd");
+        set => _saveData.WriteField("wNumUnappraisedRingsBcd", value);
+    }
 
     public event Action? Changed;
     public event Action? HealthChanged;
@@ -47,56 +38,190 @@ public sealed class InventoryState
     internal event Action? FullHealthRefillAttempted;
     internal event Action? RupeeCapExceeded;
 
-    public int EquippedB { get; private set; }
-    public int EquippedA { get; private set; }
-    public int HealthQuarters { get; private set; }
-    public int MaxHealthQuarters { get; private set; }
-    public int Rupees { get; private set; }
-    public int OreChunks => _saveData?.Game == OracleGame.Seasons
-        ? FromBcdWord(_saveData.ReadField("wNumOreChunks") | _saveData.ReadField("wNumOreChunks", 1) << 8)
-        : _oreChunks;
-    private int PirateBellState => _saveData?.ReadField("wPirateBellState") ?? _pirateBellState;
-    public int MaxBombs { get; private set; }
-    public int Bombs { get; private set; }
-    public int SwordLevel { get; private set; }
-    public int ShieldLevel { get; private set; }
+    public int EquippedB
+    {
+        get => _saveData.ReadField("wInventoryB");
+        private set => _saveData.WriteField("wInventoryB", (byte)value);
+    }
+    public int EquippedA
+    {
+        get => _saveData.ReadField("wInventoryA");
+        private set => _saveData.WriteField("wInventoryA", (byte)value);
+    }
+    public int HealthQuarters
+    {
+        get => _saveData.ReadField("wLinkHealth");
+        private set => _saveData.WriteField("wLinkHealth", (byte)value);
+    }
+    public int MaxHealthQuarters
+    {
+        get => _saveData.ReadField("wLinkMaxHealth");
+        private set => _saveData.WriteField("wLinkMaxHealth", (byte)value);
+    }
+    public int Rupees
+    {
+        get => FromBcdWord(ReadWord("wNumRupees"));
+        private set => WriteWord("wNumRupees", ToBcdWord(value));
+    }
+    public int OreChunks => FromBcdWord(ReadWord("wNumOreChunks"));
+    private int PirateBellState => _saveData.ReadField("wPirateBellState");
+    public int MaxBombs
+    {
+        get => _saveData.ReadField("wMaxBombs");
+        private set => _saveData.WriteField("wMaxBombs", (byte)value);
+    }
+    public int Bombs
+    {
+        get => _saveData.ReadField("wNumBombs");
+        private set => _saveData.WriteField("wNumBombs", (byte)value);
+    }
+    public int SwordLevel
+    {
+        get => _saveData.ReadField("wSwordLevel");
+        private set => _saveData.WriteField("wSwordLevel", (byte)value);
+    }
+    public int ShieldLevel
+    {
+        get => _saveData.ReadField("wShieldLevel");
+        private set => _saveData.WriteField("wShieldLevel", (byte)value);
+    }
     public int BraceletLevel
     {
-        get => _runtimeState.Game == OracleGame.Seasons ? HasTreasure(TreasureId.Bracelet) ? 1 : 0 : _braceletLevel;
-        private set => _braceletLevel = value;
+        get => _runtimeState.Game == OracleGame.Seasons ? HasTreasure(TreasureId.Bracelet) ? 1 : 0 : _saveData.ReadField("wBraceletLevel");
+        private set => _saveData.WriteField("wBraceletLevel", (byte)value);
     }
-    public int SwitchHookLevel { get; private set; }
-    public int BoomerangLevel => _runtimeState.Game == OracleGame.Seasons ? _boomerangLevel : HasTreasure(TreasureId.Boomerang) ? 1 : 0;
-    public int FeatherLevel => _runtimeState.Game == OracleGame.Seasons ? _featherLevel : HasTreasure(TreasureId.Feather) ? 1 : 0;
-    public int SlingshotLevel { get; private set; }
-    public int SeedSatchelLevel { get; private set; }
-    public int SatchelSelectedSeeds => _satchelSelectedSeeds;
-    public int ShooterSelectedSeeds => _shooterSelectedSeeds;
-    public int SlingshotSelectedSeeds => _runtimeState.Game == OracleGame.Seasons ? _shooterSelectedSeeds : 0;
-    public int SelectedHarpSong { get; private set; }
-    public int Bombchus { get; private set; }
-    public int EmberSeeds { get; private set; }
-    public int ScentSeeds { get; private set; }
-    public int PegasusSeeds { get; private set; }
-    public int GaleSeeds { get; private set; }
-    public int MysterySeeds { get; private set; }
-    public int GashaSeeds { get; private set; }
-    public int HeartPieces { get; private set; }
-    public int Slates { get; private set; }
-    public int Essences { get; private set; }
-    public int TradeItem { get; private set; }
-    public int TuniNutState { get; private set; }
-    public int ActiveRing { get; private set; }
-    public int RingBoxLevel { get; private set; }
-    public int RingsAppraised { get; private set; }
-    public int TotalEnemiesKilled { get; private set; }
-    public int TotalRupeesCollected { get; private set; }
+    public int SwitchHookLevel
+    {
+        get => _saveData.ReadField("wSwitchHookLevel");
+        private set => _saveData.WriteField("wSwitchHookLevel", (byte)value);
+    }
+    public int BoomerangLevel => _runtimeState.Game == OracleGame.Seasons ? _saveData.ReadField("wBoomerangLevel") : HasTreasure(TreasureId.Boomerang) ? 1 : 0;
+    public int FeatherLevel => _runtimeState.Game == OracleGame.Seasons ? _saveData.ReadField("wFeatherLevel") : HasTreasure(TreasureId.Feather) ? 1 : 0;
+    public int SlingshotLevel
+    {
+        get => _saveData.ReadField("wSlingshotLevel");
+        private set => _saveData.WriteField("wSlingshotLevel", (byte)value);
+    }
+    public int SeedSatchelLevel
+    {
+        get => _saveData.ReadField("wSeedSatchelLevel");
+        private set => _saveData.WriteField("wSeedSatchelLevel", (byte)value);
+    }
+    public int SatchelSelectedSeeds => _saveData.ReadField("wSatchelSelectedSeeds");
+    public int ShooterSelectedSeeds => _saveData.ReadField("wShooterSelectedSeeds");
+    public int SlingshotSelectedSeeds => _runtimeState.Game == OracleGame.Seasons ? _saveData.ReadField("wShooterSelectedSeeds") : 0;
+    public int SelectedHarpSong
+    {
+        get => _saveData.ReadField("wSelectedHarpSong");
+        private set => _saveData.WriteField("wSelectedHarpSong", (byte)value);
+    }
+    public int Bombchus
+    {
+        get => _saveData.ReadField("wNumBombchus");
+        private set => _saveData.WriteField("wNumBombchus", (byte)value);
+    }
+    public int EmberSeeds
+    {
+        get => _saveData.ReadField("wNumEmberSeeds");
+        private set => _saveData.WriteField("wNumEmberSeeds", (byte)value);
+    }
+    public int ScentSeeds
+    {
+        get => _saveData.ReadField("wNumEmberSeeds", 1);
+        private set => _saveData.WriteField("wNumEmberSeeds", (byte)value, 1);
+    }
+    public int PegasusSeeds
+    {
+        get => _saveData.ReadField("wNumEmberSeeds", 2);
+        private set => _saveData.WriteField("wNumEmberSeeds", (byte)value, 2);
+    }
+    public int GaleSeeds
+    {
+        get => _saveData.ReadField("wNumEmberSeeds", 3);
+        private set => _saveData.WriteField("wNumEmberSeeds", (byte)value, 3);
+    }
+    public int MysterySeeds
+    {
+        get => _saveData.ReadField("wNumEmberSeeds", 4);
+        private set => _saveData.WriteField("wNumEmberSeeds", (byte)value, 4);
+    }
+    public int GashaSeeds
+    {
+        get => _saveData.ReadField("wNumGashaSeeds");
+        private set => _saveData.WriteField("wNumGashaSeeds", (byte)value);
+    }
+    public int HeartPieces
+    {
+        get => _saveData.ReadField("wNumHeartPieces");
+        private set => _saveData.WriteField("wNumHeartPieces", (byte)value);
+    }
+    public int Slates
+    {
+        get => _saveData.ReadField("wNumSlates");
+        private set => _saveData.WriteField("wNumSlates", (byte)value);
+    }
+    public int Essences
+    {
+        get => _saveData.ReadField("wEssencesObtained");
+        private set => _saveData.WriteField("wEssencesObtained", (byte)value);
+    }
+    public int TradeItem
+    {
+        get => _saveData.ReadField("wTradeItem");
+        private set => _saveData.WriteField("wTradeItem", (byte)value);
+    }
+    public int TuniNutState
+    {
+        get => _saveData.ReadField("wTuniNutState");
+        private set => _saveData.WriteField("wTuniNutState", (byte)value);
+    }
+    public int ActiveRing
+    {
+        get => _saveData.ReadField("wActiveRing");
+        private set => _saveData.WriteField("wActiveRing", (byte)value);
+    }
+    public int RingBoxLevel
+    {
+        get => _saveData.ReadField("wRingBoxLevel");
+        private set => _saveData.WriteField("wRingBoxLevel", (byte)value);
+    }
+    public int RingsAppraised
+    {
+        get => _saveData.ReadField("wNumRingsAppraised");
+        private set => _saveData.WriteField("wNumRingsAppraised", (byte)value);
+    }
+    public int TotalEnemiesKilled
+    {
+        get => ReadWord("wTotalEnemiesKilled");
+        private set => WriteWord("wTotalEnemiesKilled", value);
+    }
+    public int TotalRupeesCollected
+    {
+        get => FromBcdWord(ReadWord("wTotalRupeesCollected"));
+        private set => WriteWord("wTotalRupeesCollected", ToBcdWord(value));
+    }
     public int RingBoxCapacity => RingBoxLevel switch { 1 => 1, 2 => 3, >= 3 => 5, _ => 0 };
-    public int AnimalCompanion { get; private set; }
-    public int FluteIcon => _saveData?.ReadField("wFluteIcon") ?? 0;
-    public int RememberedCompanionId { get; private set; }
-    public int ObtainedSeasons { get; private set; }
-    public int MagnetGlovePolarity { get; private set; }
+    public int AnimalCompanion
+    {
+        get => _saveData.ReadField("wAnimalCompanion");
+        private set => _saveData.WriteField("wAnimalCompanion", (byte)value);
+    }
+    public int FluteIcon => _saveData.ReadField("wFluteIcon");
+    public int RememberedCompanionId
+    {
+        get => _saveData.ReadField("wDeathRespawnBuffer.rememberedCompanionId");
+        private set => _saveData.WriteField("wDeathRespawnBuffer.rememberedCompanionId", (byte)value);
+    }
+    public int ObtainedSeasons
+    {
+        get => _saveData.ReadField("wObtainedSeasons");
+        private set => _saveData.WriteField("wObtainedSeasons", (byte)value);
+    }
+    public int MagnetGlovePolarity
+    {
+        get => _saveData.ReadField("wMagnetGlovePolarity");
+        private set => _saveData.WriteField("wMagnetGlovePolarity", (byte)value);
+    }
     internal static Func<InventoryState, int> BindDisplayIndex(string field) => field switch
     {
         "wSatchelSelectedSeeds" => static inventory => inventory.SatchelSelectedSeeds,
@@ -149,13 +274,12 @@ public sealed class InventoryState
         OracleRuntimeState? runtimeState = null)
     {
         _treasures = treasures;
-        _saveData = saveData;
         OracleGame game = OracleAssetPack.GameFor(treasures.AssetRoot);
         if (saveData is not null && saveData.Game != game || runtimeState is not null && runtimeState.Game != game)
             throw new ArgumentException("Inventory, save, runtime state and treasures must belong to the same game.");
         _runtimeState = runtimeState ?? OracleRuntimeState.CreateInitialized(game);
         _currentDungeonIndex = currentDungeonIndex ?? (() => -1);
-        LoadFromSaveData(saveData ?? OracleSaveData.CreateStandardGame(game));
+        _saveData = saveData ?? OracleSaveData.CreateStandardGame(game);
     }
 
     public bool HasTreasure(int treasure) => treasure switch
@@ -170,7 +294,7 @@ public sealed class InventoryState
         HasTreasure(treasureObject.TreasureId) &&
         (treasureObject.TreasureId != TreasureId.Flute ||
             (AnimalCompanion == treasureObject.Parameter &&
-             (_saveData is null || _saveData.ReadField("wFluteIcon") == treasureObject.Parameter - 0x0a))) &&
+             _saveData.ReadField("wFluteIcon") == treasureObject.Parameter - 0x0a)) &&
         (treasureObject.TreasureId != TreasureId.TradeItem ||
             TradeItem == treasureObject.Parameter);
 
@@ -384,24 +508,24 @@ public sealed class InventoryState
 
     internal bool HasSelectedSatchelSeed()
     {
-        int selected = _satchelSelectedSeeds;
+        int selected = _saveData.ReadField("wSatchelSelectedSeeds");
         return selected is >= 0 and < 5 &&
             BcdAmountForInventoryDisplay(TreasureId.EmberSeeds + selected) != 0;
     }
 
     internal bool TryConsumeSelectedSatchelSeed(out int seedItem)
-        => TryConsumeSelectedSeed(_satchelSelectedSeeds, out seedItem);
+        => TryConsumeSelectedSeed(_saveData.ReadField("wSatchelSelectedSeeds"), out seedItem);
 
     internal bool HasSelectedShooterSeed()
     {
-        int selected = _shooterSelectedSeeds;
+        int selected = _saveData.ReadField("wShooterSelectedSeeds");
         return selected is >= 0 and < 5 &&
             BcdAmountForInventoryDisplay(
                 TreasureId.EmberSeeds + selected) != 0;
     }
 
     internal bool TryConsumeSelectedShooterSeed(out int seedItem)
-        => TryConsumeSelectedSeed(_shooterSelectedSeeds, out seedItem);
+        => TryConsumeSelectedSeed(_saveData.ReadField("wShooterSelectedSeeds"), out seedItem);
 
     private bool TryConsumeSelectedSeed(int selectedSeed, out int seedItem)
     {
@@ -429,18 +553,16 @@ public sealed class InventoryState
     }
 
     public void SelectSatchelSeeds(int seeds) =>
-        SetSelectedSeeds(ref _satchelSelectedSeeds,
-            TreasureVariable.SatchelSelectedSeeds, seeds);
+        SetSelectedSeeds("wSatchelSelectedSeeds", seeds);
 
     public void SelectShooterSeeds(int seeds) =>
-        SetSelectedSeeds(ref _shooterSelectedSeeds,
-            TreasureVariable.ShooterSelectedSeeds, seeds);
+        SetSelectedSeeds("wShooterSelectedSeeds", seeds);
 
     public void SelectSlingshotSeeds(int seeds)
     {
         if (_runtimeState.Game != OracleGame.Seasons)
             throw new NotSupportedException("TREASURE_SLINGSHOT $13 has no selected-seed state in clean US Ages.");
-        SetSelectedSeeds(ref _shooterSelectedSeeds, TreasureVariable.ShooterSelectedSeeds, seeds);
+        SetSelectedSeeds("wShooterSelectedSeeds", seeds);
     }
 
     public void SelectHarpSong(int song)
@@ -568,7 +690,7 @@ public sealed class InventoryState
     private void StoreInFirstBlankSlot(int item)
     {
         if (item == TreasureId.None) return;
-        int slot = Array.IndexOf(_inventoryStorage, (byte)TreasureId.None);
+        int slot = _inventoryStorage.IndexOf((byte)TreasureId.None);
         if (slot < 0)
             throw new InvalidOperationException(
                 "inventoryMenuState1@putItemInFirstBlankSlot: no storage for " +
@@ -585,7 +707,7 @@ public sealed class InventoryState
     {
         if (!HasTreasureObjectForDebug(treasureObject))
         {
-            using (_saveData?.BeginMutation())
+            using (_saveData.BeginMutation())
             {
                 if (treasureObject.TreasureId == TreasureId.Flute)
                 {
@@ -602,7 +724,7 @@ public sealed class InventoryState
                             $"companion state0: debug Flute companion ${treasureObject.Parameter:x2} is unsupported.")
                     };
                     SetVariable(TreasureVariable.AnimalCompanion, treasureObject.Parameter);
-                    _saveData?.WriteField("wFluteIcon", checked((byte)(treasureObject.Parameter - 0x0a)));
+                    _saveData.WriteField("wFluteIcon", checked((byte)(treasureObject.Parameter - 0x0a)));
                     if (_saveData is { } save)
                         save.WriteField(state, (byte)(save.ReadField(state) | 0x80));
                 }
@@ -633,7 +755,7 @@ public sealed class InventoryState
     /// </summary>
     internal bool LoseTreasure(int treasure)
     {
-        using (_saveData?.BeginMutation())
+        using (_saveData.BeginMutation())
         {
             if (!LoseTreasureCore(treasure)) return false;
             NotifyChanged();
@@ -767,7 +889,7 @@ public sealed class InventoryState
     /// </summary>
     internal void PrepareReturnedTokaySeedSatchel()
     {
-        using (_saveData?.BeginMutation())
+        using (_saveData.BeginMutation())
         {
             GiveTreasureCore(TreasureId.MysterySeeds, 0x99);
             for (int treasure = TreasureId.EmberSeeds;
@@ -967,8 +1089,12 @@ public sealed class InventoryState
 
     public void AddRupees(int amount)
     {
-        if (AddRupeesCore(amount))
-            NotifyChanged();
+        using (_saveData.BeginMutation())
+        {
+            if (!AddRupeesCore(amount)) return;
+            _saveData.CommitInventoryChange();
+        }
+        Changed?.Invoke();
     }
 
     private bool AddRupeesCore(int amount)
@@ -992,17 +1118,17 @@ public sealed class InventoryState
 
     internal void RecordEnemyKill()
     {
-        // enemyDie stops only the lifetime Slayer counter after its award flag
-        // is set. Maple, every planted Gasha spot, and Gasha maturity continue
-        // advancing for every counted enemy death.
-        if (_saveData?.HasGlobalFlag(GlobalFlag.Flag1000EnemiesKilled) != true)
+        using (_saveData.BeginMutation())
         {
-            TotalEnemiesKilled = Math.Min(0xffff, TotalEnemiesKilled + 1);
-            if (TotalEnemiesKilled >= 1000)
-                _saveData?.SetGlobalFlag(GlobalFlag.Flag1000EnemiesKilled);
-        }
-        if (_saveData is not null)
-        {
+            // enemyDie stops only the lifetime Slayer counter after its award flag
+            // is set. Maple, every planted Gasha spot, and Gasha maturity continue
+            // advancing for every counted enemy death.
+            if (_saveData.HasGlobalFlag(GlobalFlag.Flag1000EnemiesKilled) != true)
+            {
+                TotalEnemiesKilled = Math.Min(0xffff, TotalEnemiesKilled + 1);
+                if (TotalEnemiesKilled >= 1000)
+                    _saveData.SetGlobalFlag(GlobalFlag.Flag1000EnemiesKilled);
+            }
             int maple = _saveData.ReadField("wMapleKillCounter");
             _saveData.WriteField(
                 "wMapleKillCounter", (byte)Math.Min(0xff, maple + 1));
@@ -1014,13 +1140,14 @@ public sealed class InventoryState
                 _saveData.WriteField("wGashaSpotKillCounters", (byte)Math.Min(0xff, count + credits), spot);
             }
             _saveData.AddGashaMaturity(3);
+            _saveData.CommitInventoryChange();
         }
-        NotifyChanged();
+        Changed?.Invoke();
     }
 
     private bool RecordCollectedRupees(int amount)
     {
-        if (_saveData?.HasGlobalFlag(GlobalFlag.Flag10000RupeesCollected) == true)
+        if (_saveData.HasGlobalFlag(GlobalFlag.Flag10000RupeesCollected) == true)
             return false;
         long total = (long)TotalRupeesCollected + amount;
         if (total >= 10000)
@@ -1029,7 +1156,7 @@ public sealed class InventoryState
             // (not $99 as its source comment claims), leaving packed BCD $6363.
             // The award flag then prevents further lifetime-counter changes.
             TotalRupeesCollected = 6363;
-            _saveData?.SetGlobalFlag(GlobalFlag.Flag10000RupeesCollected);
+            _saveData.SetGlobalFlag(GlobalFlag.Flag10000RupeesCollected);
         }
         else
         {
@@ -1038,131 +1165,17 @@ public sealed class InventoryState
         return true;
     }
 
-    private void LoadFromSaveData(OracleSaveData source)
+    private int ReadWord(string field) => _saveData.ReadField(field) | _saveData.ReadField(field, 1) << 8;
+
+    private void WriteWord(string field, int value)
     {
-        EquippedB = source.ReadField("wInventoryB");
-        EquippedA = source.ReadField("wInventoryA");
-        source.ReadFields("wInventoryStorage", _inventoryStorage);
-        source.ReadFields("wObtainedTreasureFlags", _obtainedTreasureFlags);
-        source.ReadFields("wDungeonSmallKeys", _dungeonSmallKeys);
-        source.ReadFields("wDungeonBossKeys", _dungeonBossKeys);
-        source.ReadFields("wDungeonCompasses", _dungeonCompasses);
-        source.ReadFields("wDungeonMaps", _dungeonMaps);
-        source.ReadFields("wRingBoxContents", _ringBoxContents);
-        source.ReadFields("wRingsObtained", _ringsObtained);
-        TotalEnemiesKilled = source.ReadField("wTotalEnemiesKilled") |
-            source.ReadField("wTotalEnemiesKilled", 1) << 8;
-        TotalRupeesCollected = FromBcdWord(
-            source.ReadField("wTotalRupeesCollected") |
-            source.ReadField("wTotalRupeesCollected", 1) << 8);
-        source.ReadFields("wUnappraisedRings", _unappraisedRings);
-        _unappraisedRingCountBcd = source.ReadField("wNumUnappraisedRingsBcd");
-        _dummyC608 = source.ReadField("wc608");
-        AnimalCompanion = source.ReadField("wAnimalCompanion");
-        RememberedCompanionId = source.ReadField("wDeathRespawnBuffer.rememberedCompanionId");
-        HealthQuarters = source.ReadField("wLinkHealth");
-        MaxHealthQuarters = source.ReadField("wLinkMaxHealth");
-        HeartPieces = source.ReadField("wNumHeartPieces");
-        Rupees = FromBcdWord(
-            source.ReadField("wNumRupees") | source.ReadField("wNumRupees", 1) << 8);
-        if (source.Game == OracleGame.Seasons)
-        {
-            _oreChunks = FromBcdWord(source.ReadField("wNumOreChunks") | source.ReadField("wNumOreChunks", 1) << 8);
-            _pirateBellState = source.ReadField("wPirateBellState");
-        }
-        ShieldLevel = source.ReadField("wShieldLevel");
-        Bombs = source.ReadField("wNumBombs");
-        MaxBombs = source.ReadField("wMaxBombs");
-        SwordLevel = source.ReadField("wSwordLevel");
-        Bombchus = source.ReadField("wNumBombchus");
-        SeedSatchelLevel = source.ReadField("wSeedSatchelLevel");
-        SwitchHookLevel = source.ReadField("wSwitchHookLevel");
-        SelectedHarpSong = source.ReadField("wSelectedHarpSong");
-        BraceletLevel = source.ReadField("wBraceletLevel");
-        _boomerangLevel = source.ReadField("wBoomerangLevel");
-        _featherLevel = source.ReadField("wFeatherLevel");
-        SlingshotLevel = source.ReadField("wSlingshotLevel");
-        ObtainedSeasons = source.ReadField("wObtainedSeasons");
-        MagnetGlovePolarity = source.ReadField("wMagnetGlovePolarity");
-        EmberSeeds = source.ReadField("wNumEmberSeeds");
-        ScentSeeds = source.ReadField("wNumEmberSeeds", 1);
-        PegasusSeeds = source.ReadField("wNumEmberSeeds", 2);
-        GaleSeeds = source.ReadField("wNumEmberSeeds", 3);
-        MysterySeeds = source.ReadField("wNumEmberSeeds", 4);
-        GashaSeeds = source.ReadField("wNumGashaSeeds");
-        Essences = source.ReadField("wEssencesObtained");
-        TradeItem = source.ReadField("wTradeItem");
-        TuniNutState = source.ReadField("wTuniNutState");
-        Slates = source.ReadField("wNumSlates");
-        ActiveRing = source.ReadField("wActiveRing");
-        RingBoxLevel = source.ReadField("wRingBoxLevel");
-        RingsAppraised = source.ReadField("wNumRingsAppraised");
-        _shortSecretIndex = source.ReadField("wShortSecretIndex");
-        _satchelSelectedSeeds = source.ReadField("wSatchelSelectedSeeds");
-        _shooterSelectedSeeds = source.ReadField("wShooterSelectedSeeds");
+        _saveData.WriteField(field, (byte)value);
+        _saveData.WriteField(field, (byte)(value >> 8), 1);
     }
 
     private void NotifyChanged()
     {
-        if (_saveData is not null)
-        {
-            _saveData.WriteField("wInventoryB", (byte)EquippedB);
-            _saveData.WriteField("wInventoryA", (byte)EquippedA);
-            _saveData.WriteFields("wInventoryStorage", _inventoryStorage);
-            _saveData.WriteFields("wObtainedTreasureFlags", _obtainedTreasureFlags);
-            _saveData.WriteFields("wDungeonSmallKeys", _dungeonSmallKeys);
-            _saveData.WriteFields("wDungeonBossKeys", _dungeonBossKeys);
-            _saveData.WriteFields("wDungeonCompasses", _dungeonCompasses);
-            _saveData.WriteFields("wDungeonMaps", _dungeonMaps);
-            _saveData.WriteFields("wRingBoxContents", _ringBoxContents);
-            _saveData.WriteFields("wRingsObtained", _ringsObtained);
-            _saveData.WriteField(
-                "wTotalEnemiesKilled", (byte)TotalEnemiesKilled);
-            _saveData.WriteField(
-                "wTotalEnemiesKilled", (byte)(TotalEnemiesKilled >> 8), 1);
-            int totalRupeesBcd = ToBcdWord(TotalRupeesCollected);
-            _saveData.WriteField(
-                "wTotalRupeesCollected", (byte)totalRupeesBcd);
-            _saveData.WriteField(
-                "wTotalRupeesCollected", (byte)(totalRupeesBcd >> 8), 1);
-            _saveData.WriteFields("wUnappraisedRings", _unappraisedRings);
-            _saveData.WriteField("wLinkHealth", (byte)HealthQuarters);
-            _saveData.WriteField("wLinkMaxHealth", (byte)MaxHealthQuarters);
-            _saveData.WriteField("wNumHeartPieces", (byte)HeartPieces);
-            int rupeesBcd = ToBcdWord(Rupees);
-            _saveData.WriteField("wNumRupees", (byte)rupeesBcd);
-            _saveData.WriteField("wNumRupees", (byte)(rupeesBcd >> 8), 1);
-            _saveData.WriteField("wShieldLevel", (byte)ShieldLevel);
-            _saveData.WriteField("wNumBombs", (byte)Bombs);
-            _saveData.WriteField("wMaxBombs", (byte)MaxBombs);
-            _saveData.WriteField("wSwordLevel", (byte)SwordLevel);
-            _saveData.WriteField("wNumBombchus", (byte)Bombchus);
-            _saveData.WriteField("wSeedSatchelLevel", (byte)SeedSatchelLevel);
-            _saveData.WriteField("wSwitchHookLevel", (byte)SwitchHookLevel);
-            _saveData.WriteField("wSelectedHarpSong", (byte)SelectedHarpSong);
-            _saveData.WriteField("wBraceletLevel", (byte)_braceletLevel);
-            _saveData.WriteField("wBoomerangLevel", (byte)_boomerangLevel);
-            _saveData.WriteField("wFeatherLevel", (byte)_featherLevel);
-            _saveData.WriteField("wSlingshotLevel", (byte)SlingshotLevel);
-            _saveData.WriteField("wObtainedSeasons", (byte)ObtainedSeasons);
-            _saveData.WriteField("wMagnetGlovePolarity", (byte)MagnetGlovePolarity);
-            _saveData.WriteField("wNumEmberSeeds", (byte)EmberSeeds);
-            _saveData.WriteField("wNumEmberSeeds", (byte)ScentSeeds, 1);
-            _saveData.WriteField("wNumEmberSeeds", (byte)PegasusSeeds, 2);
-            _saveData.WriteField("wNumEmberSeeds", (byte)GaleSeeds, 3);
-            _saveData.WriteField("wNumEmberSeeds", (byte)MysterySeeds, 4);
-            _saveData.WriteField("wNumGashaSeeds", (byte)GashaSeeds);
-            _saveData.WriteField("wEssencesObtained", (byte)Essences);
-            _saveData.WriteField("wTradeItem", (byte)TradeItem);
-            _saveData.WriteField("wTuniNutState", (byte)TuniNutState);
-            _saveData.WriteField("wNumSlates", (byte)Slates);
-            _saveData.WriteField("wActiveRing", (byte)ActiveRing);
-            _saveData.WriteField("wRingBoxLevel", (byte)RingBoxLevel);
-            _saveData.WriteField("wNumRingsAppraised", (byte)RingsAppraised);
-            _saveData.WriteField("wNumUnappraisedRingsBcd", _unappraisedRingCountBcd);
-            PersistAuxiliaryVariables();
-            _saveData.CommitInventoryChange();
-        }
+        _saveData.CommitInventoryChange();
         Changed?.Invoke();
     }
 
@@ -1176,7 +1189,7 @@ public sealed class InventoryState
 
     internal void GiveTreasure(int treasure, int parameter)
     {
-        using (_saveData?.BeginMutation())
+        using (_saveData.BeginMutation())
         {
             if (_treasures.TryGetRemovedItems(treasure, out TreasureRemovalRecord removed))
             {
@@ -1195,7 +1208,7 @@ public sealed class InventoryState
     /// <summary>Mirrors scriptHelp.interaction6b_refillBombs.</summary>
     internal void RefillBombs()
     {
-        using (_saveData?.BeginMutation())
+        using (_saveData.BeginMutation())
         {
             Bombs = MaxBombs;
             NotifyChanged();
@@ -1206,10 +1219,10 @@ public sealed class InventoryState
     {
         int maturity = _treasures.GetGashaMaturityGain(treasure, parameter);
         if (maturity != 0)
-            _saveData?.AddGashaMaturity(maturity);
+            _saveData.AddGashaMaturity(maturity);
         if (treasure == TreasureId.RingBox && RingBoxLevel == 0)
         {
-            Array.Fill(_ringBoxContents, (byte)0xff);
+            _ringBoxContents.Fill(0xff);
             ActiveRing = 0xff;
         }
         AddTreasureToInventory(treasure);
@@ -1432,21 +1445,21 @@ public sealed class InventoryState
         return dungeon is >= 0 and < 16 ? dungeon : -1;
     }
 
-    private static void SetIndexedBit(byte[] values, int bit, byte mask)
+    private static void SetIndexedBit(Span<byte> values, int bit, byte mask)
     {
         if (bit is < 0 || bit >= values.Length * 8)
             return;
         values[bit >> 3] |= mask;
     }
 
-    private static bool HasDungeonBit(byte[] values, int dungeon) =>
+    private static bool HasDungeonBit(ReadOnlySpan<byte> values, int dungeon) =>
         dungeon >= 0 && dungeon < values.Length * 8 &&
         (values[dungeon >> 3] & (1 << (dungeon & 7))) != 0;
 
     private int GetVariable(TreasureVariable variable) => variable switch
     {
-        TreasureVariable.ShortSecretIndex => _shortSecretIndex,
-        TreasureVariable.DummyC608 => _dummyC608,
+        TreasureVariable.ShortSecretIndex => _saveData.ReadField("wShortSecretIndex"),
+        TreasureVariable.DummyC608 => _saveData.ReadField("wc608"),
         TreasureVariable.AnimalCompanion => AnimalCompanion,
         TreasureVariable.RememberedCompanionId => RememberedCompanionId,
         TreasureVariable.Bombchus => Bombchus,
@@ -1479,8 +1492,8 @@ public sealed class InventoryState
         TreasureVariable.FeatherLevel => FeatherLevel,
         TreasureVariable.OreChunks => OreChunks,
         TreasureVariable.PirateBellState => PirateBellState,
-        TreasureVariable.SatchelSelectedSeeds => _satchelSelectedSeeds,
-        TreasureVariable.ShooterSelectedSeeds => _shooterSelectedSeeds,
+        TreasureVariable.SatchelSelectedSeeds => _saveData.ReadField("wSatchelSelectedSeeds"),
+        TreasureVariable.ShooterSelectedSeeds => _saveData.ReadField("wShooterSelectedSeeds"),
         TreasureVariable.SlingshotSelectedSeeds => SlingshotSelectedSeeds,
         _ => throw new InvalidOperationException(
             $"Treasure WRAM variable {variable} is not a scalar binding.")
@@ -1500,10 +1513,10 @@ public sealed class InventoryState
         switch (variable)
         {
             case TreasureVariable.ShortSecretIndex:
-                _shortSecretIndex = byteValue;
+                _saveData.WriteField("wShortSecretIndex", (byte)byteValue);
                 break;
             case TreasureVariable.DummyC608:
-                _dummyC608 = byteValue;
+                _saveData.WriteField("wc608", (byte)byteValue);
                 break;
             case TreasureVariable.AnimalCompanion:
                 AnimalCompanion = byteValue;
@@ -1587,10 +1600,10 @@ public sealed class InventoryState
                 ObtainedSeasons = byteValue;
                 break;
             case TreasureVariable.BoomerangLevel:
-                _boomerangLevel = byteValue;
+                _saveData.WriteField("wBoomerangLevel", (byte)byteValue);
                 break;
             case TreasureVariable.FeatherLevel:
-                _featherLevel = byteValue;
+                _saveData.WriteField("wFeatherLevel", (byte)byteValue);
                 break;
             case TreasureVariable.SlingshotLevel:
                 SlingshotLevel = byteValue;
@@ -1599,26 +1612,22 @@ public sealed class InventoryState
                 MagnetGlovePolarity = byteValue;
                 break;
             case TreasureVariable.OreChunks:
-                _oreChunks = Math.Clamp(value, 0, 999);
-                int oreBcd = ToBcdWord(_oreChunks);
-                _saveData?.WriteField("wNumOreChunks", (byte)oreBcd);
-                _saveData?.WriteField("wNumOreChunks", (byte)(oreBcd >> 8), 1);
+                WriteWord("wNumOreChunks", ToBcdWord(Math.Clamp(value, 0, 999)));
                 break;
             case TreasureVariable.PirateBellState:
-                _pirateBellState = byteValue;
-                _saveData?.WriteField("wPirateBellState", (byte)byteValue);
+                _saveData.WriteField("wPirateBellState", (byte)byteValue);
                 break;
             case TreasureVariable.SlingshotSelectedSeeds:
                 if (_runtimeState.Game != OracleGame.Seasons)
                     throw new NotSupportedException("Slingshot seed selection requires Seasons.");
-                _shooterSelectedSeeds = byteValue;
-                MarkAuxiliaryVariableDirty(TreasureVariable.ShooterSelectedSeeds);
+                _saveData.WriteField("wShooterSelectedSeeds", (byte)byteValue);
+
                 break;
             default:
                 throw new InvalidOperationException(
                     $"Treasure WRAM variable {variable} is not a writable scalar binding.");
         }
-        MarkAuxiliaryVariableDirty(variable);
+
     }
 
     private void AddUnappraisedRing(int parameter)
@@ -1667,7 +1676,7 @@ public sealed class InventoryState
                 continue;
             _unappraisedRings[write++] = ring;
         }
-        Array.Fill(_unappraisedRings, (byte)0xff, write, _unappraisedRings.Length - write);
+        _unappraisedRings[write..].Fill(0xff);
         _unappraisedRingCountBcd = (byte)ToBcd(write);
         return write;
     }
@@ -1683,70 +1692,11 @@ public sealed class InventoryState
         return count;
     }
 
-    private void SetSelectedSeeds(
-        ref int selectedSeeds,
-        TreasureVariable variable,
-        int seeds)
+    private void SetSelectedSeeds(string field, int seeds)
     {
         int selected = Math.Clamp(seeds, 0, 4);
-        if (selectedSeeds == selected)
-            return;
-        selectedSeeds = selected;
-        _dirtyAuxiliaryVariables.Add(variable);
+        if (!_saveData.WriteField(field, (byte)selected)) return;
         NotifyChanged();
-    }
-
-    private void MarkAuxiliaryVariableDirty(TreasureVariable variable)
-    {
-        if (variable is TreasureVariable.ShortSecretIndex or
-            TreasureVariable.DummyC608 or
-            TreasureVariable.AnimalCompanion or
-            TreasureVariable.RememberedCompanionId or
-            TreasureVariable.SatchelSelectedSeeds or
-            TreasureVariable.ShooterSelectedSeeds)
-        {
-            _dirtyAuxiliaryVariables.Add(variable);
-        }
-    }
-
-    private void PersistAuxiliaryVariables()
-    {
-        _dummyC608 = PersistAuxiliaryVariable(
-            TreasureVariable.DummyC608, "wc608", _dummyC608);
-        AnimalCompanion = PersistAuxiliaryVariable(
-            TreasureVariable.AnimalCompanion,
-            "wAnimalCompanion",
-            AnimalCompanion);
-        RememberedCompanionId = PersistAuxiliaryVariable(
-            TreasureVariable.RememberedCompanionId,
-            "wDeathRespawnBuffer.rememberedCompanionId",
-            RememberedCompanionId);
-        _shortSecretIndex = PersistAuxiliaryVariable(
-            TreasureVariable.ShortSecretIndex,
-            "wShortSecretIndex",
-            _shortSecretIndex);
-        _satchelSelectedSeeds = PersistAuxiliaryVariable(
-            TreasureVariable.SatchelSelectedSeeds,
-            "wSatchelSelectedSeeds",
-            _satchelSelectedSeeds);
-        _shooterSelectedSeeds = PersistAuxiliaryVariable(
-            TreasureVariable.ShooterSelectedSeeds,
-            "wShooterSelectedSeeds",
-            _shooterSelectedSeeds);
-
-    }
-
-    private int PersistAuxiliaryVariable(
-        TreasureVariable variable,
-        string symbol,
-        int value)
-    {
-        if (_dirtyAuxiliaryVariables.Remove(variable))
-        {
-            _saveData!.WriteField(symbol, (byte)value);
-            return value;
-        }
-        return _saveData!.ReadField(symbol);
     }
 
     private static int AddBcd(int current, int add)

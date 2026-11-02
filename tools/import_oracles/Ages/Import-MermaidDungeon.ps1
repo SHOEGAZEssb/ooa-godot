@@ -212,40 +212,6 @@ $rows.Add("5`t3f`t2`tfloor-color-changer`t22`t00`t58`t78`talways`tobjects/ages/m
 $rows.Add("5`t3f`t3`ttoggle-floor`t15`t00`t00`t00`talways`tobjects/ages/mainData.s:group5Map3fObjectData")
 Write-GeneratedTable((Join-Path $destination 'objects/mermaid_dungeon_objects.tsv'),$rows)
 
-# Before-event enemies share the normal ENEMY pool. Their insertion ordinal
-# counts source rows, including uncounted item-drop producers in pointers.
-function Get-MermaidEnemyRowCount([string]$pointer) {
-    $count = 0
-    foreach ($node in Read-AssemblyMacroInvocations $enemyPath $pointer) {
-        switch ($node.Name) {
-            'obj_Pointer' { $count += Get-MermaidEnemyRowCount $node.Operands[0] }
-            'obj_ItemDrop' { $count++ }
-            'obj_RandomEnemy' { $count++ }
-            'obj_SpecificEnemyA' { $count++ }
-            'obj_SpecificEnemyB' { $count++ }
-            'obj_EndPointer' { }
-            'obj_End' { }
-            default { throw "objects/ages/enemyData.s:${pointer}: unsupported enemy-order macro $($node.Name)." }
-        }
-    }
-    return $count
-}
-$enemyOrders = [Collections.Generic.List[string]]::new()
-$enemyOrders.Add("# group`troom`tid`tsubid`tenemy-stream-order`tsource")
-foreach ($room in @('12','36','2d')) {
-    $ordinal = 0
-    $label = "group5Map${room}ObjectData"
-    foreach ($node in Read-AssemblyMacroInvocations $mainPath $label) {
-        if ($node.Name -eq 'obj_Pointer') { $ordinal += Get-MermaidEnemyRowCount $node.Operands[0] }
-        if ($node.Name -eq 'obj_BeforeEvent') {
-            $id = if ($room -eq '12') { '75' } else { '7d' }
-            $subid = if ($room -eq '2d') { '01' } else { '00' }
-            $enemyOrders.Add("5`t$room`t$id`t$subid`t$ordinal`tobjects/ages/mainData.s:$label")
-        }
-    }
-}
-if ($enemyOrders.Count -ne 4) { throw 'Mermaid native enemy ordering requires all three before-event bodies.' }
-Write-GeneratedTable((Join-Path $destination 'objects/mermaid_enemy_orders.tsv'),$enemyOrders)
 
 $puzzlePath = Join-Path $Disassembly 'object_code/ages/interactions/miscPuzzles.s'
 $puzzle = (Read-ImportText $puzzlePath) -replace '(?m);[^\r\n]*',''

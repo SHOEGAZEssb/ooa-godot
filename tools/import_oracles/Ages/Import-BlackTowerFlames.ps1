@@ -27,7 +27,7 @@ $tables=Read-AssemblyDwTables $animationPath 'part[0-9a-f]{2}Animations' 'partAn
 $pointers=Read-AssemblyDwTables $animationPath 'part[0-9a-f]{2}OamDataPointers' 'partOamData[0-9a-f]+'
 $definitions=Read-AssemblyAnimationDefinitions $animationPath 'partAnimation[0-9a-f]+(?:Loop)?' $false
 $definition=$definitions[$tables['part59Animations'][0]]
-$frames=@($definition.Frames | ForEach-Object { "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $pointers['part59OamDataPointers'][[int]($_.PointerOffset/2)])" })
+$frames=@($definition.Frames | ForEach-Object { "$($_.Duration),$($_.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers['part59OamDataPointers'][[int]($_.PointerOffset/2)])" })
 if ($frames.Count -ne 6 -or $definition.LoopStart -ne 0) {throw 'PART $59 requires its six-frame looping animation.'}
 Copy-EnemySprite 'spr_common_sprites'
 Write-GeneratedTable((Join-Path $destination 'effects/black_tower_flame.tsv'),@(

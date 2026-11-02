@@ -1,7 +1,4 @@
-using Godot;
-using System;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 
 namespace Oracles;

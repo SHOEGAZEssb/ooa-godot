@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace Oracles;
@@ -7,17 +5,13 @@ namespace Oracles;
 // Executes clean-US checkUseItems, updateItems and updateItemsPost in that
 // order. Weapon graphics are already resident; no instruction is replaced.
 // Link movement and target updates belong to the caller, collision to Scan.
-internal sealed class SwordRom
+internal sealed class SwordRom : RomFixture
 {
-    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
-    private readonly byte[] _memory = new byte[0x10000];
-    private readonly OracleCpu _cpu;
-    private int _bank = 6;
     internal int RandomCalls { get; private set; }
     internal List<int> Sounds { get; } = new();
     internal int MovementKeys { get; set; }
 
-    internal SwordRom(int direction, int level, int ring = 0xff, int seed = 0x1234)
+    internal SwordRom(int direction, int level, int ring = 0xff, int seed = 0x1234) : base("Sword", 6)
     {
         this[0xcc2c] = 0xd0;
         this[0xcc2b] = 0xff; // Neutral input retains the supplied facing.
@@ -34,8 +28,6 @@ internal sealed class SwordRom
         this[0xd00d] = 80;
         // Floor beneath all weapon probes; no breakable tile or clink.
         Array.Fill(_memory, (byte)0xa0, 0xcf00, 0x100);
-        _cpu = new OracleCpu(Read, Write, static _ => { },
-            (pc, detail) => new InvalidDataException($"Sword ROM ${_bank:x2}:${pc:x4}: {detail}."));
     }
 
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
@@ -58,23 +50,14 @@ internal sealed class SwordRom
         _cpu.RunCall(address);
     }
 
-    private int Read(int address)
-    {
-        if (address < 0x4000) return _rom.Span[address];
-        if (address < 0x8000) return _rom.Span[_bank * 0x4000 + address - 0x4000];
-        if (Allowed(address)) return _memory[address];
-        throw new InvalidDataException($"Sword ROM ${_bank:x2}:${_cpu.InstructionAddress:x4}: undeclared read ${address:x4}.");
-    }
 
-    private void Write(int address, int value)
+    protected override void Write(int address, int value)
     {
-        if (address == 0x2222) { _bank = value; return; }
         if (address == 0xff94) RandomCalls++;
         if (address is >= 0xc0a0 and <= 0xc0af) Sounds.Add(value);
-        if (Allowed(address)) { _memory[address] = (byte)value; return; }
-        throw new InvalidDataException($"Sword ROM ${_bank:x2}:${_cpu.InstructionAddress:x4}: undeclared write ${address:x4}.");
+        base.Write(address, value);
     }
 
-    private static bool Allowed(int address) => address is
+    protected override bool Allowed(int address) => address is
         >= 0xc000 and < 0xe000 or >= 0xff80 and < 0xffc0;
 }

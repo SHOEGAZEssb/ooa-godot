@@ -62,14 +62,13 @@ function Resolve-CarpenterText([int]$id) {
     $text = [string]$allTexts[$id]
     if ($id -in @(0x2301, 0x2302)) {
         if (!$text.Contains('\call(TX_2300)')) { throw "Carpenter TX_$($id.ToString('x4')) lost its TX_2300 call." }
-        $text = $text.Replace('\call(TX_2300)', [string]$allTexts[0x2300])
     }
     # TX_2304 has no terminator and already ends in the explicit \n control.
     # Physical fallthrough into TX_2305 inserts no additional text byte.
     if ($id -eq 0x2304) {
         if (!$text.EndsWith('\n')) { throw 'Carpenter TX_2304 lost its trailing newline control.' }
-        $text = $text.Substring(0, $text.Length - 2) + "`n" + [string]$allTexts[0x2305]
     }
+    $text = Resolve-DialogueText $id $allTexts $allTextFallthroughIds
     if (!$text -or $text -match '\\(?:call|jump)\(') { throw "Unresolved carpenter TX_$($id.ToString('x4'))" }
     return $text
 }

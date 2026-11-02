@@ -24,7 +24,7 @@ $frames = [Collections.Generic.List[string]]::new()
 foreach ($frame in $definitions[$tables['part45Animations'][0]].Frames) {
     $index = [int]($frame.PointerOffset / 2)
     if ($index -ge $pointers['part45OamDataPointers'].Count) { throw 'PART $45: invalid OAM pointer.' }
-    $frames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers['part45OamDataPointers'][$index])")
+    $frames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers['part45OamDataPointers'][$index])")
 }
 if (!$frames.Count) { throw 'PART $45: missing rolling animation.' }
 $sprite = $gfxNames[$bytes[0]]

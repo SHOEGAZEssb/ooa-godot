@@ -1,7 +1,3 @@
-using Godot;
-using System.Linq;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -127,7 +123,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonBeamosBeam()
     {
-        var data = new BeamosBeamDatabase(AgesGameContent.AssetRoot);
+        var data = AnimatedPartDatabase.Beam(AgesGameContent.AssetRoot);
         FailIf(data.RadiusX != 3 || data.RadiusY != 3 || data.Damage != 2 ||
             data.TileBase != 8 || data.Palette != 4 || data.Animations.Length != 8,
             "PART_BEAM $29 source attributes changed.");

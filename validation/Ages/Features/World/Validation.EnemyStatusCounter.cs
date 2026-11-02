@@ -1,4 +1,3 @@
-using Godot;
 using System.Reflection;
 
 namespace Oracles;
@@ -16,7 +15,7 @@ public sealed partial class ValidationRoot
         for (int repeat = 0; repeat < 2; repeat++)
         {
             var gel = new GelCharacter();
-            gel.Initialize(database.Gel, Room060MovementFixture(), new(64, 64), new());
+            gel.Initialize(database.ImportedEnemy(EnemyId.Gel), Room060MovementFixture(), new(64, 64), new());
             counter.SetValue(gel, value);
             gel.UpdateFrame(new(96, 64), Vector2I.Right, false);
             FailIf(gel.KnockbackCounter != value || gel.Counter1 != 15,

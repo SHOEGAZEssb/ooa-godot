@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 internal sealed class NayruAudienceTalkState(string actor, int resetAnimation, int resetDelay, bool hopping)

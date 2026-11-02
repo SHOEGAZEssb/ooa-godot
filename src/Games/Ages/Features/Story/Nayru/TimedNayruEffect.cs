@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 internal sealed class TimedNayruEffect(NpcCharacter actor, int duration, Vector2 velocity, bool sway, bool musicNote, bool floatsLeft, Vector2 spawnPosition, int soundId)

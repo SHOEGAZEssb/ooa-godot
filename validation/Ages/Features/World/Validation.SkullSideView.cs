@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
@@ -12,10 +8,10 @@ public sealed partial class ValidationRoot
         bool batch = false;
         void Step(int count = 1, Vector2 move = default, bool jump = false) =>
             StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: batch);
-        var placements = new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot).GetRoomRecords(4, 0x68);
+        var placements = SideViewObjectInstructions(4, 0x68).Where(row => row.Id == 0xa1 && row.Opcode is 1 or 2).ToArray();
         var script = new DungeonInteractionDatabase(AgesGameContent.AssetRoot).SidePlatform(1);
-        FailIf(placements is not [{ Order: 0, Id: 0xa1, SubId: 1, Y: 0x48, X: 0x58 },
-                { Order: 1, Id: 0xa1, SubId: 1, Y: 0x48, X: 0x98 }] ||
+        FailIf(placements is not [{ Id: 0xa1, SubId: 1, Y: 0x48, X: 0x58 },
+                { Id: 0xa1, SubId: 1, Y: 0x48, X: 0x98 }] ||
             script is not { Speed: 20, Direction: 4, RadiusY: 9, RadiusX: 7 } ||
             script.Commands is not [{ Direction: MovingSideScrollPlatformDirection.Up, Endpoint: 0x28 },
                 { Direction: MovingSideScrollPlatformDirection.Down, Endpoint: 0x68 }],

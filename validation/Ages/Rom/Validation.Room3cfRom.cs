@@ -1,5 +1,3 @@
-using Godot;
-using System.Linq;
 
 namespace Oracles;
 

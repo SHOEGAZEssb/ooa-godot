@@ -110,110 +110,25 @@ if ($roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
     throw 'Comedian room flag or trade-item constants changed.'
 }
 
-$comedianCommandRows = [Collections.Generic.List[string]]::new()
-$comedianCommandRows.Add(
-    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
-foreach ($command in $comedianCommands) {
-    $opcode = $command.Opcode
-    $actor = ''
-    $arg0 = ''
-    $arg1 = ''
-    $payload = ''
-    switch ($command.Opcode) {
-        'asm15' {
-            switch ($command.Operands) {
-                'comedian_checkGameProgress' {
-                    $opcode = 'native'
-                    $payload = 'comedian_checkGameProgress'
-                }
-                'comedian_disableMustache' {
-                    $opcode = 'native'
-                    $payload = 'comedian_disableMustache'
-                }
-                'comedian_enableMustache' {
-                    $opcode = 'native'
-                    $payload = 'comedian_enableMustache'
-                }
-                default {
-                    throw "Unsupported comedian asm15 '$($command.Operands)' at source line $($command.Line)."
-                }
-            }
-        }
-        'jumpifroomflagset' {
-            if ($command.Operands -notmatch
-                '^ROOMFLAG_ITEM,\s*(?<target>@[A-Za-z0-9_]+)$') {
-                throw "Malformed comedian room-flag branch at source line $($command.Line)."
-            }
-            $arg0 = '20'
-            $arg1 = $comedianTargets[$Matches['target']].ToString()
-        }
-        'setanimation' {
-            if ($command.Operands -notmatch '^\$(?<animation>0[15])$') {
-                throw "Unexpected comedian animation '$($command.Operands)'."
-            }
-            $animation = [Convert]::ToInt32($Matches['animation'], 16)
-            $actor = 'Comedian'
-            $arg0 = $Matches['animation']
-            $payload = $comedianAnimations[$animation]
-        }
-        'scriptjump' {
-            if (-not $comedianTargets.ContainsKey($command.Operands)) {
-                throw "Unknown comedian branch target '$($command.Operands)'."
-            }
-            $arg0 = $comedianTargets[$command.Operands].ToString()
-        }
-        'initcollisions' { $actor = 'Comedian' }
-        'checkabutton' { $actor = 'Comedian' }
-        'jumptable_objectbyte' {
-            if ($command.Operands -ne 'Interaction.var3f') {
-                throw "Unexpected comedian jump-table binding '$($command.Operands)'."
-            }
-            $opcode = 'jumptablememory'
-            $payload = "ComedianProgress|$($comedianTargets['@beforeBeatD2']),$($comedianTargets['@afterBeatD2']),$($comedianTargets['@afterBeatMoonlitGrotto'])"
-        }
-        'showtextlowindex' {
-            if ($command.Operands -notmatch '^<TX_(?<id>0b(?:2[c-f]|3[0-2]))$') {
-                throw "Unexpected comedian text '$($command.Operands)'."
-            }
-            $textId = [Convert]::ToInt32($Matches['id'], 16)
-            $opcode = 'showtext'
-            $arg0 = $Matches['id']
-            $payload = $allTexts[$textId]
-        }
-        'wait' {
-            if ($command.Operands -ne '30') {
-                throw "Unexpected comedian wait '$($command.Operands)'."
-            }
-            $arg0 = '30'
-        }
-        'jumpiftradeitemeq' {
-            if ($command.Operands -notmatch
-                '^TRADEITEM_CHEESY_MUSTACHE,\s*(?<target>@[A-Za-z0-9_]+)$') {
-                throw "Malformed comedian trade-item branch at source line $($command.Line)."
-            }
-            $arg0 = '06'
-            $arg1 = $comedianTargets[$Matches['target']].ToString()
-        }
-        'jumpiftextoptioneq' {
-            if ($command.Operands -notmatch
-                '^\$00,\s*(?<target>@[A-Za-z0-9_]+)$') {
-                throw "Malformed comedian choice branch at source line $($command.Line)."
-            }
-            $arg0 = '00'
-            $arg1 = $comedianTargets[$Matches['target']].ToString()
-        }
-        'giveitem' {
-            if ($command.Operands -ne 'TREASURE_TRADEITEM,$07') {
-                throw "Unexpected comedian reward '$($command.Operands)'."
-            }
-            $arg0 = '41'
-            $arg1 = '07'
-        }
-    }
-    $comedianCommandRows.Add((New-CutsceneCommandRow `
-        $command.Script $command.Index $command.Label $command.Line `
-        $opcode $actor "$arg0" "$arg1" $payload))
+$comedianBindings = @{
+    'asm15|comedian_checkGameProgress' = @{ Opcode='native'; Payload='comedian_checkGameProgress' }
+    'asm15|comedian_disableMustache' = @{ Opcode='native'; Payload='comedian_disableMustache' }
+    'asm15|comedian_enableMustache' = @{ Opcode='native'; Payload='comedian_enableMustache' }
+    'jumptable_objectbyte|Interaction.var3f' = @{ Opcode='jumptablememory'
+        Payload="ComedianProgress|$($comedianProgressTargets.ForEach({ $comedianTargets[$_] }) -join ',')" }
 }
+$comedianTexts = @{}
+foreach ($id in 0x0b2c..0x0b32) { $comedianTexts[$id] = $allTexts[$id] }
+foreach ($c in $comedianCommands) {
+    if ($c.Opcode -eq 'wait' -and $c.Operands -ne '30' -or
+        $c.Opcode -eq 'giveitem' -and $c.Operands -ne 'TREASURE_TRADEITEM,$07' -or
+        $c.Opcode -eq 'jumpiftextoptioneq' -and $c.Operands -notmatch '^\$00,\s*@\w+$') {
+        throw "$($c.Path):$($c.Line): unexpected comedian operand '$($c.Operands)'."
+    }
+}
+$comedianCommandRows = ConvertTo-CutsceneCommandRows $comedianCommands 'Comedian' `
+    -symbols @{ ROOMFLAG_ITEM=0x20; TRADEITEM_CHEESY_MUSTACHE=0x06; TREASURE_TRADEITEM=0x41 } `
+    -texts $comedianTexts -animations @{ 1=$comedianAnimations[1]; 5=$comedianAnimations[5] } -bindings $comedianBindings
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\comedian_commands.tsv'),
     $comedianCommandRows)
@@ -347,149 +262,39 @@ if ($roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
     throw 'Depressed-boy room flag or trade-item constants changed.'
 }
 
-$depressedBoyCommandRows = [Collections.Generic.List[string]]::new()
-$depressedBoyCommandRows.Add($cutsceneCommandHeader)
-foreach ($command in $depressedBoyCommands) {
-    $opcode = $command.Opcode
-    $actor = ''
-    $arg0 = ''
-    $arg1 = ''
-    $payload = ''
-    switch ($command.Opcode) {
-        'initcollisions' { $actor = 'DepressedBoy' }
-        'checkabutton' { $actor = 'DepressedBoy' }
-        'checkmemoryeq' {
-            switch ($command.Operands) {
-                'wMenuDisabled, $00' {
-                    $arg0 = '00'
-                    $payload = 'MenuDisabled'
-                }
-                'w1Link.id, SPECIALOBJECT_LINK' {
-                    $arg0 = '00'
-                    $payload = 'LinkObjectId'
-                }
-                default {
-                    throw "Unsupported depressed-boy memory gate '$($command.Operands)'."
-                }
-            }
-        }
-        'asm15' {
-            $payload = switch ($command.Operands) {
-                'darkenRoomLightly' { 'DarkenRoomLightly'; break }
-                'moveLinkToPosition, $02' { 'MoveLinkToFunnyJokePosition'; break }
-                'setLinkToState08AndSetDirection, DIR_DOWN' { 'SetLinkNormalDown'; break }
-                'boy_runFunnyJokeCutscene' { 'AdvanceFunnyJokeDance'; break }
-                'restartSound' { 'RestartSound'; break }
-                'setLinkToState08AndSetDirection, DIR_UP' { 'SetLinkNormalUp'; break }
-                default {
-                    throw "Unsupported depressed-boy asm15 '$($command.Operands)'."
-                }
-            }
-            $opcode = 'native'
-        }
-        'checkpalettefadedone' {
-            $opcode = 'gate'
-            $payload = 'PaletteFade'
-        }
-        'jumpifroomflagset' {
-            if ($command.Operands -notmatch
-                '^\$20,\s*(?<target>@[A-Za-z0-9_]+)$') {
-                throw "Malformed depressed-boy room-flag branch at line $($command.Line)."
-            }
-            $arg0 = '20'
-            $arg1 = $depressedBoyTargets[$Matches['target']].ToString()
-        }
-        'jumpiftradeitemeq' {
-            if ($command.Operands -notmatch
-                '^TRADEITEM_FUNNY_JOKE,\s*(?<target>@[A-Za-z0-9_]+)$') {
-                throw "Malformed depressed-boy trade branch at line $($command.Line)."
-            }
-            $arg0 = '07'
-            $arg1 = $depressedBoyTargets[$Matches['target']].ToString()
-        }
-        'showtext' {
-            if ($command.Operands -notmatch '^TX_(?<id>251[5-8])$') {
-                throw "Unexpected depressed-boy text '$($command.Operands)'."
-            }
-            $textId = [Convert]::ToInt32($Matches['id'], 16)
-            $arg0 = $Matches['id']
-            $payload = Resolve-OceanText $textId ([Collections.Generic.HashSet[int]]::new())
-        }
-        'scriptjump' {
-            if (-not $depressedBoyTargets.ContainsKey($command.Operands)) {
-                throw "Unknown depressed-boy branch '$($command.Operands)'."
-            }
-            $arg0 = $depressedBoyTargets[$command.Operands].ToString()
-        }
-        'wait' {
-            if ($command.Operands -notin @('1', '30', '40', '120')) {
-                throw "Unexpected depressed-boy wait '$($command.Operands)'."
-            }
-            $arg0 = $command.Operands
-        }
-        'jumpiftextoptioneq' {
-            if ($command.Operands -notmatch
-                '^\$00,\s*(?<target>@[A-Za-z0-9_]+)$') {
-                throw "Malformed depressed-boy choice branch at line $($command.Line)."
-            }
-            $arg0 = '00'
-            $arg1 = $depressedBoyTargets[$Matches['target']].ToString()
-        }
-        'writeobjectbyte' {
-            if ($command.Operands -notmatch
-                '^Interaction\.var(?<address>3d),\s*\$(?<value>0[01])$') {
-                throw "Unexpected depressed-boy object write '$($command.Operands)'."
-            }
-            $actor = 'DepressedBoy'
-            $arg0 = $Matches['address']
-            $arg1 = $Matches['value']
-        }
-        'setmusic' {
-            if ($command.Operands -ne 'MUS_CRAZY_DANCE') {
-                throw "Unexpected depressed-boy music '$($command.Operands)'."
-            }
-            $arg0 = '31'
-        }
-        'jumpifmemoryset' {
-            if ($command.Operands -notmatch
-                '^wcddb,\s*\$80,\s*(?<target>@[A-Za-z0-9_]+)$') {
-                throw "Malformed depressed-boy flags branch at line $($command.Line)."
-            }
-            $opcode = 'jumpifmemoryeqyieldonmiss'
-            $arg0 = '01'
-            $arg1 = $depressedBoyTargets[$Matches['target']].ToString()
-            $payload = 'DanceComplete'
-        }
-        'playsound' {
-            if ($command.Operands -ne 'SND_SWORD_OBTAINED') {
-                throw "Unexpected depressed-boy sound '$($command.Operands)'."
-            }
-            $arg0 = 'ab'
-        }
-        'writememory' {
-            if ($command.Operands -ne 'wcc50, LINK_ANIM_MODE_GETITEM2HAND') {
-                throw "Unexpected depressed-boy Link animation write '$($command.Operands)'."
-            }
-            $opcode = 'native'
-            $payload = 'SetLinkGetItemTwoHand'
-        }
-        'giveitem' {
-            if ($command.Operands -ne 'TREASURE_TRADEITEM, $08' -and
-                $command.Operands -ne 'TREASURE_TRADEITEM,$08') {
-                throw "Unexpected depressed-boy reward '$($command.Operands)'."
-            }
-            $arg0 = '41'
-            $arg1 = '08'
-        }
-        'resetmusic' {
-            $opcode = 'native'
-            $payload = 'ResetMusic'
-        }
-    }
-    $depressedBoyCommandRows.Add((New-CutsceneCommandRow `
-        $command.Script $command.Index $command.Label $command.Line `
-        $opcode $actor "$arg0" "$arg1" $payload))
+$depressedBoyBindings = @{
+    'asm15|darkenRoomLightly' = @{ Opcode='native'; Payload='DarkenRoomLightly' }
+    'asm15|moveLinkToPosition, $02' = @{ Opcode='native'; Payload='MoveLinkToFunnyJokePosition' }
+    'asm15|setLinkToState08AndSetDirection, DIR_DOWN' = @{ Opcode='native'; Payload='SetLinkNormalDown' }
+    'asm15|boy_runFunnyJokeCutscene' = @{ Opcode='native'; Payload='AdvanceFunnyJokeDance' }
+    'asm15|restartSound' = @{ Opcode='native'; Payload='RestartSound' }
+    'asm15|setLinkToState08AndSetDirection, DIR_UP' = @{ Opcode='native'; Payload='SetLinkNormalUp' }
+    'checkpalettefadedone|' = @{ Opcode='gate'; Payload='PaletteFade' }
+    'setmusic|MUS_CRAZY_DANCE' = @{ Opcode='setmusic'; Arg0='31' }
+    'playsound|SND_SWORD_OBTAINED' = @{ Opcode='playsound'; Arg0='ab' }
+    'writememory|wcc50, LINK_ANIM_MODE_GETITEM2HAND' = @{ Opcode='native'; Payload='SetLinkGetItemTwoHand' }
+    'resetmusic|' = @{ Opcode='native'; Payload='ResetMusic' }
+    'jumpifmemoryset|wcddb, $80, @doneFunnyJokeCutscene' = @{
+        Opcode='jumpifmemoryeqyieldonmiss'; Arg0='01'
+        Arg1=[string]$depressedBoyTargets['@doneFunnyJokeCutscene']; Payload='DanceComplete' }
 }
+$depressedBoyTexts = @{}
+foreach ($id in 0x2515..0x2518) { $depressedBoyTexts[$id] = Resolve-OceanText $id ([Collections.Generic.HashSet[int]]::new()) }
+foreach ($c in $depressedBoyCommands) {
+    if ($c.Opcode -eq 'wait' -and $c.Operands -notin @('1','30','40','120') -or
+        $c.Opcode -eq 'writeobjectbyte' -and $c.Operands -notmatch '^Interaction\.var3d,\s*\$0[01]$' -or
+        $c.Opcode -eq 'giveitem' -and $c.Operands -notmatch '^TREASURE_TRADEITEM,\s*\$08$' -or
+        $c.Opcode -eq 'jumpifroomflagset' -and $c.Operands -notmatch '^\$20,\s*@\w+$' -or
+        $c.Opcode -eq 'jumpiftextoptioneq' -and $c.Operands -notmatch '^\$00,\s*@\w+$' -or
+        $c.Opcode -eq 'writememory' -and $c.Operands -ne 'wcc50, LINK_ANIM_MODE_GETITEM2HAND' -or
+        $c.Opcode -eq 'checkmemoryeq' -and $c.Operands -notin @('wMenuDisabled, $00','w1Link.id, SPECIALOBJECT_LINK')) {
+        throw "$($c.Path):$($c.Line): unexpected depressed-boy operand '$($c.Operands)'."
+    }
+}
+$depressedBoyCommandRows = ConvertTo-CutsceneCommandRows $depressedBoyCommands 'DepressedBoy' `
+    -symbols @{ TRADEITEM_FUNNY_JOKE=0x07; TREASURE_TRADEITEM=0x41; 'Interaction.var3d'=0x3d
+        wMenuDisabled='MenuDisabled'; 'w1Link.id'='LinkObjectId'; SPECIALOBJECT_LINK=0 } `
+    -texts $depressedBoyTexts -bindings $depressedBoyBindings
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\depressed_boy_commands.tsv'),
     $depressedBoyCommandRows)

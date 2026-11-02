@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using Godot;
 using static Oracles.MenuPresentationTable;
 
 namespace Oracles;

@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -34,24 +31,24 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
     public bool UpdatesDuringDialogue => !_initialized;
 
     internal MovingSideScrollPlatformRoomEntity(
-        MovingSideScrollPlatformPlacement placement,
+        Vector2 position,
         MovingSideScrollPlatformRecord record,
         DungeonInteractionVisual visual)
     {
         AssetRoot = visual.AssetRoot;
         _record = record;
         Name =
-            $"MovingSideScrollPlatform_{placement.SubId:x2}_{placement.Order}";
+            $"MovingSideScrollPlatform_{record.SubId:x2}_{position.X}_{position.Y}";
         ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         // Directions $01-$03 use 48-pixel OAM layouts. The fixed 32x32
         // compositor clips their long axis and makes the source collision
         // radii appear oversized, so preserve the complete positioned frame.
         InitializeVisual(
             visual,
-            placement.Position,
+            position,
             record.Direction,
             positionedOam: true);
-        _precisePosition = placement.Position;
+        _precisePosition = position;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

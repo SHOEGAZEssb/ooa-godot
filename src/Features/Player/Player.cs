@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 
@@ -6731,13 +6729,6 @@ public partial class Player : Node2D
         return Mathf.Floor(value) <= target ? value + 1.0f : value - 1.0f;
     }
 
-    private static int GetTerrainHazardDamageQuarters(HazardType hazard)
-    {
-        // The original LINK_STATE_RESPAWNING path applies damageToApply=$fc
-        // after Link reappears; linkApplyDamage consumes that as two
-        // quarter-hearts, ie. a half-heart.
-        return hazard == HazardType.None ? 0 : TerrainHazardDamageQuarters;
-    }
 
     private void StartDrowning(HazardType hazard)
     {

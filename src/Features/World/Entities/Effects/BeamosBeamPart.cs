@@ -1,4 +1,3 @@
-using Godot;
 
 namespace Oracles;
 
@@ -7,7 +6,7 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
 {
     private BeamosBehaviorProfile? _behaviorSourceCache;
     private BeamosBehaviorProfile _behavior => _behaviorSourceCache ??= BeamosDatabase.For(AssetRoot).Behavior;
-    private readonly BeamosBeamDatabase _data;
+    private readonly AnimatedPartDatabase _data;
     private readonly OracleRoomData _room;
     private readonly OracleRuntimeState? _runtime;
     private readonly EnemyAnimationPlayer _animation;
@@ -24,7 +23,7 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
     internal Rect2 CollisionBounds => new(Position - new Vector2(_data.RadiusX, _data.RadiusY),
         new Vector2(_data.RadiusX * 2, _data.RadiusY * 2));
 
-    internal BeamosBeamPart(BeamosBeamSpawn spawn, BeamosBeamDatabase data, OracleRoomData room, OracleRuntimeState? runtime = null)
+    internal BeamosBeamPart(BeamosBeamSpawn spawn, AnimatedPartDatabase data, OracleRoomData room, OracleRuntimeState? runtime = null)
     {
         AssetRoot = data.AssetRoot;
         _data = data;

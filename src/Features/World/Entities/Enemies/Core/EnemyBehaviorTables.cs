@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading;
 
@@ -75,8 +72,6 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorValue> ArrowDarknutDirectionMask { get; }
     internal IReadOnlyList<EnemyBehaviorValue> ArrowDarknutCollisionEffects { get; }
     internal IReadOnlyList<EnemyBehaviorValue> PodobooTower => PodobooTowerDatabase.For(_assetRoot).State;
-    internal IReadOnlyList<EnemyBehaviorValue> PodobooTowerRadii => PodobooTowerDatabase.For(_assetRoot).Radii;
-    internal IReadOnlyList<EnemyBehaviorValue> PodobooTowerCollisionEffects => PodobooTowerDatabase.For(_assetRoot).CollisionEffects;
     internal BabyCuccoBehaviorProfile BabyCucco { get; }
     internal CuccoBehaviorProfile Cucco { get; }
     internal GiantCuccoBehaviorProfile GiantCucco { get; }

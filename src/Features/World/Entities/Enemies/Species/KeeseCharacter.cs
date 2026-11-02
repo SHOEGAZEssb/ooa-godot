@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 
@@ -20,7 +18,7 @@ public partial class KeeseCharacter : EnemyCharacter
     private bool _flying;
     private bool _hookHitPending;
 
-    public EnemyDatabaseEnemyRecord Record { get; private set; }
+    public KeeseDefinition Record { get; private set; }
     internal KeeseState State => _state;
     internal int Counter1 => _counter1;
     internal int Counter2 { get => _counter2; set => _counter2 = checked((byte)value); }
@@ -34,7 +32,7 @@ public partial class KeeseCharacter : EnemyCharacter
         new(-16, -16 + SpriteHeight);
 
     internal void Initialize(
-        EnemyDatabaseEnemyRecord record,
+        KeeseDefinition record,
         OracleRoomData room,
         Vector2 position,
         OracleRandom random)

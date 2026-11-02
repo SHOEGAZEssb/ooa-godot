@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
@@ -533,8 +529,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         IReadOnlyList<DungeonObjectRecord> laterDungeonRecords = Resources.LaterDungeonRecords(group, room.Id);
         if (laterDungeonRecords.Any(record => record.Kind == DungeonObjectKind.MermaidTorchOrder))
             lightableTorchState ??= new LightableTorchState();
-        IReadOnlyList<MovingSideScrollPlatformPlacement> sidePlatformRecords =
-            Resources.SidePlatforms.GetRoomRecords(group, room.Id);
         ColoredCubePuzzleState? spiritsGravePuzzle =
             group == 4 && room.Id == 0x20 ? CreateColoredCubePuzzleState() : null;
         ColoredCubePuzzleState? wingDungeonPuzzle =
@@ -546,41 +540,19 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             ? CreateColoredCubePuzzleState() : null;
         bool enemyMechanicsSupported = DungeonEnemyMechanicsAreSupported(
             dungeonRecords, group, room);
-        int mechanicIndex = 0;
-        int sharedIndex = 0;
-        int spiritsGraveIndex = 0;
-        int wingDungeonIndex = 0;
-        int moonlitGrottoIndex = 0;
-        int laterDungeonIndex = 0;
-        int sidePlatformIndex = 0;
-        while (mechanicIndex < dungeonRecords.Count ||
-               sharedIndex < sharedDungeonRecords.Count ||
-               spiritsGraveIndex < spiritsGraveRecords.Count ||
-               wingDungeonIndex < wingDungeonRecords.Count ||
-               moonlitGrottoIndex < moonlitGrottoRecords.Count ||
-               laterDungeonIndex < laterDungeonRecords.Count ||
-               sidePlatformIndex < sidePlatformRecords.Count)
+        // Equal-order precedence matches the source merge; sort operands before constructing any live object.
+        var dungeonPlacements = dungeonRecords.Select((record, index) => (record.Order, Family: 0, Index: index))
+            .Concat(moonlitGrottoRecords.Select((record, index) => (record.Order, Family: 1, Index: index)))
+            .Concat(wingDungeonRecords.Select((record, index) => (record.Order, Family: 2, Index: index)))
+            .Concat(spiritsGraveRecords.Select((record, index) => (record.Order, Family: 3, Index: index)))
+            .Concat(sharedDungeonRecords.Select((record, index) => (record.Order, Family: 4, Index: index)))
+            .Concat(laterDungeonRecords.Select((record, index) => (record.Order, Family: 5, Index: index)))
+            .OrderBy(record => record.Order).ThenBy(record => record.Family);
+        foreach (var placement in dungeonPlacements)
         {
-            int mechanicOrder = mechanicIndex < dungeonRecords.Count
-                ? dungeonRecords[mechanicIndex].Order : int.MaxValue;
-            int sharedOrder = sharedIndex < sharedDungeonRecords.Count
-                ? sharedDungeonRecords[sharedIndex].Order : int.MaxValue;
-            int spiritsGraveOrder = spiritsGraveIndex < spiritsGraveRecords.Count
-                ? spiritsGraveRecords[spiritsGraveIndex].Order : int.MaxValue;
-            int wingDungeonOrder = wingDungeonIndex < wingDungeonRecords.Count
-                ? wingDungeonRecords[wingDungeonIndex].Order : int.MaxValue;
-            int moonlitGrottoOrder =
-                moonlitGrottoIndex < moonlitGrottoRecords.Count
-                    ? moonlitGrottoRecords[moonlitGrottoIndex].Order
-                    : int.MaxValue;
-            int sidePlatformOrder = sidePlatformIndex < sidePlatformRecords.Count
-                ? sidePlatformRecords[sidePlatformIndex].Order : int.MaxValue;
-            int laterDungeonOrder = laterDungeonIndex < laterDungeonRecords.Count
-                ? laterDungeonRecords[laterDungeonIndex].Order : int.MaxValue;
-            if (laterDungeonOrder < Math.Min(mechanicOrder, Math.Min(sharedOrder,
-                Math.Min(spiritsGraveOrder, Math.Min(wingDungeonOrder, Math.Min(moonlitGrottoOrder, sidePlatformOrder))))))
+            if (placement.Family == 5)
             {
-                var record = laterDungeonRecords[laterDungeonIndex++];
+                var record = laterDungeonRecords[placement.Index];
                 if (!DungeonObjectConditionMet(record)) continue;
                 if (record.Kind is DungeonObjectKind.CavePortal or DungeonObjectKind.CavePuzzle or DungeonObjectKind.Lever or DungeonObjectKind.LeverLavaFiller && !owner.InteractionSlotAvailable)
                     continue;
@@ -821,15 +793,10 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 };
                 continue;
             }
-            bool useShared = sharedOrder < mechanicOrder &&
-                sharedOrder < spiritsGraveOrder &&
-                sharedOrder < wingDungeonOrder &&
-                sharedOrder < moonlitGrottoOrder &&
-                sharedOrder < sidePlatformOrder;
-            if (useShared)
+            if (placement.Family == 4)
             {
                 PlacementRecord record =
-                    sharedDungeonRecords[sharedIndex++];
+                    sharedDungeonRecords[placement.Index];
                 if (!owner.InteractionSlotAvailable) continue;
                 // Room 4:e7 places a construction soldier before its dungeon
                 // entry handler. CreateBlackTowerNpcs inserts this one record
@@ -845,13 +812,10 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 continue;
             }
 
-            if (spiritsGraveOrder < mechanicOrder &&
-                spiritsGraveOrder < wingDungeonOrder &&
-                spiritsGraveOrder < moonlitGrottoOrder &&
-                spiritsGraveOrder < sidePlatformOrder)
+            if (placement.Family == 3)
             {
                 DungeonObjectRecord record =
-                    spiritsGraveRecords[spiritsGraveIndex++];
+                    spiritsGraveRecords[placement.Index];
                 if (!DungeonObjectConditionMet(record))
                     continue;
                 IRoomEntity? entity = CreateSpiritsGraveInteraction(
@@ -861,12 +825,10 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 continue;
             }
 
-            if (wingDungeonOrder < mechanicOrder &&
-                wingDungeonOrder < moonlitGrottoOrder &&
-                wingDungeonOrder < sidePlatformOrder)
+            if (placement.Family == 2)
             {
                 DungeonObjectRecord record =
-                    wingDungeonRecords[wingDungeonIndex++];
+                    wingDungeonRecords[placement.Index];
                 if (!DungeonObjectConditionMet(record))
                     continue;
                 IRoomEntity? entity = CreateWingDungeonInteraction(
@@ -876,11 +838,10 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 continue;
             }
 
-            if (moonlitGrottoOrder < mechanicOrder &&
-                moonlitGrottoOrder < sidePlatformOrder)
+            if (placement.Family == 1)
             {
                 DungeonObjectRecord record =
-                    moonlitGrottoRecords[moonlitGrottoIndex++];
+                    moonlitGrottoRecords[placement.Index];
                 if (!DungeonObjectConditionMet(record))
                     continue;
                 IRoomEntity? entity = CreateMoonlitGrottoInteraction(
@@ -890,19 +851,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 continue;
             }
 
-            if (sidePlatformOrder < mechanicOrder)
-            {
-                MovingSideScrollPlatformPlacement placement =
-                    sidePlatformRecords[sidePlatformIndex++];
-                if (!owner.InteractionSlotAvailable) continue;
-                yield return new MovingSideScrollPlatformRoomEntity(
-                    placement,
-                    Resources.DungeonInteractions.SidePlatform(placement.SubId),
-                    Resources.DungeonVisuals.Visual("moving-side-platform"));
-                continue;
-            }
-
-            DungeonMechanicDatabaseRecord mechanic = dungeonRecords[mechanicIndex++];
+            DungeonMechanicDatabaseRecord mechanic = dungeonRecords[placement.Index];
             IRoomEntity? mechanicEntity = CreateDungeonMechanic(
                 mechanic, room, group, enemyMechanicsSupported, placementContext,
                 lightableTorchState);
@@ -1346,13 +1295,19 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         var program = NativeObjectStreamDatabase.For(AssetRoot);
         var orders = new Dictionary<int,int>();
         for (int index = 0; index < enemyStream.Count; index++)
-            orders.Add(program.LegacyPlacementAddress(group,room.Id,index),index);
+            orders.Add(enemyStream[index].NativeAddress,index);
         var nativeBodies = deferredMermaidEnemies.ToDictionary(
             record => program.Entry($"group{record.Group:x1}Map{record.Room:x2}BeforeEventObjectData"));
         var reader = new NativeObjectStreamReader(program, _runtimeState,
             () => _saveData?.GetRoomFlags(group,room.Id) ?? 0);
         foreach (var instruction in reader.Read(program.Root(group,room.Id)))
         {
+            if (instruction.Opcode is 1 or 2 && instruction.Id == 0xa1)
+            {
+                if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
+                yield return CreateStreamInteraction(instruction, room, placementContext);
+                continue;
+            }
             if (nativeBodies.TryGetValue(instruction.Address, out var body))
             {
                 if (instruction.Id != body.Id || instruction.SubId != body.SubId)
@@ -1372,6 +1327,13 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
                 yield return entity;
         }
     }
+
+    public IRoomEntity CreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room, EnemyPlacementContext placement) =>
+        source is { Opcode: 1 or 2, Id: 0xa1 } ?
+            new MovingSideScrollPlatformRoomEntity(new(source.X, source.Y),
+                Resources.DungeonInteractions.SidePlatform(source.SubId),
+                Resources.DungeonVisuals.Visual("moving-side-platform")) :
+            throw new NotSupportedException($"{source.Source}: Ages INTERAC ${source.Id:x2}:${source.SubId:x2} has no native construction binding.");
 
     public IEnumerable<IRoomEntity> CreateStaticRoomEntities(int group, OracleRoomData room)
     {
@@ -3536,12 +3498,12 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             record.Id == Resources.DumbbellMan.Record.InteractionId &&
             record.SubId == Resources.DumbbellMan.Record.SubId)
         {
-            var man = new DumbbellManCharacter
+            var man = new TradeNpcCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
                 ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
-            man.InitializeDumbbellMan(record, Resources.DumbbellMan.Record);
+            man.InitializeTradeNpc(record, Resources.DumbbellMan.Record);
             return new NpcTalkRoomEntity(man);
         }
         if (record.Id == AgesInteractionId.OldZora && record.SubId == 0)
@@ -3559,12 +3521,12 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             record.Id == Resources.MaskSalesman.Record.InteractionId &&
             record.SubId == Resources.MaskSalesman.Record.SubId)
         {
-            var salesman = new MaskSalesmanCharacter
+            var salesman = new TradeNpcCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
                 ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
-            salesman.InitializeMaskSalesman(record, Resources.MaskSalesman.Record);
+            salesman.InitializeTradeNpc(record, Resources.MaskSalesman.Record);
             return new NpcTalkRoomEntity(salesman);
         }
         if (Resources.Cheval.Matches(record))

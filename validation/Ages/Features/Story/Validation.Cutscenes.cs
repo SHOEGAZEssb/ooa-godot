@@ -1,8 +1,4 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace Oracles;
 
@@ -3213,12 +3209,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x39);
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        System.Reflection.MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
-            "LoadFromSaveData",
-            System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic);
-        FailIf(reloadInventory is null, "Could not restore validation inventory state.");
-        reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
         _saveData.SetMakuTreeState(originalState);
         _saveData.SetMakuMapTextPresent(originalMapText);
         _saveData.SetMakuTreeSeedSatchelXPosition(originalSatchelX);
@@ -3259,11 +3250,7 @@ public sealed partial class ValidationRoot
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         var inventorySnapshot = new byte[0x39];
         _saveData.ReadWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
-        System.Reflection.MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
-            "LoadFromSaveData",
-            System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic);
-        FailIf(reloadInventory is null, "Could not reload comedian validation inventory.");
+
 
         void SetInventoryState(int essences, int tradeItem, bool obtained)
         {
@@ -3275,7 +3262,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(tradeItemAddress, (byte)tradeItem);
             _saveData.WriteWramByte(tradeObtainedAddress, flags);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
         }
 
         CutsceneShowTextCommand Text(int textId) =>
@@ -3476,7 +3463,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x55);
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        reloadInventory.Invoke(_inventory, new object[] { _saveData });
+
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
         {
             _saveData.SetRoomFlag(

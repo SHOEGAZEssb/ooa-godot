@@ -1,6 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -14,9 +11,8 @@ public sealed class EnemyDatabase
 
 
     private readonly Lookup<int, RoomObjectRecord> _roomObjectsByRoom = new();
-    private readonly Dictionary<int, StalfosDefinition> _stalfosDefinitions = new();
-    private readonly Dictionary<int, ZolDefinition> _zolDefinitions = new();
-    private readonly Dictionary<int, CrowDefinition> _crowDefinitions = new();
+    private readonly Dictionary<int, StalfosRecord> _stalfosDefinitions = new();
+    private readonly Dictionary<int, CrowRecord> _crowDefinitions = new();
     private readonly IReadOnlyDictionary<(int Id, int SubId), ImportedEnemyDefinition> _importedDefinitions;
     private readonly Dictionary<int, Color[]> _colorChangingGelPalettes = new();
 
@@ -27,7 +23,6 @@ public sealed class EnemyDatabase
     internal EnemyProjectileVisualRecord LynelBeam { get; }
     internal EnemyProjectileVisualRecord CandleFlame { get; }
     internal EnemyProjectileVisualRecord VireProjectile { get; }
-    public GelDefinition Gel { get; }
     internal IReadOnlyDictionary<int, Color[]> ColorChangingGelPalettes =>
         _colorChangingGelPalettes;
     internal EnemyHandlerRegistry EnemyHandlers { get; }
@@ -322,7 +317,7 @@ public sealed class EnemyDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            CrowDefinition definition = new CrowDefinition(AssetRoot,
+            CrowRecord definition = new CrowRecord(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.RequiredString(2),
@@ -364,7 +359,7 @@ public sealed class EnemyDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            StalfosDefinition definition = new StalfosDefinition(AssetRoot,
+            StalfosRecord definition = new StalfosRecord(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.RequiredString(2),
@@ -390,117 +385,12 @@ public sealed class EnemyDatabase
                 "Expected ENEMY_STALFOS $31:$00/$02 definitions.");
         }
 
-        table = GeneratedTable.Load(
-            AssetRoot + "objects/zols.tsv",
-            new GeneratedTableSchema(
-                "Zol definitions",
-                GeneratedTableKeySemantics.Unique,
-                [
-                    "id", "subid", "sprite", "tile-base", "palette", "radius-y",
-                    "radius-x", "damage-quarters", "health", "animation-0",
-                    "animation-1", "animation-2", "animation-3", "animation-4",
-                    "animation-5", "raw-damage"
-                ],
-                ["id", "subid"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            ZolDefinition definition = new ZolDefinition(AssetRoot,
-                row.HexByte(0),
-                row.HexByte(1),
-                row.RequiredString(2),
-                row.UnsignedDecimal(3),
-                row.UnsignedDecimal(4),
-                row.UnsignedDecimal(5),
-                row.UnsignedDecimal(6),
-                row.UnsignedDecimal(7),
-                row.UnsignedDecimal(8),
-                row.RequiredString(9),
-                row.RequiredString(10),
-                row.RequiredString(11),
-                row.RequiredString(12),
-                row.RequiredString(13),
-                row.RequiredString(14), row.HexByte(15));
-            if (definition.Id != EnemyId.Zol ||
-                !_zolDefinitions.TryAdd(definition.SubId, definition))
-            {
-                throw row.Invalid(0, "unique ENEMY_ZOL $34 definition");
-            }
-        }
-        if (_zolDefinitions.Count != 2)
-            throw new InvalidOperationException(
-                $"Expected two Zol definitions, got {_zolDefinitions.Count}.");
-
-        table = GeneratedTable.Load(
-            AssetRoot + "objects/gels.tsv",
-            new GeneratedTableSchema(
-                "Gel definitions",
-                GeneratedTableKeySemantics.Unique,
-                [
-                    "id", "subid", "sprite", "tile-base", "palette", "radius-y",
-                    "radius-x", "damage-quarters", "health", "animation-0",
-                    "animation-1", "animation-2", "raw-damage"
-                ],
-                ["id", "subid"],
-                headerRequired: true));
-        GeneratedTableRow gel = table.SingleRow();
-        Gel = new GelDefinition(AssetRoot,
-            gel.HexByte(0),
-            gel.HexByte(1),
-            gel.RequiredString(2),
-            gel.UnsignedDecimal(3),
-            gel.UnsignedDecimal(4),
-            gel.UnsignedDecimal(5),
-            gel.UnsignedDecimal(6),
-            gel.UnsignedDecimal(7),
-            gel.UnsignedDecimal(8),
-            gel.RequiredString(9),
-            gel.RequiredString(10),
-            gel.RequiredString(11), gel.HexByte(12));
-        if (Gel is not { Id: EnemyId.Gel, SubId: 0x00 })
-            throw gel.Invalid(0, "ENEMY_GEL $43:$00 definition");
-
-        table = GeneratedTable.Load(
-            AssetRoot + "objects/enemy_object_stream.tsv",
-            new GeneratedTableSchema(
-                "ordered enemy object stream",
-                GeneratedTableKeySemantics.Grouped,
-                [
-                    "group", "room", "order", "kind", "id", "subid", "flags", "count",
-                    "y", "x", "packed-position", "condition-mask", "var03"
-                ],
-                ["group", "room"],
-                headerRequired: true));
         int records = 0;
-        foreach (GeneratedTableRow row in table.Rows)
+        foreach (RoomObjectRecord record in NativeObjectStreamDatabase.For(AssetRoot).RoomObjects())
         {
-            RoomObjectRecord record = new RoomObjectRecord(
-                row.Decimal(0, 0, 7),
-                row.HexByte(1),
-                row.UnsignedDecimal(2),
-                ParseRoomObjectKind(row, 3),
-                row.HexByte(4),
-                row.HexByte(5),
-                row.HexByte(6),
-                row.UnsignedDecimal(7),
-                row.HexByteOrSentinel(8, "-1", -1),
-                row.HexByteOrSentinel(9, "-1", -1),
-                row.HexByteOrSentinel(10, "-1", -1),
-                row.HexByte(11)) { Var03 = row.HexByte(12) };
-            string game = OracleAssetPack.GameFor(AssetRoot).ToString().ToLowerInvariant();
-            record = record with { SourceOverride = record.Id == 0x62
-                ? $"objects/{game}/mainData.s:group{record.Group:x1}Map{record.Room:x2}ObjectData[ENEMY_VINE_SPROUT]"
-                : record.Kind == RoomObjectKind.ReservingPart && record.Id == 0x59
-                ? $"objects/{game}/mainData.s:group{record.Group:x1}Map{record.Room:x2}ObjectData[PART_BLACK_TOWER_MOVING_FLAMES]"
-                : $"objects/{game}/enemyData.s:group{record.Group:x1}Map{record.Room:x2}EnemyObjectData[{record.Order}]" };
-            List<RoomObjectRecord> roomRecords =
-                _roomObjectsByRoom.GetOrAdd(MakeKey(record.Group, record.Room));
+            var roomRecords = _roomObjectsByRoom.GetOrAdd(MakeKey(record.Group, record.Room));
             if (roomRecords.Count != record.Order)
-            {
-                throw new InvalidOperationException(
-                    $"Room {record.Group:x1}:{record.Room:x2} object order jumped from " +
-                    $"{roomRecords.Count} to {record.Order}.");
-            }
+                throw new InvalidOperationException($"{record.Source}: native placement order is not contiguous.");
             roomRecords.Add(record);
             records++;
         }
@@ -515,108 +405,22 @@ public sealed class EnemyDatabase
         return _roomObjectsByRoom.ValuesOrEmpty(MakeKey(group, room));
     }
 
-    public bool TryGetKeeseDefinition(RoomObjectRecord source, out EnemyDatabaseEnemyRecord record) =>
+    public bool TryGetKeeseDefinition(RoomObjectRecord source, out KeeseDefinition record) =>
         KeeseDatabase.For(AssetRoot).TryGetDefinition(source,out record);
 
     public bool TryGetOctorokDefinition(RoomObjectRecord source, out OctorokRecord record) =>
         OctorokDatabase.For(AssetRoot).TryGetDefinition(source, out record);
 
-    public bool TryGetZolDefinition(RoomObjectRecord source, out ZolRecord record)
-    {
-        if (source.Id != 0x34 ||
-            !_zolDefinitions.TryGetValue(source.SubId, out ZolDefinition definition))
-        {
-            record = default;
-            return false;
-        }
-        record = new ZolRecord(AssetRoot,
-            source.Group,
-            source.Room,
-            definition.Id,
-            definition.SubId,
-            source.Flags,
-            source.Count,
-            source.Kind == RoomObjectKind.FixedEnemy,
-            source.Y,
-            source.X,
-            definition.SpriteName,
-            definition.TileBase,
-            definition.Palette,
-            definition.CollisionRadiusY,
-            definition.CollisionRadiusX,
-            definition.DamageQuarters,
-            definition.Health,
-            definition.EmergeAnimation,
-            definition.WaitAnimation,
-            definition.HopAnimation,
-            definition.DisappearAnimation,
-            definition.RedIdleAnimation,
-            definition.RedShakeAnimation, definition.RawDamage);
-        return true;
-    }
-
     public bool TryGetStalfosDefinition(RoomObjectRecord source, out StalfosRecord record)
     {
-        if (source.Id != 0x31 ||
-            !_stalfosDefinitions.TryGetValue(source.SubId, out StalfosDefinition definition))
-        {
-            record = default;
-            return false;
-        }
-        record = new StalfosRecord(AssetRoot,
-            source.Group,
-            source.Room,
-            definition.Id,
-            definition.SubId,
-            source.Flags,
-            source.Count,
-            source.Kind == RoomObjectKind.FixedEnemy,
-            source.Y,
-            source.X,
-            definition.SpriteName,
-            definition.TileBase,
-            definition.Palette,
-            definition.CollisionRadiusY,
-            definition.CollisionRadiusX,
-            definition.DamageQuarters,
-            definition.Health,
-            definition.SpeedRaw,
-            definition.WalkAnimation,
-            definition.JumpAnimation);
-        return true;
+        record = default;
+        return source.Id == EnemyId.Stalfos && _stalfosDefinitions.TryGetValue(source.SubId, out record);
     }
 
     public bool TryGetCrowDefinition(RoomObjectRecord source, out CrowRecord record)
     {
-        if (source.Id != 0x41 ||
-            !_crowDefinitions.TryGetValue(source.SubId, out CrowDefinition definition))
-        {
-            record = default;
-            return false;
-        }
-        record = new CrowRecord(AssetRoot,
-            source.Group,
-            source.Room,
-            definition.Id,
-            definition.SubId,
-            source.Flags,
-            source.Count,
-            source.Kind == RoomObjectKind.FixedEnemy,
-            source.Y,
-            source.X,
-            definition.SpriteName,
-            definition.TileBase,
-            definition.Palette,
-            definition.CollisionRadiusY,
-            definition.CollisionRadiusX,
-            definition.DamageQuarters,
-            definition.Health,
-            definition.SpeedRaw,
-            definition.PerchedRightAnimation,
-            definition.PerchedLeftAnimation,
-            definition.FlightRightAnimation,
-            definition.FlightLeftAnimation);
-        return true;
+        record = default;
+        return source.Id == EnemyId.Crow && _crowDefinitions.TryGetValue(source.SubId, out record);
     }
 
     internal ImportedEnemyDefinition ImportedEnemy(int id, int subId = 0) =>
@@ -776,14 +580,14 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.FireballShooter => descriptor.Id == EnemyId.FireballShooter && descriptor.SubId is 0 or 1,
         EnemyHandlerKind.Zol =>
             descriptor.Id == EnemyId.Zol &&
-            _zolDefinitions.ContainsKey(descriptor.SubId),
+            _importedDefinitions.ContainsKey((descriptor.Id, descriptor.SubId)),
         EnemyHandlerKind.Crow =>
             descriptor.Id == EnemyId.Crow &&
             _crowDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.VineSprout =>
             descriptor.Id == AgesEnemyId.VineSprout && VineSprouts.HasSubId(descriptor.SubId),
         EnemyHandlerKind.Gel =>
-            descriptor.Id == Gel.Id && descriptor.SubId == 0,
+            descriptor.Id == EnemyId.Gel && descriptor.SubId == 0,
         EnemyHandlerKind.HardhatBeetle =>
             HasImportedDefinition(descriptor, 0x4d) || HasImportedDefinition(descriptor, 0x5f),
         EnemyHandlerKind.ArmMimic =>
@@ -801,71 +605,18 @@ public sealed class EnemyDatabase
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 
-    private static RoomObjectKind ParseRoomObjectKind(
-        GeneratedTableRow row,
-        int column) => row.RequiredString(column) switch
-    {
-        "R" => RoomObjectKind.RandomEnemy,
-        "F" => RoomObjectKind.FixedEnemy,
-        "B" => RoomObjectKind.ParameterEnemy,
-        "P" => RoomObjectKind.ReservingPart,
-        "Q" => RoomObjectKind.ParameterPart,
-        "I" => RoomObjectKind.ItemDrop,
-        _ => throw row.Invalid(column, "one of R, F, B, P, Q, I")
-    };
 }
 
-public readonly record struct CrowRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
+public readonly record struct CrowRecord(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
 
 
-public readonly record struct EnemyDatabaseEnemyRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
 
 
 
 
 internal readonly record struct EnemyProjectileVisualRecord(string AssetRoot, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, string[] Animations);
 
-internal readonly record struct CrowDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
-
-
-internal readonly record struct StalfosDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
-
-internal readonly record struct ZolDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation, int RawDamage);
-
-public readonly record struct GelDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string NormalAnimation, string AttachedAnimation, string ShakeAnimation, int RawDamage);
 
 
 
-public readonly record struct ZolRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation, int RawDamage);
-
-public readonly record struct StalfosRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
-
-public readonly record struct RoomObjectRecord(
-    int Group,
-    int Room,
-    int Order,
-    RoomObjectKind Kind,
-    int Id,
-    int SubId,
-    int Flags,
-    int Count,
-    int Y,
-    int X,
-    int PackedPosition,
-    int ConditionMask)
-{
-    public int Var03 { get; init; }
-    internal string? SourceOverride { get; init; }
-    public string Source => SourceOverride ??
-        $"room {Group:x1}:{Room:x2} object[{Order}] {Kind} ${Id:x2}:${SubId:x2}";
-}
-
-public enum RoomObjectKind
-{
-    RandomEnemy,
-    FixedEnemy,
-    ParameterEnemy,
-    ReservingPart,
-    ParameterPart,
-    ItemDrop
-}
+public readonly record struct StalfosRecord(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);

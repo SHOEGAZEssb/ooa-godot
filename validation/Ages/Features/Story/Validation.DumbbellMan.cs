@@ -1,5 +1,3 @@
-using Godot;
-using System.Linq;
 using System.Reflection;
 
 namespace Oracles;
@@ -9,7 +7,7 @@ public sealed partial class ValidationRoot
     private void ValidateRoom2e8DumbbellMan()
     {
         DumbbellManEvent script = _roomEvents.Get<DumbbellManEvent>();
-        DumbbellManEventRecord record = script.Database.Record;
+        TradeNpcEventRecord record = script.Database.Record;
         var trace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = trace;
         _saveData.SetRoomFlag(2, 0xe8, 0x20, false);
@@ -21,11 +19,10 @@ public sealed partial class ValidationRoot
                 (_saveData.ReadWramByte(address) & ~2) | (obtained ? 2 : 0)));
             _saveData.WriteWramByte(AgesWramAddress.wTradeItem, (byte)value);
             _saveData.CommitInventoryChange();
-            typeof(InventoryState).GetMethod("LoadFromSaveData",
-                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_inventory, new object[] { _saveData });
+
         }
 
-        DumbbellManCharacter Man() => _entities.Entities<DumbbellManCharacter>().Single();
+        TradeNpcCharacter Man() => _entities.Entities<TradeNpcCharacter>().Single();
         void ExpectText(int id)
         {
             string message = script.Database.Commands.OfType<CutsceneShowTextCommand>()
@@ -81,7 +78,7 @@ public sealed partial class ValidationRoot
 
         SetTrade(0x05, obtained: false);
         LoadValidationRoom(2, 0xe8);
-        DumbbellManCharacter man = Man();
+        TradeNpcCharacter man = Man();
         FailIf(man.Record is not { Id: AgesInteractionId.DumbbellMan, SubId: 0, SpriteName: "spr_gymnast_troy_scrub" } ||
             man.Position != new Vector2(0x50, 0x18) ||
             man.CurrentScriptAnimationSource != record.Animation0 ||

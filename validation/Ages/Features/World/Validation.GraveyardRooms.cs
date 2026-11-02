@@ -1,7 +1,3 @@
-using Godot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -27,8 +23,9 @@ public sealed partial class ValidationRoot
         FailIf(
             crowPlacements.Count != 3 ||
             crowPlacements.Sum(source => source.Count) != 3 ||
+            RoomEnemyPlacements(enemies, 0, 0x5d, EnemyId.Crow, 0x00).Single() is not { Y: 0x78, X: 0x78 } ||
             room05dCrow is not
-                { Y: 0x78, X: 0x78, SpeedRaw: ObjectSpeed.Speed140, Health: 1,
+                { SpeedRaw: ObjectSpeed.Speed140, Health: 1,
                   CollisionRadiusY: 6, CollisionRadiusX: 6, DamageQuarters: 2 } ||
             RoomEnemyPlacements(enemies, 0, 0x6d, EnemyId.Crow, 0x00).Count != 2 ||
             RoomEnemyPlacements(enemies, 0, 0x7d, EnemyId.Crow, 0x00).Count != 0 ||

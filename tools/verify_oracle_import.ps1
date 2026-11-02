@@ -41,6 +41,7 @@ try {
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-AnimationLoops.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-CompanionAnimations.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-CutsceneNormalization.ps1')
+    & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-DialogueReferences.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-OracleRom.ps1')
 
     $Disassembly = (Resolve-Path -LiteralPath $Disassembly).Path

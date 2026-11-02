@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 namespace Oracles;
 
@@ -12,7 +10,6 @@ internal sealed class NativeObjectStreamDatabase
     private readonly Dictionary<int,NativeObjectInstruction> _instructions=[];
     private readonly Dictionary<string,int> _labels=new(StringComparer.Ordinal);
     private readonly Dictionary<int,int> _roots=[];
-    private readonly Dictionary<(int Group,int Room,int Order),int> _legacyPlacements=[];
     internal int PointerLoadMask { get; }
     private readonly byte _initialLoadFlags;
     private readonly byte _restoreLoadMask;
@@ -48,13 +45,6 @@ internal sealed class NativeObjectStreamDatabase
             _roots.Add(row.Decimal(0,0,7)*256+row.HexByte(1),address);
         }
         if (_roots.Count!=2048) throw new InvalidOperationException($"{root}: expected $0800 native room object roots.");
-        foreach (var row in GeneratedTable.Load(root+"objects/legacy_placement_bindings.tsv",new("legacy placement bindings",
-            GeneratedTableKeySemantics.Unique,["group","room","order","address","source"],["group","room","order"],headerRequired:true)).Rows)
-        {
-            int address=row.HexWord(3); _=row.RequiredString(4);
-            if (!_instructions.ContainsKey(address)) throw row.Invalid(3,"an imported object instruction");
-            _legacyPlacements.Add((row.Decimal(0,0,7),row.HexByte(1),row.UnsignedDecimal(2)),address);
-        }
         var policy=GeneratedTable.Load(root+"metadata/object_stream_policy.tsv",new("native object pointer policy",
             GeneratedTableKeySemantics.Ordered,["pointer-load-mask","initial-load-flags","restore-load-mask","root-load-mask","remembered-companion-load-mask","maple-load-mask","source"],headerRequired:true)).SingleRow();
         PointerLoadMask=policy.HexByte(0); _initialLoadFlags=(byte)policy.HexByte(1); _restoreLoadMask=(byte)policy.HexByte(2);
@@ -90,9 +80,7 @@ internal sealed class NativeObjectStreamDatabase
         throw new NotSupportedException($"Native object root ${group:x2}:${room:x2} is not imported.");
     internal int Entry(string label) => _labels.TryGetValue(label,out int address) ? address :
         throw new NotSupportedException($"Native object entry {label} is not imported.");
-    internal int LegacyPlacementAddress(int group,int room,int order) =>
-        _legacyPlacements.TryGetValue((group,room,order),out int address) ? address :
-        throw new NotSupportedException($"Room ${group:x1}:${room:x2} placement[{order}]: missing native source binding.");
+    internal IEnumerable<RoomObjectRecord> RoomObjects() => NativeObjectDeclarations.Read(_instructions, _labels);
     internal NativeObjectInstruction At(int address,string source) => _instructions.TryGetValue(address,out var instruction) ? instruction :
         throw new NotSupportedException($"{source}: native object address ${address:x4} has no imported instruction.");
 }

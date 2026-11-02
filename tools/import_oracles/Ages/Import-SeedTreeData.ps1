@@ -82,7 +82,7 @@ if ($seedTreePointerIndex -ge $part10OamLabels.Count) {
 }
 $seedTreeAnimation =
     "$([Convert]::ToInt32($seedTreeAnimationFrame.Groups['duration'].Value, 16))@" +
-    (Resolve-Oam $partOamSource $part10OamLabels[$seedTreePointerIndex])
+    (Resolve-Oam 'data/ages/partOamData.s' $part10OamLabels[$seedTreePointerIndex])
 if ($seedTreeAnimation -ne '127@11,4,0,0') {
     throw "PART_SEED_ON_TREE animation changed: $seedTreeAnimation"
 }

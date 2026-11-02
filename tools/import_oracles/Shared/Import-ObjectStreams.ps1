@@ -11,7 +11,6 @@ foreach ($pack in @(
         $labels = [Collections.Generic.List[string]]::new()
         $labels.Add('# label`taddress`tsource')
         $addresses = [Collections.Generic.HashSet[int]]::new()
-        $sourceInstructions = @{}
         $last = 17; $fixedFlags = 0; $itemFlags = 0
         foreach ($file in @('extraData1','enemyData','extraData2','mainData','extraData3','extraData4')) {
             $relative = "objects/$($pack.Name)/$file.s"
@@ -103,7 +102,6 @@ foreach ($pack in @(
                 $next=$cursor+$encoded.Count
                 if ($opcode -eq 9) { $flags=$values[0] }
                 $fields=@($cursor.ToString('x4'),$next.ToString('x4'),$opcode.ToString('x2'),[int]$header,$flags.ToString('x2'),$id.ToString('x2'),$subid.ToString('x2'),$y.ToString('x2'),$x.ToString('x2'),$position.ToString('x2'),$var03.ToString('x2'),$target.ToString('x4'),$mask.ToString('x2'),$source)
-                $sourceInstructions["$relative`:$($node.Line)"] = $fields
                 $rows.Add($fields -join "`t")
                 $cursor=$next
                 if ($opcode -in @(0xfe,0xff)) { $last=17 } elseif ($opcode -ne 0xfd) { $last=$opcode }
@@ -111,36 +109,6 @@ foreach ($pack in @(
         }
         Write-GeneratedTable((Join-Path $pack.Root 'objects/room_object_streams.tsv'),$rows)
         Write-GeneratedTable((Join-Path $pack.Root 'objects/room_object_labels.tsv'),$labels)
-        $bindings = [Collections.Generic.List[string]]::new()
-        $bindings.Add('# group`troom`torder`taddress`tsource')
-        if ($pack.Name -eq 'ages') {
-            foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
-                $columns = $row -split "`t"
-                $key = "$($columns[0]):$($columns[1]):$($columns[2])"
-                $sourceLine = $orderedObjectSources[$key]
-                if (-not $sourceLine -or -not $sourceInstructions.ContainsKey($sourceLine)) {
-                    throw "Room placement $key has no compiled instruction for source $sourceLine."
-                }
-                $native = $sourceInstructions[$sourceLine]
-                $nativeOpcode = switch ($columns[3]) { 'R' { '06' } 'F' { '07' } 'P' { '08' } 'Q' { '09' } 'B' { '09' } 'I' { '0a' } default { throw "Room placement $key has unknown kind $($columns[3])." } }
-                $nativeId = if ($columns[3] -eq 'I') { $columns[5] } else { $columns[4] }
-                if ($native[2] -ne $nativeOpcode -or $native[5] -ne $nativeId -or
-                    ($columns[3] -ne 'I' -and $native[6] -ne $columns[5])) {
-                    throw "Room placement $key differs from its native opcode/identity at $sourceLine."
-                }
-                if (($columns[3] -in @('R','F','I') -and $native[4] -ne $columns[6]) -or
-                    ($columns[3] -eq 'R' -and [int]$columns[7] -ne (([Convert]::ToInt32($native[4],16) -shr 5) -band 7)) -or
-                    ($columns[3] -in @('F','B','Q') -and ($native[7] -ne $columns[8] -or $native[8] -ne $columns[9])) -or
-                    ($columns[3] -in @('P','I') -and $native[9] -ne $columns[10]) -or
-                    ($columns[3] -in @('B','Q') -and $native[10] -ne $columns[12]) -or
-                    ($columns[3] -eq 'B' -and $native[4] -ne '01') -or
-                    ($columns[3] -eq 'Q' -and $native[4] -ne '02')) {
-                    throw "Room placement $key differs from its compiled flags/count/operands at $sourceLine."
-                }
-                $bindings.Add("$($columns[0])`t$($columns[1])`t$($columns[2])`t$($native[0])`t$sourceLine")
-            }
-        }
-        Write-GeneratedTable((Join-Path $pack.Root 'objects/legacy_placement_bindings.tsv'),$bindings)
         $roots=[Collections.Generic.List[string]]::new(); $roots.Add('# group`troom`taddress`tsource')
         $path=Join-Path $Disassembly "objects/$($pack.Name)/pointers.s"
         $groups=@((Invoke-AssemblySourceHost $connection 'DATA_DIRECTIVES' "$path`0objectDataGroupTable`0.dw" | ConvertFrom-Json) | Where-Object IsActive)

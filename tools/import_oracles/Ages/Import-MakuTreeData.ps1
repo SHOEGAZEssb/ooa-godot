@@ -101,27 +101,8 @@ foreach ($modeLabel in $adviceModes) {
 }
 $adviceRows = [Collections.Generic.List[string]]::new()
 $adviceRows.Add("# state`tlinked`tmode`ttext-id`tposition`ttext-base64`tsecond-text-id`tsecond-position`tsecond-text-base64")
-function Resolve-MakuAdviceText([int]$textId, [Collections.Generic.HashSet[int]]$visited) {
-    if (-not $allTexts.ContainsKey($textId) -or -not $visited.Add($textId)) {
-        throw "Missing or recursive Maku advice TX_$($textId.ToString('x4'))."
-    }
-    $message = [string]$allTexts[$textId]
-    if ($allTextPositions.ContainsKey($textId)) { $message = "\pos($($allTextPositions[$textId]))" + $message }
-    while ($true) {
-        $call = [regex]::Match($message, '\\call\(TX_(?<id>[0-9a-f]{4})\)')
-        if (-not $call.Success) { break }
-        $called = Resolve-MakuAdviceText ([Convert]::ToInt32($call.Groups['id'].Value,16)) $visited
-        $message = $message.Substring(0,$call.Index) + $called + $message.Substring($call.Index+$call.Length)
-    }
-    $jump = [regex]::Match($message, '\\jump\(TX_(?<id>[0-9a-f]{4})\)')
-    if ($jump.Success) {
-        $message = $message.Substring(0,$jump.Index) + (Resolve-MakuAdviceText ([Convert]::ToInt32($jump.Groups['id'].Value,16)) $visited)
-    } elseif ($allTextFallthroughIds.ContainsKey($textId)) {
-        if ($message.EndsWith('\n', [StringComparison]::Ordinal)) { $message = $message.Substring(0,$message.Length-2) + "`n" }
-        $message += Resolve-MakuAdviceText $allTextFallthroughIds[$textId] $visited
-    }
-    [void]$visited.Remove($textId)
-    return $message
+function Resolve-MakuAdviceText([int]$id, [Collections.Generic.HashSet[int]]$visited) {
+    return Resolve-DialogueText $id $allTexts $allTextFallthroughIds $allTextPositions $visited
 }
 foreach ($state in (@(3..13) + @(15,16))) {
     $stateHex = $state.ToString('x2')

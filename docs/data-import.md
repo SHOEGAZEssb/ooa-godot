@@ -118,11 +118,21 @@ They resolve text aliases, page commands, treasure properties and BCD amounts
 from the selected pack. Shared runtime readers validate their schemas; native
 table extents belong to the importer and independent ROM regressions.
 
+Dialogue reference expansion shares one execution-order resolver: calls retain
+their return suffix, jumps terminate it, and physical fallthrough follows the
+imported entry boundary. Preserve positions and formatting through expansion;
+dynamic calls remain with their runtime owner. Script stages use the shared
+command compiler for ordinary operations and explicit bindings for native
+helpers, retaining source-specific guards and copied-WRAM jump timing.
+
 Seed-tree refill records retain native history order and a separate flag-bit
 index. Ages' sixteen histories and Seasons' eight histories use different bit
 orders; consumers must not infer the flag bit from the row index. Room object
 streams likewise retain source order and conditional pointers, including
 branches whose runtime handlers are explicitly unsupported.
+Enemy admission metadata is projected from these native instructions and labels;
+it does not require a second placement table or an address-binding table.
+Live allocation and conditional execution remain owned by the native stream reader.
 Seasons opening scenery retains the native tilemap writes, collision overrides,
 and source PNG polarity, including opposite encodings within chained OBJ sheets.
 Inventory display selectors retain their source field, pointer order and level
@@ -339,7 +349,7 @@ its total time and whether it generated assets or reused a verified import.
 Unchanged imports can reuse a completed result recorded under
 `.cache/oracle-import/`. Reuse requires matching content hashes for the ROM,
 disassembly inputs (including graphics, binary files and properties), importer
-code, selected symbols, linked schema, compiled host, build configuration and
+code, selected symbols, all linked source files, compiled host, build configuration and
 PowerShell/.NET execution environment.
 Every generated output is also checked for content and presence; unexpected
 files invalidate reuse. Godot `.import` metadata is excluded. An output lock

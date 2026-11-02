@@ -109,8 +109,6 @@ Write-GeneratedTable(
 # two-argument graphics pointer loads nothing and retains every current tile.
 $specialAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
-$specialOamSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
 $gfxBodyStart = $specialAnimationSource.IndexOf(
     'specialObject0eGfxPointers:', [StringComparison]::Ordinal)
 $animationTableStart = $specialAnimationSource.IndexOf(
@@ -198,7 +196,7 @@ function Resolve-MapleSpecialAnimation([string]$label) {
         for ($tile = 0; $tile -lt $loadedTileCount; $tile++) {
             $vramTiles[$tile] = $loadedTileOffset + $tile
         }
-        $rawOam = Resolve-Oam $specialOamSource $mapleOamLabels[$gfx]
+        $rawOam = Resolve-Oam 'data/ages/specialObjectOamData.s' $mapleOamLabels[$gfx]
         $oam = Resolve-MapleOamTiles `
             $rawOam $vramTiles $label $gfx
         $metadata = if ($parameter -eq 0) {
@@ -265,7 +263,7 @@ function Resolve-MapleItemAnimation([int]$animationIndex) {
         [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
     $duration = [Convert]::ToInt32(
         $frame.Groups['duration'].Value, 16)
-    return "$duration@$(Resolve-Oam $partOamSource $part14OamLabels[$pointerIndex])"
+    return "$duration@$(Resolve-Oam 'data/ages/partOamData.s' $part14OamLabels[$pointerIndex])"
 }
 $rareWeights = Get-MapleHexBytes $mapleSource '@rareItems'
 $standardWeights = Get-MapleHexBytes $mapleSource '@standardItems'

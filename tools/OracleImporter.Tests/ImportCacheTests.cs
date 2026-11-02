@@ -19,6 +19,9 @@ internal static class ImportCacheTests
         string linked = Path.Combine(project, "src/Features/Scripting/CutsceneFieldShape.cs");
         Directory.CreateDirectory(Path.GetDirectoryName(linked)!);
         File.WriteAllText(linked, "schema");
+        string importerProject = Path.Combine(tools, "OracleImporter/OracleImporter.csproj");
+        File.WriteAllText(importerProject,
+            "<Project><ItemGroup><Compile Include=\"../../src/Features/Scripting/CutsceneFieldShape.cs\" Link=\"schema.cs\" /></ItemGroup></Project>");
         string source = Path.Combine(sources, "fixture.s");
         File.WriteAllText(source, "root:\n.db $01\n");
         string rom = Path.Combine(project, "fixture.gbc");
@@ -60,6 +63,14 @@ internal static class ImportCacheTests
             Assert(!cache.TryReuse(false), "PowerShell execution environment was omitted from inputs");
         File.WriteAllText(linked, "changed schema");
         Assert(!Reuse(), "linked schema source edit was missed");
+        Publish();
+        string native = Path.Combine(project, "src/native.cs");
+        File.WriteAllText(native, "native projection");
+        File.WriteAllText(importerProject,
+            "<Project><ItemGroup><Compile Include=\"../../src/Features/Scripting/CutsceneFieldShape.cs\" Link=\"schema.cs\" /><Compile Include=\"../../src/native.cs\" Link=\"native.cs\" /></ItemGroup></Project>");
+        Publish();
+        File.WriteAllText(native, "changed native projection");
+        Assert(!Reuse(), "new linked native source was omitted from the recipe fingerprint");
         Publish();
         using (ImportCache cache = Open())
         {

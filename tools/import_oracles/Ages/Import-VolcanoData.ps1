@@ -60,7 +60,7 @@ foreach ($label in $tables['part11Animations']) {
     foreach ($frame in $definitions[$label].Frames) {
         $index = [int]($frame.PointerOffset / 2)
         if ($index -ge $pointers['part11OamDataPointers'].Count) { throw "PART_VOLCANO_ROCK ${label}: invalid OAM pointer." }
-        $frames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers['part11OamDataPointers'][$index])")
+        $frames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam 'data/ages/partOamData.s' $pointers['part11OamDataPointers'][$index])")
         if ($frame.Parameter -eq 255) { break }
     }
     if (!$frames.Count) { throw "PART_VOLCANO_ROCK ${label}: empty animation." }

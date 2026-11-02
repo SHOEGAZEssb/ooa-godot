@@ -1,5 +1,3 @@
-using Godot;
-using System;
 
 namespace Oracles;
 
@@ -13,7 +11,7 @@ internal partial class SpikedBallPart : TransitionOffsetNode2D
     private int _pendingCollision = -1;
     private int _lastCollision;
     private bool _collisionCleared;
-    private readonly SpikedBallDatabase _visual;
+    private readonly AnimatedPartDatabase _visual;
     internal int SubId { get; }
     internal SpikedBallPart? Head => _head;
     internal int State { get; private set; }
@@ -30,7 +28,7 @@ internal partial class SpikedBallPart : TransitionOffsetNode2D
     internal Rect2 CollisionBounds => new(Position - new Vector2(_visual.RadiusX, _visual.RadiusY),
         new Vector2(_visual.RadiusX * 2, _visual.RadiusY * 2));
 
-    internal SpikedBallPart(BallChainSoldierCharacter soldier, SpikedBallDatabase visual, int subid, SpikedBallPart? head = null)
+    internal SpikedBallPart(BallChainSoldierCharacter soldier, AnimatedPartDatabase visual, int subid, SpikedBallPart? head = null)
     {
         AssetRoot = visual.AssetRoot;
         if (subid is < 0 or > 3 || (subid != 0 && head is null))

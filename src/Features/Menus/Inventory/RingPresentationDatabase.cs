@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using static Oracles.MenuPresentationTable;
 
 namespace Oracles;

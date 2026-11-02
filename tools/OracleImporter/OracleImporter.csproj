@@ -10,5 +10,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/Features/Scripting/CutsceneFieldShape.cs" Link="CutsceneFieldShape.cs" />
+    <Compile Include="../../src/Features/World/Entities/Core/NativeObjectInstruction.cs" Link="NativeObjectInstruction.cs" />
+    <Compile Include="../../src/Features/World/Entities/Core/NativeObjectDeclarations.cs" Link="NativeObjectDeclarations.cs" />
+    <Compile Include="../../src/Features/World/Entities/Enemies/Core/RoomObjectRecord.cs" Link="RoomObjectRecord.cs" />
   </ItemGroup>
 </Project>

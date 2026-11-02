@@ -1,7 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Oracles;
 
@@ -10,7 +7,7 @@ internal sealed class OctorokDatabase
     private static readonly ConcurrentDictionary<string, Lazy<OctorokDatabase>> Packs = new(StringComparer.Ordinal);
     internal static OctorokDatabase For(string root) => Packs.GetOrAdd(root,
         static key => new Lazy<OctorokDatabase>(() => new(key))).Value;
-    private readonly Dictionary<int, OctorokDefinition> _definitions = new();
+    private readonly Dictionary<int, OctorokRecord> _definitions = new();
     internal OctorokProjectileRecord Projectile { get; }
     internal IReadOnlyList<EnemyBehaviorValue> CounterValues { get; }
     internal IReadOnlyList<EnemyBehaviorValue> WalkCounterValues { get; }
@@ -25,7 +22,7 @@ internal sealed class OctorokDatabase
                  "right-animation", "down-animation", "left-animation", "raw-damage"], ["id", "subid"], headerRequired: true));
         foreach (var row in table.Rows)
         {
-            var definition = new OctorokDefinition(root, row.HexByte(0), row.HexByte(1), row.RequiredString(2),
+            var definition = new OctorokRecord(root, row.HexByte(0), row.HexByte(1), row.RequiredString(2),
                 row.UnsignedDecimal(3), row.UnsignedDecimal(4), row.UnsignedDecimal(5), row.UnsignedDecimal(6),
                 row.UnsignedDecimal(7), row.UnsignedDecimal(8), row.UnsignedDecimal(9), row.UnsignedDecimal(10),
                 row.RequiredString(11), row.RequiredString(12), row.RequiredString(13), row.RequiredString(14), row.HexByte(15));
@@ -62,19 +59,12 @@ internal sealed class OctorokDatabase
     internal bool HasDefinition(int subId) => _definitions.ContainsKey(subId);
     internal bool TryGetDefinition(RoomObjectRecord source, out OctorokRecord record)
     {
-        if (source.Id != EnemyId.Octorok || !_definitions.TryGetValue(source.SubId, out var definition))
-        { record = default; return false; }
-        record = new(definition.AssetRoot, source.Group, source.Room, definition.Id, definition.SubId,
-            source.Flags, source.Count, source.Kind == RoomObjectKind.FixedEnemy, source.Y, source.X,
-            definition.SpriteName, definition.TileBase, definition.Palette, definition.CollisionRadiusY,
-            definition.CollisionRadiusX, definition.DamageQuarters, definition.Health, definition.SpeedRaw,
-            definition.CounterMask, definition.UpAnimation, definition.RightAnimation, definition.DownAnimation,
-            definition.LeftAnimation, definition.RawDamage);
-        return true;
+        record = default;
+        return source.Id == EnemyId.Octorok && _definitions.TryGetValue(source.SubId, out record);
     }
+
 }
 
-internal readonly record struct OctorokDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);
 
 internal readonly record struct OctorokBehaviorProfile(
     int ShootDelayFrames,
@@ -83,4 +73,4 @@ internal readonly record struct OctorokBehaviorProfile(
 
 public readonly record struct OctorokProjectileRecord(string AssetRoot, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int SpeedRaw, string NormalAnimation, string BounceAnimation);
 
-public readonly record struct OctorokRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);
+public readonly record struct OctorokRecord(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);

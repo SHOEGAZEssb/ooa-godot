@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace Oracles.Importer;
 
@@ -142,7 +143,14 @@ public sealed class ImportCache : IDisposable
             string path = Path.Combine(project, file);
             if (File.Exists(path)) yield return path;
         }
-        yield return Path.Combine(project, "src/Features/Scripting/CutsceneFieldShape.cs");
+        string importerProject = Path.Combine(_tools, "OracleImporter/OracleImporter.csproj");
+        foreach (var item in XDocument.Load(importerProject).Descendants("Compile"))
+        {
+            if (item.Attribute("Link") is null) continue;
+            string include = (string?)item.Attribute("Include")
+                ?? throw new InvalidDataException($"{importerProject}: linked source has no Include path.");
+            yield return Path.GetFullPath(Path.Combine(Path.GetDirectoryName(importerProject)!, include));
+        }
         string assembly = typeof(ImportCache).Assembly.Location;
         yield return assembly;
         foreach (string extension in new[] { ".deps.json", ".runtimeconfig.json" })
