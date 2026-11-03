@@ -30,6 +30,23 @@ env:
   GODOT_ARCHIVE_SHA256: 764a089809fb1a6f745686ce9f6d3ca83adce8fb60fb9a4e2324b63baaebaa45
 
 jobs:
+  schedule:
+    name: Select validation timing profile
+    runs-on: windows-latest
+    outputs:
+      timing-cache-key: ${{ steps.timings.outputs.cache-matched-key }}
+    steps:
+      # Keep partition retries on the original immutable scheduling profile.
+      - name: Select cached validation timings
+        id: timings
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .godot/validation-timings.tsv
+          key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-
+          lookup-only: true
+
   importer:
     name: Importer validation
     runs-on: windows-latest
@@ -49,6 +66,7 @@ jobs:
 
   validate:
     name: Gameplay validation ${{ matrix.partition }}/4
+    needs: schedule
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -70,12 +88,12 @@ jobs:
         shell: pwsh
         run: dotnet build --configuration Debug -t:Rebuild -p:Optimize=true --warnaserror
       - name: Restore validation timing profile
+        if: needs.schedule.outputs.timing-cache-key != ''
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: .godot/validation-timings.tsv
-          key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-
+          key: ${{ needs.schedule.outputs.timing-cache-key }}
+          fail-on-cache-miss: true
       - name: Run gameplay partition
         shell: pwsh
         env:

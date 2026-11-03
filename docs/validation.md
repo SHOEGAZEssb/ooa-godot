@@ -283,7 +283,10 @@ For distributed runs, `-PartitionIndex INDEX -PartitionCount COUNT` assigns a
 contiguous group of global shards to this runner. `-Workers` is the number of
 processes on each runner; every partition must use the same worker count and
 timing-profile snapshot. Distributed runs require `-ResultPath PATH` and reject
-focused filters and ROM skips. A partition success is not a full-suite pass.
+focused filters and ROM skips. CI selects one immutable timing-cache key before
+starting partitions and reuses it on failed-job retries; without a cached profile,
+all partitions use round-robin scheduling.
+A partition success is not a full-suite pass.
 `tools/Merge-ValidationResults.ps1` verifies every partition report and writes
 the complete timing profile only after exact scenario coverage is established.
 Ordinary local runs still default to one complete eight-worker suite.
