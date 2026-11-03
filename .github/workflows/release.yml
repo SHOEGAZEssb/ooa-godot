@@ -30,7 +30,7 @@ env:
 
 jobs:
   release:
-    name: Validate, export Windows/Linux/Android, and attach builds
+    name: Validate, export Windows/Linux/macOS/Android, and attach builds
     runs-on: windows-2025
     permissions:
       contents: write
@@ -79,15 +79,27 @@ jobs:
           "VALIDATION_PROJECT=validation/$gameBase.validation.csproj" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "GAME_ASSEMBLY=$gameBase" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Exclude debug symbols from every release preset
+      - name: Prepare release export presets
         shell: python
         run: |
           import configparser
+          import os
           from pathlib import Path
+          from urllib.request import urlopen
 
           path = Path("export_presets.cfg")
           presets = configparser.ConfigParser(interpolation=None)
           presets.read(path, encoding="utf-8")
+          # Older release tags predate the macOS preset; retain their other presets.
+          current = configparser.ConfigParser(interpolation=None)
+          url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/{os.environ['GITHUB_WORKFLOW_SHA']}/export_presets.cfg"
+          with urlopen(url) as source:
+              current.read_string(source.read().decode("utf-8"))
+          mac = next(section for section in current if current[section].get("name") == '"macOS"')
+          target = next((section for section in presets if presets[section].get("name") == '"macOS"'),
+                        f"preset.{1 + max(int(section.split('.')[1]) for section in presets if section.startswith('preset.'))}")
+          for suffix in ("", ".options"):
+              presets[target + suffix] = dict(current[mac + suffix])
           for section in presets.sections():
               if section.endswith(".options"):
                   presets[section]["dotnet/include_debug_symbols"] = "false"
@@ -179,9 +191,9 @@ jobs:
           [void][IO.Directory]::CreateDirectory($templateRoot)
           $zip = [IO.Compression.ZipFile]::OpenRead($templateArchive)
           try {
-              # Extract only the targets used here, avoiding the large Apple templates.
+              # Extract only the targets used here.
               foreach ($name in @('windows_release_x86_64.exe', 'windows_release_x86_64_console.exe',
-                      'linux_release.x86_64', 'android_release.apk')) {
+                      'linux_release.x86_64', 'macos.zip', 'android_release.apk')) {
                   $entry = $zip.GetEntry("templates/$name")
                   if ($null -eq $entry) { throw "Missing .NET export template: $name" }
                   [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $templateRoot $name))
@@ -263,7 +275,7 @@ jobs:
           import time
 
           parser = argparse.ArgumentParser()
-          parser.add_argument("preset", choices=("Windows", "Linux", "Android"))
+          parser.add_argument("preset", choices=("Windows", "Linux", "macOS", "Android"))
           parser.add_argument("output")
           args = parser.parse_args()
           Path(args.output).parent.mkdir(parents=True, exist_ok=True)
@@ -297,6 +309,46 @@ jobs:
         run: |
           python $env:GODOT_EXPORT_LAUNCHER Linux builds/linux/oracle-of-ages.x86_64
           if ($LASTEXITCODE -ne 0) { throw 'Linux export failed.' }
+
+      - name: Export ad-hoc macOS universal ZIP
+        run: |
+          python $env:GODOT_EXPORT_LAUNCHER macOS builds/macos/oracle-of-ages.zip
+          if ($LASTEXITCODE -ne 0) { throw 'macOS export failed.' }
+
+      - name: Verify macOS release contents
+        shell: python
+        run: |
+          import os
+          import plistlib
+          import struct
+          import zipfile
+
+          with zipfile.ZipFile("builds/macos/oracle-of-ages.zip") as archive:
+              if archive.testzip() is not None:
+                  raise SystemExit("Corrupt macOS ZIP.")
+              prefix = "oracle-of-ages.app/Contents/"
+              info = plistlib.loads(archive.read(prefix + "Info.plist"))
+              if info["CFBundleIdentifier"] != "org.ooagodot.oracles":
+                  raise SystemExit("Unexpected macOS bundle identifier.")
+              executable = prefix + "MacOS/" + info["CFBundleExecutable"]
+              if not archive.getinfo(executable).external_attr >> 16 & 0o111:
+                  raise SystemExit("macOS executable lost execute permission.")
+              binary = archive.read(executable)
+              magic, count = struct.unpack_from(">II", binary)
+              if magic != 0xCAFEBABE or count != 2:
+                  raise SystemExit("macOS executable must be a two-architecture universal binary.")
+              architectures = {struct.unpack_from(">I", binary, 8 + index * 20)[0] for index in range(count)}
+              if architectures != {0x01000007, 0x0100000C}:
+                  raise SystemExit("macOS executable must contain Intel and Apple Silicon slices.")
+              required = [prefix + "Resources/oracle-of-ages.pck", prefix + "_CodeSignature/CodeResources"]
+              for arch in ("x86_64", "arm64"):
+                  root = prefix + f"Resources/data_{os.environ['GAME_ASSEMBLY']}_macos_{arch}/"
+                  required.extend((root + os.environ["GAME_ASSEMBLY"] + ".dll", root + "libcoreclr.dylib"))
+              for name in required:
+                  if archive.getinfo(name).file_size == 0:
+                      raise SystemExit(f"Empty macOS runtime file: {name}")
+              if any(name.endswith((".pdb", ".a")) for name in archive.namelist()):
+                  raise SystemExit("Build-only files in macOS release.")
 
       - name: Export Android ARM64
         run: |
@@ -345,7 +397,7 @@ jobs:
           output.mkdir(parents=True, exist_ok=True)
           for required in ("windows/oracle-of-ages.exe", "windows/oracle-of-ages.pck",
                            "linux/oracle-of-ages.x86_64", "linux/oracle-of-ages.pck",
-                           "android/oracle-of-ages.apk"):
+                           "macos/oracle-of-ages.zip", "android/oracle-of-ages.apk"):
               path = Path("builds") / required
               if not path.is_file() or path.stat().st_size == 0:
                   raise SystemExit(f"Missing or empty export output: {path}")
@@ -365,6 +417,8 @@ jobs:
               archive.add("builds/linux", arcname="oracle-of-ages", filter=linux_permissions)
           shutil.copyfile("builds/android/oracle-of-ages.apk",
                           output / f"oracle-of-ages-{version}-android-arm64.apk")
+          shutil.copyfile("builds/macos/oracle-of-ages.zip",
+                          output / f"oracle-of-ages-{version}-macos-universal.zip")
           assets = sorted(output.iterdir())
           checksums = []
           for asset in assets:
@@ -378,7 +432,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $assets = @(Get-ChildItem -LiteralPath builds/release -File | ForEach-Object { $_.FullName })
-          if ($assets.Count -ne 4) { throw "Expected three builds and checksums, got $($assets.Count) assets." }
+          if ($assets.Count -ne 5) { throw "Expected four builds and checksums, got $($assets.Count) assets." }
           gh release upload --repo $env:GITHUB_REPOSITORY --clobber -- $env:RELEASE_TAG @assets
           if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed.' }
 
@@ -390,5 +444,38 @@ jobs:
           path: |
             ${{ runner.temp }}/ooa-validation-*/*.log
             ${{ runner.temp }}/godot-export-*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  macos-smoke:
+    name: Verify macOS launch (${{ matrix.runner }})
+    needs: release
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+    steps:
+      - name: Download and verify macOS app
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern '*-macos-universal.zip' --output macos.zip
+          ditto -x -k macos.zip .
+          codesign --verify --deep --strict --verbose=2 oracle-of-ages.app
+      - name: Run exported app headlessly
+        run: |
+          ./oracle-of-ages.app/Contents/MacOS/oracle-of-ages --headless --quit-after 120 > macos-startup.log 2>&1
+          cat macos-startup.log
+          if grep -E '^(ERROR|WARNING):' macos-startup.log; then exit 1; fi
+      - name: Upload macOS startup log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-startup-${{ matrix.runner }}
+          path: macos-startup.log
           if-no-files-found: ignore
           retention-days: 7

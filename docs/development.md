@@ -98,20 +98,26 @@ See [Validation](validation.md) for scenario isolation and handoff checks.
 ## Desktop export
 
 The `Windows` and `Linux` presets target x86-64 and write to
-`builds/windows/` and `builds/linux/`. Install the matching Godot .NET export
-templates for each platform. Both presets package the generated `.bin`, `.tsv`,
+`builds/windows/` and `builds/linux/`. The `macOS` preset writes a universal
+Apple Silicon/Intel ZIP to `builds/macos/`. Install the matching Godot .NET export
+templates for each platform. The presets package the generated `.bin`, `.tsv`,
 and `.2bpp` runtime inputs explicitly, alongside imported graphics.
 
 After building with optimization and running validation, export with:
 
 ```powershell
-New-Item -ItemType Directory -Force builds/windows, builds/linux | Out-Null
+New-Item -ItemType Directory -Force builds/windows, builds/linux, builds/macos | Out-Null
 Godot_v4.7.1-stable_mono_win64_console.exe --headless --path . --export-release Windows builds/windows/oracle-of-ages.exe
 Godot_v4.7.1-stable_mono_win64_console.exe --headless --path . --export-release Linux builds/linux/oracle-of-ages.x86_64
+Godot_v4.7.1-stable_mono_win64_console.exe --headless --path . --export-release macOS builds/macos/oracle-of-ages.zip
 ```
 
 Distribute each complete output directory, including its `.pck` and .NET
 dependencies. On Linux, ensure the executable has execute permission.
+Distribute the macOS ZIP directly: Godot preserves the app's executable
+permissions when exporting the archive, including from Windows. The app uses
+built-in ad-hoc signing without notarization or Apple credentials. Downloaded
+copies require explicit approval in macOS Privacy & Security before first launch.
 
 ## Android export
 
@@ -154,20 +160,24 @@ controls have not been implemented.
 Publishing a GitHub release (including a prerelease) runs
 [Release builds](../.github/workflows/release.yml) against its tag. The workflow
 imports the verified source assets, rebuilds Release assemblies, and runs the
-full eight-worker validation suite before exporting the three configured targets.
-The Windows runner cross-exports Linux using the matching .NET templates.
+full eight-worker validation suite before exporting the four configured targets.
+The Windows runner cross-exports Linux and macOS using the matching .NET templates.
 Godot calls its game Release configuration `ExportRelease`; the importer and
 validation project use `Release`. Release assemblies are staged in the `Debug`
 paths expected by the editor validation host, without compiling a Debug build.
 
-The release receives a Windows x64 ZIP, a Linux x64 tarball, an Android ARM64
-APK, and `SHA256SUMS.txt`. Desktop archives include the complete export directory;
-the Linux archive preserves executable permissions. Filenames include the release
+The release receives a Windows x64 ZIP, a Linux x64 tarball, a macOS universal
+ZIP, an Android ARM64 APK, and `SHA256SUMS.txt`. Desktop archives include the
+complete export directory; the Linux archive preserves executable permissions. Filenames include the release
 tag; the embedded game version comes from the tagged project configuration.
 The ROM and private signing keys are not uploaded.
 
-All three targets use `--export-release` and exclude C# debug symbols. Android
-uses a non-debuggable Release template and requires three repository Actions
+All four targets use `--export-release` and exclude C# debug symbols. The macOS
+archive is checked for both native architectures, their .NET runtimes, bundle
+signature resources and executable permissions before upload. After upload,
+Apple Silicon and Intel macOS runners verify signatures and launch the exported
+app headlessly; this checks startup, not interactive graphics, audio or controls.
+Android uses a non-debuggable Release template and requires three repository Actions
 secrets: `ANDROID_KEYSTORE_BASE64` (the base64-encoded signing keystore),
 `ANDROID_KEYSTORE_PASSWORD` (the keystore and private-key password), and
 `ANDROID_KEY_ALIAS` (the private-key alias). Back up this keystore and its
@@ -193,8 +203,9 @@ After fixing release automation, use the workflow's manual trigger with
 `release_tag` to rebuild an existing release. It checks out that tag using the
 updated workflow, so the published tag does not need to move. The validation
 launcher, ROM resolver, and Android publish exclusions also come from the
-workflow revision. The workflow disables debug symbols in the tagged export
-presets, avoiding historical packaging overhead and resource/time caps during
+workflow revision. The workflow supplies its current macOS preset and disables
+debug symbols in the tagged export presets, avoiding historical packaging
+overhead and resource/time caps during
 release retries; game source and validation scenarios stay at the tag.
 Exports launch the Godot editor executable directly and wait for that process.
 They capture output to regular log files, avoiding the console wrapper's wait
