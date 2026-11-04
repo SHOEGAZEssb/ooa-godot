@@ -136,6 +136,8 @@ if ($hash -ne $cleanUsHash) {
 
 $assemblySourceHost = Start-AssemblySourceHost
 $assemblyTextCache = @{}
+# Resolve tracked text by reference identity without scanning large source strings.
+$assemblyTextPaths = [Runtime.CompilerServices.ConditionalWeakTable[string,string]]::new()
 $assemblyNodeCache = @{}
 $assemblyAnimationCache = @{}
 
@@ -170,6 +172,10 @@ function Read-ImportText([string]$path) {
         if (-not $assemblyTextCache.ContainsKey($fullPath)) {
             $assemblyTextCache[$fullPath] = Invoke-AssemblySourceHost `
                 $assemblySourceHost 'TEXT' $fullPath
+            $existingPath = $null
+            if (-not $assemblyTextPaths.TryGetValue($assemblyTextCache[$fullPath], [ref]$existingPath)) {
+                $assemblyTextPaths.Add($assemblyTextCache[$fullPath], $fullPath)
+            }
         }
         return $assemblyTextCache[$fullPath]
     }
@@ -318,11 +324,8 @@ function Read-AssemblyConstants(
 }
 
 function Resolve-AssemblySourceTextPath([string]$source) {
-    foreach ($entry in $assemblyTextCache.GetEnumerator()) {
-        if ([object]::ReferenceEquals($entry.Value, $source)) {
-            return $entry.Key
-        }
-    }
+    $path = $null
+    if ($assemblyTextPaths.TryGetValue($source, [ref]$path)) { return $path }
     return $null
 }
 
@@ -520,10 +523,14 @@ function Write-GeneratedBytes([object[]]$arguments) {
             "$($MyInvocation.ScriptName):$($MyInvocation.ScriptLineNumber)."
     }
     $path = [string]$arguments[0]
-    $bytes = [Collections.Generic.List[byte]]::new()
-    foreach ($value in $arguments[1..($arguments.Count - 1)]) {
-        foreach ($byte in $value) {
-            $bytes.Add([byte]$byte)
+    if ($arguments.Count -eq 2 -and $arguments[1] -is [byte[]]) {
+        $bytes = $arguments[1]
+    } else {
+        $bytes = [Collections.Generic.List[byte]]::new()
+        foreach ($value in $arguments[1..($arguments.Count - 1)]) {
+            foreach ($byte in $value) {
+                $bytes.Add([byte]$byte)
+            }
         }
     }
     $parent = Split-Path $path -Parent

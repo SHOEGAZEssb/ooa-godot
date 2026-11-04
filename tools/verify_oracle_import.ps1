@@ -36,6 +36,7 @@ try {
     }
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-ImportWorkers.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-ImportStages.ps1')
+    & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-ImportSourceCache.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-GeneratedTables.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-CompiledRomSymbols.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-AnimationLoops.ps1')

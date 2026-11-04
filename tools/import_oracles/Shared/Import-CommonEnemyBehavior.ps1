@@ -32,7 +32,9 @@ foreach ($pack in @(
             @('ecom_updateCardinalAngleTowardTarget',3,[byte[]]@(0xc6,4,0xe6,0x18))
         )) {
             # commonCode.s is assembled into every enemy bank; prove each copy.
-            $copies=@($pack.Symbols.Keys | Where-Object { $_.StartsWith('bank:',[StringComparison]::Ordinal) -and $_.EndsWith(':'+$spec[0],[StringComparison]::Ordinal) })
+            $copies=@(foreach ($symbol in $pack.Symbols.Keys) {
+                if ($symbol.StartsWith('bank:',[StringComparison]::Ordinal) -and $symbol.EndsWith(':'+$spec[0],[StringComparison]::Ordinal)) { $symbol }
+            })
             if($copies.Count -eq 0){throw "$($pack.Name): missing compiled enemy common-code copies for $($spec[0])."}
             foreach($copy in $copies){
                 $bytes = Read-MenuRomBytes $pack $copy ($spec[1] + $spec[2].Length)
