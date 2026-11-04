@@ -3,9 +3,9 @@ namespace Oracles;
 
 public sealed partial class ValidationRoot
 {
-    private FrontendValidationRoot StartSeasonsAfterImpa(bool batched)
+    private FrontendValidationRoot StartSeasonsAfterImpa(bool batched,Node? parent=null)
     {
-        var root=new FrontendValidationRoot();AddChild(root);
+        var root=new FrontendValidationRoot();(parent??this).AddChild(root);
         var save=OracleSaveData.CreateStandardGame(OracleGame.Seasons);
         save.SetLinkName("LINK");save.SetGlobalFlag(0x21);save.SetGlobalFlag(0x0a);
         save.SetRoomFlag(0,0xb6,0x50);save.SetDeathRespawnPoint(0,0xb6,3,2,0x48,0x78);
@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
         foreach(int room in new[]{0xb5,0xb4,0xc4,0xd4})
         {
             session.DebugTravel(0,room);app.Step(2,Vector2.Zero);
-            FailIf(session.Entities.EntityAdapters<SeasonsHerosCaveLinkedEntranceRoomEntity>().Any(),
+            FailIf(session.Entities.EntityAdapters<SeasonsUnlinkedInteractionRoomEntity>().Any(),
                 "Unlinked INTERAC$dc:$01/$02 must delete through their physical state-zero visits.");
         }
         foreach(int room in Enumerable.Range(2,7))

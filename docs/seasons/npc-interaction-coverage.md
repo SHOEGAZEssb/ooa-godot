@@ -65,9 +65,9 @@ linked-game and later-progression branches remain outside that supported boundar
 | Status | Records | Interpretation |
 | --- | ---: | --- |
 | **I** | 156 | Standard-opening and talk-only records with traced source scripts, visibility gates and focused NPC scenarios. |
-| **P** | 3 | Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch and Mittens `$25:$00` trade-owner producer remain incomplete. |
+| **P** | 6 | Maku `$87:$00` supports the first story stage; Maku-room Impa `$9d:$03` and Zelda `$44:$08` support unlinked deletion; Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch and Mittens `$25:$00` trade-owner producer remain incomplete. |
 | **D** | 0 | No listed source record is classified as a deliberately suppressed import. |
-| **M** | 147 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
+| **M** | 144 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
 | **Total** | **306** | **150 rooms and 265 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -75,10 +75,10 @@ linked-game and later-progression branches remain outside that supported boundar
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 31 | 0 | 31 |
-| Specialized native interaction | 118 | 0 | 118 |
-| Event-owned actor | 10 | 0 | 10 |
+| Specialized native interaction | 120 | 0 | 120 |
+| Event-owned actor | 11 | 0 | 11 |
 | Deliberately unsupported | 0 | 0 | 0 |
-| No production owner | 147 | 72 | 219 |
+| No production owner | 144 | 72 | 216 |
 | **Total** | **306** | **72** | **378** |
 
 ## Bipin and Blossom family variants
@@ -137,7 +137,7 @@ generated Seasons NPC records.
 | `1:05` | [I] `$30:$17/v$00` subrosian<br>[I] `$30:$18/v$00` subrosian |
 | `1:06` | [I] `$33:$80/v$00` miscNpcs (ordinary)<br>[M] `$33:$81/v$00` miscNpcs<br>[M] `$33:$82/v$00` miscNpcs |
 | `1:0a` | [M] `$53:$00/v$00` headSmelter<br>[M] `$30:$00/v$00` subrosian |
-| `1:0b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:0b` | [P] `$87:$00/v$00` makuTree<br>[P] `$9d:$03/v$00` impa<br>[P] `$44:$08/v$00` zelda |
 | `1:0c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:11` | [I] `$32:$01/v$00` subrosianWithBuckets |
 | `1:14` | [I] `$33:$83/v$00` miscNpcs (ordinary)<br>[M] `$33:$84/v$00` miscNpcs<br>[M] `$33:$85/v$00` miscNpcs |

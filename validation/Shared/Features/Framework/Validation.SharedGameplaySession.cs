@@ -156,6 +156,23 @@ public sealed partial class ValidationRoot
                     { dry = new(x,y); break; }
                 FailIf(dry is null,$"{game}: session fixture needs a native dry floor.");
                 player.WarpTo(dry!.Value);
+                player.Face(Vector2I.Right);
+                var lockedLink=new BraceletRom(rooms.CurrentRoom,player.PrecisePosition,1,inventory.ActiveRing,game:game);
+                lockedLink.LoadSave(rooms.SaveData);
+                int movementLock=rooms.RuntimeState.FieldAddress("wcc95");
+                rooms.RuntimeState.SetField("wcc95",0x80);lockedLink.SetNativeByte(movementLock,0x80);
+                Vector2 lockedPosition=player.PrecisePosition;
+                foreach(Vector2 direction in new[]{Vector2.Zero,Vector2.Down,Vector2.Left,Vector2.Up,Vector2.Right})
+                    app.Step(3,direction,batched:batched,afterUpdate:()=>
+                    {
+                        int keys=direction.Y>0?0x80:direction.X<0?0x20:direction.Y<0?0x40:direction.X>0?0x10:0;
+                        lockedLink.UpdateLinkItems(rooms.RuntimeState.FrameCounter,keys);
+                        FailIf(player.PrecisePosition!=lockedPosition ||
+                            lockedLink.Word(0xd00c)!=(int)(lockedPosition.X*256) || lockedLink.Word(0xd00a)!=(int)(lockedPosition.Y*256) ||
+                            rooms.RuntimeState.ReadWramByte(0xd008)!=lockedLink[0xd008],
+                            $"{game}: wcc95 bit7 must stop translation while preserving native D-pad turning; input={direction}, direction={rooms.RuntimeState.ReadWramByte(0xd008)}/{lockedLink[0xd008]}, native state=${lockedLink[0xd004]:x2}.");
+                    });
+                rooms.RuntimeState.SetField("wcc95",0);
                 var audit = root._sound.AttachPlayRequestAudit();
                 int initialRupees = inventory.Rupees, calls = 0;
                 entities.AddEntity(new ItemPhaseValidationEntity(() =>

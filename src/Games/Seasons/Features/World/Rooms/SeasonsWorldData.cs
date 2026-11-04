@@ -102,7 +102,8 @@ internal sealed class SeasonsWorldData
     {
         bool troupe = room.Group == 0 && room.Id == 0x98 && !save.HasRoomFlag(0, 0x98, 0x40);
         bool wagon = room.Group == 0 && room.Id == 0x97 && !save.HasGlobalFlag(0x0a);
-        if (!troupe && !wagon) return;
+        bool gate = room.Group == 0 && room.Id == 0xd9 && save.HasRoomFlag(0,0xd9,0x80);
+        if (!troupe && !wagon && !gate) return;
         if (troupe)
         {
             room.SetPackedLayoutWithoutGraphics(0x14, 0);
@@ -113,7 +114,8 @@ internal sealed class SeasonsWorldData
             if (row.HexByte(0) != room.Id) continue;
             int position = row.HexWord(2);
             byte tile = (byte)row.HexByte(3), attribute = (byte)row.HexByte(4);
-            if (row.RequiredString(1) == "collision") room.SetPackedTileCollision((byte)position, tile);
+            if (row.RequiredString(1) == "gate-tile") room.SetPositionTileAndCollision(new((position&15)*16,(position>>4)*16),tile,null,tick);
+            else if (row.RequiredString(1) == "collision") room.SetPackedTileCollision((byte)position, tile);
             else if (row.RequiredString(1) == "mapping")
                 room.SetBackgroundMappingRectangle(new((position & 31) * 8, (position >> 5) * 8), 1,
                     new byte[] { tile, attribute, (byte)(tile + 1), attribute }, tick);

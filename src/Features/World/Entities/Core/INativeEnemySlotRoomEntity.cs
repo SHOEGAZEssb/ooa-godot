@@ -5,4 +5,5 @@ namespace Oracles;
 internal interface INativeEnemySlotRoomEntity : INativeEnemyRoomEntity
 {
     void BindEnemySlot(int slot, Func<int, IRoomEntity?> resolve);
+    void ReleaseEnemySlot() { }
 }

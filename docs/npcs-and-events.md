@@ -142,6 +142,11 @@ of the legacy room-event update phase when its work already runs from object
 slots or the main-thread cutscene phase. It must not advance those children a
 second time.
 
+Placed actors that delete during initialization still reserve their slots before
+another actor's state-zero child allocation. Native enemy byte owners release
+live allocations on room retirement before a later occupant reuses the slot;
+ordinary enemy deletion retains the bytes its source routine leaves intact.
+
 Remembered companions are created before the placed stream and room-entry
 cancellation. Bind their content resource owner after outgoing cancellation
 and before destination preload, so cancelling the outgoing room cannot retire

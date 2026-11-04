@@ -151,3 +151,12 @@ foreach($name in 'book','alias'){
     Assert-Normalization ($commands[6][4] -eq 'scriptjump' -and $commands[6][6] -eq '0') 'Synthetic reset fallthrough added a native update.'
 }
 Write-Host 'Shared NPC program fixtures passed (aliases, backward reset fallthrough and explicit jump yields).'
+$makuFixture=@("# script`tlabel`tindex`tline`topcode`toperands`tjump-targets`tpath",
+    "maku`troot`t0`t1`tjumptable_memoryaddress`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('$cfc0')))`tdone`tfixture.s",
+    "maku`tdone`t1`t2`tcheckcfc0bit`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('7')))`t`tfixture.s",
+    "maku`tdone`t2`t3`tscriptend`t`t`tfixture.s")
+$makuCommands=@(ConvertTo-NpcProgramRows $makuFixture 'Self' @{} -yieldOnMemoryJumpTable $true)
+Assert-Normalization ($makuCommands[1].Split([char]9)[4] -eq 'jumptablememoryyield') 'Seasons scriptFunc_jump must yield after a table relocation.'
+$bubbleCheck=$makuCommands[2].Split([char]9)
+Assert-Normalization ($bubbleCheck[4] -eq 'checkmemoryeq' -and $bubbleCheck[6] -eq '01' -and
+    [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($bubbleCheck[8])) -eq 'cfc0bit7') 'Maku bubble check must retain cfc0 bit7.'

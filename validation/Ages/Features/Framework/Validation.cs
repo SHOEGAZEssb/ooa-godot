@@ -345,6 +345,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeasonsFirstSwordApproach);
         RunIsolatedValidation(ValidateSeasonsFirstSwordPuzzles);
         RunIsolatedValidation(ValidateSeasonsFirstSwordSequence, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsFirstMakuTree);
+        RunIsolatedValidation(ValidateSeasonsMakuBubbleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsMakuGate);
         RunIsolatedValidation(ValidateSeasonsFirstSwordEnemiesRom, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsHerosCaveWell);
         RunIsolatedValidation(ValidateSharedFlagCatalogs);

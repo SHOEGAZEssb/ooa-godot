@@ -86,6 +86,19 @@ internal sealed class SeasonsTalkNpcDatabase
     internal string Animation(int id, int index) => _animations.TryGetValue((id, index), out var animation) ? animation :
         throw new NotSupportedException($"data/seasons/interactionAnimations.s: NPC ${id:x2} has no animation ${index:x2}.");
     internal string Text(int id) => _texts[id];
+    internal IReadOnlyList<CutsceneCommand> Program(string name) => _scripts[name];
+    internal NpcCharacter CreateMakuActor(NativeObjectInstruction source, OracleRoomData room, Color[,] palettes) =>
+        SeasonsNpcPresentation.CreateActor(_visuals[(0x87,0)],source.Id,source.SubId,new(source.X,source.Y),
+            index=>Animation(0x87,index),palettes,room.Group,room.Id);
+    internal DungeonInteractionVisual MakuBubbleVisual
+    {
+        get
+        {
+            var row=Table("maku_bubble_visual",["sprites","tile-base","palette","animations-base64","source"]).SingleRow();
+            return new(Root,"maku-bubble",row.SplitRequired(0,','),row.UnsignedDecimal(1),row.UnsignedDecimal(2),
+                _visuals[(0x87,0)].Boolean01(9),row.Base64Utf8(3).Split('\n'));
+        }
+    }
     internal byte[] NativeTable(string name) => _nativeTables[name];
     internal DungeonInteractionVisual BubbleVisual
     {

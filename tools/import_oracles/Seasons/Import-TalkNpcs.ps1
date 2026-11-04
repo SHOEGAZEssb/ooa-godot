@@ -22,6 +22,8 @@ foreach ($name in @($seasonsSymbols.Keys | Sort-Object)) {
 $selectors = [Collections.Generic.List[string]]::new()
 $selectors.Add("# id`tvariant`tstate`tscript`tsource")
 $scripts = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+[void]$scripts.Add('stage0')
+[void]$scripts.Add('makuTreeScript_gateHit')
 function Add-NpcSelector([int]$id,[int]$variant,[int]$state,[int]$address,[string]$source) {
     $target = $scriptBankBase + ((Read-NpcWord $address) -band 0x3fff)
     if (!$scriptAddress.ContainsKey($target)) { throw "${source}: unresolved script pointer at `$$($address.ToString('x5'))." }
@@ -149,7 +151,7 @@ foreach($spec in @(@(0,@('treasure/-/-/40/0')),@(0,@('essence/-/-/fc/0')),
 Add-NpcVisibility 0xb8 4 0 @("$linked/1",'global/-/-/13/1') 'ambi.s:func_740a'
 Write-GeneratedTable((Join-Path $root 'objects/npc_visibility.tsv'),$visibility)
 $texts=[Collections.Generic.List[string]]::new();$texts.Add("# id`tmessage-base64`tsource")
-foreach($id in @((0x3200..0x3213)+@(0x3300,0x3301,0x3302,0x3700,0x3019,0x301a,0x3020,0x3025,0x3026,0x303d))){
+foreach($id in @((0x1700..0x1703)+(0x3200..0x3213)+@(0x3300,0x3301,0x3302,0x3700,0x3019,0x301a,0x3020,0x3025,0x3026,0x303d))){
     $texts.Add("$($id.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($seasonNpcTexts[$id])))`ttext/seasons/text.yaml")
 }
 Write-GeneratedTable((Join-Path $root 'npcs/texts.tsv'),$texts)
@@ -171,6 +173,9 @@ foreach($key in $nativeConstants.Keys){
     $memoryBindings[$key]=$prefix+$nativeConstants[$key].ToString('x2')
 }
 $symbols['SPEED_080']=0x14;$symbols['ANGLE_LEFT']=0x18;$symbols['ANGLE_RIGHT']=8
+foreach($match in [regex]::Matches((Read-ImportText (Join-Path $Disassembly 'constants/common/music.s')),'(?m)^\s*(?<name>\w+)\s+db\s*;\s*\$(?<value>[0-9a-f]+)')){
+    $symbols[$match.Groups['name'].Value]=[Convert]::ToInt32($match.Groups['value'].Value,16)
+}
 foreach($row in $programRows | Select-Object -Skip 1){
     $fields=$row.Split([char]9);$op=$fields[4];$operands=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($fields[5]))
     $p=@($operands -split ',\s*');$binding=$null
@@ -182,17 +187,28 @@ foreach($row in $programRows | Select-Object -Skip 1){
         {$_ -in @('asm15','cplinkx','setanimationfromobjectbyte','setzspeed','addobjectbyte','setanimationfromangle')}{
             $binding=@{Opcode='native';Payload=($op+' '+$operands).Trim()}
         }
-        {$_ -in @('jumpifmemoryeq','writememory')}{$symbols[$p[0]]=$p[0]}
+        {$_ -in @('jumpifmemoryeq','writememory','checkmemoryeq','checkobjectbyteeq')}{$symbols[$p[0]]=$p[0]}
         'jumpifmemoryset'{$memoryBindings[$p[0]+','+$p[1]]='mask:'+$p[0]+':'+$p[1].TrimStart('$')}
         'writeobjectbyte'{
             $offset=if($p[0] -eq 'Interaction.var37'){'77'}else{$p[0].TrimStart('$')}
             $binding=@{Opcode='writeobjectbyte';Actor='Self';Arg0=$offset;Arg1=$p[1].TrimStart('$')}
         }
+        'incstate'{$binding=@{Opcode='nativeyield';Payload='incstate'}}
+        'giveitem'{
+            if($operands -ne 'ITEM_SWORD, $03'){throw "Maku gate: unexpected grant $operands."}
+            $binding=@{Opcode='nativeyield';Payload='gate-sword-grant'}
+        }
+        'playsound'{$binding=@{Opcode='playsound';Arg0=([int]$symbols[$p[0]]).ToString('x2')}}
     }
     if($null -ne $binding){$bindings[$op+'|'+$operands]=$binding}
 }
 $animations=@{};foreach($i in 0..15){$animations[$i]=[string]$i}
-Write-CutsceneGeneratedTable((Join-Path $root 'npcs/commands.tsv'),(ConvertTo-NpcProgramRows $programRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnJump $true))
+$makuRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -in @('stage0','makuTreeScript_gateHit')})
+$talkRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -notin @('stage0','makuTreeScript_gateHit')})
+$commands=@(ConvertTo-NpcProgramRows $talkRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnJump $true)
+# Seasons scriptCmd_jump has no copied-buffer branch and continues at its ROM target.
+$commands+=@(ConvertTo-NpcProgramRows $makuRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnMemoryJumpTable $true | Select-Object -Skip 1)
+Write-CutsceneGeneratedTable((Join-Path $root 'npcs/commands.tsv'),$commands)
 
 $visuals=[Collections.Generic.List[string]]::new();$visuals.Add("# id`tsubid`tsprite`ttile-base`tpalette`tdefault-animation`tappend-sprites`tsource-offset`tsource`tsource-inverted")
 $animations=[Collections.Generic.List[string]]::new();$animations.Add("# id`tindex`tframes`tsource")
@@ -202,7 +218,7 @@ $animationLabels=@{}
 foreach($name in @($presentation.Definitions.Keys | Sort-Object)){
     if($seasonsSymbols.ContainsKey($name)){$animationLabels[$seasonsSymbols[$name]]=$name}
 }
-foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4e,0x80,0x82,0x83,0x8a,0x8b,0x8d,0x8e,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe5)){
+foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4e,0x80,0x82,0x83,0x87,0x8a,0x8b,0x8d,0x8e,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe5)){
     $hex=$id.ToString('x2')
     $entry=@(Read-AssemblyMacroInvocations $dataPath '' 'm_InteractionData' | Where-Object Comment -eq "`$$hex")
     if($entry.Count -ne 1){throw "NPC `$$hex has no unique graphics data."}
@@ -219,6 +235,12 @@ foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x3
             $extra='spr_din_2'
             Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $extra).FullName)) "gfx/$extra.png" $root
             $append="${extra}:$([int](Get-ImportSpriteSourceGrayscaleInverted $extra))"
+        }
+        if($sprite -eq 'spr_maku_tree_1'){
+            $append=@(foreach($extra in @('spr_maku_tree_2','spr_maku_tree_3')){
+                Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $extra).FullName)) "gfx/$extra.png" $root
+                "${extra}:$([int](Get-ImportSpriteSourceGrayscaleInverted $extra))"
+            }) -join ','
         }
         $offset=if($gfx[$header].Operands.Count -ge 3){$gfx[$header].Operands[2].TrimStart('$')}else{'0000'}
         $visuals.Add("$hex`t$($subid.ToString('x2'))`t$sprite`t$tile`t$(($flags -shr 4) -band 7)`t$($flags -band 15)`t$append`t$offset`tdata/seasons/interactionData.s:`$$hex`t$([int](Get-ImportSpriteSourceGrayscaleInverted $sprite))")
@@ -238,6 +260,33 @@ foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x3
 }
 Write-GeneratedTable((Join-Path $root 'npcs/visuals.tsv'),$visuals)
 Write-GeneratedTable((Join-Path $root 'npcs/animations.tsv'),$animations)
+
+# ENEMY$56 shares Maku's three uploaded sprite sheets, but has its own OAM stream.
+$enemyPath=Join-Path $Disassembly 'data/seasons/enemyAnimations.s'
+$enemyDefinitions=Read-AssemblyAnimationDefinitions $enemyPath 'enemyAnimation[0-9a-f]+(?:Loop)?'
+$enemyPointers=@(Read-AssemblyDataDirectives $enemyPath 'enemy56OamDataPointers' '.dw' | ForEach-Object {$_.Operands[0]})
+$bubbleAnimations=@(foreach($entry in Read-AssemblyDataDirectives $enemyPath 'enemy56Animations' '.dw'){
+    $definition=$enemyDefinitions[$entry.Operands[0]]
+    $frames=@(foreach($frame in $definition.Frames){
+        $oam=Read-IntroOamParts (Join-Path $Disassembly 'data/seasons/enemyOamData.s') $enemyPointers[$frame.PointerOffset/2]
+        $decimal=if([string]::IsNullOrEmpty($oam)){''}else{(@($oam.Split(';') | ForEach-Object {(@($_.Split(',') | ForEach-Object {[Convert]::ToInt32($_,16)}) -join ',')}) -join ';')}
+        Format-NpcAnimationFrame $frame $decimal
+    })
+    Join-NpcAnimationFrames $frames $definition.LoopStart
+})
+if($bubbleAnimations.Count -ne 2){throw 'ENEMY$56 must retain its two native animations.'}
+$bubbleData=@($bytes[($seasonsSymbols['enemyData']+0x56*4)..($seasonsSymbols['enemyData']+0x56*4+3)])
+if(($bubbleData -join ',') -ne '5,130,58,53'){throw 'Seasons ENEMY$56 native graphics/collision/property record changed.'}
+$bubbleSprites=@($gfx[$bubbleData[0]].Operands[0],$gfx[$bubbleData[0]+1].Operands[0]) -join ','
+Write-GeneratedTable((Join-Path $root 'npcs/maku_bubble_visual.tsv'),@("# sprites`ttile-base`tpalette`tanimations-base64`tsource",
+    "$bubbleSprites`t$(($bubbleData[3] -band 15)*2)`t$(($bubbleData[3] -shr 4) -band 7)`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($bubbleAnimations -join "`n")))`tdata/seasons/enemyAnimations.s:enemy56Animations;enemyData.s:`$56"))
+foreach($spec in @(@('maku-bubble-offsets','enemyCode56@bubbleOffsetAndCollisionRadius',24),
+    @('maku-gate-tiles','interactionCode22@tileChangeTable',16),@('maku-gate-puffs','interactionCode22@table_563f',16))){
+    $address=$seasonsSymbols[$spec[1]]
+    if(!$address){throw "Maku native table $($spec[1]) is missing."}
+    $values=@($bytes[$address..($address+$spec[2]-1)] | ForEach-Object {$_.ToString('x2')})
+    $tables.Add("$($spec[0])`t$($values -join ',')`t$($spec[1])")
+}
 $partPath=Join-Path $Disassembly 'data/seasons/partAnimations.s'
 $partDefinitions=Read-AssemblyAnimationDefinitions $partPath 'partAnimation[0-9a-f]+(?:Loop)?'
 $pointers=@(Read-AssemblyDataDirectives $partPath 'part32OamDataPointers' '.dw' | ForEach-Object {$_.Operands[0]})

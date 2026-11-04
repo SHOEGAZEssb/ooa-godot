@@ -21,6 +21,7 @@ internal sealed class GameplayObjectDispatcher(
         // updateSpecialObjects clears this before the companion and Link
         // publish their own bits, including when instruments freeze the companion.
         memory.SetField("wcc92",0);
+        memory.SetField("wcc95", (byte)(memory.ReadField("wcc95") | 0x7f));
         int mode = memory.ReadField("wUseSimulatedInput");
         int? simulatedKeys = mode is not (0 or 2) && (mode & 0x80) == 0 && memory.ReadField("wPaletteThread_mode") == 0 ?
             phases.SampleSimulatedInput() : null;

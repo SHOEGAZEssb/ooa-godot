@@ -3932,6 +3932,7 @@ public sealed partial class RoomEntityManager : IDisposable
         _partSlots.Remove(entity);
         if (_enemySlots.Remove(entity, out int enemySlot))
         {
+            if (entity is INativeEnemySlotRoomEntity nativeEnemy) nativeEnemy.ReleaseEnemySlot();
             if (entity is INativeEnemyCounter1RoomEntity { RetainsCounter1AfterDeletion: true } counter)
                 _deletedEnemyCounter1[enemySlot] = checked((byte)counter.Counter1);
             _reservedEnemySlots.Remove(enemySlot);

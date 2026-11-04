@@ -6428,6 +6428,9 @@ public partial class Player : Node2D
         if (!movementAllowed || NativeMovementSuppressed || angle >= 0x80)
         {
             _topDownMovementSpeedRaw = 0;
+            // wcc95 stops translation; linkState01 still updates direction.
+            if (movementAllowed && angle < 0x80 && !IsUsingItem)
+                UpdateFacing(input);
             return false;
         }
 

@@ -213,6 +213,19 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         var reader = new NativeObjectStreamReader(data, session.Memory, () => session.Save.GetRoomFlags(group, room.Id));
         foreach (var instruction in reader.Read(data.Root(group, room.Id)))
         {
+            if(group==2 && room.Id==0x0b && (instruction is {Id:0x9d,SubId:3} or {Id:0x44,SubId:8}))
+            {
+                if(!owner.InteractionSlotAvailable){reader.AllocationFailed();continue;}
+                yield return new SeasonsUnlinkedInteractionRoomEntity(session.Memory,instruction);
+                continue;
+            }
+            if (instruction.Id == 0x87 && instruction.SubId == 0 && group == 2 && room.Id == 0x0b ||
+                instruction.Id == 0x22 && instruction.SubId == 0x0a)
+            {
+                if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
+                yield return new SeasonsMakuTreeRoomEntity(session,TalkNpcs,instruction,room);
+                continue;
+            }
             if (instruction.Id == 0x9c && instruction.Opcode is 1 or 2)
             {
                 if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
@@ -234,7 +247,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         {
             {Id:0xc6,SubId:0}=>new SeasonsHerosCaveSwordRoomEntity(session,HerosCave,
                 HerosCave.CreateSword(new(source.X,source.Y),session.Data.World.SpritePalettes)),
-            {Id:0xdc,SubId:1 or 2}=>new SeasonsHerosCaveLinkedEntranceRoomEntity(session.Save,source),
+            {Id:0xdc,SubId:1 or 2}=>new SeasonsUnlinkedInteractionRoomEntity(session.Memory,source),
             {Id:InteractionId.DungeonStuff,SubId:0} when session.Rooms.CurrentDungeonIndex==0=>
                 new DungeonEntranceRoomEntity(new(source.X,source.Y),new(0,0x0200,HerosCave.Text(0x0200),0),
                     HerosCave.Constant("entry-min-y"),HerosCave.Constant("entry-radius"),session.Memory,
@@ -259,6 +272,9 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
             int address=((0xd0+slot)<<8)|0x40;
             if(memory.ReadWramByte(address)==0)continue;
             int id=memory.ReadWramByte(address+1),subid=memory.ReadWramByte(address+2);
+            // shortcut: Maku's scripts and bubble need transient reconstruction before admitting active captures.
+            if(id==0x87 || id==0x22&&subid==0x0a)
+                throw new NotSupportedException($"Seasons INTERAC${id:x2}:${subid:x2} slot${slot:x2}: Maku sequence has no transient debug reconstruction.");
             // shortcut: native dialogue/flower lanes need transient reconstruction before admitting debug captures.
             if(id==0x9c || SeasonsTalkNpcDatabase.Supports(id,subid))
                 throw new NotSupportedException($"Seasons INTERAC${id:x2}:${subid:x2} slot${slot:x2}: native dialogue/flower state has no transient debug reconstruction.");

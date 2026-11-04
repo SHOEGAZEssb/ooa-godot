@@ -21,7 +21,8 @@ include dormant data. Coordinates and var03 retain source inputs before native
 rewriting; no-value placements initialize their other fields in native code.
 
 Room object declarations are imported as shared native control programs.
-Native story bindings cover the standard opening and first-sword Hero's Cave route; shared effect
+Native story bindings cover the standard opening, first-sword Hero's Cave route
+and first Maku Tree story through the Gnarled Key; shared effect
 and treasure services also operate through their explicitly bound producers.
 Shared dungeon spinners use their native placed room streams.
 Handler scripts and native cutscenes are imported only for implemented routes.
@@ -42,8 +43,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 26 | 41 | 158 | 7 | 232 |
-| Expanded placed interaction contexts | 166 | 9 | 860 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 26 | 44 | 155 | 7 | 232 |
+| Expanded placed interaction contexts | 167 | 12 | 856 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -71,6 +72,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | --- | --- |
 | Standard-opening character rows listed as **I** in the NPC ledger | Implemented within the stated standard-opening boundary |
 | Hero's Cave first sword | Runtime route through shared push blocks, floor buttons, key chest, door contacts, shutters and scripted sword return; optional side-view Gasha producer remains unbound |
+| First Maku Tree story and sword gate | Runtime route through gate `$22:$0a`, Maku `$87:$00` stage0, unlinked Impa/Zelda initialization, sleeping bubble, quest choice, Gnarled Key drop/pickup and repeated advice; later Maku stages remain unbound |
 | Talk-only characters, source story predicates and native child handoffs | Runtime route for 149 positioned rows; spring-boy Link launch and Mittens' trade-owner producer retain their external-system limitations |
 | Missing character rows and family variants in the NPC ledger | Quest, trade, secret, minigame, event and family progression remain missing |
 | Other room placements listed as **M** below | Missing |
@@ -86,7 +88,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Seasons attract cinematic and title-timeout replay | Missing |
 | Seasons gameplay saving and resuming after the opening | Runtime route through the shared save/checkpoint flow for supported standard overworld and Hero's Cave files |
 | Overworld layout navigation after the opening | Runtime route; room `$00:$98` retains its after-event Octorok stream; talk-only NPC rows use native story predicates; other enemy, event and warp contexts remain unsupported |
-| Progression beyond control returning in room `0:b6` | Missing |
+| Later Maku stages and other story/dungeon progression | Missing |
 | Exhaustive executed clean-US-ROM comparison | Unproven |
 
 ## Interaction dispatch inventory
@@ -136,7 +138,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$1f` | [specialWarp](../../external/oracles-disasm/object_code/seasons/interactions/specialWarp.s) | `$00, $02-$0d` | — | — | 0 | **M** — No Seasons production route. |
 | `$20` | [dungeonScript](../../external/oracles-disasm/object_code/seasons/interactions/dungeonScript.s) | `$00-$0e` | — | — | 0 | **P** — Hero's Cave $4:03 exact-trigger key chest; other dungeon scripts remain unbound. |
 | `$21` | [gnarledKeyhole](../../external/oracles-disasm/object_code/seasons/interactions/gnarledKeyhole.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
-| `$22` | [makuCutscenes](../../external/oracles-disasm/object_code/seasons/interactions/makuCutscenes.s) | `$00-$08, $0a` | — | — | 1 | **M** — No Seasons production route. |
+| `$22` | [makuCutscenes](../../external/oracles-disasm/object_code/seasons/interactions/makuCutscenes.s) | `$00-$08, $0a` | — | — | 1 | **P** — Sword gate `$0a`; remote Maku variants remain unbound. |
 | `$23` | [seasonSpiritsScripts](../../external/oracles-disasm/object_code/seasons/interactions/seasonSpiritsScripts.s) | `$01, $11, $21, $30-$31, $40` | — | — | 0 | **M** — No Seasons production route. |
 | `$24` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00, $03` | — | — | 1 | **M** — No Seasons production route. |
 | `$25` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 0 | **P** — Native dialogue, room-flag selection and jump consumer; the trade-owner `$26:$00` producer remains unbound. |
@@ -170,7 +172,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$41` | [piratian](../../external/oracles-disasm/object_code/seasons/interactions/piratian.s) | `$00, $0b` | — | — | 0 | **M** — No Seasons production route. |
 | `$42` | [pirateHouseSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/pirateHouseSubrosian.s) | `$00-$01` | — | — | 0 | **R** — Pirate-house Subrosian dialogue selected by pirates-left flag. |
 | `$43` | [syrup](../../external/oracles-disasm/object_code/common/interactions/syrup.s) | `$80` | `$80` | — | 0 | **M** — No Seasons production route. |
-| `$44` | [zelda](../../external/oracles-disasm/object_code/seasons/interactions/zelda.s) | `$00, $08-$09` | `$00-$01, $05` | — | 6 | **M** — No Seasons production route. |
+| `$44` | [zelda](../../external/oracles-disasm/object_code/seasons/interactions/zelda.s) | `$00, $08-$09` | `$00-$01, $05` | — | 6 | **P** — First Maku room `$08` unlinked state-zero deletion; linked and endgame paths remain unbound. |
 | `$45` | [talon](../../external/oracles-disasm/object_code/seasons/interactions/talon.s) | `$00` | — | `$01` | 1 | **M** — No Seasons production route. |
 | `$46` | [shopkeeper](../../external/oracles-disasm/object_code/common/interactions/shopkeeper.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
 | `$47` | [shopItem](../../external/oracles-disasm/object_code/common/interactions/shopItem.s) | `$00-$05, $0e-$10` | — | `$07-$08, $0b` | 4 | **M** — No Seasons production route. |
@@ -237,7 +239,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$84` | [sparkle](../../external/oracles-disasm/object_code/seasons/interactions/sparkle.s) | — | — | — | 19 | **M** — No Seasons production route. |
 | `$85` | [introSceneMusic](../../external/oracles-disasm/object_code/seasons/interactions/introSceneMusic.s) | `$00` | — | — | 0 | **R** — Opening carnival-music route `$00`. |
 | `$86` | [templeSinkingExplosion](../../external/oracles-disasm/object_code/seasons/interactions/templeSinkingExplosion.s) | — | — | — | 1 | **R** — Opening temple explosions `$00-$04`. |
-| `$87` | [makuTree](../../external/oracles-disasm/object_code/seasons/interactions/makuTree.s) | `$00` | `$01-$02` | — | 0 | **M** — No Seasons production route. |
+| `$87` | [makuTree](../../external/oracles-disasm/object_code/seasons/interactions/makuTree.s) | `$00` | `$01-$02` | — | 0 | **P** — Standard first story stage in native group `$02` room `$0b`, Gnarled Key and repeat advice; later stages and endgame variants remain unbound. |
 | `$88` | [88](../../external/oracles-disasm/object_code/seasons/interactions/88.s) | `$01` | — | — | 1 | **P** — Opening castle lightning `$00-$01`; the later room/story branches are missing. |
 | `$89` | [vasu](../../external/oracles-disasm/object_code/common/interactions/vasu.s) | `$00-$01, $06` | — | — | 0 | **M** — No Seasons production route. |
 | `$8a` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$04` | — | — | 1 | **R** — Sunken-stage flooded-house dialogue and visibility. |
@@ -259,7 +261,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$9a` | [9a](../../external/oracles-disasm/object_code/seasons/interactions/9a.s) | `$02` | — | — | 2 | **M** — No Seasons production route. |
 | `$9b` | [9b](../../external/oracles-disasm/object_code/seasons/interactions/9b.s) | — | `$00` | — | 0 | **M** — No Seasons production route. |
 | `$9c` | [springBloomFlower](../../external/oracles-disasm/object_code/seasons/interactions/springBloomFlower.s) | `$00` | `$00` | — | 0 | **P** — Spring-only flower NPC consumer states `$01/$05-$07`; separate Link-launch states `$02-$04` remain unbound. |
-| `$9d` | [impa](../../external/oracles-disasm/object_code/seasons/interactions/impa.s) | `$00-$01, $03-$05` | — | — | 1 | **P** — Standard opening `$00`, source advice `$01`, panic `$05` and standard-file `$04` deletion; linked introduction/event variants remain unbound. |
+| `$9d` | [impa](../../external/oracles-disasm/object_code/seasons/interactions/impa.s) | `$00-$01, $03-$05` | — | — | 1 | **P** — Standard opening `$00`, source advice `$01`, panic `$05`, standard-file `$04` deletion and first Maku room `$03` unlinked deletion; linked introduction/event variants remain unbound. |
 | `$9e` | [samasaDesertGate](../../external/oracles-disasm/object_code/seasons/interactions/samasaDesertGate.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$9f` | [exclamationMark](../../external/oracles-disasm/object_code/common/interactions/exclamationMark.s) | — | — | — | 2 | **R** — Shared `$00` body with native pack graphics for opening, helper and silent companion-hover allocations. |
 | `$a0` | [floatingImage](../../external/oracles-disasm/object_code/common/interactions/floatingImage.s) | — | — | — | 1 | **P** — Native music-note `$01` and Sokra snore `$00` allocation, motion and lifetime; other producers remain unbound. |
@@ -454,7 +456,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:d6` | [R] `$37:$80/v$00` miscNpcs<br>[R] `$2d:$81/v$00` miscNpcs<br>[R] `$2d:$83/v$00` miscNpcs<br>[R] `$2d:$85/v$00` miscNpcs<br>[R] `$3e:$04/v$00` miscBoyNpcs<br>[R] `$3e:$11/v$00` miscBoyNpcs<br>[R] `$a5:$08/v$00` din<br>[R] `$4e:$0a/v$00` dinDancingEvent |
 | `0:d7` | [M] `$6b:$1b/v$00` miscellaneous1 |
 | `0:d8` | [M] `$6b:$0a/v$00` miscellaneous1<br>[R] `$8a:$04/v$00` sunkenCityNpcs |
-| `0:d9` | [M] `$22:$0a/v$00` makuCutscenes<br>[R] `$2d:$84/v$00` miscNpcs<br>[R] `$37:$84/v$00` miscNpcs |
+| `0:d9` | [R] `$22:$0a/v$00` makuCutscenes<br>[R] `$2d:$84/v$00` miscNpcs<br>[R] `$37:$84/v$00` miscNpcs |
 | `0:da` | [M] `$4c:$00/v$00` miscStatusObjects<br>[M] `$58:$00/v$00` guruguru<br>[M] `$bc:$04/v$00` bc_bd_be |
 | `0:dc` | [M] `$5e:$02/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:dd` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$03/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
@@ -487,7 +489,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `1:06` | [M] `$6b:$09/v$00` miscellaneous1<br>[R] `$33:$80/v$00` miscNpcs<br>[M] `$33:$81/v$00` miscNpcs<br>[M] `$33:$82/v$00` miscNpcs |
 | `1:07` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$51:$00/v$00` smallVolcano |
 | `1:0a` | [M] `$53:$00/v$00` headSmelter<br>[M] `$30:$00/v$00` subrosian |
-| `1:0b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:0b` | [P] `$87:$00/v$00` makuTree<br>[P] `$9d:$03/v$00` impa<br>[P] `$44:$08/v$00` zelda |
 | `1:0c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:10` | [M] `$51:$00/v$00` smallVolcano |
 | `1:11` | [R] `$32:$01/v$00` subrosianWithBuckets |

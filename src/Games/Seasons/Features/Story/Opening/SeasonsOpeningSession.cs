@@ -100,6 +100,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
             owner => new SeasonsRoomEntityFactory(this,owner), Random, Save, Memory, _inventory,
             TreasureDatabase.For(SeasonsGameContent.AssetRoot), ItemDropDatabase.For(SeasonsGameContent.AssetRoot), animationTick: () => _roomTicks);
         Engine = new GameplaySession(this,Rooms,Entities,_inventory,Sound,menus,this,this,hudBottom);
+        Entities.ScreenShakeChanged += offset => { if (Complete) RoomView.SetNativeScrollOffset(offset); };
         Engine.StatusBar.InitializeNativeState();
         Checkpoints = new(Rooms, Link);
         Entities.DeathRespawnPointRequested += Checkpoints.RecordCurrentPoint;
@@ -207,7 +208,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         !_foregroundScroll && !Transitions.IsTransitioning && !Transitions.RoomExitPending;
     void IGameplayForegroundPhases.AfterStatusBar(double delta)
     {
-        if (_foregroundTransition) return;
+        if (_foregroundTransition || Complete) return;
         _sequence.AdvanceShake();
     }
     DialogueBox? IGameplayForegroundPhases.FrameDialogue => Dialogue;

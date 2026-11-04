@@ -1,6 +1,7 @@
 function ConvertTo-NpcProgramRows {
     param([string[]]$sourceRows, [string]$actor, [hashtable]$texts, [hashtable]$animations = @{}, [hashtable]$symbols = @{},
-        [hashtable]$sourceBindings=@{}, [hashtable]$memoryBindings=@{}, [bool]$yieldOnJump=$false)
+        [hashtable]$sourceBindings=@{}, [hashtable]$memoryBindings=@{}, [bool]$yieldOnJump=$false,
+        [bool]$yieldOnMemoryJumpTable=$false)
     $programs = [ordered]@{}
     foreach ($row in $sourceRows | Select-Object -Skip 1) {
         $fields = $row.Split([char]9)
@@ -54,7 +55,7 @@ function ConvertTo-NpcProgramRows {
                         if (-not $targets.ContainsKey($target)) { throw "$($c.Path):$($c.Line): unresolved table target $target." }
                         $targets[$target]
                     }
-                    $binding=@{Opcode='jumptablememory';Payload=($parts[0]+'|'+($indices -join ','))}
+                    $binding=@{Opcode=$(if($yieldOnMemoryJumpTable){'jumptablememoryyield'}else{'jumptablememory'});Payload=($parts[0]+'|'+($indices -join ','))}
                 }
                 { $_ -in @('asm15','writeobjectbyte','getrandombits','addobjectbyte') } {
                     $payload = if ($actor -eq 'Family') { $c.Opcode+' '+$c.Operands } else { $c.Operands }
@@ -65,8 +66,8 @@ function ConvertTo-NpcProgramRows {
                     $binding=@{Opcode='nativeyield';Payload='AskAnySecret'}
                 }
                 'checkcfc0bit' {
-                    if ($c.Operands -ne '1') { throw "$($c.Path):$($c.Line): unsupported cfc0 bit." }
-                    $binding=@{Opcode='checkmemoryeq';Arg0='01';Payload='cfc0bit1'}
+                    if ($c.Operands -notmatch '^[0-7]$') { throw "$($c.Path):$($c.Line): unsupported cfc0 bit." }
+                    $binding=@{Opcode='checkmemoryeq';Arg0='01';Payload=('cfc0bit'+$c.Operands)}
                 }
                 'xorcfc0bit' {
                     if ($c.Operands -ne '1') { throw "$($c.Path):$($c.Line): unsupported cfc0 bit." }
@@ -148,7 +149,7 @@ function ConvertTo-CutsceneCommandRows {
             $arg0 = $binding.Arg0; $arg1 = $binding.Arg1; $payload = $binding.Payload
         } else {
             switch ($opcode) {
-                { $_ -in @('disableinput','enableinput','scriptend','showloadedtext','checktext') } { & $arity 0 }
+                { $_ -in @('disableinput','enableinput','disablemenu','enablemenu','scriptend','showloadedtext','checktext') } { & $arity 0 }
                 { $_ -in @('initcollisions','makeabuttonsensitive','checkabutton') } {
                     & $arity 0; $commandActor = $actor
                 }

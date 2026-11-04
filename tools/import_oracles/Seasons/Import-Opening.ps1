@@ -88,12 +88,12 @@ foreach ($node in Read-AssemblyNodes (Join-Path $Disassembly 'data/seasons/roomL
 $exportedHeaders = [Collections.Generic.HashSet[string]]::new()
 $unsupportedHeaders = @{}
 $mappingSources = @{}
-foreach ($group in @(0,1,4,5,6,7)) {
+foreach ($group in @(0,1,2,4,5,6,7)) {
     # tilesetAssignments.s aliases group6/group4 and group7/group5.
-    $assignment = if ($group -lt 6) { $group } else { $group - 2 }
+    $assignment = if ($group -eq 2) { 1 } elseif ($group -lt 6) { $group } else { $group - 2 }
     $groupTilesets = [IO.File]::ReadAllBytes((Join-Path $Disassembly "rooms/seasons/group${assignment}Tilesets.bin"))
     # Hero's Cave, shared placed spinners and the sliding-block puzzle.
-    $selectedRooms = if ($group -eq 4) { @((0x02..0x08) + @(0x16, 0x26, 0x6b, 0xb1)) } elseif ($group -eq 5) { @(0x30, 0x6f, 0x86, 0xbd, 0xc8, 0xc9, 0xd4) } else { 0..255 }
+    $selectedRooms = if ($group -eq 2) { @(0x0b) } elseif ($group -eq 4) { @((0x02..0x08) + @(0x16, 0x26, 0x6b, 0xb1)) } elseif ($group -eq 5) { @(0x30, 0x6f, 0x86, 0xbd, 0xc8, 0xc9, 0xd4) } else { 0..255 }
 foreach ($room in $selectedRooms) {
     $tileset = $groupTilesets[$room] -band 0x7f
     $block = [regex]::Match($tilesetSource, '(?ms)^tileset' + $tileset.ToString('x2') + 'Seasons:\s*(?<body>.*?)(?=^\w+:|\z)')
@@ -385,6 +385,13 @@ foreach ($spec in @(@(0x98, 'dinsTroupeVramAndCollisions'), @(0x97, 'roomTileCha
         $position = [int]$seasonsRomBytes[$cursor++]; $collision = if (($position -band 0x80) -ne 0) { '05' } else { '0f' }
         $scenery.Add("$($spec[0].ToString('x2'))`tcollision`t$(($position -band 0x7f).ToString('x3'))`t$collision`t00`tcode/seasons/roomGfxChanges.s:$($spec[1])")
     }
+}
+$gateSource=Read-ImportText (Join-Path $Disassembly 'code/seasons/roomSpecificTileChanges.s')
+if($gateSource -notmatch '(?s)tileReplacement_group0Mapd9:.*?bit 7,\(hl\).*?ld hl,wRoomLayout\+\$14\s+ld a,\$bf\s+ldi \(hl\),a\s+ld \(hl\),a\s+ld l,\$24\s+ld a,\$a9\s+ldi \(hl\),a\s+inc a\s+ld \(hl\),a'){
+    throw 'roomSpecificTileChanges.s: Maku gate room-flag $80 substitutions changed.'
+}
+foreach($write in @(@(0x14,0xbf),@(0x15,0xbf),@(0x24,0xa9),@(0x25,0xaa))){
+    $scenery.Add("d9`tgate-tile`t$($write[0].ToString('x3'))`t$($write[1].ToString('x2'))`t00`tcode/seasons/roomSpecificTileChanges.s:tileReplacement_group0Mapd9")
 }
 Write-GeneratedTable((Join-Path $seasonDestination 'world/scenery.tsv'), $scenery)
 
