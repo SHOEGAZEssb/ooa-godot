@@ -885,6 +885,7 @@ public sealed partial class RoomEntityManager : IDisposable
     // func_60e9 reads wDisableWarpTiles before the entered-position marker;
     // checkTileWarps reads wMenuDisabled only after that marker is updated.
     internal bool NativeWarpTilesDisabled =>
+        _runtimeState.ReadField("wDisableWarpTiles") != 0 ||
         HasPlayerRestriction(static restriction => restriction.DisablesWarpTiles);
     internal bool PlayerContactDisabled => SwitchHook?.ExchangeActive == true ||
         HasPlayerRestriction(static restriction => restriction.DisablesPlayerContact);

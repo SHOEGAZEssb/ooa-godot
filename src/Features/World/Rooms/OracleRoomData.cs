@@ -27,6 +27,7 @@ public sealed class OracleRoomData
     internal void OrTilesetFlags(byte flags) => TilesetFlags |= flags;
     internal bool IsCompanionRegion { get; init; }
     internal bool LoadsUniqueGraphicsAfterScroll { get; init; }
+    internal int? UniqueGraphicsOverride { get; set; }
     internal int TilesetPaletteId { get; init; }
     private Image? _liveGraphics;
     private bool _freezeGraphicsOverrides;

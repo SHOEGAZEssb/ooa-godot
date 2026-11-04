@@ -42,7 +42,7 @@ internal sealed class RoomScrollController
         _graphics ??= new(room.AssetRoot);
         if (_graphics.AssetRoot != room.AssetRoot)
             throw new ArgumentException("A scroll owner cannot cross game asset packs.");
-        _loadedUnique = _graphics.ForTileset(room.TilesetId, room.TilesetStateModifier).Unique |
+        _loadedUnique = (room.UniqueGraphicsOverride ?? _graphics.ForTileset(room.TilesetId, room.TilesetStateModifier).Unique) |
             (room.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
     }
 
@@ -53,6 +53,8 @@ internal sealed class RoomScrollController
         _setupFrames = 4;
         int cleanup = 2 + (direction.X != 0 ? (target.Width - 160) / 8 : (target.Height - 128) / 8);
         (_unique, _entries) = _graphics.ForTileset(target.TilesetId, target.TilesetStateModifier);
+        if (target.UniqueGraphicsOverride is int unique)
+        { _unique = unique; _entries = _graphics.Uploads(unique).Count; }
         if (target.LoadsUniqueGraphicsAfterScroll) _unique |= 0x80;
         _uploadGraphics = _unique != 0 && _unique != _loadedUnique;
         _postScrollEntries = 0;

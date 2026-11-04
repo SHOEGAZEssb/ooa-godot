@@ -107,6 +107,10 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         Entities.WorldToScreen = point => _screen.Visible ?
             point - new Vector2(_screen.CameraX, _screen.CameraY) : Transitions.WorldToGameplayScreen(point);
         var tiles=Engine.BindTileContacts(() => _roomTicks);
+        Engine.Keyholes.SetEventHandler(
+            (group,room)=>group==Rooms.ActiveGroup && room==RoomId &&
+                Entities.EntityAdapters<SeasonsGnarledKeyholeRoomEntity>().Any(actor=>actor.CanTrigger),
+            (group,room)=>Entities.EntityAdapters<SeasonsGnarledKeyholeRoomEntity>().Single(actor=>actor.CanTrigger).Input);
         Collision = new(Rooms,Entities,tiles.Blocks,HasNeighbor,normalizeCornerWalls:false);
         Combat = new(Rooms,RoomView,Entities,new BreakableTileDatabase(SeasonsGameContent.AssetRoot),Save,Sound,() => _roomTicks);
         Transitions = new(Rooms,Data.World,this,Entities,Checkpoints,Sound);

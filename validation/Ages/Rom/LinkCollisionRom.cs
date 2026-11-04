@@ -49,6 +49,7 @@ internal sealed class LinkCollisionRom
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
     internal void Bank(int bank, int address, byte value) => _wram[bank][address - 0xd000] = value;
     internal byte BankByte(int bank, int address) => _wram[bank][address - 0xd000];
+    internal byte VramByte(int bank,int address) => _vram[bank][address-0x8000];
     internal int Word(int address) => _memory[address] | (_memory[address + 1] << 8);
     internal void Word(int address, int value)
     {
@@ -79,7 +80,7 @@ internal sealed class LinkCollisionRom
     {
         if (address < 0x4000) return _rom.Span[address];
         // Flute callers use $09, HUD/common graphics $19/$1b/$27/$28, interactions Seasons $29/Ages $2a.
-        if (address < 0x8000 && _bank is 1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 0x0a or 0x0b or 0x0c or 0x0d or 0x0e or 0x0f or 0x10 or 0x11 or 0x12 or 0x14 or 0x15 or 0x16 or 0x19 or 0x1b or 0x27 or 0x28 or 0x29 or 0x2a or 0x3f)
+        if (address < 0x8000 && _bank is 1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 0x0a or 0x0b or 0x0c or 0x0d or 0x0e or 0x0f or 0x10 or 0x11 or 0x12 or 0x14 or 0x15 or 0x16 or 0x19 or 0x1b or 0x27 or 0x28 or 0x29 or 0x2a or 0x2c or 0x3f)
             return _rom.Span[_bank * 0x4000 + address - 0x4000];
         if (address is >= 0x8000 and < 0xa000) return _vram[_memory[0xff4f] & 1][address - 0x8000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];

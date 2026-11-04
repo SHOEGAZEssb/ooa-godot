@@ -82,6 +82,18 @@ internal sealed class SeasonsWorldData
     }
 
     internal int RoomPack(int room) => _roomPacks[room];
+    internal void ApplyUniqueGraphics(OracleRoomData room, int header)
+    {
+        Image graphics = room.CaptureLiveGraphics();
+        foreach (var upload in _transitionGraphics.Uploads(header))
+        {
+            if (upload.Palette >= 0)
+                throw new NotSupportedException($"Seasons unique graphics ${header:x2}: palette upload requires its native palette handler.");
+            ScreenTransitionRenderer.ApplyUpload(graphics, upload);
+        }
+        room.SetLiveGraphics(graphics, false);
+        room.UniqueGraphicsOverride = header;
+    }
     internal int DefaultSeason(int pack, int companion) => pack < 0xf0 ? _packSeasons[pack] :
         pack == 0xff ? (companion - (SpecialObjectId.Ricky - 1)) & 3 : 1;
 
@@ -100,6 +112,9 @@ internal sealed class SeasonsWorldData
 
     internal void ApplyScenery(OracleRoomData room, OracleSaveData save, long tick)
     {
+        // loadTilesetData.s selects $20 only while the Gnarled entrance is closed.
+        if (room.Group == 0 && room.Id == 0x96)
+            ApplyUniqueGraphics(room, save.HasRoomFlag(0,0x96,0x80) ? 0x04 : 0x20);
         bool troupe = room.Group == 0 && room.Id == 0x98 && !save.HasRoomFlag(0, 0x98, 0x40);
         bool wagon = room.Group == 0 && room.Id == 0x97 && !save.HasGlobalFlag(0x0a);
         bool gate = room.Group == 0 && room.Id == 0xd9 && save.HasRoomFlag(0,0xd9,0x80);

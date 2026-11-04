@@ -41,6 +41,8 @@ internal sealed class BraceletRom
     };
     internal byte this[int address] { get => _rom[Address(address)]; set => _rom[Address(address)] = value; }
     internal byte ReadNativeByte(int address) => _rom[address];
+    internal byte UniqueGraphicsByte(int offset) => _rom.BankByte(7,0xd800+offset);
+    internal void LoadUniqueGraphics(int index) => _rom.Call(_game==OracleGame.Ages?0x380b:0x379c,bank:0,accumulator:index);
     internal int InitializeBossRoom()
     {
         _rom.Call(_game == OracleGame.Ages ? 0x4552 : 0x4571,

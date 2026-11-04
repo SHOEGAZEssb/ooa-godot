@@ -24,6 +24,7 @@ $selectors.Add("# id`tvariant`tstate`tscript`tsource")
 $scripts = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 [void]$scripts.Add('stage0')
 [void]$scripts.Add('makuTreeScript_gateHit')
+[void]$scripts.Add('gnarledKeyholeScript')
 function Add-NpcSelector([int]$id,[int]$variant,[int]$state,[int]$address,[string]$source) {
     $target = $scriptBankBase + ((Read-NpcWord $address) -band 0x3fff)
     if (!$scriptAddress.ContainsKey($target)) { throw "${source}: unresolved script pointer at `$$($address.ToString('x5'))." }
@@ -194,6 +195,14 @@ foreach($row in $programRows | Select-Object -Skip 1){
             $binding=@{Opcode='writeobjectbyte';Actor='Self';Arg0=$offset;Arg1=$p[1].TrimStart('$')}
         }
         'incstate'{$binding=@{Opcode='nativeyield';Payload='incstate'}}
+        'shakescreen'{
+            if($operands -ne '120'){throw "Seasons keyhole: unexpected shake $operands."}
+            $binding=@{Opcode='nativeyield';Payload='ShakeScreen120'}
+        }
+        'setmusic'{
+            if($operands -ne 'SNDCTRL_STOPMUSIC'){throw "Seasons keyhole: unexpected music $operands."}
+            $binding=@{Opcode='setmusic';Arg0='f0'}
+        }
         'giveitem'{
             if($operands -ne 'ITEM_SWORD, $03'){throw "Maku gate: unexpected grant $operands."}
             $binding=@{Opcode='nativeyield';Payload='gate-sword-grant'}
@@ -218,7 +227,7 @@ $animationLabels=@{}
 foreach($name in @($presentation.Definitions.Keys | Sort-Object)){
     if($seasonsSymbols.ContainsKey($name)){$animationLabels[$seasonsSymbols[$name]]=$name}
 }
-foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4e,0x80,0x82,0x83,0x87,0x8a,0x8b,0x8d,0x8e,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe5)){
+foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4b,0x4e,0x80,0x82,0x83,0x87,0x8a,0x8b,0x8d,0x8e,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe5)){
     $hex=$id.ToString('x2')
     $entry=@(Read-AssemblyMacroInvocations $dataPath '' 'm_InteractionData' | Where-Object Comment -eq "`$$hex")
     if($entry.Count -ne 1){throw "NPC `$$hex has no unique graphics data."}
@@ -227,7 +236,10 @@ foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x3
     for($subid=0;$subid -lt $records.Count;$subid++){
         $fields=$records[$subid].Operands;$header=Convert-AssemblyInteger $fields[0];$tile=(Convert-AssemblyInteger $fields[1]) -band 0x7f;$flags=Convert-AssemblyInteger $fields[2]
         $lastAnimation=[Math]::Max($lastAnimation,$flags -band 15)
-        $sprite=$gfx[$header].Operands[0]
+        # addIndexToLoadedObjectGfx returns zero without loading: bank1 uses the resident common sheet.
+        $sprite=if($header -ne 0){$gfx[$header].Operands[0]}
+            elseif(($flags -band 0x80) -ne 0){'spr_common_sprites'}
+            else{throw "data/seasons/interactionData.s:`$$hex subid`$$($subid.ToString('x2')): unbound resident bank0 OBJ graphics."}
         $relative=[IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $sprite).FullName)
         Copy-GeneratedFile $relative "gfx/$sprite.png" $root
         $append=''
@@ -242,7 +254,7 @@ foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x3
                 "${extra}:$([int](Get-ImportSpriteSourceGrayscaleInverted $extra))"
             }) -join ','
         }
-        $offset=if($gfx[$header].Operands.Count -ge 3){$gfx[$header].Operands[2].TrimStart('$')}else{'0000'}
+        $offset=if($header -ne 0 -and $gfx[$header].Operands.Count -ge 3){$gfx[$header].Operands[2].TrimStart('$')}else{'0000'}
         $visuals.Add("$hex`t$($subid.ToString('x2'))`t$sprite`t$tile`t$(($flags -shr 4) -band 7)`t$($flags -band 15)`t$append`t$offset`tdata/seasons/interactionData.s:`$$hex`t$([int](Get-ImportSpriteSourceGrayscaleInverted $sprite))")
     }
     # Native indexing continues through adjacent .dw labels (notably $36 animation $04).
@@ -260,6 +272,18 @@ foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x3
 }
 Write-GeneratedTable((Join-Path $root 'npcs/visuals.tsv'),$visuals)
 Write-GeneratedTable((Join-Path $root 'npcs/animations.tsv'),$animations)
+
+# INTERAC$21 and its $4b children retain the native table bytes and order.
+foreach($spec in @(@('gnarled-positions','table_5482',9,0x21),
+    @('gnarled-closed-collisions','table_548b',9,0x21),@('gnarled-open-collisions','table_5494',9,0x21),
+    @('gnarled-counters','interactionCode21@table_542d',10,0x21),@('gnarled-graphics','table_54a9',5,0x21),
+    @('gnarled-stone-subids','table_54e4',4,0x21),@('gnarled-stone-speed-z','interactionCode4b@table_7260',8,0x4b),
+    @('gnarled-stone-speeds','interactionCode4b@table_7268',4,0x4b),@('gnarled-stone-gravity','interactionCode4b@table_726c',4,0x4b),
+    @('gnarled-stone-angles','interactionCode4b@table_7270',16,0x4b))){
+    $address=Npc-Symbol $spec[1] $spec[3]
+    $values=@($bytes[$address..($address+$spec[2]-1)] | ForEach-Object {$_.ToString('x2')})
+    $tables.Add("$($spec[0])`t$($values -join ',')`tobject_code/seasons/interactions:$($spec[1])")
+}
 
 # ENEMY$56 shares Maku's three uploaded sprite sheets, but has its own OAM stream.
 $enemyPath=Join-Path $Disassembly 'data/seasons/enemyAnimations.s'

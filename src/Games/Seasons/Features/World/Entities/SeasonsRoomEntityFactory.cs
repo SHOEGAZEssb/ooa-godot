@@ -213,6 +213,12 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         var reader = new NativeObjectStreamReader(data, session.Memory, () => session.Save.GetRoomFlags(group, room.Id));
         foreach (var instruction in reader.Read(data.Root(group, room.Id)))
         {
+            if (instruction.Id==0x21)
+            {
+                if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
+                yield return new SeasonsGnarledKeyholeRoomEntity(session,TalkNpcs,instruction);
+                continue;
+            }
             if(group==2 && room.Id==0x0b && (instruction is {Id:0x9d,SubId:3} or {Id:0x44,SubId:8}))
             {
                 if(!owner.InteractionSlotAvailable){reader.AllocationFailed();continue;}
@@ -245,6 +251,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         _common.TryCreateStreamInteraction(source,room,placement) ??
         (source switch
         {
+            {Id:0x21}=>new SeasonsGnarledKeyholeRoomEntity(session,TalkNpcs,source),
             {Id:0xc6,SubId:0}=>new SeasonsHerosCaveSwordRoomEntity(session,HerosCave,
                 HerosCave.CreateSword(new(source.X,source.Y),session.Data.World.SpritePalettes)),
             {Id:0xdc,SubId:1 or 2}=>new SeasonsUnlinkedInteractionRoomEntity(session.Memory,source),
@@ -272,6 +279,9 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
             int address=((0xd0+slot)<<8)|0x40;
             if(memory.ReadWramByte(address)==0)continue;
             int id=memory.ReadWramByte(address+1),subid=memory.ReadWramByte(address+2);
+            // shortcut: restore the script cursor and entrance graphics before admitting active captures.
+            if(id is 0x21 or 0x4b)
+                throw new NotSupportedException($"gnarledKeyhole.s: INTERAC${id:x2}:${subid:x2} slot${slot:x2} has no transient debug reconstruction.");
             // shortcut: Maku's scripts and bubble need transient reconstruction before admitting active captures.
             if(id==0x87 || id==0x22&&subid==0x0a)
                 throw new NotSupportedException($"Seasons INTERAC${id:x2}:${subid:x2} slot${slot:x2}: Maku sequence has no transient debug reconstruction.");
