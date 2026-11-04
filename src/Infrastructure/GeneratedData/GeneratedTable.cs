@@ -8,7 +8,7 @@ namespace Oracles;
 
 internal sealed class GeneratedTable
 {
-    private static readonly ConcurrentDictionary<string, Lazy<GeneratedTable>> Cache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<(string Path, GeneratedTableSchema Schema), Lazy<GeneratedTable>> Cache = new();
     public string Path { get; }
     public GeneratedTableSchema Schema { get; }
     public IReadOnlyList<GeneratedTableRow> Rows { get; }
@@ -26,11 +26,8 @@ internal sealed class GeneratedTable
     public static GeneratedTable Load(string path, GeneratedTableSchema schema)
     {
         // Include the entire contract so a cache hit cannot bypass validation.
-        string key = string.Join('\u001e', path, schema.Name, schema.Version,
-            schema.KeySemantics, schema.HeaderRequired, string.Join('\u001f', schema.Columns),
-            string.Join(',', schema.KeyColumns));
-        return Cache.GetOrAdd(key, _ => new Lazy<GeneratedTable>(
-            () => LoadUncached(path, schema), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        return Cache.GetOrAdd((path, schema), static key => new Lazy<GeneratedTable>(
+            () => LoadUncached(key.Path, key.Schema), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
     }
 
     private static GeneratedTable LoadUncached(string path, GeneratedTableSchema schema)

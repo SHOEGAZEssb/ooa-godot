@@ -299,7 +299,7 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     private CollapsingFloorDatabase? _collapsingFloorsData;
     internal CollapsingFloorDatabase CollapsingFloors => _collapsingFloorsData ??= new(AgesGameContent.AssetRoot);
     private BreakableTileDatabase? _breakablesData;
-    internal BreakableTileDatabase Breakables => _breakablesData ??= new(AgesGameContent.AssetRoot);
+    internal BreakableTileDatabase Breakables => _breakablesData ??= BreakableTileDatabase.For(AgesGameContent.AssetRoot);
     private LedgeJumpDatabase? _ledgeJumpsData;
     internal LedgeJumpDatabase LedgeJumps => _ledgeJumpsData ??= new(AgesGameContent.AssetRoot);
     private SwordBeamDatabase? _swordBeamData;
@@ -339,7 +339,7 @@ internal sealed class AgesRoomEntityResources(RoomSession? rooms)
     private TingleDatabase? _tingleData;
     internal TingleDatabase Tingle => _tingleData ??= new();
     internal DungeonMapDatabase DungeonMaps { get; private set; } =
-        rooms?.DungeonMaps ?? new DungeonMapDatabase(AssetRoot);
+        rooms?.DungeonMaps ?? DungeonMapDatabase.For(AssetRoot);
 
     internal IEnumerable<bool> PrepareResources(bool includeGraphics = true)
     {

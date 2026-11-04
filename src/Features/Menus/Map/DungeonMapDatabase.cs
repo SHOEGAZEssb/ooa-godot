@@ -5,6 +5,10 @@ public sealed class DungeonMapDatabase
 {
     public string AssetRoot { get; }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<DungeonMapDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static DungeonMapDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<DungeonMapDatabase>(() => new DungeonMapDatabase(root))).Value;
+
     private readonly Dictionary<(int Dungeon, int Room, Vector2I Direction), int> _neighbors = new();
     private readonly Dictionary<int, DungeonInfo> _dungeons = new();
     private readonly Dictionary<(int Group, int Room), int> _dungeonByRoom = new();

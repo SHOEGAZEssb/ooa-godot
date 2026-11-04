@@ -5,6 +5,10 @@ public sealed class BreakableTileDatabase
 {
     public string AssetRoot { get; }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<BreakableTileDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static BreakableTileDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<BreakableTileDatabase>(() => new BreakableTileDatabase(root))).Value;
+
     // constants/common/tileIndices.s: TILEINDEX_SIGN
     private const byte SignTile = 0xf2;
     public const int SourceBracelet = 0x00;

@@ -71,7 +71,7 @@ internal sealed class HarpOfAgesEventDatabase
             Root + "harp_of_ages_commands.tsv");
         MusicNote = new SharedEffectDatabase(AgesGameContent.AssetRoot).Effect("MusicNote");
         LinkHarpFrames =
-            new NewGameIntroDatabase(AgesGameContent.AssetRoot).SpriteFrames("link-harp");
+            NewGameIntroDatabase.For(AgesGameContent.AssetRoot).SpriteFrames("link-harp");
         Validate();
     }
 

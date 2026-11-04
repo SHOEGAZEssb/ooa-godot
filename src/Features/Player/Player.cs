@@ -1306,7 +1306,7 @@ public partial class Player : Node2D
     {
         _harpRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
         _cutsceneHarpFrames ??=
-            new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-harp");
+            NewGameIntroDatabase.For(AssetRoot).SpriteFrames("link-harp");
         _harpFrames = _cutsceneHarpFrames;
         if (_harpFrames.Length != 13)
         {
@@ -1326,7 +1326,7 @@ public partial class Player : Node2D
     {
         _harpRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
         _harpFrames = flute ? new FluteDatabase(AssetRoot).Frames :
-            _itemHarpFrames ??= new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-harp-item");
+            _itemHarpFrames ??= NewGameIntroDatabase.For(AssetRoot).SpriteFrames("link-harp-item");
         if (_harpFrames.Length != (flute ? 7 : 17))
         {
             throw new InvalidOperationException(

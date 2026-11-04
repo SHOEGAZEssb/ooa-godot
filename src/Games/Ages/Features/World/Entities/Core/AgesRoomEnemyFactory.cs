@@ -731,7 +731,7 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
             return true;
         },(point,spawns)=>
         {
-            var breakables=new BreakableTileDatabase(AssetRoot);
+            var breakables=BreakableTileDatabase.For(AssetRoot);
             if(breakables.TryBreak(room,BreakableTileDatabase.SourceShovel,point,_saveData,room.Group,_animationTick,null,out var tile)==BreakableTileBreakStatus.Broken)
             {
                 tile.ApplyCommonEffects(owner.OnSoundRequested,owner.SpawnBreakableDrop);

@@ -56,6 +56,16 @@ public sealed partial class ValidationRoot
                 new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
                     cachedColumns, headerRequired: true))),
             "Equivalent generated-table contracts did not reuse the validated rows.");
+        foreach (var distinct in new[]
+        {
+            new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered, cachedColumns),
+            new GeneratedTableSchema("different name", GeneratedTableKeySemantics.Ordered, cachedColumns, headerRequired: true),
+            new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Repeated, cachedColumns, headerRequired: true),
+            new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered, cachedColumns, ["group"], headerRequired: true),
+            new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered, cachedColumns, ["room"], headerRequired: true)
+        })
+            FailIf(ReferenceEquals(cached, GeneratedTable.Load(cachedPath, distinct)),
+                "Different generated-table contracts shared their validated rows.");
         ExpectGeneratedTableFailure(() => GeneratedTable.Load(cachedPath,
             new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
                 cachedColumns, version: 2, headerRequired: true)), cachedPath, "runtime expects 2");
@@ -112,6 +122,18 @@ public sealed partial class ValidationRoot
             table.Rows[0].String(7) != string.Empty ||
             table.Rows[1].Base64Utf8(6) != "World",
             "The shared generated-table reader did not preserve rows, empty fields, or typed values.");
+
+        FailIf(!ReferenceEquals(table.Rows[0].Base64Utf8(6), table.Rows[0].Base64Utf8(6)) ||
+            table.Rows[0].Base64Utf8(7) != string.Empty ||
+            table.Rows[0].Decimal(3, -2, -2) != -2,
+            "Generated-table decoded text reuse changed column isolation or decimal boundaries.");
+        ExpectGeneratedTableFailure(() => table.Rows[0].Decimal(3, -1, 1),
+            $"{path}:2:", "column 'decimal' (4)", "expected a decimal integer in [-1, 1]");
+        ExpectGeneratedTableFailure(() => table.Rows[0].Decimal(3, -4, -3),
+            $"{path}:2:", "column 'decimal' (4)", "expected a decimal integer in [-4, -3]");
+        for (int attempt = 0; attempt < 2; attempt++)
+            ExpectGeneratedTableFailure(() => table.Rows[0].Base64Utf8(0),
+                $"{path}:2:", "column 'kind' (1)", "valid base64-encoded UTF-8 text");
 
         ExpectGeneratedTableFailure(
             () => GeneratedTable.ParseForValidation(

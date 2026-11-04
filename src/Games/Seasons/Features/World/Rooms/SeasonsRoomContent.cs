@@ -11,7 +11,7 @@ internal sealed class SeasonsRoomContent(SeasonsWorldData data) : IRoomContent
     private SingleTileChangeDatabase? _singleTiles;
     public string AssetRoot => SeasonsGameContent.AssetRoot;
     public BackgroundPaletteState BackgroundPalettes => data.Palettes;
-    public DungeonMapDatabase DungeonMaps => _maps ??= new(AssetRoot);
+    public DungeonMapDatabase DungeonMaps => _maps ??= DungeonMapDatabase.For(AssetRoot);
     public DungeonKeyDoorDatabase KeyDoors => _keyDoors ??= new(AssetRoot);
     // bank1.s:checkWarpsTopDown adds $05 before admitting the next room.
     public int RoomLoadMaturity => 5;

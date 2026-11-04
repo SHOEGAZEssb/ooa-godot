@@ -8,8 +8,9 @@ namespace Oracles;
 /// Declares the complete top-level shape and key contract of one generated TSV.
 /// Nested domain encodings remain owned by their typed database.
 /// </summary>
-internal sealed class GeneratedTableSchema
+internal sealed class GeneratedTableSchema : IEquatable<GeneratedTableSchema>
 {
+    private readonly int _hashCode;
     public string Name { get; }
     public int Version { get; }
     public IReadOnlyList<string> Columns { get; }
@@ -64,5 +65,21 @@ internal sealed class GeneratedTableSchema
             indexes[index] = column;
         }
         KeyColumns = Array.AsReadOnly(indexes);
+        var hash = new HashCode();
+        hash.Add(Name, StringComparer.Ordinal);
+        hash.Add(Version);
+        hash.Add(KeySemantics);
+        hash.Add(HeaderRequired);
+        foreach (string column in Columns) hash.Add(column, StringComparer.Ordinal);
+        foreach (int column in KeyColumns) hash.Add(column);
+        _hashCode = hash.ToHashCode();
     }
+
+    public bool Equals(GeneratedTableSchema? other) => ReferenceEquals(this, other) ||
+        other is not null && Name == other.Name && Version == other.Version &&
+        KeySemantics == other.KeySemantics && HeaderRequired == other.HeaderRequired &&
+        Columns.SequenceEqual(other.Columns, StringComparer.Ordinal) && KeyColumns.SequenceEqual(other.KeyColumns);
+
+    public override bool Equals(object? obj) => obj is GeneratedTableSchema other && Equals(other);
+    public override int GetHashCode() => _hashCode;
 }

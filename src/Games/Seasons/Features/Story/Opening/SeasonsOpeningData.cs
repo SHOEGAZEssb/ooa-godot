@@ -5,7 +5,7 @@ internal sealed class SeasonsOpeningData
 {
     internal const string Root = SeasonsGameContent.AssetRoot;
     internal SeasonsWorldData World { get; } = new();
-    internal NewGameIntroDatabase LinkSprites { get; } = new(Root);
+    internal NewGameIntroDatabase LinkSprites { get; } = NewGameIntroDatabase.For(Root);
     internal readonly Dictionary<string, IReadOnlyList<CutsceneCommand>> Scripts =
         CutsceneCommandCatalog.LoadPrograms(Root + "opening/commands.tsv");
     private readonly Dictionary<(int, int), GeneratedTableRow> _actors = [];

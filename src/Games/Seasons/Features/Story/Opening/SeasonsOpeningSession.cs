@@ -112,7 +112,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
                 Entities.EntityAdapters<SeasonsGnarledKeyholeRoomEntity>().Any(actor=>actor.CanTrigger),
             (group,room)=>Entities.EntityAdapters<SeasonsGnarledKeyholeRoomEntity>().Single(actor=>actor.CanTrigger).Input);
         Collision = new(Rooms,Entities,tiles.Blocks,HasNeighbor,normalizeCornerWalls:false);
-        Combat = new(Rooms,RoomView,Entities,new BreakableTileDatabase(SeasonsGameContent.AssetRoot),Save,Sound,() => _roomTicks);
+        Combat = new(Rooms,RoomView,Entities,BreakableTileDatabase.For(SeasonsGameContent.AssetRoot),Save,Sound,() => _roomTicks);
         Transitions = new(Rooms,Data.World,this,Entities,Checkpoints,Sound);
         Transitions.ScreenTransitionsDisabledSource = () => Phase is not (SeasonsOpeningPhase.Troupe or SeasonsOpeningPhase.Complete);
         Engine.BindTransitions(Transitions);

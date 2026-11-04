@@ -9,7 +9,7 @@ namespace Oracles;
 internal sealed class DekuForestPalaceEventDatabase
 {
     private const string Root = AgesGameContent.AssetRoot + "cutscenes/";
-    private readonly NpcDatabase _npcs = new(AgesGameContent.AssetRoot);
+    private readonly NpcDatabase _npcs = NpcDatabase.For(AgesGameContent.AssetRoot);
 
     internal DekuForestPalaceEventRecord Record { get; }
     internal IReadOnlyList<CutsceneCommand> EntranceCommands { get; }

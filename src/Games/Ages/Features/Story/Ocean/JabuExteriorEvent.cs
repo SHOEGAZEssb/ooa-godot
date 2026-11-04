@@ -4,7 +4,7 @@ namespace Oracles;
 // INTERAC $dc:$09/$0a and CUTSCENE_JABU_OPEN $1d.
 internal sealed class JabuExteriorEvent(RoomEventContext context):IRoomEvent,IRoomEntryEvent
 {
-    private readonly JabuExteriorDatabase _data=new();
+    private static readonly JabuExteriorDatabase _data=new();
     private int _state,_phase,_counter;
     public bool HasState{get;private set;}
     internal bool Opening{get;private set;}

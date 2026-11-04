@@ -3078,8 +3078,14 @@ public sealed partial class RoomEntityManager : IDisposable
         {
             for (int slot = 0; slot < 16; slot++)
             {
-                IRoomEntity? entity = (phase==0?_enemySlots:_partSlots).FirstOrDefault(pair => pair.Value == slot &&
-                    (phase==0||pair.Key is not IRoomEntityLifetime {Finished:true})).Key;
+                IRoomEntity? entity = null;
+                foreach (var pair in phase == 0 ? _enemySlots : _partSlots)
+                {
+                    if (pair.Value != slot || (phase != 0 && pair.Key is IRoomEntityLifetime { Finished: true }))
+                        continue;
+                    entity = pair.Key;
+                    break;
+                }
                 if (entity is not null) yield return entity;
             }
             // Composite ENEMY owners still dispatch before PARTs even while
@@ -3100,8 +3106,14 @@ public sealed partial class RoomEntityManager : IDisposable
             yield return entity;
         for (int slot = 0; slot < 16; slot++)
         {
-            IRoomEntity? entity = _interactionSlots.FirstOrDefault(pair => pair.Value == slot &&
-                pair.Key is not IRoomEntityLifetime { Finished: true }).Key;
+            IRoomEntity? entity = null;
+            foreach (var pair in _interactionSlots)
+            {
+                if (pair.Value != slot || pair.Key is IRoomEntityLifetime { Finished: true })
+                    continue;
+                entity = pair.Key;
+                break;
+            }
             if (entity is not null) yield return entity;
         }
         foreach (var entity in logicalOwners.Where(entity => entity is not DungeonEssenceGlow))

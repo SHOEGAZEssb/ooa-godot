@@ -5,7 +5,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
     Action<int> sound, Func<long> animationTick, Action<Vector2, int> breakEffect, Func<bool> pushBlockActive)
 {
     private readonly SwitchHookDatabase _database = new();
-    private readonly BreakableTileDatabase _breakables = new(AgesGameContent.AssetRoot);
+    private readonly BreakableTileDatabase _breakables = BreakableTileDatabase.For(AgesGameContent.AssetRoot);
     private Player? _player;
     internal SwitchHookItem? Item { get; private set; }
     internal bool Active { get; private set; }

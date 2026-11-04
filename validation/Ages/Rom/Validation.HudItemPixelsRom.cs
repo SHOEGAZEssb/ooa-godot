@@ -98,14 +98,16 @@ public sealed partial class ValidationRoot
         // Independent fixed-strip composition from native memory. Original
         // routines loaded/decompressed every tile, attribute, palette and OAM
         // command. This is a static CGB layer comparison, not a PPU timing model.
-        byte[] backgroundBefore = hud.Background.GetImage().GetData();
+        using Image backgroundBeforeImage = hud.ComposeBackgroundImage();
+        byte[] backgroundBefore = backgroundBeforeImage.GetData();
         // Inspect the actual upload image. The headless texture backend keeps
         // its initial GetImage snapshot after ImageTexture.Update.
         using Image actual = displayImage ? hud.ComposeDisplayImage() : hud.ComposeImage();
         FailIf(actual.GetWidth() != 160 || actual.GetHeight() != 16 || actual.GetFormat() != Image.Format.Rgba8,
             context + ": HUD comparison requires a 160 by 16 RGBA image.");
         byte[] pixels = actual.GetData();
-        FailIf(!System.Linq.Enumerable.SequenceEqual(backgroundBefore, hud.Background.GetImage().GetData()),
+        using Image backgroundAfterImage = hud.ComposeBackgroundImage();
+        FailIf(!System.Linq.Enumerable.SequenceEqual(backgroundBefore, backgroundAfterImage.GetData()),
             context + ": composing item OAM must preserve the reusable status background.");
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 160; x++)

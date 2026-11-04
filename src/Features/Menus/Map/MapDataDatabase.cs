@@ -9,6 +9,10 @@ public sealed class MapDataDatabase
 {
     public string AssetRoot { get; }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<MapDataDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static MapDataDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<MapDataDatabase>(() => new MapDataDatabase(root))).Value;
+
     private readonly Dictionary<(int Group, int Room), MapCell> _cells = new();
     private readonly Dictionary<int, MapText> _texts = new();
     private readonly Dictionary<(int Group, int Room), int> _treePopups = new();

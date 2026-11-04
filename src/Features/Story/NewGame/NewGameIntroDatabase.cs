@@ -6,6 +6,10 @@ namespace Oracles;
 /// </summary>
 public sealed class NewGameIntroDatabase
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<NewGameIntroDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static NewGameIntroDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<NewGameIntroDatabase>(() => new NewGameIntroDatabase(root))).Value;
+
     public NewGameIntroRecord Record { get; }
     private readonly Dictionary<string, ObjectSpriteFrame[]> _spriteFrames = new();
 

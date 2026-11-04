@@ -50,7 +50,7 @@ public partial class NewGameIntroScreen : Node2D
     internal IEnumerable<bool> PrepareResources()
     {
         if (ResourcesPrepared) yield break;
-        var database = new NewGameIntroDatabase(AssetRoot);
+        var database = NewGameIntroDatabase.For(AssetRoot);
         _record = database.Record;
         _linkSpin = database.SpriteFrames("link-spin");
         _linkVanish = database.SpriteFrames("link-vanish");

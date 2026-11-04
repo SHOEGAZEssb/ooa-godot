@@ -49,7 +49,7 @@ internal sealed class HarpItemDatabase
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(value => Convert.ToInt32(value, 16))
             .ToArray();
-        LinkFrames = new NewGameIntroDatabase(AgesGameContent.AssetRoot).SpriteFrames("link-harp-item");
+        LinkFrames = NewGameIntroDatabase.For(AgesGameContent.AssetRoot).SpriteFrames("link-harp-item");
         Validate();
     }
 

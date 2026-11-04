@@ -133,7 +133,7 @@ public partial class MapScreen : Node2D
             throw new ArgumentException("Map presentation, room session and inventory must belong to the same game.");
         _rooms = rooms;
         _inventory = inventory;
-        _mapData = new MapDataDatabase(AssetRoot);
+        _mapData = MapDataDatabase.For(AssetRoot);
         _layouts = MapPresentationDatabase.For(AssetRoot);
         _presentation = new MapPresentationState(rooms.SaveData, inventory);
         _frameCounterSource = frameCounter ?? (() => (int)(Input.TimingFrame & 0xff));

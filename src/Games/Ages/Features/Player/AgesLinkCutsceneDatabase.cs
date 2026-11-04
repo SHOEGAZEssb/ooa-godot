@@ -3,7 +3,7 @@ namespace Oracles;
 
 internal sealed class AgesLinkCutsceneDatabase
 {
-    private readonly NewGameIntroDatabase _frames=new(AgesGameContent.AssetRoot);
+    private readonly NewGameIntroDatabase _frames=NewGameIntroDatabase.For(AgesGameContent.AssetRoot);
     private readonly Dictionary<int,int> _loops=[];
     internal static AgesLinkCutsceneDatabase Shared {get;}=new();
     private AgesLinkCutsceneDatabase()

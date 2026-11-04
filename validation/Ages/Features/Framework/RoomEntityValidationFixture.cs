@@ -33,9 +33,9 @@ internal sealed class RoomEntityValidationFixture : IDisposable
         _ownsRoot = ownsRoot;
         Manager = AgesRoomEntityFactory.CreateManager(
             root,
-            options.Npcs ?? new NpcDatabase(AgesGameContent.AssetRoot),
-            options.Enemies ?? new EnemyDatabase(AgesGameContent.AssetRoot),
-            options.ItemDrops ?? new ItemDropDatabase(AgesGameContent.AssetRoot),
+            options.Npcs ?? NpcDatabase.For(AgesGameContent.AssetRoot),
+            options.Enemies ?? EnemyDatabase.For(AgesGameContent.AssetRoot),
+            options.ItemDrops ?? ItemDropDatabase.For(AgesGameContent.AssetRoot),
             options.TimePortals ?? new TimePortalDatabase(),
             options.Random ?? new OracleRandom(),
             options.SaveData,

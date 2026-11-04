@@ -115,14 +115,14 @@ public abstract class PlayerWorld
         _roomTransitions = transitions;
         Instruments = instruments ?? new(rooms,entities,sound,(message,player)=>scene.Dialogue.ShowMessage(message,player.Position.Y));
         entities.PlayingInstrumentSource = () => Instruments.PlayingInstrument;
-        var breakables = new BreakableTileDatabase(rooms.AssetRoot);
+        var breakables = BreakableTileDatabase.For(rooms.AssetRoot);
         _terrain = new(rooms,breakables,collision.AdjacentWallsBitset);
-        Bracelet = new(scene.WorldRoot, rooms, new BreakableTileDatabase(rooms.AssetRoot), scene.RoomView,
+        Bracelet = new(scene.WorldRoot, rooms, breakables, scene.RoomView,
             entities, combat, rooms.SaveData, sound.PlaySound, entities.AnimationTick, collision.HasFullWall);
         if (entities.Bracelet is not null)
             throw new InvalidOperationException("Player world requires sole ownership of the Bracelet controller.");
         entities.Bracelet = Bracelet;
-        Shovel = new(rooms, new BreakableTileDatabase(rooms.AssetRoot), scene.RoomView,
+        Shovel = new(rooms, breakables, scene.RoomView,
             entities, rooms.SaveData, sound.PlaySound, entities.AnimationTick);
         Satchel = new(entities.Inventory ?? throw new InvalidOperationException("Satchel input requires live inventory."),
             entities, new SeedSatchelDatabase(rooms.AssetRoot), rooms);

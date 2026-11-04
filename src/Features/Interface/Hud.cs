@@ -11,9 +11,12 @@ public partial class Hud : Node2D
     private const int MapStride = 32;
     private const int VisibleColumns = 20;
 
-    private Texture2D _background = null!;
     private ImageTexture? _composedTexture;
     private Image _hudTiles = null!;
+    private byte[] _hudShades = null!;
+    private int _hudTileWidth;
+    private byte[] _hudPalettePixels = null!;
+    private readonly byte[] _backgroundPixels = new byte[160 * 16 * 4];
     private Image _itemIcons1 = null!;
     private Image _itemIcons2 = null!;
     private Image _itemIcons3 = null!;
@@ -24,7 +27,6 @@ public partial class Hud : Node2D
     private Color _hiddenStatusBarFade = new(0, 0, 0, 0);
 
     public int Rupees { get; set; }
-    internal Texture2D Background => _background;
     public int HealthQuarters { get; set; } = 12;
     public int MaxHealthQuarters { get; set; } = 12;
     public int EquippedB { get; set; }
@@ -45,6 +47,13 @@ public partial class Hud : Node2D
         _resourcesPrepared = true;
         HudPalette = LoadPaletteColors(AssetRoot + "metadata/commonBgPalette0.bin");
         _hudTiles = LoadPng(AssetRoot + "gfx/gfx_hud.png");
+        _hudShades = OracleTileRenderer.CapturePaletteShades(_hudTiles, false);
+        _hudTileWidth = _hudTiles.GetWidth();
+        using (Image colors = Image.CreateEmpty(4, 1, false, Image.Format.Rgba8))
+        {
+            for (int shade = 0; shade < 4; shade++) colors.SetPixel(shade, 0, HudPalette[shade]);
+            _hudPalettePixels = colors.GetData();
+        }
         _itemIcons1 = LoadPng(AssetRoot + "gfx/spr_item_icons_1.png");
         _itemIcons2 = LoadPng(AssetRoot + "gfx/spr_item_icons_2.png");
         _itemIcons3 = LoadPng(AssetRoot + "gfx/spr_item_icons_3.png");
@@ -73,9 +82,12 @@ public partial class Hud : Node2D
         }
     }
 
+    internal Image ComposeBackgroundImage() =>
+        Image.CreateFromData(160, 16, false, Image.Format.Rgba8, _backgroundPixels);
+
     internal Image ComposeImage()
     {
-        Image result = (Image)_background.GetImage().Duplicate();
+        Image result = ComposeBackgroundImage();
         DrawEquippedItems(result);
         return result;
     }
@@ -130,7 +142,7 @@ public partial class Hud : Node2D
 
     public void Refresh()
     {
-        _background = BuildBackgroundTexture();
+        BuildBackgroundPixels();
         QueueRedraw();
     }
 
@@ -183,27 +195,23 @@ public partial class Hud : Node2D
         QueueRedraw();
     }
 
-    private Texture2D BuildBackgroundTexture()
+    private void BuildBackgroundPixels()
     {
         byte[] map = BuildStatusMap();
         byte[] flags = StatusBarLayout.ReadMap(AssetRoot, MaxHealthQuarters, EquippedB, true);
         if (flags.Length != 64)
             throw new InvalidOperationException("Normal HUD maps must contain 64 bytes.");
 
-        Image output = Image.CreateEmpty(160, 16, false, Image.Format.Rgba8);
         for (int row = 0; row < 2; row++)
         for (int column = 0; column < VisibleColumns; column++)
         {
             int mapOffset = row * MapStride + column;
             DrawHudTile(
-                output,
-                _hudTiles,
                 map[mapOffset],
                 flags[mapOffset],
                 column * 8,
                 row * 8);
         }
-        return ImageTexture.CreateFromImage(output);
     }
 
     private byte[] BuildStatusMap()
@@ -243,8 +251,6 @@ public partial class Hud : Node2D
     }
 
     private void DrawHudTile(
-        Image output,
-        Image source,
         byte tile,
         byte flags,
         int destinationX,
@@ -260,11 +266,11 @@ public partial class Hud : Node2D
         {
             int readX = tileX + (flipX ? 7 - x : x);
             int readY = tileY + (flipY ? 7 - y : y);
-            Color sourceColor = source.GetPixel(readX, readY);
-            int shade = Mathf.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
+            int shade = _hudShades[readY * _hudTileWidth + readX];
             if (Currency.TryGetReplacementShade(_loadedCurrencyGraphicsFlags, tile, flags,
                 flipX ? 7 - x : x, flipY ? 7 - y : y, out int replacement)) shade = replacement;
-            output.SetPixel(destinationX + x, destinationY + y, HudPalette[shade]);
+            _hudPalettePixels.AsSpan(shade * 4, 4).CopyTo(_backgroundPixels.AsSpan(
+                ((destinationY + y) * 160 + destinationX + x) * 4, 4));
         }
     }
 

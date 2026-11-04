@@ -7,7 +7,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
     private readonly SwitchHookDatabase _database;
     private readonly SwitchHookLevel _level;
     private readonly ItemTilePassage _tilePassage = new(AgesGameContent.AssetRoot);
-    private readonly BreakableTileDatabase _breakables = new(AgesGameContent.AssetRoot);
+    private readonly BreakableTileDatabase _breakables = BreakableTileDatabase.For(AgesGameContent.AssetRoot);
     private readonly Action<int> _sound;
     private readonly EnemyAnimationPlayer _animation;
     private readonly EnemyAnimationPlayer _chainAnimation;

@@ -325,7 +325,7 @@ public partial class GameRoot
             _sound.PlaySound, () => (long)_animationTicks);
         _combat = new CombatController(
             _rooms, _roomView, _entities,
-            new BreakableTileDatabase(AgesGameContent.AssetRoot), _saveData, _sound,
+            BreakableTileDatabase.For(AgesGameContent.AssetRoot), _saveData, _sound,
             () => (long)_animationTicks);
         var seeds = new SeedSatchelDatabase(_rooms.AssetRoot);
         _seedShooter = new SeedShooterController(_inventory, _entities, seeds, _rooms, _sound.PlaySound);

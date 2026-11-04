@@ -7,7 +7,8 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
     IUpdatesDuringDialogueRoomEvent
 {
     internal RoomEventContext Context => context;
-    internal GoronCaveDatabase Database { get; } = new();
+    internal GoronCaveDatabase Database => Source;
+    private static readonly GoronCaveDatabase Source = new();
     internal System.Func<int,System.Action<bool>,bool>? OpenSecretMenu { get; set; }
     private readonly List<GoronCaveScriptHost> _actors = new();
     private readonly List<GoronRock> _rocks = new();

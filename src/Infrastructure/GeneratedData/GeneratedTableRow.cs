@@ -8,6 +8,7 @@ internal sealed class GeneratedTableRow
 {
     private readonly string[] _values;
     private readonly GeneratedTableSchema _schema;
+    private string?[]? _decodedText;
 
     public string Path { get; }
     public int LineNumber { get; }
@@ -39,7 +40,7 @@ internal sealed class GeneratedTableRow
     public int HexInt(int column) => ParseHex(column, 0, int.MaxValue, "a nonnegative hexadecimal integer");
     public int Decimal(int column) => ParseDecimal(column, int.MinValue, int.MaxValue, "a signed decimal integer");
     public int Decimal(int column, int minimum, int maximum) =>
-        ParseDecimal(column, minimum, maximum, $"a decimal integer in [{minimum}, {maximum}]");
+        ParseDecimal(column, minimum, maximum, null);
     public int UnsignedDecimal(int column) =>
         ParseDecimal(column, 0, int.MaxValue, "a nonnegative decimal integer");
     public float FiniteFloat(int column)
@@ -82,9 +83,13 @@ internal sealed class GeneratedTableRow
     public string Base64Utf8(int column)
     {
         string value = Field(column);
+        if (_decodedText?[column] is string decoded)
+            return decoded;
         try
         {
-            return Encoding.UTF8.GetString(Convert.FromBase64String(value));
+            decoded = Encoding.UTF8.GetString(Convert.FromBase64String(value));
+            (_decodedText ??= new string?[_values.Length])[column] = decoded;
+            return decoded;
         }
         catch (FormatException exception)
         {
@@ -156,13 +161,13 @@ internal sealed class GeneratedTableRow
         return parsed;
     }
 
-    private int ParseDecimal(int column, int minimum, int maximum, string expected)
+    private int ParseDecimal(int column, int minimum, int maximum, string? expected)
     {
         string value = Field(column);
         if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) ||
             parsed < minimum || parsed > maximum)
         {
-            throw Error(column, value, expected);
+            throw Error(column, value, expected ?? $"a decimal integer in [{minimum}, {maximum}]");
         }
         return parsed;
     }
