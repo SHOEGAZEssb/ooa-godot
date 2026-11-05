@@ -92,6 +92,8 @@ public partial class OracleSoundEngine : Node
         AddChild(_player);
         _player.Play();
         _playback = _player.GetStreamPlayback() as AudioStreamGeneratorPlayback;
+        // Godot 4.7.1 playback holds a raw generator pointer until the mixer retires it.
+        _playback?.SetMeta("_oracle_generator", stream);
         _outputDiagnostics = OracleAudioOutputDiagnostics.CreateIfEnabled();
     }
 

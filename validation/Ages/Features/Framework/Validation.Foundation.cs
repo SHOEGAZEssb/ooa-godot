@@ -837,7 +837,7 @@ public sealed partial class ValidationRoot
             "parallel lane ordering, independent counters, and lifecycle clearing.");
     }
 
-    private void ValidateSoundEngine()
+    private async System.Threading.Tasks.Task ValidateSoundEngine()
     {
         var data = new OracleSoundData(AgesGameContent.AssetRoot);
         OracleSaveData roomMusicSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
@@ -1050,25 +1050,41 @@ public sealed partial class ValidationRoot
         var outputSound = new OracleSoundEngine(
             data, enableOutput: true, allowHeadlessOutput: true);
         AddChild(outputSound);
-        try
+        ulong generatorId;
+        using (AudioStream stream = outputSound.GetChild<AudioStreamPlayer>(0).Stream)
+            generatorId = stream.GetInstanceId();
+        // Keep the native playback alive exactly as the asynchronous mixer does.
+        ulong playbackId;
+        using (Variant retainedPlayback = Variant.From(outputSound.GetChild<AudioStreamPlayer>(0).GetStreamPlayback()))
         {
-            FailIf(
-                !outputSound.OutputResourcesActiveForValidation,
-                "The output sound engine did not create its stream playback.");
-            RemoveChild(outputSound);
-            FailIf(
-                outputSound.OutputResourcesActiveForValidation,
-                "The output sound engine retained its player or stream playback after _ExitTree.");
-        }
-        finally
-        {
-            if (GodotObject.IsInstanceValid(outputSound))
+            try
             {
-                if (outputSound.GetParent() == this)
-                    RemoveChild(outputSound);
-                outputSound.Free();
+                FailIf(
+                    !outputSound.OutputResourcesActiveForValidation,
+                    "The output sound engine did not create its stream playback.");
+                RemoveChild(outputSound);
+                FailIf(
+                    outputSound.OutputResourcesActiveForValidation,
+                    "The output sound engine retained its player or stream playback after _ExitTree.");
+                outputSound.ReleaseOutput();
             }
+            finally
+            {
+                if (GodotObject.IsInstanceValid(outputSound))
+                {
+                    if (outputSound.GetParent() == this)
+                        RemoveChild(outputSound);
+                    outputSound.Free();
+                }
+            }
+
+            FailIf(!GodotObject.IsInstanceIdValid(generatorId),
+                "Output teardown freed the generator while the native mixer still retains its playback.");
+            using AudioStreamGeneratorPlayback stoppedPlayback = retainedPlayback.As<AudioStreamGeneratorPlayback>();
+            playbackId = stoppedPlayback.GetInstanceId();
+            stoppedPlayback.MixAudio(1, 64);
         }
+        await WaitForValidationAudioOutputShutdown(playbackId, generatorId);
 
         sound.Free();
         GD.Print("Validated all 223 original sound pointers, room music assignments, " +

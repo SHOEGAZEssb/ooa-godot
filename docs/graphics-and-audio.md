@@ -350,7 +350,10 @@ source-derived register, hardware-clock and gameplay-update checks. This
 distinguishes correct sequencing from merely consuming the same imported data.
 
 On shutdown, stop generated playback, detach buffers and signals, and release
-references. Validation must not leave an `AudioStreamGeneratorPlayback`
+references. Playback retains its generator through a native metadata reference
+until the mixer's asynchronous retirement completes; Godot 4.7.1's playback
+stores only a raw generator pointer, which mixing still reads after stopping.
+Validation must not leave an `AudioStreamGeneratorPlayback`
 retained. Rendered validation waits for the mixer's native reference handoff
 and collects its managed binding before exit; two process frames alone do not
 guarantee that the independent audio thread has retired playback.

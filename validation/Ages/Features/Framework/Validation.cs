@@ -117,19 +117,7 @@ public sealed partial class ValidationRoot : GameRoot
             _scriptResources?.Dispose();
             _scriptResources = null;
             ulong playbackId = ReleaseValidationAudioOutput(_sound);
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            // The mixer releases its native reference asynchronously; collect
-            // the managed binding again after that handoff, before quitting.
-            var outputShutdown = System.Diagnostics.Stopwatch.StartNew();
-            while (playbackId != 0 && GodotObject.IsInstanceIdValid(playbackId) && outputShutdown.Elapsed.TotalSeconds < 2)
-            {
-                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
-            FailIf(playbackId != 0 && GodotObject.IsInstanceIdValid(playbackId),
-                "The AudioServer retained stopped generator playback after its shutdown handoff.");
+            await WaitForValidationAudioOutputShutdown(playbackId);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (_failedValidationCount != 0)
@@ -153,6 +141,23 @@ public sealed partial class ValidationRoot : GameRoot
             .GetValue(sound))?.GetInstanceId() ?? 0;
         sound.ReleaseOutput();
         return id;
+    }
+
+    private async Task WaitForValidationAudioOutputShutdown(params ulong[] instanceIds)
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        // The mixer releases its native reference asynchronously; collect
+        // the managed binding again after that handoff, before quitting.
+        var outputShutdown = System.Diagnostics.Stopwatch.StartNew();
+        while (instanceIds.Any(id => id != 0 && GodotObject.IsInstanceIdValid(id)) && outputShutdown.Elapsed.TotalSeconds < 2)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+        FailIf(instanceIds.Any(id => id != 0 && GodotObject.IsInstanceIdValid(id)),
+            "The AudioServer retained stopped generator output after its shutdown handoff.");
     }
 
     private static void FailIf(
