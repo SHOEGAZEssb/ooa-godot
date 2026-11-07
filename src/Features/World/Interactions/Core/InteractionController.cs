@@ -458,9 +458,8 @@ public sealed class InteractionController : IDisposable
         string message,
         Player player)
     {
-        _ = textId;
         _dialogue.ShowGameplayMessage(
-            message, _worldToScreen(player.Position).Y);
+            message, _worldToScreen(player.Position).Y, sourceTextId: textId);
     }
 
     private void OnRoomEntityDialogueRequested(
@@ -484,7 +483,7 @@ public sealed class InteractionController : IDisposable
                 : item.NormalParameter;
         if (item.Treasure == TreasureId.Ring)
         {
-            int ring = new GashaSpotDatabase(AssetRoot).SelectRing(
+            int ring = new RandomRingDatabase(AssetRoot).SelectRing(
                 parameter, _entities.NextRandomValue());
             _inventory.GiveUnappraisedRing(ring);
         }

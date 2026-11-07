@@ -43,7 +43,7 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 27 | 55 | 143 | 7 | 232 |
+| Interaction IDs `$00-$e7` | 28 | 55 | 142 | 7 | 232 |
 | Expanded placed interaction contexts | 200 | 12 | 823 | 0 | 1035 |
 
 | Source placement inventory | Count |
@@ -84,6 +84,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Shared push, dungeon-key and Subrosia key-door tile contacts | Partial; reserved normal/sliding blocks, key opener/sprite, live-dungeon grants and ordered room-flag reload are bound; Subrosia doors use the native date flag; placed mechanisms and Rosa's NPC/date scripts remain unbound |
 | Named overworld keyhole contacts | Partial; shared contact timing, named-key checks and hints, Gnarled entrance script, rising stones and key sprite are bound; Floodgate and Dragon entrance producers remain unbound |
 | Grave-triggered Ghini | Partial; native grave contact and counted spawning use shared normal, slow and targeted Ghini handlers; graveyard story and progression scripts remain unbound |
+| Maple encounters | Shared admission, flight, collision, item scramble and departure; Seasons Lon Lon Egg to Ghastly Doll exchange; the egg's upstream trade producer remains outside this route |
 | Remaining **M** interaction dispatch entries | No production route; retained/unreachable variants still require reachability tracing |
 | Linked-game introduction and linked troupe/Impa dialogue | Missing |
 | Seasons attract cinematic and title-timeout replay | Missing |
@@ -253,7 +254,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$91` | [bubble](../../external/oracles-disasm/object_code/common/interactions/bubble.s) | — | — | — | 2 | **M** — No Seasons production route. |
 | `$92` | [jewel](../../external/oracles-disasm/object_code/seasons/interactions/jewel.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$93` | [makuSeed](../../external/oracles-disasm/object_code/seasons/interactions/makuSeed.s) | `$00` | — | — | 1 | **M** — No Seasons production route. |
-| `$94` | [ghastlyDoll](../../external/oracles-disasm/object_code/seasons/interactions/ghastlyDoll.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$94` | [ghastlyDoll](../../external/oracles-disasm/object_code/seasons/interactions/ghastlyDoll.s) | — | — | — | 1 | **R** — Maple's Lon Lon Egg flight, pickup and direct Ghastly Doll reward. |
 | `$95` | [kingMoblin](../../external/oracles-disasm/object_code/seasons/interactions/kingMoblin.s) | `$00` | — | — | 4 | **M** — No Seasons production route. |
 | `$96` | [moblin](../../external/oracles-disasm/object_code/seasons/interactions/moblin.s) | — | `$00` | — | 10 | **M** — No Seasons production route. |
 | `$97` | [97](../../external/oracles-disasm/object_code/seasons/interactions/97.s) | — | — | — | 1 | **M** — No Seasons production route. |
@@ -990,5 +991,6 @@ Coordinates are `(Y, X)`. The default var03 is `$00` for this command.
 | Special object `$0b` | Native state0/stateA waiting/force-mount presenter, common live body/punch/tornado, remembered admission and Flute stateC hops; quest controllers, scripted departure and remaining riding/hazard aliases incomplete | Partial |
 | Special object `$0c` | Seasons state0/stateA presenter, common live body/mouth, remembered admission and Flute stateC arrival; remaining carry/hazard aliases and transient paths incomplete | Partial |
 | Special object `$0d` | Seasons state0 and stateA waiting/force-mount presenter, common live body/stomp, remembered admission and Flute stateC arrival; scripted movement/departure states and transient aliases incomplete | Partial |
+| Special object `$0e` | Shared recurring Maple encounter with Seasons location bitmaps, graphics, dialogue, loot and Lon Lon Egg exchange; retained-state reconstruction remains diagnosed | Runtime route |
 
 Implementation guidance is in [NPCs and room events](../npcs-and-events.md).

@@ -3,7 +3,7 @@ namespace Oracles;
 
 /// <summary>
 /// SPECIALOBJECT_MAPLE $0e, states $00-$0c. This owns the entrance flight,
-/// collision recoil, item race, result departure, and Ages Touching Book
+/// collision recoil, item race, result departure, and each game's trade
 /// exchange while PART_ITEM_FROM_MAPLE actors remain independent room entities.
 /// </summary>
 public partial class MapleEncounter : TransitionOffsetNode2D
@@ -12,8 +12,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private MapleEncounterState _encounter = null!;
     private Func<MapleDroppedItemSpawn, bool>? _createPart;
     internal void BindPartCreation(Func<MapleDroppedItemSpawn, bool> create) => _createPart = create;
-    private Func<MapleTouchingBookSpawn, MapleTouchingBookRoomEntity?>? _createBook;
-    internal void BindBookCreation(Func<MapleTouchingBookSpawn, MapleTouchingBookRoomEntity?> create) => _createBook = create;
+    private Func<RoomEntitySpawn, Node2D?>? _createTrade;
+    internal void BindTradeCreation(Func<RoomEntitySpawn, Node2D?> create) => _createTrade = create;
     private MapleTouchingBookRoomEntity? _book;
     internal MapleTouchingBookRoomEntity? TouchingBook => _book;
     private OracleRuntimeState? _nativeMemory;
@@ -417,7 +417,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             _speedRaw = ObjectSpeed.Speed100;
             _angle = 0xff;
             _bookDirection = 0x0b;
-            RequestDialogue(0x070d, player);
+            RequestDialogue(_save.Game == OracleGame.Ages ? 0x070d : 0x0709, player);
             return;
         }
 
@@ -632,7 +632,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         if (_substate != 0)
         {
             if (--_substate != 0) return;
-            RequestDialogue(0x0711, player);
+            RequestDialogue(_save.Game == OracleGame.Ages ? 0x0711 : 0x070b, player);
             _angle = ObjectAngle.Left;
             _speedRaw = _database.Constant("departure-speed-raw");
             Stage = MapleEncounterStage.BookDeparture;
@@ -640,11 +640,12 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             return;
         }
         UpdateOscillation();
-        int direction = (_bookDirection & 0x80) != 0 ? _bookDirection & 3 :
+        bool forcedFacing = _save.Game == OracleGame.Ages && (_bookDirection & 0x80) != 0;
+        int direction = forcedFacing ? _bookDirection & 3 :
             DirectionFromAngle(OracleObjectMovement.Shared.RelativeAngle(_precisePosition, player.Position));
-        if ((_bookDirection & 0x80) != 0 || direction != _bookDirection)
+        if (forcedFacing || direction != _bookDirection)
         {
-            if ((_bookDirection & 0x80) == 0) _bookDirection = direction;
+            if (!forcedFacing) _bookDirection = direction;
             SetAnimation(_vehicle * 4 + 4 + direction);
         }
         if (_dialogueOpen()) return;
@@ -673,14 +674,17 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         ICollection<RoomEntitySpawn> spawns)
     {
         if (_inventory.HasTreasure(TreasureId.TradeItem) &&
-            _inventory.TradeItem == 0x08)
+            _inventory.TradeItem == (_save.Game == OracleGame.Ages ? 0x08 : 0x01))
         {
-            // mapleSpawnItemDrops returns on failed checked INTERAC$a5
+            // mapleSpawnItemDrops returns on failed checked trade interaction
             // creation; bit4 and the book continuation require success.
-            var create = _createBook ?? throw new InvalidOperationException(
-                "mapleSpawnItemDrops INTERAC $a5 requires the shared interaction allocator.");
-            _book = create(new(this, _precisePosition, _zFixed, _database.BookVisual));
-            if (_book is not null)
+            var create = _createTrade ?? throw new InvalidOperationException(
+                "mapleSpawnItemDrops requires the shared trade interaction allocator.");
+            Node2D? trade = create(_save.Game == OracleGame.Ages
+                ? new MapleTouchingBookSpawn(this, _precisePosition, _zFixed, _database.BookVisual)
+                : new MapleLonLonEggSpawn(this, _database.EggVisual));
+            _book = trade as MapleTouchingBookRoomEntity;
+            if (trade is not null)
             {
                 _save.SetMapleState(_save.MapleState | 0x10);
             }
@@ -789,7 +793,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private void RequestGreeting(Player player)
     {
         int meetings = _save.MapleState & 0x0f;
-        if (Group == 1)
+        if (_save.Game == OracleGame.Ages && Group == 1)
         {
             if (meetings == 0)
             {

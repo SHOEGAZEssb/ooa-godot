@@ -88,13 +88,24 @@ public sealed partial class ValidationRoot
             {
                 CompanionRuntimeState.ForgetRemembered(memory);
                 save.SetMapleKillCounter(30);
-                bool unsupported = false;
-                try { root._seasonsOpening!.DebugTravel(0, 0x12); }
-                catch (NotSupportedException error) when (error.Message.Contains("checkAndSpawnMaple") && error.Message.Contains("SPECIALOBJECT $0e")) { unsupported = true; }
-                FailIf(!unsupported || save.MapleKillCounter != 0 || memory.ReadField("wIsMaplePresent") != 1 ||
+                root._seasonsOpening!.DebugTravel(0, 0x12);
+                var maple = entities.Entities<MapleEncounter>().Single();
+                FailIf(maple.Stage != MapleEncounterStage.Initializing || maple.Visible || save.MapleKillCounter != 0 || memory.ReadField("wIsMaplePresent") != 1 ||
                     memory.ReadField("wcc85") != 1 || memory.ReadWramByte(0xd100) != 1 || memory.ReadWramByte(0xd101) != 0x0e ||
                     memory.ReadWramByte(0xd10b) != 0x18 || memory.ReadWramByte(0xd10d) != 0xb8,
-                    "Seasons must execute shared native Maple admission and diagnose the unbound encounter content, rather than silently skipping the mechanism.");
+                    "Seasons must construct the shared Maple body from its native admission, preserving birth coordinates and deferring state0.");
+                player.BeginCutsceneControl();
+                memory.SetField("wDisabledObjects", 0x20);
+                app.Step(3, Vector2.Zero, batched: batched);
+                FailIf(maple.Stage != MapleEncounterStage.Initializing || maple.Visible,
+                    "Seasons Maple state0 must remain frozen under DISABLE_COMPANION.");
+                memory.SetField("wDisabledObjects", 0);
+                app.Step(1, Vector2.Zero, batched: batched);
+                FailIf(maple.Stage != MapleEncounterStage.EntryDelay || !maple.Visible || memory.ReadField("wcc85") != 0,
+                    "Seasons Maple must initialize on its next eligible special-object visit.");
+                app.Step(3, Vector2.Zero, batched: batched);
+                FailIf(maple.Stage != MapleEncounterStage.Flying,
+                    "Seasons Maple must finish the source three-update entry delay.");
             }
         }
         finally

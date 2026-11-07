@@ -4,6 +4,7 @@ namespace Oracles;
 internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, RoomEntityManager owner) : IRoomEntityFactory
 {
     public string AssetRoot => SeasonsGameContent.AssetRoot;
+    public IRoomEntity CreateMaple(OracleRoomData room) => _common.CreateMaple(room);
     public bool CanReconstructDebugSpecialObject(OracleRuntimeState memory,int group,int room)=>_common.CanReconstructCompanion(memory);
     private readonly CommonRoomEntityFactory _common = new(owner,rooms:session.Rooms);
     private LightableTorchState _torches=new();

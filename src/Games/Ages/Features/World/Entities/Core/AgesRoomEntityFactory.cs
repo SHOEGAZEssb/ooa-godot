@@ -250,33 +250,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             : CompanionScripts.CreateBody(source.SpecialObjectId, source.Position);
     }
 
-    public IRoomEntity CreateMaple(OracleRoomData room)
-    {
-        if (_runtimeState.ReadWramByte(0xd104) != 0)
-            throw new NotSupportedException($"code/roomInitialization.s:checkAndSpawnMaple: room ${room.Group:x1}:${room.Id:x2} retains SPECIALOBJECT $0e state ${_runtimeState.ReadWramByte(0xd104):x2}; encounter reconstruction is unbound.");
-        if (_saveData is null || _inventory is null)
-            throw new InvalidOperationException("SPECIALOBJECT $0e encounter content requires the live save and inventory owners.");
-        var encounterState = new MapleEncounterState(owner.RuntimeState);
-        var maple = new MapleEncounter
-        {
-            Name = "Maple",
-            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
-        };
-        maple.Initialize(
-            room.Group,
-            Resources.Maple,
-            encounterState,
-            room,
-            _random,
-            _saveData!,
-            _inventory!,
-            owner.OnMapleDialogueRequested,
-            owner.IsTextActive,
-            owner.OnSoundRequested,
-            owner.BeginHorizontalScreenShake,
-            owner.OnRoomMusicRequested);
-        return new MapleEncounterRoomEntity(maple, owner);
-    }
+    public IRoomEntity CreateMaple(OracleRoomData room) => _common.CreateMaple(room);
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
@@ -2818,7 +2792,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         VolcanoHandlerSpawn volcano => CreateVolcanoController(volcano.Placement, room),
         VolcanoRockSpawn rock => new VolcanoRockRoomEntity(new VolcanoRock(
             rock.Position, Resources.Volcano, room, _random, owner.OnSoundRequested, owner.ToScreen)),
-        MapleTouchingBookSpawn book => CreateMapleTouchingBook(book, room),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
         ArmosSpawn armos => CreateArmos(armos, room),
         FlyingTileSpawn tile => CreateFlyingTile(tile, room),
@@ -2885,7 +2858,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             new TokaySeedlingDecorationRoomEntity(seedling.Record),
         CutsceneNpcSpawn npc => CreateCutsceneNpc(npc),
         GroundTreasureSpawn treasure => CreateGroundTreasure(treasure.Record),
-        MapleDroppedItemSpawn item => CreateMapleDroppedItem(item, room),
         RespawnableBushSpawn bush => new RespawnableBushRoomEntity(
             bush.PackedPosition,
             bush.DropSubId,
@@ -4503,39 +4475,6 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
         }
     }
 
-    private IRoomEntity CreateMapleDroppedItem(
-        MapleDroppedItemSpawn spawn,
-        OracleRoomData room)
-    {
-        var item = new MapleDroppedItem
-        {
-            Name = $"MapleItem_{spawn.Slot}_{spawn.Record.Index:x2}",
-            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex // itemFromMaple.s: visiblec3.
-        };
-        item.Initialize(
-            spawn.Record,
-            spawn.Encounter,
-            room,
-            _random,
-            spawn.Slot,
-            spawn.SourcePosition,
-            spawn.SourceZFixed,
-            owner.OnMapleItemCollected,
-            owner.RuntimeState);
-        spawn.Encounter.Register(item);
-        return new MapleDroppedItemRoomEntity(item, owner);
-    }
-
-    private IRoomEntity CreateMapleTouchingBook(MapleTouchingBookSpawn spawn, OracleRoomData room) =>
-        new MapleTouchingBookRoomEntity(spawn, owner.RuntimeState, owner.OnSoundRequested,
-            position => owner.TryCreateGroundTreasure(new(room.Group, room.Id, 0,
-                (int)position.Y, (int)position.X, "TREASURE_OBJECT_TRADEITEM_09",
-                "touchingBook.s:@state7 createTreasure TREASURE_TRADEITEM,$09")
-            {
-                ExpectedTreasureId = TreasureId.TradeItem, ExpectedSubId = 0x09,
-                ExpectedObjectParameter = 0x09
-            }));
-
     public IEnumerable<IRoomEntity> CreateTimePortals(int group, OracleRoomData room)
     {
         foreach (PortalRecord record in timePortals.GetRoomPortals(group, room.Id))
@@ -4785,14 +4724,6 @@ internal sealed record RespawnableBushSpawn(
 
 internal sealed record GroundTreasureSpawn(GroundTreasureDatabaseRecord Record)
     : RoomEntitySpawn;
-
-internal sealed record MapleDroppedItemSpawn(
-    MapleItemRecord Record,
-    MapleEncounterState Encounter,
-    int Slot,
-    Vector2 SourcePosition,
-    int SourceZFixed,
-    bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
 
 internal sealed record GiantGhiniChildSpawn(GiantGhiniBoss Owner, int Index)
     : RoomEntitySpawn(UpdateThisFrame: true);

@@ -316,12 +316,6 @@ $stageContracts = @(
             'partDataSource') `
         -functionInputs @(
             'Copy-EnemySprite', 'Get-AssemblyLabelBody', 'Resolve-Oam')
-    New-ImportStageContract 'maple' 'Ages/Import-MapleData.ps1' `
-        -inputs @(
-            'allTexts', 'gfxNames', 'interactionGraphics',
-            'partAnimationSource') `
-        -functionInputs @(
-            'Get-AssemblyLabelBody', 'Resolve-NpcAnimation', 'Resolve-Oam')
     New-ImportStageContract 'spirits-grave' 'Ages/Import-SpiritsGrave.ps1' `
         -inputs @(
             'allTexts', 'gfxNames', 'interactionAnimationSource',
@@ -442,6 +436,9 @@ $stageContracts = @(
         -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes', 'Normalize-DialogueText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames', 'Get-ImportSpriteSourceGrayscaleInverted')
     New-ImportStageContract 'seasons-frontend' 'Seasons/Import-Frontend.ps1' `
         -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes')
+    New-ImportStageContract 'maple' 'Shared/Import-MapleData.ps1' `
+        -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'seasonNpcTexts', 'agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Get-AssemblyLabelBody', 'Resolve-NpcAnimation', 'Resolve-Oam', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Find-ImportSpriteSource')
     New-ImportStageContract 'seasons-talk-npcs' 'Seasons/Import-TalkNpcs.ps1' `
         -inputs @('seasonsRomBytes', 'seasonsSymbols', 'seasonsGlobalFlagValues', 'treasureIds', 'seasonNpcTexts', 'cutsceneCommandHeader') `
         -functionInputs @('Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-AssemblyNpcProgramRows', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable')

@@ -21,9 +21,46 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
     private DungeonSpinnerVisualDatabase? _spinner;
     private DungeonPuzzleDatabase? _puzzles;
     private BrotherGoriyaDatabase? _brotherGoriyas;
+    private MapleEventDatabase? _maple;
     private DungeonEntranceInteractionDatabase? _dungeonEntrances;
     private DungeonEntranceInteractionDatabase DungeonEntrances => _dungeonEntrances ??= new(AssetRoot);
     private DungeonPuzzleDatabase Puzzles => _puzzles ??= new(AssetRoot);
+
+    internal IRoomEntity CreateMaple(OracleRoomData room)
+    {
+        if (owner.RuntimeState.ReadWramByte(0xd104) != 0)
+            throw new NotSupportedException($"code/roomInitialization.s:checkAndSpawnMaple: room ${room.Group:x1}:${room.Id:x2} retains SPECIALOBJECT $0e state ${owner.RuntimeState.ReadWramByte(0xd104):x2}; encounter reconstruction is unbound.");
+        if (owner.SaveData is not { } save || owner.Inventory is not { } inventory)
+            throw new InvalidOperationException("SPECIALOBJECT $0e encounter content requires the live save and inventory owners.");
+        var maple = new MapleEncounter { Name = "Maple", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
+        maple.Initialize(room.Group, _maple ??= new(AssetRoot), new(owner.RuntimeState), room,
+            owner.Random, save, inventory, owner.OnMapleDialogueRequested, owner.IsTextActive,
+            owner.OnSoundRequested, owner.BeginHorizontalScreenShake, owner.OnRoomMusicRequested);
+        return new MapleEncounterRoomEntity(maple, owner);
+    }
+
+    private IRoomEntity CreateMapleDroppedItem(MapleDroppedItemSpawn spawn, OracleRoomData room)
+    {
+        var item = new MapleDroppedItem
+        {
+            Name = $"MapleItem_{spawn.Slot}_{spawn.Record.Index:x2}",
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex // itemFromMaple.s: visiblec3.
+        };
+        item.Initialize(spawn.Record, spawn.Encounter, room, owner.Random, spawn.Slot,
+            spawn.SourcePosition, spawn.SourceZFixed, owner.OnMapleItemCollected, owner.RuntimeState);
+        spawn.Encounter.Register(item);
+        return new MapleDroppedItemRoomEntity(item, owner);
+    }
+
+    private IRoomEntity CreateMapleTouchingBook(MapleTouchingBookSpawn spawn, OracleRoomData room) =>
+        new MapleTouchingBookRoomEntity(spawn, owner.RuntimeState, owner.OnSoundRequested,
+            position => owner.TryCreateGroundTreasure(new(room.Group, room.Id, 0,
+                (int)position.Y, (int)position.X, "TREASURE_OBJECT_TRADEITEM_09",
+                "touchingBook.s:@state7 createTreasure TREASURE_TRADEITEM,$09")
+            {
+                ExpectedTreasureId = TreasureId.TradeItem, ExpectedSubId = 0x09,
+                ExpectedObjectParameter = 0x09
+            }));
 
     internal DungeonSpinnerRoomEntity CreateSpinner(DungeonObjectRecord record) =>
         new(record, owner.RuntimeState, (_spinner ??= new(AssetRoot)).Visual, owner.OnSoundRequested, owner.BeginScreenShake);
@@ -201,6 +238,9 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
 
     internal IRoomEntity? TryCreate(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
     {
+        MapleDroppedItemSpawn item => CreateMapleDroppedItem(item, room),
+        MapleTouchingBookSpawn book => CreateMapleTouchingBook(book, room),
+        MapleLonLonEggSpawn egg => new MapleLonLonEggRoomEntity(egg, owner),
         BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
         BossShadowSpawn shadow => CreateBossShadow(shadow),
         AquamentusSpawn child=>CreateAquamentus(new(AssetRoot,SeasonsEnemyId.Aquamentus,child.SubId,0xc8,2,0,

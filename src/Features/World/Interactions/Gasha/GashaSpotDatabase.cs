@@ -12,8 +12,7 @@ internal sealed class GashaSpotDatabase
     private readonly Dictionary<int, SpotRecord> _spotsByRoom = new();
     private readonly SpotRecord[] _spots = new SpotRecord[16];
     private readonly int[,,] _probabilities = new int[5, 5, 10];
-    private readonly List<int>[] _ringTiers =
-        [new(), new(), new(), new(), new()];
+    private readonly RandomRingDatabase _rings;
     private readonly RewardRecord[] _rewards = new RewardRecord[10];
     private readonly Dictionary<int, string> _texts = new();
     private readonly DisappearanceRecord[] _disappearance = new DisappearanceRecord[9];
@@ -43,7 +42,7 @@ internal sealed class GashaSpotDatabase
         LoadConstants();
         LoadSpots();
         LoadProbabilities();
-        LoadRingTiers();
+        _rings = new(assetRoot);
         LoadRewards();
         NutVisual = LoadNutVisual();
         LoadTexts();
@@ -100,14 +99,7 @@ internal sealed class GashaSpotDatabase
         throw new InvalidOperationException("Gasha probability row did not total 256.");
     }
 
-    internal int SelectRing(int tier, byte random)
-    {
-        if (tier is < 0 or >= 5)
-            throw new ArgumentOutOfRangeException(nameof(tier));
-        IReadOnlyList<int> rings = _ringTiers[tier];
-        int index = random & (tier == 4 ? 1 : 7);
-        return rings[index];
-    }
+    internal int SelectRing(int tier, byte random) => _rings.SelectRing(tier, random);
 
     internal void ApplyRoomState(
         int group,
@@ -267,24 +259,6 @@ internal sealed class GashaSpotDatabase
         }
     }
 
-    private void LoadRingTiers()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            AssetRoot + "metadata/gasha_ring_tiers.tsv",
-            new GeneratedTableSchema(
-                "Gasha ring tiers",
-                GeneratedTableKeySemantics.Unique,
-                ["tier", "index", "ring"], ["tier", "index"], headerRequired: true));
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            int tier = row.UnsignedDecimal(0);
-            int index = row.UnsignedDecimal(1);
-            if (_ringTiers[tier].Count != index)
-                throw row.Invalid(1, "contiguous source order");
-            _ringTiers[tier].Add(row.HexByte(2));
-        }
-    }
-
     private void LoadRewards()
     {
         GeneratedTable table = GeneratedTable.Load(
@@ -358,9 +332,7 @@ internal sealed class GashaSpotDatabase
     private void Validate()
     {
         if (_spotsByRoom.Count != 16 || _rewards.Length != 10 ||
-            _ringTiers[0].Count != 8 || _ringTiers[1].Count != 8 ||
-            _ringTiers[2].Count != 8 || _ringTiers[3].Count != 8 ||
-            _ringTiers[4].Count != 2 || DisappearancePhases != 9 ||
+            DisappearancePhases != 9 ||
             SoftSoilTile != 0xd2 || PlantedSoilTile != 0xf5 ||
             TreeTopLeftTile != 0x4e)
         {

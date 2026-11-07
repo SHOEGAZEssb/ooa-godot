@@ -2692,7 +2692,7 @@ public sealed partial class RoomEntityManager : IDisposable
             maple.BindBombPull(() => ResolveMapleBombPulling(maple));
             maple.BindPartCreation(spawn => _specialObjectsUpdatedBeforePlayer.Contains(entity)
                 ? TryCreatePart(spawn) : TryCreateQueuedPart(spawn));
-            maple.BindBookCreation(spawn => TryCreateInteraction(spawn) as MapleTouchingBookRoomEntity);
+            maple.BindTradeCreation(TryCreateInteraction);
         }
         if (entity.PresentationNode is PumpkinHeadBoss pumpkin) pumpkin.BindNativePartAllocation(TryCreateQueuedPart);
         if (entity.PresentationNode is SmogProjectilePart smogProjectile)

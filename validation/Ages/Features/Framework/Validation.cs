@@ -1355,6 +1355,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom180OwlStatue);
         RunIsolatedValidation(ValidateGashaSpots);
         RunIsolatedValidation(ValidateMapleEvents, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsMapleEncounters, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsMapleEggRom, requiresRom: true);
         RunIsolatedValidation(ValidateObjectSpeedTable);
         RunIsolatedValidation(ValidateEnemyBehaviorTables);
         RunIsolatedValidation(ValidateEnemyMovementReturnFlags);

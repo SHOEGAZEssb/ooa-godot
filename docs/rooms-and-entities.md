@@ -96,6 +96,11 @@ Re-admission from enabled `$02` to `$01` transfers a retained presentation into
 the incoming room while preserving its state and visibility through scrolling.
 The shared gameplay session subscribes once to enemy-death counter publication
 and removes that subscription on disposal.
+Both games bind encounter and scattered-item construction through the common
+factory using selected-pack assets. Their trade interactions retain separate
+owners: Ages' book checks treasure allocation and updates through text, while
+Seasons' egg freezes under text and grants its doll directly. Random ring tiers
+load independently of Gasha placements and growth data.
 
 Seasons world layouts, graphics programs and live palettes belong to the room
 catalog; its opening sequence consumes that catalog. Admission retains the native

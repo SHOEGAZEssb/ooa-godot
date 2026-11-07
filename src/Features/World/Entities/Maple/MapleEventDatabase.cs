@@ -2,7 +2,7 @@
 namespace Oracles;
 
 /// <summary>
-/// Typed runtime view of the Ages Maple location, flight, visual, loot, and
+/// Typed runtime view of the selected game's Maple flight, visual, loot, and
 /// dialogue tables. All records are generated from the clean US disassembly.
 /// </summary>
 internal sealed partial class MapleEventDatabase
@@ -20,6 +20,8 @@ internal sealed partial class MapleEventDatabase
 
     internal MapleVisualRecord Visual { get; }
     internal MapleBookVisualRecord BookVisual { get; }
+    internal MapleVisualRecord EggVisual { get; }
+    private bool IsAges => OracleAssetPack.GameFor(AssetRoot) == OracleGame.Ages;
     internal int PathStepCount => _paths.Values.Sum(path => path.Steps.Count);
     internal int ItemCount => _items.Count;
 
@@ -31,11 +33,12 @@ internal sealed partial class MapleEventDatabase
         LoadMovementSelection();
         Visual = LoadVisual();
         LoadItems();
-        BookVisual = LoadBookVisual();
+        if (IsAges) BookVisual = LoadBookVisual();
+        else EggVisual = LoadVisual("objects/maple_egg.tsv");
         LoadTexts();
         LoadConstants();
         ValidateContract();
-        LoadCredits();
+        if (IsAges) LoadCredits();
     }
 
     internal MaplePathRecord Path(MaplePathKind kind, int index) =>
@@ -135,10 +138,10 @@ internal sealed partial class MapleEventDatabase
         }
     }
 
-    private MapleVisualRecord LoadVisual()
+    private MapleVisualRecord LoadVisual(string path = "objects/maple_visual.tsv")
     {
         GeneratedTableRow row = GeneratedTable.Load(
-            AssetRoot + "objects/maple_visual.tsv",
+            AssetRoot + path,
             new GeneratedTableSchema(
                 "Maple special-object visual",
                 GeneratedTableKeySemantics.Ordered,
@@ -283,14 +286,15 @@ internal sealed partial class MapleEventDatabase
             PathStepCount != 61 ||
             Visual is not { Sprite: "spr_maple", Animations.Length: 32 } ||
             _items.Count != 14 ||
-            _texts.Count != 20 ||
+            _texts.Count != (IsAges ? 20 : 14) ||
             MovementPattern(0) != 0 ||
             MovementPattern(7) != 3 ||
             MovementPattern(15) != 7 ||
             Distribution(MapleDistributionKind.Rare).Sum() != 0x100 ||
             Distribution(MapleDistributionKind.Standard).Sum() != 0x100 ||
             Distribution(MapleDistributionKind.Link).Sum() != 0x100 ||
-            BookVisual.Sprite != "spr_quest_items_1" ||
+            (IsAges ? BookVisual.Sprite != "spr_quest_items_1" :
+                EggVisual is not { Sprite: "spr_quest_items_1", TileBase: 4, Palette: 3, Animations.Length: 4 }) ||
             Constant("normal-kill-threshold") != 30 ||
             Constant("ring-kill-threshold") != 15 ||
             Constant("birth-y") != 0x18 || Constant("birth-x") != 0xb8 ||

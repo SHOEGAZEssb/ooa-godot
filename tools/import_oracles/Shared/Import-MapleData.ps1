@@ -1,6 +1,10 @@
-# Maple's recurring encounter is assembled from common special-object and part
-# code plus Ages-specific locations and dialogue. Export the traced tables so
-# the runtime never parses disassembly source while playing.
+# Common flight and loot, with each game's own visuals and dialogue.
+$agesDestination = $destination
+$agesTexts = $allTexts
+foreach ($mapleGame in @('ages', 'seasons')) {
+$destination = if ($mapleGame -eq 'ages') { $agesDestination } else { Split-Path $previewDestination -Parent }
+$allTexts = if ($mapleGame -eq 'ages') { $agesTexts } else { $seasonNpcTexts }
+$partAnimationSource = Read-ImportText (Join-Path $Disassembly "data/$mapleGame/partAnimations.s")
 $mapleSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\maple.s')
 $mapleItemSource = Read-ImportText (
@@ -108,7 +112,7 @@ Write-GeneratedTable(
 # state per tile before rendering directly from the complete PNG. A
 # two-argument graphics pointer loads nothing and retains every current tile.
 $specialAnimationSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+    Join-Path $Disassembly "data/$mapleGame/specialObjectAnimationData.s")
 $gfxBodyStart = $specialAnimationSource.IndexOf(
     'specialObject0eGfxPointers:', [StringComparison]::Ordinal)
 $animationTableStart = $specialAnimationSource.IndexOf(
@@ -196,7 +200,7 @@ function Resolve-MapleSpecialAnimation([string]$label) {
         for ($tile = 0; $tile -lt $loadedTileCount; $tile++) {
             $vramTiles[$tile] = $loadedTileOffset + $tile
         }
-        $rawOam = Resolve-Oam 'data/ages/specialObjectOamData.s' $mapleOamLabels[$gfx]
+        $rawOam = Resolve-Oam "data/$mapleGame/specialObjectOamData.s" $mapleOamLabels[$gfx]
         $oam = Resolve-MapleOamTiles `
             $rawOam $vramTiles $label $gfx
         $metadata = if ($parameter -eq 0) {
@@ -221,7 +225,7 @@ $mapleVisualRows = @(
 Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_visual.tsv'),
     $mapleVisualRows)
-Copy-GeneratedFile 'gfx\common\spr_maple.png' 'gfx\spr_maple.png'
+Copy-GeneratedFile 'gfx\common\spr_maple.png' 'gfx\spr_maple.png' $destination
 
 # PART_ITEM_FROM_MAPLE uses the first 17 entries of the shared part animation
 # table. Resolve the selected static frame plus the per-item tile/palette
@@ -263,7 +267,7 @@ function Resolve-MapleItemAnimation([int]$animationIndex) {
         [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
     $duration = [Convert]::ToInt32(
         $frame.Groups['duration'].Value, 16)
-    return "$duration@$(Resolve-Oam 'data/ages/partOamData.s' $part14OamLabels[$pointerIndex])"
+    return "$duration@$(Resolve-Oam "data/$mapleGame/partOamData.s" $part14OamLabels[$pointerIndex])"
 }
 $rareWeights = Get-MapleHexBytes $mapleSource '@rareItems'
 $standardWeights = Get-MapleHexBytes $mapleSource '@standardItems'
@@ -311,11 +315,12 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_items.tsv'),
     $mapleItemRows)
 Copy-GeneratedFile `
-    'gfx_compressible\ages\spr_quest_items_5.png' `
-    'gfx\spr_quest_items_5.png'
+    "gfx_compressible/$mapleGame/spr_quest_items_5.png" `
+    'gfx\spr_quest_items_5.png' $destination
 
 # INTERAC_TOUCHING_BOOK $a5:$00 supplies the book actor used by the trade
 # branch. Npc-data import already resolved its shared animation/OAM tables.
+if ($mapleGame -eq 'ages') {
 $bookGraphic = $interactionGraphics['165:0']
 $bookAnimation = Resolve-NpcAnimation 0xa5 $bookGraphic.DefaultAnimation
 $bookSprite = $gfxNames[$bookGraphic.Gfx]
@@ -337,10 +342,35 @@ $mapleBookRows = @(
 Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_book.tsv'),
     $mapleBookRows)
+} else {
+    $eggSource = Read-ImportText (Join-Path $Disassembly 'object_code/seasons/interactions/ghastlyDoll.s')
+    if ($eggSource -notmatch '(?s)ld bc,\$ff00.*?ld \(hl\),\$28.*?TX_070a.*?ld \(\$cc6a\),a.*?ld bc,\$f200.*?ld \(hl\),\$40.*?TX_005c.*?TREASURE_TRADEITEM.*?ld c,\$02.*?@state4:.*?ld \(wDisabledObjects\),a') {
+        throw 'Seasons ghastlyDoll.s: INTERAC$94 flight, trade and completion contract changed.'
+    }
+    $presentation = Read-InteractionPresentation 'seasons'
+    $entry = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/seasons/interactionData.s') '' 'm_InteractionData' | Where-Object Comment -eq '$94')
+    if ($entry.Count -ne 1 -or ($entry[0].Operands -join ',') -ne '$63,$04,$32') {
+        throw 'Seasons INTERAC$94 Lon Lon Egg graphics contract changed.'
+    }
+    $headers = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/seasons/objectGfxHeaders.s') '' 'm_ObjectGfxHeader')
+    $sprite = $headers[0x63].Operands[0]
+    if ($sprite -ne 'spr_quest_items_1') { throw 'Seasons INTERAC$94 must use spr_quest_items_1.' }
+    $animations = @(0..3 | ForEach-Object {
+        $animation = Resolve-InteractionPresentation $presentation 0x94 $_
+        if (!$animation -or $animation -match '@(?:\||$)') { throw "Seasons INTERAC`$94 animation $_ has unresolved OAM." }
+        $animation
+    })
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($animations -join "`n"))
+    Write-GeneratedTable((Join-Path $destination 'objects/maple_egg.tsv'), @(
+        "# sprite`ttile-base`tpalette`tanimations-base64`tsource",
+        "$sprite`t4`t3`t$encoded`tdata/seasons/interactionData.s:`$94;ghastlyDoll.s"))
+    Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly, (Find-ImportSpriteSource $sprite 'seasons').FullName)) "gfx/$sprite.png" $destination
+}
 
 $mapleTextRows = [Collections.Generic.List[string]]::new()
 $mapleTextRows.Add("# text-id`tmessage-base64")
-foreach ($textId in 0x0700..0x0713) {
+$textIds = if ($mapleGame -eq 'ages') { 0x0700..0x0713 } else { @(0x005c) + @(0x0700..0x070c) }
+foreach ($textId in $textIds) {
     if (-not $allTexts.ContainsKey($textId)) {
         throw "Maple text TX_$($textId.ToString('x4')) was not decoded."
     }
@@ -351,10 +381,11 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\maple_text.tsv'),
     $mapleTextRows)
 
+$symbols = if ($mapleGame -eq 'ages') { $agesSymbols } else { $seasonsSymbols }
 $mapleConstantRows = @(
     "# key`tvalue`tsource",
-    "kill-counter-address`t50753`troomInitialization.s:wMapleKillCounter",
-    "state-address`t50756`tmaple.s:wMapleState",
+    "kill-counter-address`t$($symbols['wMapleKillCounter'])`troomInitialization.s:wMapleKillCounter",
+    "state-address`t$($symbols['wMapleState'])`tmaple.s:wMapleState",
     "normal-kill-threshold`t30`troomInitialization.s:checkAndSpawnMaple",
     "ring-kill-threshold`t15`troomInitialization.s:checkAndSpawnMaple",
     "birth-y`t$mapleBirthY`troomInitialization.s:checkAndSpawnMaple",
@@ -371,6 +402,7 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\maple_constants.tsv'),
     $mapleConstantRows)
 
+if ($mapleGame -eq 'ages') {
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# index`tspeed`tframes`ty`tanimation`tsource")
 $path=Join-Path $Disassembly 'object_code/ages/specialObjects/companionCutscene.s'
 $steps=@(Read-AssemblyDataDirectives $path '' '.db'|Where-Object {$_.EnclosingGlobalLabel -eq 'specialObjectCode_mapleCutscene'});$index=0
@@ -386,3 +418,17 @@ $offsets=@(Read-AssemblyLiteralValues (Join-Path $Disassembly 'object_code/commo
 if($offsets.Count -ne 8){throw 'objectOscillateZ requires eight source offsets.'}
 Write-GeneratedTable((Join-Path $destination 'objects/maple_credits_z.tsv'),@("# offsets`tsource",
     "$(( $offsets|ForEach-Object {$_.ToString('x2')}) -join ',')`tobject_code/common/interactions/seasonsFairy.s:objectOscillateZ_body"))
+} else {
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# tier`tindex`tring")
+    for ($tier = 0; $tier -lt 5; $tier++) {
+        $address = $seasonsSymbols["ringTierTable@tier$tier"]
+        if (!$address) { throw "Seasons ringTierTable@tier$tier is missing." }
+        $count = if ($tier -eq 4) { 2 } else { 8 }
+        for ($index = 0; $index -lt $count; $index++) {
+            $rows.Add("$tier`t$index`t$($seasonsRomBytes[$address + $index].ToString('x2'))")
+        }
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/gasha_ring_tiers.tsv'), $rows)
+}
+}
