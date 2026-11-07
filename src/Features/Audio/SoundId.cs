@@ -191,6 +191,9 @@ public static class SoundId
     public const int SndMinecart = 0x80;
     // constants/common/music.s: SND_STRONG_POUND
     public const int SndStrongPound = 0x81;
+    // constants/common/music.s: SND_DODONGO_OPEN_MOUTH / SND_ROLLER.
+    public const int SndDodongoOpenMouth = 0x7f;
+    public const int SndRoller = 0x82;
     // constants/common/music.s: SND_MAGIC_POWDER
     public const int SndMagicPowder = 0x83;
     // constants/common/music.s: SND_MENU_MOVE

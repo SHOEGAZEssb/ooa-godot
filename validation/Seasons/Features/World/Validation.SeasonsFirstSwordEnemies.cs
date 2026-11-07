@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
                 var session=root._seasonsOpening!;var entities=session.Entities;
                 var app=new ApplicationValidationFixture(root);
                 foreach(var spec in new[]{(Id:0x08,SubId:0,Group:0,Room:0xb4),(Id:0x34,SubId:0,Group:4,Room:4),
-                    (Id:0x34,SubId:1,Group:4,Room:4)})
+                    (Id:0x34,SubId:1,Group:4,Room:4),(Id:0x31,SubId:0,Group:4,Room:0x1a)})
                 {
                     session.DebugTravel(spec.Group,spec.Room);entities.Clear();
                     session.Link.WarpTo(new(88,64));session.Link.BeginCutsceneControl();
@@ -26,12 +26,13 @@ public sealed partial class ValidationRoot
                     native[0xd080]=1;native[0xd081]=(byte)spec.Id;native[0xd082]=(byte)spec.SubId;
                     native.Word(0xd08c,64*256);native.Word(0xd08a,56*256);
                     int updates=0;var visited=new System.Collections.Generic.HashSet<int>();
-                    app.Step(600,Vector2.Zero,batched:batched,afterUpdate:()=>
+                    app.Step(spec.Id==0x31?192:600,Vector2.Zero,batched:batched,afterUpdate:()=>
                     {
                         native.AdvanceEnemies(entities.FrameCounter);
                         updates++;
                         int state,counter,counter2=0,speed=0,z=0;
                         if(actor is RiverZoraCharacter zora){state=zora.State;counter=zora.Counter;}
+                        else if(actor is StalfosCharacter stalfos){state=(int)stalfos.State;counter=stalfos.Counter1;speed=stalfos.Record.SpeedRaw;z=stalfos.ZFixed;}
                         else
                         {
                             var zol=(ZolCharacter)actor;state=(int)zol.State;
@@ -39,7 +40,7 @@ public sealed partial class ValidationRoot
                             counter=zol.Counter1;counter2=zol.Counter2;speed=zol.NativeSpeed;z=zol.ZFixed;
                         }
                         visited.Add(state);var rng=entities.Random.CaptureState();
-                        FailIf(state!=native[0xd084] || counter!=native[0xd086] || actor is ZolCharacter &&
+                        FailIf(state!=native[0xd084] || counter!=native[0xd086] || actor is ZolCharacter or StalfosCharacter &&
                             (counter2!=native[0xd087] || speed!=native[0xd090] || (ushort)z!=native.Word(0xd08e)) ||
                             actor.Position!=new Vector2(native.Word(0xd08c)/256f,native.Word(0xd08a)/256f) ||
                             actor.Visible!=((native[0xd09a]&128)!=0) || actor.CollisionEnabled!=((native[0xd0a4]&128)!=0) ||
@@ -48,6 +49,8 @@ public sealed partial class ValidationRoot
                     });
                     FailIf(spec.Id==0x08 && !new[]{8,9,10,11}.All(visited.Contains),
                         "Seasons River Zora must find native water, surface, fire and submerge during the executed ROM comparison.");
+                    FailIf(spec.Id==0x31 && !new[]{8,9}.All(visited.Contains),
+                        "Seasons Stalfos must execute both its decision and walk states against the clean US ROM.");
                     session.Link.EndCutsceneControl();entities.EnableLinkCollisionsAndMenu();
                 }
             }

@@ -502,7 +502,9 @@ tables. Fixed placements reserve declared coordinates before state zero can
 relocate the actor. Parameter-enemy opcodes allocate without incrementing the
 room count while retaining their raw flags for later native counter behavior.
 Placed PARTs reserve positions only after admission; parameter PARTs do not
-reserve. Item producers use uncounted enemy slots and retain their native
+reserve. Item producers retain their fixed-enemy declaration's count flag;
+the dedicated item opcode allocates them uncounted. Their plain `enemyDelete`
+retains a counted allocation until room reset. They retain their native
 initialization even when the selected drop is unavailable. Availability decides
 the later tile-change outcome, not whether the controller is allocated.
 
@@ -596,6 +598,8 @@ point, close the door, update the shared shutter count, and delete themselves.
 During scrolling, layout minecart shutters facing the incoming edge allocate
 before placed objects in descending layout order. Only the shutter at the
 entry position receives the open-track substitution.
+The source caller admits this substitution in Seasons groups `4–7`. Ages
+restricts it to groups `4–5` and additionally requires the dungeon tileset flag.
 The mount-prohibition signal is consumed and cleared after the companion pass,
 before Link, item parents, and interactions can publish it for the next update.
 Companion attacks resolve contacts after item updates. Dimitri's reserved
@@ -684,6 +688,12 @@ including its zero-enemy check, flag publication and wait initialization.
 Miniboss portal allocation occurs during the interaction walk; a higher slot
 initializes in that update. Collision/menu release is the following script
 command and occurs on its own update, even if portal allocation failed.
+
+Essence objects own native movement, pedestal/glow allocation and energy parts
+from the selected asset pack. Their shared event owns collection flags, input,
+dialogue, music and the source return warp. Each game's composition binds its
+services and cancels that event on room replacement; destination interactions
+own the game's post-return story.
 
 Colored-floor parents latch a changed tile before checked child allocation;
 freeing capacity later does not retry that unchanged candidate. Landing children

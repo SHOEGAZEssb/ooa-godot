@@ -217,6 +217,8 @@ source configuration supplies the clean-US assembly symbols explicitly;
 `tools/OracleImporter/` contains the typed assembly source model and shared
 parsing infrastructure. A producer may read common assembly while binding
 game-specific tables; that does not make its whole stage game-independent.
+Sprite names can identify different artwork in each game. Resolve these names
+against the selected game's directory, then common graphics.
 
 Shared transformation and swimming producers resolve graphics, animation and
 OAM pointers against each game's native build. A common state machine does

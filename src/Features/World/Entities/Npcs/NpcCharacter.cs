@@ -259,10 +259,13 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         Player player,
         float collisionRadiusY,
         float collisionRadiusX)
+        =>PreventPlayerPassing(player,Position,collisionRadiusY,collisionRadiusX);
+
+    internal static bool PreventPlayerPassing(Player player,Vector2 position,float collisionRadiusY,float collisionRadiusX)
     {
         if (player.PassesNpcs) return false;
         Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
-        Vector2 obstacle = OracleObjectMath.ToPixelPosition(Position);
+        Vector2 obstacle = OracleObjectMath.ToPixelPosition(position);
         float radiusY = collisionRadiusY + LinkCollisionRadius;
         float radiusX = collisionRadiusX + LinkCollisionRadius;
         float differenceY = Mathf.Abs(link.Y - obstacle.Y);

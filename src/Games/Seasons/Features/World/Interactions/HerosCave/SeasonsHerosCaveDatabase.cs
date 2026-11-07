@@ -12,7 +12,7 @@ internal sealed class SeasonsHerosCaveDatabase
         foreach(var row in Table("constants",["key","value","source"]).Rows){_constants.Add(row.RequiredString(0),row.Decimal(1));_=row.RequiredString(2);}
         foreach(var row in Table("text",["id","message-base64","source"]).Rows){_texts.Add(row.HexWord(0),row.Base64Utf8(1));_=row.RequiredString(2);}
         _visual=Table("sword_visual",["id","subid","sprite","tile-base","palette","default-animation","append-sprites","source-offset","source","source-inverted","animation"]).SingleRow();
-        if(_constants.Count!=12 || _texts.Count!=2 || _visual.HexByte(0)!=0xc6 || _visual.HexByte(1)!=0)
+        if(_constants.Count!=11 || _texts.Count!=2 || _visual.HexByte(0)!=0xc6 || _visual.HexByte(1)!=0)
             throw new InvalidOperationException("Seasons Hero's Cave: incomplete native first-sword data.");
     }
     private static GeneratedTable Table(string name,string[] columns)=>GeneratedTable.Load(Root+$"heros_cave/{name}.tsv",

@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $initialize = Join-Path $PSScriptRoot '../import_oracles/Shared/Initialize-Import.ps1'
 $ast = [Management.Automation.Language.Parser]::ParseFile($initialize, [ref]$null, [ref]$null)
-foreach ($name in 'Read-ImportText', 'Resolve-ImportReadPath', 'Resolve-AssemblySourceTextPath', 'Get-AssemblyLabelBody') {
+foreach ($name in 'Read-ImportText', 'Resolve-ImportReadPath', 'Resolve-AssemblySourceTextPath', 'Get-AssemblyLabelBody', 'Find-ImportSpriteSource') {
     $definition = $ast.Find({
         param($node)
         $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -47,3 +47,20 @@ if ($null -eq (Resolve-AssemblySourceTextPath ([string]::Empty)) -or $reads -ne 
     throw 'Empty assembly sources could not share the empty-string instance.'
 }
 Write-Host 'Source-cache fixtures passed (read-once identity, equal-content files, untracked copies and empty sources).'
+
+$Disassembly = (Resolve-Path (Join-Path $PSScriptRoot '../../external/oracles-disasm')).Path
+$spriteSourceIndex = @{}
+foreach ($game in 'ages', 'seasons') {
+    $expected = (Resolve-Path (Join-Path $Disassembly "gfx_compressible/$game/spr_essences.png")).Path
+    if ((Find-ImportSpriteSource 'spr_essences' $game).FullName -cne $expected) {
+        throw "$game must select its own Essence sheet when both games define spr_essences."
+    }
+}
+if ((Find-ImportSpriteSource 'spr_common_sprites' 'seasons').Directory.Name -ne 'common') {
+    throw 'Selected-game sprite lookup lost common graphics fallback.'
+}
+$rejected = $false
+try { $null = Find-ImportSpriteSource 'spr_aquamentus_1' 'ages' }
+catch { $rejected = $_.Exception.Message.Contains('ages/spr_aquamentus_1.png') }
+if (-not $rejected) { throw "Selected-game lookup accepted another game's exclusive sheet." }
+Write-Host 'Sprite-source fixtures passed (selected-game overrides, common fallback and cross-game rejection).'

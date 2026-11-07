@@ -141,6 +141,25 @@ internal sealed class BraceletRom
     internal void SetScriptMenuEnabled(bool enabled) => CallScriptInputCommand(enabled ? 0x4162 : 0x414c);
     internal void RequestState08() => _rom.Call(_game == OracleGame.Ages ? 0x2aad : 0x29f4, bank: 0);
     internal void AdvanceScreenShake() => _rom.Call(_game == OracleGame.Ages ? 0x427d : 0x423b, bank: 1);
+    internal void AdvancePaletteThread()
+    {
+        this[0xff70]=2;
+        // $dff0 is live sprite palette data; keep both return stacks below $c2e0.
+        _rom.Call(_game==OracleGame.Ages?0x56e3:0x554f,bank:1,stackAddress:0xc2dc);
+        this[0xff70]=0;
+    }
+    internal void LoadPaletteHeader(int header)=>_rom.Call(_game==OracleGame.Ages?0x050b:0x04e7,bank:0,accumulator:header);
+    internal int FadingBackgroundColor(int index)=>_rom.BankByte(2,0xdf80+index*2)|(_rom.BankByte(2,0xdf81+index*2)<<8);
+    internal void CheckDeclaredItemCollision(int collision,int damage,Vector2 position,int zHigh)
+    {
+        // One declared ITEM, then the complete clean-US ENEMY/PART scan.
+        for(int offset=0;offset<64;offset++)_rom[0xd700+offset]=0;
+        _rom[0xd724]=(byte)(0x80|collision);_rom[0xd728]=unchecked((byte)-damage);
+        _rom[0xd726]=_rom[0xd727]=6;
+        _rom[0xd70b]=(byte)position.Y;_rom[0xd70d]=(byte)position.X;_rom[0xd70f]=unchecked((byte)zHigh);
+        _rom.Call(_game==OracleGame.Ages?0x41d1:0x41b9,bank:7);
+        _rom[0xd724]=0;
+    }
     internal bool LinkVulnerable()
     {
         _rom.Call(_game == OracleGame.Ages ? 0x1d28 : 0x1ce6, bank: 0);

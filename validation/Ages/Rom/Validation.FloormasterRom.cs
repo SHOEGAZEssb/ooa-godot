@@ -219,7 +219,8 @@ public sealed partial class ValidationRoot
                 _player.WallmasterGrabActive && _player.WallmasterGrabSubstate != enemy[0xd005] ||
                 _player.PatchCollisionsEnabled != ((link[0xd024] & 0x80) != 0) ||
                 _player.Visible != ((enemy[0xd01a] & 0x80) != 0) ||
-                _runtimeState.ReadWramByte(AgesWramAddress.wWarpsDisabled) != link[0xcc6e],
+                _runtimeState.ReadWramByte(AgesWramAddress.wWarpsDisabled) != link[0xcc6e] ||
+                _runtimeState.ReadField("wScrollMode") != link[0xcd00],
                 $"Floormaster grab update={update}, batch={batched}: runtime pending/active/sub/visible={_player.WallmasterGrabPending}/{_player.WallmasterGrabActive}/{_player.WallmasterGrabSubstate}/{_player.Visible}; native force/state/sub/visible=${enemy[0xcc4f]:x2}/${link[0xd004]:x2}/{enemy[0xd005]}/${enemy[0xd01a]:x2}.");
             update++;
         }

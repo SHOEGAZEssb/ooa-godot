@@ -24,6 +24,8 @@ public static class ObjectSpeed
     public const int Speed180 = 0x3c;
     // constants/common/objectSpeeds.s: SPEED_1a0
     public const int Speed1a0 = 0x41;
+    // constants/common/objectSpeeds.s: SPEED_1c0
+    public const int Speed1c0 = 0x46;
     // constants/common/objectSpeeds.s: SPEED_200
     public const int Speed200 = 0x50;
     // constants/common/objectSpeeds.s: SPEED_300

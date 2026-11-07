@@ -67,7 +67,8 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
             return;
         }
 
-        Position = _parentPosition() + Vector2.Down * _yOffset;
+        Vector2 parent=_parentPosition().Floor();
+        Position = new((int)parent.X&255,((int)parent.Y+_yOffset)&255);
         int z = _parentZ();
         if (z == 0)
         {

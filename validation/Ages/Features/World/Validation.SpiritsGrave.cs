@@ -54,7 +54,10 @@ public sealed partial class ValidationRoot
         void StepEntities(int count = 1)
         {
             for (int frame = 0; frame < count; frame++)
+            {
+                _roomEvents.Get<DungeonEssenceEvent>().AdvancePaletteBeforeObjects();
                 _entities.AdvanceEntityFrames(update, _player);
+            }
         }
 
         var data = new SpiritsGraveDatabase();

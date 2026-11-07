@@ -9,6 +9,7 @@ internal sealed class SeasonsRoomContent(SeasonsWorldData data) : IRoomContent
     private RoomShopDatabase? _shops;
     private StandardTileSubstitutionDatabase? _substitutions;
     private SingleTileChangeDatabase? _singleTiles;
+    private SwitchTileReplacementDatabase? _switchTiles;
     public string AssetRoot => SeasonsGameContent.AssetRoot;
     public BackgroundPaletteState BackgroundPalettes => data.Palettes;
     public DungeonMapDatabase DungeonMaps => _maps ??= DungeonMapDatabase.For(AssetRoot);
@@ -28,6 +29,7 @@ internal sealed class SeasonsRoomContent(SeasonsWorldData data) : IRoomContent
         (_singleTiles ??= new(AssetRoot)).Apply(group,loaded,save,animationTick);
         (_substitutions ??= new(AssetRoot)).Apply(loaded,save.GetRoomFlags(group,room),animationTick);
         (_chests ??= new(AssetRoot)).ApplyOpenedChest(group, loaded, save, memory, animationTick);
+        (_switchTiles ??= new(AssetRoot)).Apply(group,loaded,memory.ReadField("wSwitchState"),animationTick);
         data.ApplyScenery(loaded, save, animationTick);
         return loaded;
     }

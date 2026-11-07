@@ -11,7 +11,7 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly LightableTorchState _state;
-    private readonly DarkRoomDatabase _data;
+    private readonly LightableTorchDatabase _data;
     private readonly Action<int> _playSound;
     private readonly Action<byte,byte> _setTile;
     private bool _initialized;
@@ -32,7 +32,7 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
     internal LightableTorchRoomEntity(
         LightableTorchState state,
         int packedPosition,
-        DarkRoomDatabase data,
+        LightableTorchDatabase data,
         Action<int> playSound,
         Action<byte,byte> setTile)
     {

@@ -12,6 +12,7 @@ internal sealed class MinecartData
         throw new InvalidOperationException($"Missing native minecart constant '{name}'.");
     internal MinecartAnimationFrame[][] Waiting { get; } = [new MinecartAnimationFrame[1], new MinecartAnimationFrame[1]];
     internal MinecartAnimationFrame[][] Mounted { get; } = [new MinecartAnimationFrame[2], new MinecartAnimationFrame[2]];
+    internal DungeonInteractionVisual Visual {get;}
     private readonly MinecartTrackRule[][] _tracks = [new MinecartTrackRule[3], new MinecartTrackRule[3], new MinecartTrackRule[3], new MinecartTrackRule[3]];
 
     internal bool TryTrackExit(int direction, int tile, int position, out int next, out int[] linked)
@@ -24,6 +25,13 @@ internal sealed class MinecartData
 
     private MinecartData(string root)
     {
+        var visual=GeneratedTable.Load(root+"objects/minecart_visual.tsv",
+            new("native minecart graphics",GeneratedTableKeySemantics.Unique,
+                ["sprite","tile-base","palette","source-grayscale-inverted","animations-base64","source"],["sprite"],headerRequired:true)).SingleRow();
+        _=visual.RequiredString(5);
+        Visual=new(root,"minecart",[visual.RequiredString(0)],visual.UnsignedDecimal(1),visual.UnsignedDecimal(2),
+            visual.Boolean01(3),visual.EncodedAnimations(4));
+        if(Visual.Animations.Length!=4)throw new InvalidOperationException($"{root}: INTERAC$16/SPECIALOBJECT$0a require four minecart animations.");
         foreach (var row in GeneratedTable.Load(root + "objects/minecart_behavior.tsv",
             new("native minecart behavior", GeneratedTableKeySemantics.Unique,
                 ["name", "value", "source"], ["name"], headerRequired: true)).Rows)

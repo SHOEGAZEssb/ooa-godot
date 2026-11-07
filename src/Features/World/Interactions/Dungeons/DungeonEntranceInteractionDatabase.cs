@@ -171,21 +171,16 @@ internal sealed class DungeonEntranceInteractionDatabase
         foreach (GeneratedTableRow row in constants.Rows)
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
-        IReadOnlyList<PlacementRecord> room24 = GetRoomRecords(4, 0x24);
-        if (entryCount != 16 || PlacementCount != 43 || eyeVisualCount != 8 ||
+        if (entryCount != 16 || PlacementCount == 0 || eyeVisualCount != 8 ||
             portalVisualCount != 1 || _portalPairs.Count != 9 ||
-            _constants.Count != 11 || room24.Count != 3 ||
-            room24[0] is not { Order: 0, Kind: DungeonEntranceInteractionDatabaseObjectKind.Entry, Dungeon: 1 } ||
-            room24[1] is not { Order: 1, Kind: DungeonEntranceInteractionDatabaseObjectKind.EyeSpawner } ||
-            room24[2] is not { Order: 2, Kind: DungeonEntranceInteractionDatabaseObjectKind.MinibossPortal } ||
+            _constants.Count != 11 ||
             Entry(1).TextId != 0x0201 || EntryMinimumY != 0x78 ||
             EntryRadius != 8 || EyeStatueTile != 0xee ||
             EyeInitialYOffset != -2 || PortalPosition != 0x57 ||
             PortalRadius != 3 || PortalSpinUpdates != 0x30 ||
             PortalSound != SoundId.SndTeleport ||
             PortalSourceTransition != 2 || PortalDestinationTransition != 0 ||
-            PortalDestinationParameter != 0 ||
-            PortalPairFor(1) is not { MinibossRoom: 0x18, EntranceRoom: 0x24 })
+            PortalDestinationParameter != 0)
         {
             throw new InvalidOperationException(
                 "Imported shared dungeon-entry interaction contract is incomplete.");

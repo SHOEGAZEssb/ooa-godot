@@ -88,7 +88,7 @@ public partial class ValidationRoot
         LoadValidationRoom(4,0xa6);
         var record = new DungeonMechanicDatabase().GetRoomRecords(4,0xa6).Single(r=>r.Id==0xc7 && r.SubId==8);
         var attempts = new List<int>();
-        var isolated = new LightableTorchScannerRoomEntity(record,_currentRoom,new LightableTorchState(),new DarkRoomDatabase(AgesGameContent.AssetRoot),
+        var isolated = new LightableTorchScannerRoomEntity(record,_currentRoom,new LightableTorchState(),LightableTorchDatabase.For(AgesGameContent.AssetRoot),
             (_,p)=>{ attempts.Add(p); return p==0x82; });
         var frame = new RoomEntityFrame(_player,0,false);
         isolated.UpdateFrame(frame,new List<RoomEntitySpawn>());

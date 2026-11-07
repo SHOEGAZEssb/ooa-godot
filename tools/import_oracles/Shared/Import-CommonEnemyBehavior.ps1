@@ -14,7 +14,8 @@ foreach ($pack in @(
             @('ecom_fallingInHole','and \$07[\s\S]*ld b,SPEED_80[\s\S]*sub \$03'),
             @('ecom_checkScentSeedActive','bit 4,a[\s\S]*and \$f8[\s\S]*ld a,\$04'),
             @('ecom_updateAngleToScentSeed','ld l,Enemy.var3d[\s\S]*dec \(hl\)[\s\S]*and \$0f'),
-            @('ecom_updateCardinalAngleTowardTarget','add \$04[\s\S]*and \$18')
+            @('ecom_updateCardinalAngleTowardTarget','add \$04[\s\S]*and \$18'),
+            @('ecom_updateAnimationFromAngle','cp \$04[\s\S]*sub \(hl\)[\s\S]*cp \$07[\s\S]*sub \$03[\s\S]*cp \$02')
         )) {
             $nodes = @((Invoke-AssemblySourceHost $connection 'LABEL_NODES' "$path`0$($spec[0])`0" | ConvertFrom-Json) | Where-Object { $_.IsActive -and $_.Kind -eq 'Instruction' })
             if (($nodes.Code -join "`n") -notmatch $spec[1]) { throw "$($pack.Name): commonCode.s:$($spec[0]) native enemy contract changed." }
@@ -47,6 +48,15 @@ foreach ($pack in @(
         if (($damage -join ',') -ne '241,16,8,0,241,21,11,0,241,26,15,0,241,32,0,0') { throw "$($pack.Name): native collisionEffects.s sword response rows changed." }
         $rows = [Collections.Generic.List[string]]::new()
         $rows.Add("# profile`tindex`tvalue-a`tvalue-b`tsource")
+        $angleCopies=@($pack.Symbols.Keys|Where-Object { $_.StartsWith('bank:',[StringComparison]::Ordinal) -and $_.EndsWith(':ecom_updateAnimationFromAngle@angleToAnimIndex',[StringComparison]::Ordinal) })
+        if($angleCopies.Count -eq 0){throw "$($pack.Name): missing common enemy angle-animation tables."}
+        $angles=Read-MenuRomBytes $pack $angleCopies[0] 32
+        foreach($copy in $angleCopies) {
+            if(-not [Linq.Enumerable]::SequenceEqual([byte[]]$angles,[byte[]](Read-MenuRomBytes $pack $copy 32))){throw "$($pack.Name): common angle-animation tables differ."}
+        }
+        for($index=0;$index -lt 32;$index++) {
+            $rows.Add("angle-animation`t$index`t$($angles[$index])`t0`tobject_code/common/enemies/commonCode.s:ecom_updateAnimationFromAngle@angleToAnimIndex")
+        }
         for ($index = 0; $index -lt 4; $index++) {
             $offset = $index * 4
             $rows.Add("sword-damage-profiles`t$index`t$($damage[$offset + 1])`t$($damage[$offset + 2])`tcode/collisionEffects.s:applyDamageToEnemyOrPart@damageTypeTable+$($offset.ToString('x2'))")
@@ -86,7 +96,7 @@ foreach ($pack in @(
             if ($y -ge 128) { $y -= 256 }; if ($x -ge 128) { $x -= 256 }
             $rows.Add("projectile-boundary-offsets`t$index`t$y`t$x`tobject_code/common/parts/commonCode.s:partCommon_anglePositionOffsets+$($index * 2)")
         }
-        if ($rows.Count -ne 30) { throw "$($pack.Name): incomplete common enemy profiles." }
+        if ($rows.Count -ne 62) { throw "$($pack.Name): incomplete common enemy profiles." }
         if ($null -eq $commonEnemyRows) { $commonEnemyRows = $rows.ToArray() }
         elseif (-not [Linq.Enumerable]::SequenceEqual([string[]]$commonEnemyRows,[string[]]$rows.ToArray())) { throw 'Common enemy behavior differs between the supported games.' }
     }

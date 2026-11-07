@@ -13,7 +13,8 @@ public sealed partial class RoomEntityManager
         reservations ??= new(_runtimeState);
         switch (source.Kind)
         {
-            case RoomObjectKind.RandomEnemy or RoomObjectKind.FixedEnemy or RoomObjectKind.ParameterEnemy:
+            case RoomObjectKind.RandomEnemy or RoomObjectKind.FixedEnemy or RoomObjectKind.ParameterEnemy
+                when source.Id!=EnemyId.ItemDropProducer:
                 foreach (var entity in PlaceEnemies(source,room,placement,reservations,onAllocationFailure)) yield return entity;
                 break;
             case RoomObjectKind.ReservingPart or RoomObjectKind.ParameterPart:
@@ -22,15 +23,21 @@ public sealed partial class RoomEntityManager
                 yield return _factory.CreatePlacedPart(source,room);
                 break;
             case RoomObjectKind.ItemDrop:
+            case RoomObjectKind.FixedEnemy when source.Id==EnemyId.ItemDropProducer:
                 if (source.Id!=EnemyId.ItemDropProducer || source.SubId is <0 or >=16)
                     throw new NotSupportedException($"{source.Source}: expected ENEMY_ITEM_DROP_PRODUCER $59 with a native drop subid $00-$0f.");
                 int index=NextKillableEnemyIndex(source.Flags);
                 if (WasKilledDuringPlacement(index)) yield break;
                 int slot=FindFreeEnemySlot();
                 if (slot<0) { onAllocationFailure?.Invoke(); yield break; }
+                // enemyCode59 uses enemyDelete without decNumEnemies; counted
+                // declarations retain their allocation even after deletion.
+                if(source.Kind==RoomObjectKind.FixedEnemy&&(source.Flags&2)==0)_unreleasedEnemyCounts++;
                 reservations.Add(source.PackedPosition);
                 var producer=new ItemDropProducer { Name=$"ItemDropProducer_{source.Order}_${source.SubId:x2}" };
-                producer.Initialize(source.SubId,new((source.PackedPosition&15)*16+8,(source.PackedPosition>>4)*16+8),
+                Vector2 position=source.Kind==RoomObjectKind.FixedEnemy?new(source.X,source.Y):
+                    new((source.PackedPosition&15)*16+8,(source.PackedPosition>>4)*16+8);
+                producer.Initialize(source.SubId,position,
                     room,_inventory,_saveData,_random);
                 var wrapper=new ItemDropProducerRoomEntity(producer,index);
                 RegisterEnemySlot(wrapper,slot);

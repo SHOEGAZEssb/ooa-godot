@@ -169,6 +169,7 @@ internal sealed class EnemyHandlerRegistry
         "goponga-flower" => EnemyHandlerKind.GopongaFlower,
         "buzzblob" => EnemyHandlerKind.BuzzBlob,
         "boomerang-moblin" => EnemyHandlerKind.BoomerangMoblin,
+        "brother-goriyas" => EnemyHandlerKind.BrotherGoriyas,
         "leever" => EnemyHandlerKind.Leever,
         "arrow-moblin" or "masked-moblin" => EnemyHandlerKind.ArrowMoblin,
         "arrow-darknut" => EnemyHandlerKind.ArrowDarknut,
@@ -183,6 +184,7 @@ internal sealed class EnemyHandlerRegistry
         "bubble" => EnemyHandlerKind.Bubble,
         "bari" => EnemyHandlerKind.Bari,
         "floormaster" => EnemyHandlerKind.Floormaster,
+        "aquamentus" => EnemyHandlerKind.Aquamentus,
         "wizzrobe" => EnemyHandlerKind.Wizzrobe,
         "candle" => EnemyHandlerKind.Candle,
         "gibdo" => EnemyHandlerKind.Gibdo,
@@ -271,7 +273,7 @@ internal sealed record EnemyHandlerDescriptor(
             EnemyHandlerKind.BabyCucco or EnemyHandlerKind.Cucco);
 
     internal bool CompletesDungeonEnemyCount => SupportsOrderedConstruction;
-    internal bool SupportsStandaloneConstruction => SupportsOrderedConstruction &&
+    internal bool SupportsStandaloneConstruction => SupportsOrderedConstruction && Handler!=EnemyHandlerKind.Aquamentus &&
         (SupportsCombatSource || Handler is EnemyHandlerKind.TargetCartCrystal or EnemyHandlerKind.GreatFairy or EnemyHandlerKind.Beamos);
 
     internal EnemyCombatSourceDescriptor CombatSource(
@@ -346,6 +348,7 @@ internal enum EnemyHandlerKind
     GopongaFlower,
     BuzzBlob,
     BoomerangMoblin,
+    BrotherGoriyas,
     Leever,
     ArrowMoblin,
     ArrowDarknut,
@@ -372,6 +375,7 @@ internal enum EnemyHandlerKind
     Bubble,
     Bari,
     Floormaster,
+    Aquamentus,
     Wizzrobe,
     Candle,
     Peahat,

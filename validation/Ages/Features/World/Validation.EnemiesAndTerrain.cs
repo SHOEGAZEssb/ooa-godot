@@ -1905,6 +1905,10 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle);
         int poofSounds = _sound.PlayRequestsFor(SoundId.SndPoof);
         _entities.AdvanceEntityFrames(update, _player);
+        FailIf(_entities.RoomEnemyCount!=0 || _entities.Entities<EnemyDeathPuffEffect>().Count!=0,
+            "Room 4:65 must release both destruction PART counts before the chest's checknoenemies completes.");
+        // checknoenemies yields; sound, puff and wait install on later updates.
+        for(int phase=0;phase<3;phase++)_entities.AdvanceEntityFrames(update,_player);
         FailIf(
             _entities.RoomEnemyCount != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
@@ -1926,11 +1930,12 @@ public sealed partial class ValidationRoot
             "Room 4:65 installed its Dungeon Map chest before wait 30 " +
             "reached zero.");
         _entities.AdvanceEntityFrames(update, _player);
+        _entities.AdvanceEntityFrames(update, _player); // incstate yields before scriptend.
         FailIf(
             _entities.Entities<EnemyClearChestRoomEntity>().Count != 0 ||
             _currentRoom.GetMetatile(mapChestPosition) != 0xf1,
-            "Room 4:65 did not install chest tile $f1 at $58,$88 when the " +
-            "enemy-clear wait reached zero.");
+            "Room 4:65 did not install chest tile $f1 at $58,$88 and finish " +
+            "the following state2/scriptend update.");
 
         _saveData.SetRoomFlag(
             4, 0x65, OracleSaveData.RoomFlagItem, originalItemFlag);

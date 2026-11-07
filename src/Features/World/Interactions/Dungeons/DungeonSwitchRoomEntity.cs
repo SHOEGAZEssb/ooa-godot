@@ -17,7 +17,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
 
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
-    private readonly DungeonMechanicDatabase _data;
+    private readonly DungeonSwitchDatabase _data;
     private readonly OracleRuntimeState _runtime;
     private readonly Func<long> _animationTick;
     private readonly Action _roomTileChanged;
@@ -32,8 +32,6 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     internal bool CollisionEnabled => !Finished && !_healthCleared;
     public bool MeleeReportsContact => false; // LINKDMG_1c leaves ITEM_SWORD.var2a unchanged.
     public void ClearHealthAndCollision() => _healthCleared = true;
-    private PartSwitchCollisionDatabase? _collisionsSourceCache;
-    private PartSwitchCollisionDatabase _collisions => _collisionsSourceCache ??= PartSwitchCollisionDatabase.For(AssetRoot);
     private readonly OracleSaveData? _save;
     public bool Finished { get; private set; }
 
@@ -48,7 +46,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     internal DungeonSwitchRoomEntity(
         DungeonMechanicDatabaseRecord record,
         OracleRoomData room,
-        DungeonMechanicDatabase data,
+        DungeonSwitchDatabase data,
         OracleRuntimeState runtime,
         Func<long> animationTick,
         Action roomTileChanged,
@@ -166,7 +164,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
 
     private bool TryAcceptHit(Rect2 hitbox, int itemCollision)
     {
-        int lockout = _collisions.HitLockout(itemCollision);
+        int lockout = _data.HitLockout(itemCollision);
         if (!CollisionEnabled || _pendingHit || _hitLockout != 0 || lockout < 0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds,hitbox))
             return false;

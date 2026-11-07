@@ -425,6 +425,19 @@ foreach ($spec in $commonEnemySpecs) {
     # grab-to-sink label boundary until parameter3 stops further advances.
     $fallthrough = if ($id -eq 0x35) { @(4,5) } else { @() }
     $definition = Get-EnemyDefinition $id $subid $fallthrough
+    if($id -eq 0x35) {
+        # stateC follows the sink label but stops forever at parameter3;
+        # later adjacent animation bytes are unreachable by this handler.
+        foreach($animation in @(4,5)) {
+            $prefix=[Collections.Generic.List[string]]::new()
+            foreach($frame in $definition.Animations[$animation].Split('|')) {
+                $prefix.Add($frame)
+                if($frame.Split('@')[0] -match ',3$'){break}
+            }
+            if($prefix[-1].Split('@')[0] -notmatch ',3$'){throw 'Floormaster grab must reach terminal parameter3.'}
+            $definition.Animations[$animation]=$prefix -join '|'
+        }
+    }
     $sprites = $commonEnemySprites[$id]
     if ($null -eq $sprites) {
         $sprites = @($gfxNames[$definition.Gfx])
@@ -1223,112 +1236,7 @@ Write-GeneratedTable((Join-Path $destination 'effects\keese_fire.tsv'), @(
     "spr_common_sprites`t8`t2`t180`t5`t2`t25`t7`t28`t16`t88`t$($burnFrames -join '|')~3`tobject_code/common/parts/fire.s:partCode20;collisionEffects.s:LINKDMG_00+LINKDMG_28+ENEMYDMG_34"
 ))
 
-# PART_MOBLIN_BOOMERANG $21 belongs to the common Boomerang Moblin species,
-# not to the first dungeon. Retain its four rotating OAM frames in a shared
-# projectile record.
-$boomerangAnimationLabels = @([regex]::Matches(
-    (Get-AssemblyLabelBody $partAnimationSource 'part21Animations'),
-    '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)') |
-    ForEach-Object { $_.Groups['label'].Value })
-$boomerangOamLabels = @([regex]::Matches(
-    (Get-AssemblyLabelBody $partAnimationSource 'part21OamDataPointers'),
-    '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)') |
-    ForEach-Object { $_.Groups['label'].Value })
-if ($boomerangAnimationLabels.Count -ne 1 -or
-    $boomerangOamLabels.Count -ne 4) {
-    throw 'PART_MOBLIN_BOOMERANG animation/OAM tables changed.'
-}
-$boomerangFrames = [Collections.Generic.List[string]]::new()
-foreach ($frame in [regex]::Matches(
-    (Get-AssemblyLabelBody $partAnimationSource $boomerangAnimationLabels[0]),
-    '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<offset>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
-    $duration = [Convert]::ToInt32(
-        $frame.Groups['duration'].Value, 16)
-    $pointerIndex = [int](
-        [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2)
-    if ($pointerIndex -ge $boomerangOamLabels.Count) {
-        throw "Moblin boomerang OAM pointer $pointerIndex is out of range."
-    }
-    $boomerangFrames.Add(
-        "$duration@$(Resolve-Oam 'data/ages/partOamData.s' $boomerangOamLabels[$pointerIndex])")
-}
-if ($boomerangFrames.Count -ne 4) {
-    throw 'PART_MOBLIN_BOOMERANG must retain four animation frames.'
-}
-$boomerangSprite = $gfxNames[0x8e]
-Copy-EnemySprite $boomerangSprite
-$boomerangAnimationData = [Convert]::ToBase64String(
-    [Text.Encoding]::UTF8.GetBytes($boomerangFrames -join '|'))
-$boomerangRows = @(
-    '# sprites`ttile-base`tpalette`tsource-grayscale-inverted`tanimations-base64'.Replace(
-        '`t', "`t")
-    "$boomerangSprite`t10`t4`t1`t$boomerangAnimationData"
-)
-Write-GeneratedTable(
-    (Join-Path $destination 'effects\moblin_boomerang.tsv'),
-    $boomerangRows)
 
-# PART_BOSS_DEATH_EXPLOSION (`$04) keeps wNumEnemies occupied until its
-# terminal `$ff animation parameter. Boss reward scripts therefore cannot
-# advance while the large explosion is still visible.
-$bossExplosionData = [regex]::Match(
-    $partDataSource,
-    '(?m)^\s*\.db \$00 \$00 \$00 \$00 \$40 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) \$00\s*; \$04'
-)
-if (-not $bossExplosionData.Success) {
-    throw 'Could not resolve PART_BOSS_DEATH_EXPLOSION (`$04) data.'
-}
-$bossExplosionTileBase = [Convert]::ToInt32(
-    $bossExplosionData.Groups['tile'].Value, 16)
-$bossExplosionPalette = [Convert]::ToInt32(
-    $bossExplosionData.Groups['flags'].Value, 16) -band 7
-$bossExplosionAnimationLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $partAnimationSource 'part04Animations'),
-        '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-$bossExplosionOamLabels = @(
-    [regex]::Matches(
-        (Get-AssemblyLabelBody $partAnimationSource 'part04OamDataPointers'),
-        '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)'
-    ) | ForEach-Object { $_.Groups['label'].Value }
-)
-if ($bossExplosionAnimationLabels.Count -ne 1 -or
-    $bossExplosionOamLabels.Count -ne 13) {
-    throw 'Expected one boss-explosion animation and 13 OAM pointers.'
-}
-$bossExplosionFrames = [Collections.Generic.List[string]]::new()
-foreach ($frame in [regex]::Matches(
-    (Get-AssemblyLabelBody $partAnimationSource $bossExplosionAnimationLabels[0]),
-    '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'
-)) {
-    $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
-    if ($parameter -eq 0xff) { break }
-    if ($parameter -ne 0) {
-        throw "Boss explosion has unexpected animation parameter `$$($frame.Groups['parameter'].Value)."
-    }
-    $pointerIndex = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
-    if ($pointerIndex -ge $bossExplosionOamLabels.Count) {
-        throw "Boss explosion references missing OAM pointer $pointerIndex."
-    }
-    $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-    $bossExplosionFrames.Add(
-        "$duration@$(Resolve-Oam 'data/ages/partOamData.s' $bossExplosionOamLabels[$pointerIndex])")
-}
-$bossExplosionDuration = ($bossExplosionFrames | ForEach-Object {
-    [int](($_ -split '@')[0])
-} | Measure-Object -Sum).Sum
-if ($bossExplosionTileBase -ne 0x0c -or $bossExplosionPalette -ne 2 -or
-    $bossExplosionFrames.Count -ne 13 -or $bossExplosionDuration -ne 78) {
-    throw 'PART_BOSS_DEATH_EXPLOSION no longer matches tile `$0c, palette 2, or its 13-frame/78-update animation.'
-}
-Write-GeneratedTable(
-    (Join-Path $destination 'effects\boss_death_explosion.tsv'),
-    @(
-        "# tile-base`tpalette`tanimation",
-        "$bossExplosionTileBase`t$bossExplosionPalette`t$($bossExplosionFrames -join '|')"
-    ))
 
 # PART_SHADOW (`$07) is attached to both Spirit's Grave bosses. The source
 # selects one of four static OAM records from the parent's Z byte and flickers
@@ -3273,33 +3181,6 @@ foreach ($id in @(0x3d, 0x48, 0x49, 0x4a)) {
 Add-EnemyBehaviorProfile 'sword-enemy' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
     'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$3d/$48/$49/$4a'
 
-$floormasterSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\floorMaster.s')
-if ($floormasterSource -notmatch '(?ms)^enemyCode35:.*?ITEMCOLLISION_LINK.*?ld \(hl\),\$0c.*?ld \(hl\),\$fb.*?sra a.*?sra a' -or
-    $floormasterSource -notmatch '(?ms)^floormaster_state_uninitialized:.*?ld \(hl\),60.*?floormaster_initSpawner' -or
-    $floormasterSource -notmatch '(?ms)^floormaster_state1:.*?Enemy.var33.*?Enemy.var30.*?ret nc.*?dec \(hl\).*?ld \(hl\),\$01.*?cp \$03.*?ecom_spawnUncountedEnemyWithSubid01.*?Enemy.relatedObj1.*?inc \(hl\).*?ld \(hl\),\$80.*?decNumEnemies.*?markEnemyAsKilledInRoom.*?enemyDelete' -or
-    $floormasterSource -notmatch '(?ms)^floormaster_state8:.*?call c,getRandomNumber_noPreserveVars.*?w1Link.angle.*?and \$1f.*?ld a,\$50.*?sub \$10.*?cp \$80.*?cp LARGE_ROOM_HEIGHT<<4.*?objectGetTileCollisions.*?ld \(hl\),\$20.*?add \$04.*?and \$18' -or
-    $floormasterSource -notmatch '(?ms)^floormaster_stateA:.*?srl a\s+srl a.*?ld \(hl\),\$f0.*?set 7,\(hl\).*?bit 5,\(hl\).*?SPEED_60.*?SPEED_a0' -or
-    $floormasterSource -notmatch '(?ms)^floormaster_stateC:.*?w1Link.substate.*?objectSetInvisible.*?w1Link.visible.*?w1Link.yh.*?w1Link.xh.*?Enemy.zh' -or
-    $floormasterSource -notmatch '(?ms)^floormaster_checkLinkMoved8PixelsAway:.*?add \$08.*?cp \$10.*?add \$08.*?cp \$10' -or
-    $floormasterSource -notmatch '(?ms)^floormaster_initSpawner:.*?and \$f0\s+swap a.*?and \$f0\s+swap a\s+inc a' -or
-    $floormasterSource -notmatch '(?ms)^floormaster_getAdjacentWallsBitset:\s+ld a,\$02\s+jp ecom_getTopDownAdjacentWallsBitset') {
-    throw 'object_code/common/enemies/floorMaster.s: spawner, position selection, grab or boundary contract changed.'
-}
-$hoverZ = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $floormasterSource 'floormaster_stateA') $true)
-$chaseZ = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $floormasterSource 'floormaster_updateZPosition') $true)
-if (($hoverZ -join ',') -ne '-5,-4,-3,-3,-2,-2,-1,-1' -or ($chaseZ -join ',') -ne '-5,-4,-3,-4,-5,-6,-7,-6') {
-    throw 'floorMaster.s: hovering or chasing height table changed.'
-}
-Add-EnemyBehaviorProfile 'floormaster' 'state-profile' @(60,128,1,3,32,240,15,25,8,16,80,16,176,128,-5,2) `
-    'object_code/common/enemies/floorMaster.s:state-entry-operands'
-Add-EnemyBehaviorValueTable 'floormaster' 'hover-z' $hoverZ 'object_code/common/enemies/floorMaster.s:floormaster_stateA@zVals'
-Add-EnemyBehaviorValueTable 'floormaster' 'chase-z' $chaseZ 'object_code/common/enemies/floorMaster.s:floormaster_updateZPosition@zVals'
-Add-EnemyBehaviorProfile 'floormaster' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x25 * 32 + $_] }) `
-    'data/ages/objectCollisionTable.s:ENEMYCOLLISION_FLOORMASTER/$25'
-$bits = ($seedActiveRows[0x35].Operands -join '').Replace('%', '')
-if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_FLOORMASTER $35 requires 32 collision mask bits.' }
-Add-EnemyBehaviorProfile 'floormaster' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
-    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$35'
 $guardCollisionRows = [Collections.Generic.List[string]]::new()
 $guardCollisionRows.Add("# mode`tcollision`tenabled`teffect`tsource")
 $guardBits = ($seedActiveRows[0x54].Operands -join '').Replace('%', '')
@@ -3311,12 +3192,6 @@ foreach ($mode in @(0x5a,0x3d)) {
     }
 }
 Write-GeneratedTable((Join-Path $destination 'objects/ambi_guard_collisions.tsv'), $guardCollisionRows)
-$linkWallmaster = Get-AssemblyLabelBody (Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\link.s')) 'linkState0c'
-if ($linkWallmaster -notmatch '(?ms)ld \(wWarpsDisabled\),a.*?SpecialObject.collisionType.*?wScrollMode.*?linkCancelAllItemUsage.*?SND_BOSS_DEAD.*?wWarpsDisabled.*?wActiveGroup.*?or \$80.*?wDungeonWallmasterDestRoom.*?TRANSITION_DEST_FALL.*?ld a,\$87.*?ld \(hl\),\$03' -or
-    $galeCollisionCode -notmatch '(?ms)^collisionEffect37:.*?Object.invincibilityCounter.*?wWarpsDisabled.*?w1Link.state.*?LINK_STATE_NORMAL.*?Object.collisionType.*?LINK_STATE_GRABBED_BY_WALLMASTER.*?wLinkForceState.*?ENEMYDMG_1c') {
-    throw 'link.s:linkState0c or collisionEffects.s:collisionEffect37 handoff changed.'
-}
-Add-EnemyBehaviorProfile 'floormaster' 'link-return' @(1,0,12,5,0x87,3) 'object_code/common/specialObjects/link.s:linkState0c'
 
 $wizzrobeSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/enemies/wizzrobe.s')
 foreach ($pattern in @(
@@ -4065,8 +3940,8 @@ $beamBits = ((@(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages
 if ($beamBits -notmatch '^[01]{32}$') { throw 'PART$1b active mask malformed.' }
 Add-EnemyBehaviorProfile 'lynel-beam' 'active-collisions' @($beamBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/partActiveCollisions.s:PART$1b'
 Add-EnemyBehaviorProfile 'lynel-beam' 'effects' @(0..31 | ForEach-Object {$enemyCollisionTableValues[0x6f*32+$_]}) 'data/ages/objectCollisionTable.s:mode$6f'
-if ($enemyBehaviorRows.Count -ne 3189) {
-    throw "Expected 3188 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 3087) {
+    throw "Expected 3086 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

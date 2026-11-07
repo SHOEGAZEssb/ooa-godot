@@ -22,12 +22,14 @@ public sealed partial class ValidationRoot
         // constructs the new event controller. The old controller still refers
         // to its already-disposed graph; current _scene validity does not make
         // those old HUD/player nodes eligible for another cancellation audit.
-        if (RegisteredRoomEventContext(_roomEvents).Entities.IsDisposed) return;
+        var context=RegisteredRoomEventContext(_roomEvents);
+        if (context.Entities.IsDisposed) return;
         CancelAndCheckRoomEvents(RegisteredRoomEvents(_roomEvents).Values.ToArray(),
+            context.Player,
             $"{_executingValidationName ?? "scenario setup"}, before session replacement");
     }
 
-    private void CancelAndCheckRoomEvents(IRoomEvent[] events, string boundary)
+    private void CancelAndCheckRoomEvents(IRoomEvent[] events, Player player, string boundary)
     {
         foreach (IRoomEvent owner in events)
         {
@@ -40,13 +42,15 @@ public sealed partial class ValidationRoot
             }
         }
         foreach (IRoomEvent owner in events)
-            FailIf(HasRoomEventRestrictions(owner) || _player.IsCutsceneControlOwner(owner),
+            FailIf(HasRoomEventRestrictions(owner) || player.IsCutsceneControlOwner(owner),
                 $"{boundary}: {owner.GetType().Name} retained state, restrictions or owned player control after cancellation.");
         // Every owner must tolerate a second call, including after a different
         // owner has acquired control. Do not invoke unrelated item interruption
         // after those item nodes have already crossed their deletion boundary.
         object successor = new();
-        _player.BeginCutsceneControl(interruptBracelet: false, owner: successor);
+        // Event registration precedes Player.Initialize during staged startup.
+        bool initialized=player.World is not null;
+        if(initialized)player.BeginCutsceneControl(interruptBracelet: false, owner: successor);
         try
         {
             foreach (IRoomEvent owner in events)
@@ -55,10 +59,10 @@ public sealed partial class ValidationRoot
                 FailIf(HasRoomEventRestrictions(owner),
                     $"{boundary}: {owner.GetType().Name} retained restrictions after repeated cancellation.");
             }
-            FailIf(!_player.IsCutsceneControlOwner(successor),
+            FailIf(initialized && !player.IsCutsceneControlOwner(successor),
                 $"{boundary}: repeated cancellation released a successor's player control.");
         }
-        finally { _player.EndCutsceneControl(successor); }
+        finally { if(initialized)player.EndCutsceneControl(successor); }
         _roomEventCleanupBoundaries++;
     }
 
@@ -96,7 +100,7 @@ public sealed partial class ValidationRoot
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             FailIf(actors.Any(GodotObject.IsInstanceValid),
                 $"{scenario}: retired room entities survived Godot's deletion boundary.");
-            CancelAndCheckRoomEvents(events, $"{scenario}, after native disposal");
+            CancelAndCheckRoomEvents(events, RegisteredRoomEventContext(_roomEvents).Player, $"{scenario}, after native disposal");
         }
         finally
         {

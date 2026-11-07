@@ -9,6 +9,8 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
 {
     private EnemyAnimationPlayer _animation = null!;
     private bool _initialized;
+    private int _speedY;
+    private int _yFixed;
 
     internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
@@ -25,9 +27,10 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
     internal void Initialize(
         Vector2 position,
         int sourceAngle,
-        InteractionSparkleVisual visual,int subid=0)
+        InteractionSparkleVisual visual,int subid=0,int speedY=0)
     {
         Position = position;
+        _yFixed=(int)(position.Y*256);_speedY=speedY;
         SourceAngle = sourceAngle;
         Subid=subid;
         if(subid is not(0 or 2 or 9))throw new System.NotSupportedException($"sparkle.s: INTERAC $84:${subid:x2} is not represented by the stationary native sparkle.");
@@ -55,6 +58,7 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
             QueueRedraw();
             return;
         }
+        if(_speedY!=0){_yFixed=(_yFixed+_speedY)&0xffff;Position=new(Position.X,_yFixed>>8);}
         if (_animation.CurrentParameter == 0xff)
         {
             Finished = true;
@@ -70,7 +74,7 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
         {
             DrawTexture(
                 _animation.CurrentTexture,
-                _animation.CurrentOffset + TransitionDrawOffset);
+                _animation.CurrentOffset + (_speedY==0?TransitionDrawOffset:SourceOamDrawOffset));
         }
     }
 }

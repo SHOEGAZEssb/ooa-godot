@@ -6,11 +6,16 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
     public string AssetRoot => SeasonsGameContent.AssetRoot;
     public bool CanReconstructDebugSpecialObject(OracleRuntimeState memory,int group,int room)=>_common.CanReconstructCompanion(memory);
     private readonly CommonRoomEntityFactory _common = new(owner,rooms:session.Rooms);
+    private LightableTorchState _torches=new();
     private EnemyHandlerRegistry? _enemyCatalog;
     private DimitriVisualDatabase? _dimitriVisual;
     private CompanionVisualDatabase? _mooshVisual;
     private RickyDatabase? _ricky;
     private SeasonsHerosCaveDatabase? _herosCave;
+    private SeasonsDungeonEssenceDatabase? _essences;
+    private SeasonsDungeonEssenceDatabase Essences=>_essences??=new();
+    private DungeonEntranceInteractionDatabase? _dungeonEntrances;
+    private DungeonEntranceInteractionDatabase DungeonEntrances => _dungeonEntrances ??= new(AssetRoot);
     private SeasonsTalkNpcDatabase? _talkNpcs;
     private SeasonsTalkNpcDatabase TalkNpcs => _talkNpcs ??= new();
     private NativeNpcRoomEntity CreateTalkNpc(NativeObjectInstruction source, OracleRoomData room)
@@ -64,6 +69,10 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
             ["group", "room", "source"], ["group","room"], headerRequired: true));
 
     public IEnumerable<bool> PrepareResources() => [];
+    public IEnumerable<IRoomEntity> CreateRoomLoadEntities(int group,OracleRoomData room,EnemyPlacementContext placement)=>
+        _common.CreateMinecartShutterControllers(room,placement);
+    public IEnumerable<IRoomEntity> CreateStaticRoomEntities(int group,OracleRoomData room)=>_common.CreateStaticRoomEntities(room);
+    public IRoomEntity CreateStaticObject(StaticObjectRecord source,OracleRoomData room)=>_common.CreateStaticObject(source,room);
     public void BindEntity(IRoomEntity entity) { }
     public void RefreshState(IEnumerable<IRoomEntity> entities)
     {
@@ -79,8 +88,18 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         ?CreateDimitri(dimitri,room):spawn is MooshCompanionSpawn moosh
         ?CreateMoosh(moosh,room):_common.TryCreate(spawn,room) ?? (spawn switch
     {
+        SeasonsMakuLeafSparkleSpawn sparkle=>CreateLeafSparkle(sparkle),
+        BlueEnergyBeadSpawn bead=>new BlueEnergyBeadRoomEntity(bead.Index,bead.Center,bead.Duration,
+            Essences.Visual("energy-bead"),owner.Random,owner.RuntimeState,bead.Outgoing),
         _ => throw new NotSupportedException($"Seasons room ${room.Group:x1}:{room.Id:x2}: unbound spawn {spawn.GetType().Name}.")
     });
+
+    private static IRoomEntity CreateLeafSparkle(SeasonsMakuLeafSparkleSpawn spawn)
+    {
+        var effect=new InteractionSparkleEffect {ZIndex=ObjectDrawPriority.InFrontOfLinkZIndex};
+        effect.Initialize(spawn.Position,0,spawn.Visual,subid:2,speedY:-0x80);
+        return new InteractionSparkleRoomEntity(effect);
+    }
 
     private ScriptedCompanionRoomEntity CreateCompanionInitializer(int id,Vector2 position,OracleRoomData room) => id switch
     {
@@ -180,6 +199,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(int group, OracleRoomData room, EnemyPlacementContext placement)
     {
+        _torches=new();
         if(!owner.ScreenTransitionActive && owner.SpecialObjectPresentationAvailable &&
             CompanionRuntimeState.IsActive(session.Memory,SpecialObjectId.Ricky))
         {
@@ -213,6 +233,11 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         var reader = new NativeObjectStreamReader(data, session.Memory, () => session.Save.GetRoomFlags(group, room.Id));
         foreach (var instruction in reader.Read(data.Root(group, room.Id)))
         {
+            if(instruction is {Id:0x22,SubId:0})
+            {
+                if(!owner.InteractionSlotAvailable){reader.AllocationFailed();continue;}
+                yield return new SeasonsRemoteMakuRoomEntity(session,Essences,instruction);continue;
+            }
             if (instruction.Id==0x21)
             {
                 if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
@@ -248,24 +273,39 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
     }
 
     public IRoomEntity CreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room, EnemyPlacementContext placement) =>
-        _common.TryCreateStreamInteraction(source,room,placement) ??
+        _common.TryCreateStreamInteraction(source,room,placement,_torches) ??
         (source switch
         {
             {Id:0x21}=>new SeasonsGnarledKeyholeRoomEntity(session,TalkNpcs,source),
+            {Id:0x22,SubId:0}=>new SeasonsRemoteMakuRoomEntity(session,Essences,source),
+            {Id:InteractionId.Essence,SubId:0} when session.Rooms.CurrentDungeonIndex==1=>new DungeonEssence(
+                new(room.Group,room.Id,source.Address,DungeonObjectKind.Essence,source.Id,source.SubId,source.Y,source.X,DungeonObjectCondition.Always,source.Source),
+                Essences.Visual("essence"),Essences.Visual("pedestal"),Essences.Visual("glow"),Essences.Visual("energy-bead"),room,
+                session.Save.HasRoomFlag(room.Group,room.Id,OracleSaveData.RoomFlagItem),owner.AnimationTick,owner.OnDungeonEssenceTriggered,Essences.Essence),
+            {Id:0x6b,SubId:0x20}=>new SeasonsStaticTreasureRoomEntity(source,room,owner),
             {Id:0xc6,SubId:0}=>new SeasonsHerosCaveSwordRoomEntity(session,HerosCave,
                 HerosCave.CreateSword(new(source.X,source.Y),session.Data.World.SpritePalettes)),
             {Id:0xdc,SubId:1 or 2}=>new SeasonsUnlinkedInteractionRoomEntity(session.Memory,source),
+            {Id:InteractionId.DungeonStuff,SubId:0} when session.Rooms.CurrentDungeonIndex==1=>
+                new DungeonEntranceRoomEntity(new(source.X,source.Y),DungeonEntrances.Entry(1),
+                    DungeonEntrances.EntryMinimumY,DungeonEntrances.EntryRadius,session.Memory,
+                    placement.Kind==EnemyPlacementEntryKind.ScreenWarp,
+                    dungeon=>StaticObjectState.LoadDungeon(session.Memory,dungeon),
+                    (id,message)=>{session.ShowText(id,message);session.Checkpoints.RecordCurrentPoint();}),
             {Id:InteractionId.DungeonStuff,SubId:0} when session.Rooms.CurrentDungeonIndex==0=>
                 new DungeonEntranceRoomEntity(new(source.X,source.Y),new(0,0x0200,HerosCave.Text(0x0200),0),
                     HerosCave.Constant("entry-min-y"),HerosCave.Constant("entry-radius"),session.Memory,
                     placement.Kind==EnemyPlacementEntryKind.ScreenWarp,
                     dungeon=>StaticObjectState.LoadDungeon(session.Memory,dungeon),
                     (id,message)=>{session.ShowText(id,message);session.Checkpoints.RecordCurrentPoint();}),
-            {Id:InteractionId.DungeonScript,SubId:1} when session.Rooms.CurrentDungeonIndex==0=>
-                new DungeonTriggerChestScriptRoomEntity(new(source.X,source.Y),session.Memory,1,HerosCave.Constant("chest-wait"),
-                    ()=>owner.ActiveTriggers,()=>session.Save.HasRoomFlag(room.Group,room.Id,OracleSaveData.RoomFlagItem),
-                    owner.IsScriptTextActive,owner.OnSoundRequested,()=>
-                    {if(session.Rooms.TrySetTile((byte)room.GetPackedPosition(new(source.X,source.Y)),ChestDatabase.ClosedTile))owner.OnRoomTileChanged();}),
+            {Id:InteractionId.DungeonScript,SubId:1 or 2} when
+                session.Rooms.CurrentDungeonIndex==0&&source.SubId==1 || session.Rooms.CurrentDungeonIndex==1=>
+                _common.CreateTriggerChest(source,room),
+            {Id:InteractionId.DungeonScript,SubId:0} when session.Rooms.CurrentDungeonIndex==1=>
+                _common.CreateMinibossReward(source,room),
+            {Id:InteractionId.DungeonScript,SubId:3} when session.Rooms.CurrentDungeonIndex==1=>
+                _common.CreateBossReward(source,room),
+            _ when SeasonsTalkNpcDatabase.Supports(source.Id,source.SubId)=>CreateTalkNpc(source,room),
             _=>new SeasonsOpeningActor(session,source.Id,source.SubId,new(source.X,source.Y),source.Var03)
         });
 

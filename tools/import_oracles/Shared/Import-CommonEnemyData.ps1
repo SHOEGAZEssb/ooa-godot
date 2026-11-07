@@ -54,7 +54,7 @@ function Read-NativeEnemyAnimation($pack, [string]$label, [string[]]$oamLabels, 
         if ($duration -eq 0 -or ($pointer -band 1) -ne 0 -or $pointer / 2 -ge $oamLabels.Count) { throw "$($pack.Name): ${label}: invalid duration/OAM offset at `$$($offset.ToString('x2'))." }
         $oamLabel = $oamLabels[$pointer / 2]
         $count = [int](Read-MenuRomBytes $pack $oamLabel 1)[0]
-        if ($count -lt 1 -or $count -gt 16) { throw "$($pack.Name): ${oamLabel}: unsupported OAM extent." }
+        if ($count -lt 1 -or $count -gt 40) { throw "$($pack.Name): ${oamLabel}: OAM extent exceeds the native forty-sprite buffer." }
         $oam = Read-MenuRomBytes $pack $oamLabel (1 + 4 * $count)
         $cells = @(for ($cell = 0; $cell -lt $count; $cell++) { @($oam[(1 + $cell * 4)..(4 + $cell * 4)] | ForEach-Object { [int]$_ }) -join ',' }) -join ';'
         $metadata = if ($parameter -eq 0) { "$duration" } else { "$duration,$parameter" }

@@ -20,6 +20,9 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
     private LedgeJumpDatabase? _ledgeJumps;
     private DungeonSpinnerVisualDatabase? _spinner;
     private DungeonPuzzleDatabase? _puzzles;
+    private BrotherGoriyaDatabase? _brotherGoriyas;
+    private DungeonEntranceInteractionDatabase? _dungeonEntrances;
+    private DungeonEntranceInteractionDatabase DungeonEntrances => _dungeonEntrances ??= new(AssetRoot);
     private DungeonPuzzleDatabase Puzzles => _puzzles ??= new(AssetRoot);
 
     internal DungeonSpinnerRoomEntity CreateSpinner(DungeonObjectRecord record) =>
@@ -28,9 +31,43 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
     internal DungeonSpinnerRoomEntity CreateSpinner(DungeonSpinnerPlacement placement) =>
         new(placement, owner.RuntimeState, (_spinner ??= new(AssetRoot)).Visual, owner.OnSoundRequested, owner.BeginScreenShake);
 
-    internal IRoomEntity? TryCreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room, EnemyPlacementContext placement) =>
+    internal EnemyClearChestRoomEntity CreateEnemyClearChest(DungeonMechanicDatabaseRecord record)=>
+        new(record,Puzzles,owner,rooms??throw new InvalidOperationException("INTERAC$12:$02 requires its active room session."));
+
+    internal DungeonTriggerChestScriptRoomEntity CreateTriggerChest(NativeObjectInstruction source,OracleRoomData room)=>
+        new(new(source.X,source.Y),owner.RuntimeState,1,Puzzles.ChestPuffWait,()=>owner.ActiveTriggers,
+            ()=>owner.SaveData?.HasRoomFlag(room.Group,room.Id,OracleSaveData.RoomFlagItem)==true,
+            owner.IsScriptTextActive,owner.OnSoundRequested,()=>SetPuzzleTile(room,(byte)room.GetPackedPosition(new(source.X,source.Y)),ChestDatabase.ClosedTile));
+
+    internal DungeonRewardRoomEntity CreateMinibossReward(NativeObjectInstruction source,OracleRoomData room)=>
+        new(new(room.Group,room.Id,source.Address,DungeonObjectKind.MinibossReward,source.Id,source.SubId,source.Y,source.X,
+            DungeonObjectCondition.Always,source.Source),DungeonRewardDatabase.For(AssetRoot),owner.RuntimeState,owner.SaveData,()=>owner.RoomEnemyCount,
+            null,owner.EnableLinkCollisionsAndMenu,owner.TryCreateMinibossPortal,scriptTextActive:owner.IsScriptTextActive);
+
+    internal DungeonRewardRoomEntity CreateBossReward(NativeObjectInstruction source,OracleRoomData room)
+    {
+        var data=DungeonRewardDatabase.For(AssetRoot);
+        var record=new DungeonObjectRecord(room.Group,room.Id,source.Address,DungeonObjectKind.BossReward,
+            source.Id,source.SubId,88,120,DungeonObjectCondition.Always,source.Source);
+        var treasure=new GroundTreasureGrantRequest(room.Group,room.Id,source.Address,88,120,"TREASURE_OBJECT_HEART_CONTAINER_00",source.Source)
+        {SpawnMode=TreasureSpawnMode.Puff,GrabMode=TreasureGrabMode.TwoHands,SpawnDelayFrames=data.TreasurePuffWait,ExpectedTreasureId=0x2a,ExpectedSubId=0};
+        return new(record,data,owner.RuntimeState,owner.SaveData,()=>owner.RoomEnemyCount,treasure,
+            owner.EnableLinkCollisionsAndMenu,trySpawnTreasure:owner.TryCreateGroundTreasure,scriptTextActive:owner.IsScriptTextActive);
+    }
+
+    internal IRoomEntity? TryCreateStreamInteraction(NativeObjectInstruction source, OracleRoomData room, EnemyPlacementContext placement,LightableTorchState torches) =>
         source switch
         {
+            {Id:InteractionId.SwitchTileToggler}=>CreateSwitchTileToggler(new(room.Group,room.Id,source.Address,
+                DungeonObjectKind.SwitchTileToggler,source.Id,source.SubId,source.Y,source.X,DungeonObjectCondition.Always,source.Source),room),
+            {Id:0x7e,SubId:0}=>CreateMinibossPortal(new(room.Group,room.Id,source.Address,
+                DungeonEntranceInteractionDatabaseObjectKind.MinibossPortal,source.Id,source.SubId,source.Y,source.X,
+                RequireActiveRoom(room).CurrentDungeonIndex,source.Source)),
+            {Id:InteractionId.DungeonStuff,SubId:1}=>CreateEnemySmallKey(source,room),
+            {Id:InteractionId.DungeonStuff,SubId:2}=>CreateEnemyClearChest(
+                StreamMechanic(source,room,room.GetPackedPosition(new(source.X,source.Y)))),
+            { Id:InteractionId.StatueEyeball, SubId:1 } =>
+                new StatueEyeballSpawnerRoomEntity(room,DungeonEntrances,owner.TryCreateStatueEyeball),
             { Id:0x7d, SubId:0 or 1 } => CreateSpinner(new DungeonObjectRecord(room.Group, room.Id, 0, DungeonObjectKind.Spinner, source.Id, source.SubId,
                 source.Y, source.X, DungeonObjectCondition.Always, source.Source, source.Var03)),
             { Id:0x9f, SubId:0 } => CreateExclamation(new(new(source.X,source.Y),Duration:0,PlaySound:false),room),
@@ -39,19 +76,98 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
             { Id:InteractionId.PushBlockTrigger, SubId:1 } => new PushBlockTriggerRoomEntity(
                 StreamMechanic(source,room,room.GetPackedPosition(new(source.X,source.Y))),room,Puzzles,
                 ()=>owner.RoomEnemyCount,owner.AnimationTick,owner.ClearRoomEnemyCount,owner.IsOutgoingEntity),
-            { Id:InteractionId.DoorController, SubId:>=4 and <=0x0b } => new DungeonDoorRoomEntity(
+            {Id:InteractionId.CreateObjectAtEachTileIndex,SubId:8}=>new LightableTorchScannerRoomEntity(
+                StreamMechanic(source,room,source.Y),room,torches,LightableTorchDatabase.For(AssetRoot),owner.TryCreateLightableTorch),
+            { Id:InteractionId.DoorController, SubId:>=4 and <=0x0b or >=0x14 and <=0x17 } => new DungeonDoorRoomEntity(
                 StreamMechanic(source,room,source.Y),room,Puzzles,()=>owner.RoomEnemyCount,owner.TriggerIsActive,
                 owner.ToScreen,owner.AnimationTick,owner.OnSoundRequested,placement,true,
                 (position,tile)=>SetPuzzleTile(room,position,tile),owner.UpdateBossShutterSignal,
-                owner.IsScriptTextActive,owner.IsOutgoingEntity,()=>owner.DoorPaletteFadeActive),
+                owner.IsScriptTextActive,owner.IsOutgoingEntity,()=>owner.DoorPaletteFadeActive,()=>torches.LitCount),
             { Id:InteractionId.DungeonStuff, SubId:4 } => new EnemyClearStairsRoomEntity(
                 StreamMechanic(source,room,0),room,Puzzles,owner.SaveData ?? throw new InvalidOperationException("Dungeon stairs require their save owner."),()=>owner.RoomEnemyCount,
                 owner.AnimationTick,owner.OnSoundRequested,owner.TryCreatePuzzlePuff),
             _ => null
         };
 
+    internal MinibossPortalRoomEntity CreateMinibossPortal(PlacementRecord placement)
+    {
+        var portal=new MinibossPortal();portal.Initialize(DungeonEntrances);
+        return new(portal,placement,DungeonEntrances,owner.SaveData,owner.OnRoomWarpRequested,
+            owner.OnSoundRequested,owner.IsOutgoingEntity,owner.RuntimeState);
+    }
+
+    internal IEnumerable<IRoomEntity> CreateStaticRoomEntities(OracleRoomData room)
+    {
+        if(!owner.ScreenTransitionActive && owner.SpecialObjectPresentationAvailable &&
+            MinecartRuntimeState.TryGetRide(owner.RuntimeState,room.Id,out _))yield return CreateMinecartBody(room);
+    }
+
+    internal IRoomEntity CreateStaticObject(StaticObjectRecord source,OracleRoomData room)=>
+        source.Type==3 && (source.Id&0x7f)==0x16
+            ?CreateMinecartInteraction(new(new(source.X,source.Y),source.Slot,source.SubId,(source.Id&0x80)!=0?3:1),room)
+            :throw new NotSupportedException($"{source.Source}: {AssetRoot} static type${source.Type:x2}, ID${source.Id:x2}:${source.SubId:x2} has no content binding.");
+
+    private MinecartInteractionRoomEntity CreateMinecartInteraction(MinecartInteractionSpawn spawn,OracleRoomData room)=>
+        new(spawn,room,owner.RuntimeState,MinecartData.For(AssetRoot).Visual,owner);
+
+    private MinecartRoomEntity CreateMinecartBody(OracleRoomData room)
+    {
+        var active=CompanionRuntimeState.Read(owner.RuntimeState);
+        return new(new(-1,room.Id,active.Y,active.X,active.Direction,true),room,owner.RuntimeState,
+            MinecartData.For(AssetRoot).Visual,owner.OnSoundRequested,owner);
+    }
+
+    internal IEnumerable<IRoomEntity> CreateMinecartShutterControllers(OracleRoomData room,EnemyPlacementContext placement)
+    {
+        // tileSubstitutions.s gates the caller by group; commonTileSubstitutions.s
+        // additionally checks TILESETFLAG_DUNGEON only in Ages.
+        if(room.Group<4 || owner.RuntimeState.Game==OracleGame.Ages &&
+            (room.Group>5 || (room.TilesetFlags&(int)TilesetFlags.Dungeon)==0))yield break;
+        for(int y=room.HeightInTiles-1;y>=0;y--)
+        for(int x=room.WidthInTiles-1;x>=0;x--)
+        {
+            int packed=(y<<4)|x;
+            if(packed==0)continue;
+            int tile=room.GetOriginalMetatile(new(x*16+8,y*16+8));
+            if(tile is <DungeonShutterEntry.FirstMinecartShutterTile or >DungeonShutterEntry.LastMinecartShutterTile)continue;
+            if(placement.Kind==EnemyPlacementEntryKind.Scrolling &&
+                !DungeonShutterEntry.FacesScrollingEntry(placement,tile-DungeonShutterEntry.FirstMinecartShutterTile))continue;
+            if(owner.InteractionSlotAvailable)yield return CreateMinecartShutter(packed,tile,false,room);
+        }
+    }
+
+    private MinecartShutterRoomEntity CreateMinecartShutter(int packed,int tile,bool opener,OracleRoomData room)=>
+        new(packed,tile,opener,room,Puzzles,owner.ToScreen,owner.AnimationTick,owner.OnSoundRequested,
+            (position,replacement)=>SetPuzzleTile(room,position,replacement),owner.UpdateBossShutterSignal,
+            ()=>owner.DoorPaletteFadeActive,owner.IsScriptTextActive);
+
+    private DungeonRewardRoomEntity CreateEnemySmallKey(NativeObjectInstruction source,OracleRoomData room)
+    {
+        var record=new DungeonObjectRecord(room.Group,room.Id,source.Address,DungeonObjectKind.EnemySmallKey,
+            source.Id,source.SubId,source.Y,source.X,DungeonObjectCondition.ItemClear,source.Source);
+        return new(record,DungeonRewardDatabase.For(AssetRoot),owner.RuntimeState,owner.SaveData,()=>owner.RoomEnemyCount,
+            FallingSmallKey(record),owner.EnableLinkCollisionsAndMenu,scriptTextActive:owner.IsScriptTextActive);
+    }
+
+    internal static GroundTreasureGrantRequest FallingSmallKey(DungeonObjectRecord record)=>
+        new(record.Group,record.Room,record.Order,record.Y,record.X,"TREASURE_OBJECT_SMALL_KEY_01",record.Source)
+        {
+            SpawnMode=TreasureSpawnMode.FromScreenTop,GrabMode=TreasureGrabMode.NoChange,SpawnDelayFrames=40,
+            BounceCount=2,Gravity=0x10,BounceSpeed=-0xaa,SpawnSound=SoundId.SndSolvePuzzle,
+            LandingSound=SoundId.SndDropEssence,InitialZAboveScreen=true,
+            ExpectedTreasureId=0x30,ExpectedSubId=1
+        };
+
     private static DungeonMechanicDatabaseRecord StreamMechanic(NativeObjectInstruction source,OracleRoomData room,int position) =>
         new(room.Group,room.Id,source.Address,source.Id,source.SubId,position,source.X,TriggerPredicate.None,true);
+
+    internal DungeonSwitchRoomEntity CreateDungeonSwitch(DungeonMechanicDatabaseRecord record,OracleRoomData room)=>
+        new(record,room,DungeonSwitchDatabase.For(AssetRoot),owner.RuntimeState,owner.AnimationTick,
+            owner.OnRoomTileChanged,owner.OnSoundRequested,(position,tile)=>SetPuzzleTile(room,position,tile),owner.SaveData);
+
+    internal SwitchTileTogglerRoomEntity CreateSwitchTileToggler(DungeonObjectRecord record,OracleRoomData room)=>
+        new(record,DungeonSwitchDatabase.For(AssetRoot),owner.RuntimeState,owner.OnRoomTileChanged,
+            (position,tile)=>SetPuzzleTile(room,position,tile));
 
     private RoomSession RequireActiveRoom(OracleRoomData room) => rooms is not null && ReferenceEquals(rooms.CurrentRoom,room)
         ?rooms:throw new InvalidOperationException($"{AssetRoot}: native tile mutation requires its active room session.");
@@ -63,7 +179,9 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
         return changed;
     }
 
-    internal IRoomEntity? TryCreatePlacedPart(RoomObjectRecord source,OracleRoomData room) => source.Id==PartId.Button
+    internal IRoomEntity? TryCreatePlacedPart(RoomObjectRecord source,OracleRoomData room) => source.Id==0x05
+        ?CreateDungeonSwitch(new(source.Group,source.Room,source.Order,source.Id,source.SubId,source.PackedPosition,
+            0,TriggerPredicate.None,true),room):source.Id==PartId.Button
         ?new GroundButtonRoomEntity(new(source.Group,source.Room,source.Order,source.Id,source.SubId,source.PackedPosition,
             0,TriggerPredicate.None,true),room,Puzzles,owner.SetTrigger,
             (position,tile)=>SetPuzzleTile(room,position,tile),owner.OnSoundRequested)
@@ -83,6 +201,29 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
 
     internal IRoomEntity? TryCreate(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
     {
+        BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
+        BossShadowSpawn shadow => CreateBossShadow(shadow),
+        AquamentusSpawn child=>CreateAquamentus(new(AssetRoot,SeasonsEnemyId.Aquamentus,child.SubId,0xc8,2,0,
+            "object_code/seasons/enemies/aquamentus.s:aquamentus_state_spawner"),room,child.Parent.Position.Floor(),child.Parent),
+        AquamentusProjectileSpawn projectile=>new AquamentusProjectileRoomEntity(projectile,AquamentusDatabase.For(AssetRoot).Projectile,owner),
+        MinibossPortalSpawn => CreateMinibossPortal(new(room.Group,room.Id,0,
+            DungeonEntranceInteractionDatabaseObjectKind.MinibossPortal,0x7e,0,0,0,RequireActiveRoom(room).CurrentDungeonIndex,
+            "dungeonScript_minibossDeath:spawninteraction INTERAC_MINIBOSS_PORTAL,$00,$00,$00")),
+        BrotherGoriyaSpawn brother => CreateBrotherGoriya(
+            new(AssetRoot,SeasonsEnemyId.BrotherGoriyas,1,ObjectCollisionDatabase.For(AssetRoot).EnemyMode(SeasonsEnemyId.BrotherGoriyas),1,0,
+                "brotherGoriyas.s:@state0 ecom_spawnEnemyWithSubid01"),room,brother.Parent.Position.Floor(),brother.Parent),
+        BrotherGoriyaBoomerangSpawn boomerang => new BrotherGoriyaBoomerangRoomEntity(boomerang,
+            (_brotherGoriyas??=new(AssetRoot)).Boomerang,owner),
+        MoblinBoomerangSpawn boomerang=>new MoblinBoomerangRoomEntity(new MoblinBoomerangProjectile(
+            boomerang.Owner,room,boomerang.Position,boomerang.Angle,BoomerangMoblinDatabase.For(AssetRoot).Visual,owner.RuntimeState)
+            {Name="MoblinBoomerang",ZIndex=ObjectDrawPriority.InFrontOfLinkZIndex}),
+        MinecartBodySpawn=>CreateMinecartBody(room),
+        DungeonSwitchSpawn button=>CreateDungeonSwitch(button.Record,room),
+        MinecartInteractionSpawn cart=>CreateMinecartInteraction(cart,room),
+        MinecartShutterOpenSpawn shutter=>CreateMinecartShutter(shutter.PackedPosition,shutter.ClosedTile,true,room),
+        LightableTorchSpawn torch=>new LightableTorchRoomEntity(torch.State,torch.PackedPosition,
+            LightableTorchDatabase.For(AssetRoot),owner.OnSoundRequested,(position,tile)=>SetPuzzleTile(room,position,tile)),
+        StatueEyeballSpawn { Puzzle:false } eye => CreateStatueEyeball(eye.Position),
         EraOrSeasonInfoSpawn => CreateRoomInfo(),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
         OverworldKeyUseSpawn key => CreateOverworldKeyUse(key),
@@ -138,6 +279,13 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
             owner.ToScreen,owner.RuntimeState) { Name = "ZoraFire", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex }),
         _ => null
     };
+
+    private IRoomEntity CreateStatueEyeball(Vector2 position)
+    {
+        var eye = new StatueEyeball();
+        eye.Initialize(position,DungeonEntrances);
+        return new StatueEyeballRoomEntity(eye);
+    }
 
     private static IRoomEntity CreateOverworldKeyUse(OverworldKeyUseSpawn spawn)
     {
@@ -230,10 +378,74 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
         return new DungeonKeyUseRoomEntity(effect);
     }
 
+    private IRoomEntity CreateBossDeathExplosion(BossDeathExplosionSpawn spawn)
+    {
+        var effect=new BossDeathExplosionEffect{Name="BossDeathExplosion",ZIndex=ObjectDrawPriority.FixedHighPriorityZIndex};
+        effect.Initialize(AssetRoot,spawn.Position,spawn.BossId,owner.OnSoundRequested,spawn.ZHigh,spawn.NativeSubid);
+        return new BossDeathExplosionRoomEntity(effect,owner.ItemDrops,owner.Random,owner.Inventory,owner.SaveData,()=>owner.RoomEnemyCount);
+    }
+
+    private IRoomEntity CreateBossShadow(BossShadowSpawn spawn)
+    {
+        var shadow=new BossShadowEffect{Name="BossShadow",ZIndex=ObjectDrawPriority.FixedLowPriorityZIndex};
+        shadow.Initialize(AssetRoot,spawn.ParentPosition,spawn.ParentZ,spawn.ParentExists,spawn.Size,spawn.YOffset);
+        return new BossShadowRoomEntity(shadow);
+    }
+
+    private AquamentusRoomEntity CreateAquamentus(EnemyCombatSourceDescriptor source,OracleRoomData room,Vector2 position,AquamentusCharacter? parent=null)
+    {
+        if(owner.RuntimeState.Game!=OracleGame.Seasons)throw new NotSupportedException($"{source.Source}: Aquamentus is a Seasons ENEMY$78 binding.");
+        if(source.SubId!=0&&parent is null)throw new NotSupportedException($"{source.Source}: Aquamentus $78:${source.SubId:x2} requires its linked physical spawner.");
+        var actor=new AquamentusCharacter(parent){Name=$"Aquamentus_{source.SubId:x2}"};
+        actor.Initialize(EnemyDefinitionDatabase.For(AssetRoot).Get(source.Id,source.SubId),position,owner,source.CountsAsEnemy);
+        return new(actor,source,owner);
+    }
+
+    private BrotherGoriyaRoomEntity CreateBrotherGoriya(EnemyCombatSourceDescriptor source,OracleRoomData room,Vector2 position,
+        BrotherGoriyaCharacter? parent=null)
+    {
+        if(owner.RuntimeState.Game!=OracleGame.Seasons)throw new NotSupportedException($"{source.Source}: Brother Goriya is a Seasons ENEMY$70 binding.");
+        var actor=new BrotherGoriyaCharacter(parent){Name=$"BrotherGoriya_{source.SubId:x2}",ZIndex=ObjectDrawPriority.BehindLinkZIndex};
+        actor.Initialize(EnemyDefinitionDatabase.For(AssetRoot).Get(source.Id,source.SubId),room,position,owner,_brotherGoriyas??=new(AssetRoot));
+        return new(actor,source,owner.OnSoundRequested);
+    }
+
     internal IRoomEntity? TryCreateEnemy(EnemyHandlerDescriptor handler, RoomObjectRecord source,
         OracleRoomData room, Vector2 position, int instance, int killableEnemyIndex)
     {
         if (!handler.SupportsOrderedConstruction) return null;
+        if(handler.Handler==EnemyHandlerKind.Aquamentus)
+            return CreateAquamentus(handler.CombatSource(source,killableEnemyIndex),room,position);
+        if(handler.Handler==EnemyHandlerKind.Floormaster)
+        {
+            FloormasterRoomEntity? adapter=null;
+            var floor=new FloormasterCharacter{Name=$"Floormaster_{source.Order}_{instance}"};
+            floor.Initialize(EnemyDefinitionDatabase.For(AssetRoot).Get(source.Id,source.SubId),room,position,owner.Random,
+                spawn:()=>owner.TryAllocateEnemy(_=>CreateFloormasterChild(adapter!,room)) is not null);
+            adapter=new(floor,handler.CombatSource(source,killableEnemyIndex),owner.OnSoundRequested,
+                ()=>owner.Random.Next().Value,()=>owner.PartSlotAvailable);
+            return adapter;
+        }
+        if(handler.Handler==EnemyHandlerKind.BrotherGoriyas)
+            return CreateBrotherGoriya(handler.CombatSource(source,killableEnemyIndex),room,position);
+        if(handler.Handler==EnemyHandlerKind.BoomerangMoblin)
+        {
+            var moblin=new BoomerangMoblinCharacter{Name=$"BoomerangMoblin_{source.Order}_{instance}",ZIndex=ObjectDrawPriority.BehindLinkZIndex};
+            moblin.Initialize(EnemyDefinitionDatabase.For(AssetRoot).Get(source.Id,source.SubId),room,position,owner.Random);
+            return new BoomerangMoblinRoomEntity(moblin,handler.CombatSource(source,killableEnemyIndex),owner.OnSoundRequested);
+        }
+        if(handler.Handler==EnemyHandlerKind.BladeTrap)
+        {
+            var trap=new BladeTrapCharacter{Name=$"BladeTrap_{source.Order}_{instance}",ZIndex=ObjectDrawPriority.BehindLinkZIndex};
+            trap.Initialize(EnemyDefinitionDatabase.For(AssetRoot).Get(source.Id,source.SubId),room,position,owner.Random,owner.OnSoundRequested);
+            return new BladeTrapRoomEntity(trap,handler.CombatSource(source,killableEnemyIndex),owner.OnSoundRequested);
+        }
+        if (handler is {Handler:EnemyHandlerKind.Stalfos,SubId:0})
+        {
+            var stalfos=new StalfosCharacter{Name=$"Stalfos_{source.SubId:x2}_{source.Order}_{instance}",ZIndex=ObjectDrawPriority.BehindLinkZIndex};
+            stalfos.Initialize(StalfosDatabase.For(AssetRoot).Get(0),room,position,owner.Random,owner.OnSoundRequested);
+            return new StalfosRoomEntity(stalfos,handler.CombatSource(source,killableEnemyIndex),owner.OnSoundRequested,()=>owner.PartSlotAvailable);
+        }
         if (handler.Handler == EnemyHandlerKind.ArrowMoblin)
         {
             var moblin = new ArrowMoblinCharacter { Name = $"Archer_{source.Id:x2}_{source.SubId:x2}_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
@@ -352,6 +564,19 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
         var source = new RoomObjectRecord(group,room.Id,0,RoomObjectKind.FixedEnemy,handler.Id,handler.SubId,
             2,1,(int)position.Y,(int)position.X,0,0xff) { SourceOverride = $"{origin} via {handler.Source}" };
         return TryCreateEnemy(handler,source,room,position,0,0);
+    }
+
+    private IRoomEntity CreateFloormasterChild(FloormasterRoomEntity parent,OracleRoomData room)
+    {
+        var spawner=(FloormasterCharacter)parent.Node;
+        var child=new FloormasterCharacter{Name="FloormasterHand"};
+        child.Initialize(EnemyDefinitionDatabase.For(AssetRoot).Get(EnemyId.Floormaster,spawner.ChildSubId),room,Vector2.Zero,owner.Random,
+            parent:()=>parent.ResolveSlot(parent.Slot)?.Node as FloormasterCharacter ??
+                throw new InvalidOperationException($"floorMaster.s: relatedObj1 slot ${parent.Slot:x2} lost its spawner."));
+        var source=new EnemyCombatSourceDescriptor(AssetRoot,EnemyId.Floormaster,spawner.ChildSubId,
+            ObjectCollisionDatabase.For(AssetRoot).EnemyMode(EnemyId.Floormaster),2,0,
+            "object_code/common/enemies/floorMaster.s:ecom_spawnUncountedEnemyWithSubid01");
+        return new FloormasterRoomEntity(child,source,owner.OnSoundRequested,()=>owner.Random.Next().Value,()=>owner.PartSlotAvailable);
     }
 
     private IRoomEntity CreateRoomInfo()

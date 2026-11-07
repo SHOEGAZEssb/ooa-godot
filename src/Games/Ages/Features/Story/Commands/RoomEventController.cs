@@ -70,7 +70,8 @@ public sealed class RoomEventController
         Func<IRoomEvent>[] factories =
         [
             () => new HarpOfAgesEvent(_context),
-            () => new DungeonEssenceEvent(_context),
+            () => new DungeonEssenceEvent(_context.Rooms,_context.Player,_context.Inventory,
+                _context.Sound,_context.Transitions,dialogue:_context.Dialogue,showDialogue:message=>_context.ShowDialogue(message)),
             () => new WallRetractionEvent(_context),
             () => new PalaceBootEvent(_context),
             () => new PalacePassageEvent(_context),
@@ -338,6 +339,7 @@ public sealed class RoomEventController
         bool battleOwned = Get<RoomOfRitesBattleEvent>().NativeActive;
         bool owned=Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || makuSeed.OwnsGameLogic || retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive || fairies.NativeActive;
         retraction.AdvanceBeforeObjects();
+        Get<DungeonEssenceEvent>().AdvancePaletteBeforeObjects();
         boot.AdvanceBeforeObjects();
         passage.AdvanceBeforeObjects();
         Get<PalacePossessionEvent>().AdvanceBeforeObjects();

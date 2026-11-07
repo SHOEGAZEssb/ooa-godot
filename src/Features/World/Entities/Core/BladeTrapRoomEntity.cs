@@ -65,7 +65,7 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
     public bool TryGetSwordAttackerKnockback(EnemyKnockbackStrength strength,
         out SwordAttackerKnockback response)
     {
-        var profile = EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback;
+        var profile = BladeTrapDatabase.For(AssetRoot).ArmoredKnockback;
         int frames = strength switch
         {
             EnemyKnockbackStrength.Low => profile.LowFrames,
@@ -89,7 +89,8 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox,
         Vector2 sourcePosition, int damage, ICollection<RoomEntitySpawn> spawns)
     {
-        int effect = EnemyBehaviorTables.For(AssetRoot).BladeTrapCollisionEffects[(int)collision].Value;
+        var collisions=ObjectCollisionDatabase.For(AssetRoot);
+        int effect = collisions.Effect(collisions.EnemyMode(EnemyId.BladeTrap),(int)collision);
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
             !CombatDescriptor.Combat.Intersects(hitbox)) return false;
         return effect switch
@@ -97,7 +98,7 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
             CollisionEffect.None => false,
             CollisionEffect.Effect1c or CollisionEffect.Effect20 => true,
             _ => throw new InvalidOperationException(
-                $"Blade trap $0e:$01 item collision ${(int)collision:x2} has unsupported effect ${effect:x2}.")
+                $"Blade trap $0e:${Entity.Record.SubId:x2} item collision ${(int)collision:x2} has unsupported effect ${effect:x2}.")
         };
     }
 }

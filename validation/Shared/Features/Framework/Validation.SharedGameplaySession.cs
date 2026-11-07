@@ -252,6 +252,7 @@ public sealed partial class ValidationRoot
                 foreach (Action access in new Action[]
                 {
                     () => { _ = entities.NativeActiveMusicSource(); },
+                    () => { _ = entities.NativeRoomMusicSource(); },
                     () => { _ = entities.NativeSoundAllocationAliasSource(0xc03f); },
                     () => entities.WriteSoundAllocationAlias(0xc03f, 0x55),
                     () => entities.WriteNativeChannelVolume(0, 0x55)

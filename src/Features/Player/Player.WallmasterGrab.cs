@@ -33,6 +33,7 @@ public partial class Player
         {
             _wallmasterGrabSubstate = 1;
             _world.SetNativeWarpsDisabled(true);
+            _inventory.RuntimeState.SetField("wScrollMode",0);
             _enemyGrabCollisionDisabled = true;
             ClearNativeItemParents();
             ClearShieldParent();

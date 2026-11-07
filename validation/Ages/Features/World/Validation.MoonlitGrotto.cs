@@ -10,6 +10,7 @@ public sealed partial class ValidationRoot
         {
             for (int index = 0; index < count; index++)
             {
+                _roomEvents.Get<DungeonEssenceEvent>().AdvancePaletteBeforeObjects();
                 _entities.AdvanceEntityFrames(update, _player);
                 _roomEvents.Update(update);
             }
@@ -1712,6 +1713,8 @@ public sealed partial class ValidationRoot
         armos.TakeDamageWithoutKnockback(armos.Position, 4);
 
         Step();
+        FailIf(_entities.RoomEnemyCount!=0,"The declared Armos defeat must release the chest's enemy-count gate.");
+        Step(3); // playsound, createpuff, wait30 follow checknoenemies.
         FailIf(
             chest.Counter != 30 ||
             _entities.Entities<StationaryDebrisEffect>().Count != 1,
@@ -1722,12 +1725,12 @@ public sealed partial class ValidationRoot
             chest.Counter != 1 ||
             _currentRoom.GetMetatile(Point(0x69)) == data.ChestTile,
             "Room 4:56's Compass chest appeared before wait update 30.");
-        Step();
+        Step(2); // Tile write/incstate, then state2 pushout/scriptend.
         FailIf(
             _entities.Entities<EnemyClearChestRoomEntity>().Count != 0 ||
             _currentRoom.GetMetatile(Point(0x69)) != data.ChestTile,
-            "Room 4:56 did not create TILEINDEX_CHEST $f1 at packed $69 on " +
-            "the exact enemy-clear boundary.");
+            "Room 4:56 did not create TILEINDEX_CHEST $f1 at packed $69 and " +
+            "finish its state2/scriptend update.");
 
         _saveData.SetRoomFlag(
             4, 0x56, OracleSaveData.RoomFlagItem);
@@ -2224,6 +2227,9 @@ public sealed partial class ValidationRoot
         }
         _sound.ClearPlayRequestAudit();
         Step();
+        FailIf(_entities.RoomEnemyCount!=0 || _entities.Entities<ArmMimicCharacter>().Count!=0 ||
+            _entities.Entities<MoldormCharacter>().Count!=0,"Room 4:58 must clear all four source enemies before the chest's gate yields.");
+        Step(3); // Separate source sound/puff/wait commands.
         EnemyClearChestRoomEntity chest =
             _entities.Entities<EnemyClearChestRoomEntity>().Single();
         FailIf(
@@ -2233,19 +2239,19 @@ public sealed partial class ValidationRoot
             chest.Counter != 30 ||
             _entities.Entities<StationaryDebrisEffect>().Count != 1 ||
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
-            "Room 4:58 did not clear all four enemies and immediately " +
-            "start the chest's exact 30-update solve wait, puff, and sound.");
+            "Room 4:58 did not install its 30-update wait after the separate " +
+            "enemy gate, solve sound and puff updates.");
         Step(29);
         FailIf(
             chest.Counter != 1 ||
             _currentRoom.GetMetatile(Point(0x59)) == mechanics.ChestTile,
             "Room 4:58 created its Seed Shooter chest before wait update 30.");
-        Step();
+        Step(2); // Tile write/incstate, then state2 pushout/scriptend.
         FailIf(
             _entities.Entities<EnemyClearChestRoomEntity>().Count != 0 ||
             _currentRoom.GetMetatile(Point(0x59)) != mechanics.ChestTile,
-            "Room 4:58 did not create TILEINDEX_CHEST $f1 at $59 on the " +
-            "exact enemy-clear boundary.");
+            "Room 4:58 did not create TILEINDEX_CHEST $f1 at $59 and finish " +
+            "the following state2/scriptend update.");
 
         GD.Print(
             "Validated full room 4:58: two opposite-input Arm Mimics, " +

@@ -1,12 +1,12 @@
 
 namespace Oracles;
 
-/// <summary>ENEMY_BLADE_TRAP $0e:$00/$01/$05: red, center-limited blue and unlimited green.</summary>
+/// <summary>ENEMY_BLADE_TRAP $0e:$00/$01/$02/$05: red, center-limited blue/gold and unlimited green.</summary>
 internal partial class BladeTrapCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == BladeTrapState.Uninitialized;
     private System.Collections.Generic.IReadOnlyList<EnemyBehaviorValue>? _behaviorSourceCache;
-    private System.Collections.Generic.IReadOnlyList<EnemyBehaviorValue> _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).BladeTrap;
+    private System.Collections.Generic.IReadOnlyList<EnemyBehaviorValue> _behavior => _behaviorSourceCache ??= BladeTrapDatabase.For(AssetRoot).Blue;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -21,8 +21,8 @@ internal partial class BladeTrapCharacter : EnemyCharacter
         Vector2 position, OracleRandom random, Action<int> sound)
     {
         AssetRoot = record.AssetRoot;
-        if (record is not { Id: EnemyId.BladeTrap, SubId: 0 or 1 or 5 })
-            throw new ArgumentException("Blade trap requires imported $0e:$00/$01/$05.", nameof(record));
+        if (record is not { Id: EnemyId.BladeTrap, SubId: 0 or 1 or 2 or 5 })
+            throw new ArgumentException("Blade trap requires imported $0e:$00/$01/$02/$05.", nameof(record));
         Record = record;
         _room = room;
         _random = random;
@@ -51,11 +51,12 @@ internal partial class BladeTrapCharacter : EnemyCharacter
                 State = BladeTrapState.Waiting;
                 goto case BladeTrapState.Waiting;
             case BladeTrapState.Waiting:
-                if (!CheckAligned(target, Record.SubId == 5 ? EnemyBehaviorTables.For(AssetRoot).GreenBladeTrap[0].Value : null) || !HasUnobstructedTarget(target)) return;
+                if (!CheckAligned(target, Record.SubId == 5 ? BladeTrapDatabase.For(AssetRoot).Green[0].Value : null) || !HasUnobstructedTarget(target)) return;
                 var walls = EnemyAdjacentWallResolver.Shared.ProbeTopDown(Position, Angle,
                     point => _room.IsSolidForEnemyMovement(point, holesAreWalls: true));
                 if (walls.Bitset != 0) return;
-                SpeedRaw = Record.SubId == 5 ? EnemyBehaviorTables.For(AssetRoot).GreenBladeTrap[1].Value : _behavior[2].Value;
+                SpeedRaw = Record.SubId == 5 ? BladeTrapDatabase.For(AssetRoot).Green[1].Value :
+                    Record.SubId == 2 ? BladeTrapDatabase.For(AssetRoot).GoldSpeed : _behavior[2].Value;
                 State = BladeTrapState.Charging;
                 _sound(SoundId.SndUnknown5);
                 return;
@@ -66,14 +67,14 @@ internal partial class BladeTrapCharacter : EnemyCharacter
                 int radius = _behavior[6].Value;
                 if (moved && (Record.SubId == 5 || ((coordinate - center + radius) & 0xff) >= radius * 2 + 1)) return;
                 Angle ^= 0x10;
-                SpeedRaw = Record.SubId == 5 ? EnemyBehaviorTables.For(AssetRoot).GreenBladeTrap[2].Value : _behavior[3].Value;
+                SpeedRaw = Record.SubId == 5 ? BladeTrapDatabase.For(AssetRoot).Green[2].Value : _behavior[3].Value;
                 State = BladeTrapState.Retracting;
                 _sound(SoundId.SndClink);
                 return;
             case BladeTrapState.Retracting:
                 if (Move()) return;
                 State = BladeTrapState.Cooldown;
-                Counter = Record.SubId == 5 ? EnemyBehaviorTables.For(AssetRoot).GreenBladeTrap[3].Value : _behavior[7].Value;
+                Counter = Record.SubId == 5 ? BladeTrapDatabase.For(AssetRoot).Green[3].Value : _behavior[7].Value;
                 return;
             case BladeTrapState.Cooldown:
                 if (--Counter == 0) State = BladeTrapState.Waiting;
@@ -83,24 +84,24 @@ internal partial class BladeTrapCharacter : EnemyCharacter
 
     private void UpdateRed(Vector2 target)
     {
-        var red = EnemyBehaviorTables.For(AssetRoot).RedBladeTrap;
+        var red = BladeTrapDatabase.For(AssetRoot).Red;
         switch (State)
         {
             case BladeTrapState.Uninitialized:
                 _random.Next();
-                SetAnimation(1); SpeedRaw=1; State=BladeTrapState.Initializing; Visible=true; return;
+                RestartAnimation(1); SpeedRaw=1; State=BladeTrapState.Initializing; Visible=true; return;
             case BladeTrapState.Initializing:
-                State=BladeTrapState.Waiting; SpeedRaw=red[0].Value; SetAnimation(1); return;
+                State=BladeTrapState.Waiting; SpeedRaw=red[0].Value; RestartAnimation(1); return;
             case BladeTrapState.Waiting:
                 if (!CheckAligned(target,red[1].Value) || !HasUnobstructedTarget(target)) return;
                 State=BladeTrapState.Charging; Counter=red[2].Value;
-                _sound(SoundId.SndMoveBlock); SetAnimation(2); return;
+                _sound(SoundId.SndMoveBlock); RestartAnimation(2); return;
             case BladeTrapState.Charging:
                 if ((Counter&1) != 0) Move();
                 if (--Counter == 0) State=BladeTrapState.Retracting;
                 AdvanceAnimation(); return;
             case BladeTrapState.Retracting:
-                if (!Move()) { State=BladeTrapState.Waiting; SetAnimation(1); return; }
+                if (!Move()) { State=BladeTrapState.Waiting; RestartAnimation(1); return; }
                 AdvanceAnimation(); return;
             default: throw new InvalidOperationException($"ENEMY$0e:$00: invalid state${(int)State:x2}.");
         }

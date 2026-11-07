@@ -75,7 +75,7 @@ internal sealed class SeasonsGnarledKeyholeRoomEntity(SeasonsOpeningSession sess
                 session.Memory.SetField("wDisableWarpTiles",0);
                 Input.SetDisabledObjects(0); Input.SetMenuDisabled(0);
                 session.Sound.PlaySound(0x4d);
-                int music=session.Memory.ReadField("wcc62");
+                int music=session.Sound.NativeRoomMusic; // gnarledKeyhole.s reads raw Seasons $cc62 (wActiveMusic2).
                 session.Sound.SetNativeActiveMusic(music); session.Sound.PlayNativeSound(music);
                 Finished=true;
                 return;

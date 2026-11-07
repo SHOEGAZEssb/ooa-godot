@@ -5,7 +5,7 @@ namespace Oracles;
 internal sealed partial class FloormasterCharacter : EnemyCharacter, ITerrainShadowSource
 {
     private FloormasterBehaviorProfile? _behaviorSourceCache;
-    private FloormasterBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Floormaster;
+    private FloormasterBehaviorProfile _behavior => _behaviorSourceCache ??= FloormasterDatabase.For(AssetRoot);
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private Func<FloormasterCharacter>? _parent;

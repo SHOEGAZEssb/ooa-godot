@@ -14,7 +14,7 @@ public partial class ValidationRoot
             LoadValidationRoom(4,0x89); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0);
             var record = new SkullDungeonDatabase().GetRoomRecords(4,0x89).Single();
-            var rail = new SwitchTileTogglerRoomEntity(record,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),
+            var rail = new SwitchTileTogglerRoomEntity(record,DungeonSwitchDatabase.For(AgesGameContent.AssetRoot),
                 _entities.RuntimeState,_roomView.QueueRedraw,_rooms.TrySetTile);
             _entities.AddEntity(rail);
             _player.WarpTo(new(40.25f,136.5f)); _player.Face(Vector2I.Up);

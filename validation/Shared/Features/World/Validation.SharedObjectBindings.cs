@@ -71,6 +71,7 @@ public sealed partial class ValidationRoot
         {
             rooms.SaveData.WriteWramByte(0xc608,0xff);
             foreach (int subid in new[] {1,0x0a})
+            foreach (bool counted in new[] {false,true})
             {
                 entities.ClearRecentEnemyDefeats(); entities.LoadRoom(rooms.ActiveGroup,room); entities.Clear();
                 EnemyPlacementReservations.BeginRoomParse(memory);
@@ -81,11 +82,12 @@ public sealed partial class ValidationRoot
                 var native=SharedNativeEnemyReference(rooms,player,0x59);
                 native[0xff94]=seed.Rng1; native[0xff95]=seed.Rng2;
                 native[0xcdc0]=(byte)room.Id;
-                var source=new RoomObjectRecord(rooms.ActiveGroup,room.Id,0,RoomObjectKind.ItemDrop,0x59,subid,0,1,-1,-1,packed,0xff)
-                    {SourceOverride=$"objectLoading.s uncounted item producer / {game} / subid${subid:x2}"};
+                var source=new RoomObjectRecord(rooms.ActiveGroup,room.Id,0,
+                    counted?RoomObjectKind.FixedEnemy:RoomObjectKind.ItemDrop,0x59,subid,0,1,40,40,packed,0xff)
+                    {SourceOverride=$"objectLoading.s item producer / {game} / subid${subid:x2} / counted{counted}"};
                 foreach (var entity in entities.PlaceRoomObject(source,room,EnemyPlacementContext.Unrestricted)) entities.AddEntity(entity);
-                native.ParseObjectStream(game==OracleGame.Ages ? [0xfa,0,(byte)subid,packed,0xff] :
-                    [0xf7,2,0x59,(byte)subid,40,40,0xff]);
+                native.ParseObjectStream(game==OracleGame.Ages&&!counted ? [0xfa,0,(byte)subid,packed,0xff] :
+                    [0xf7,(byte)(counted?0:2),0x59,(byte)subid,40,40,0xff]);
                 var producer=entities.Entities<ItemDropProducer>().Single();
                 int updates=0;
                 void Compare()
@@ -104,7 +106,9 @@ public sealed partial class ValidationRoot
                 });
                 Compare();
                 FailIf(memory.ReadWramByte(0xcec1)!=1 || memory.ReadWramByte(0xced0)!=packed || native[0xd080]!=0x11,
-                    $"{source.Source}: uncounted producer must reserve its tile and retain killable index$01.");
+                    $"{source.Source}: the producer must reserve its tile and retain killable index$01.");
+                FailIf(entities.RoomEnemyCount!=(counted?1:0),
+                    $"{source.Source}: native fixed-enemy flags must select the initial room count.");
                 Step(1);
                 root._scene.Dialogue.ShowMessage("Item producer pause.",player.Position.Y); native[0xcba0]=1;
                 Step(2); root._scene.Dialogue.Close(); native[0xcba0]=0;
@@ -116,6 +120,8 @@ public sealed partial class ValidationRoot
                 bool emitted=subid==1;
                 FailIf(!producer.Finished || producer.SpawnedDrop!=emitted || entities.Entities<ItemDropEffect>().Count!=(emitted?1:0),
                     $"{source.Source}: availability-mask zero must delete without a drop after native initialization.");
+                FailIf(entities.RoomEnemyCount!=(counted?1:0),
+                    $"{source.Source}: enemyCode59's plain enemyDelete must retain its counted allocation after either deletion branch.");
                 FailIf(entities.ActiveRoomDefeatBitset!=(emitted?2:0) || native[0xcdc1]!=entities.ActiveRoomDefeatBitset,
                     $"{source.Source}: only successful child admission may mark placement index$01 consumed.");
             }

@@ -36,7 +36,6 @@ internal sealed class EnemyBehaviorTables
     internal SmasherBehaviorProfile Smasher { get; }
     internal FireKeeseBehaviorProfile FireKeese { get; }
     internal BariBehaviorProfile Bari { get; }
-    internal FloormasterBehaviorProfile Floormaster { get; }
     internal WizzrobeBehaviorProfile Wizzrobe { get; }
     internal CandleBehaviorProfile Candle { get; }
     internal VireProjectileProfile VireProjectile { get; }
@@ -650,10 +649,6 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "bari", "shock-counters", 4), TakeValues(groups, "bari", "z-values", 4),
             TakeValues(groups, "bari", "collision-effects-2d", 32), TakeValues(groups, "bari", "collision-effects-59", 32),
             TakeValues(groups, "bari", "active-collisions", 32));
-        Floormaster = new(TakeValues(groups, "floormaster", "state-profile", 16),
-            TakeValues(groups, "floormaster", "hover-z", 8), TakeValues(groups, "floormaster", "chase-z", 8),
-            TakeValues(groups, "floormaster", "collision-effects", 32), TakeValues(groups, "floormaster", "active-collisions", 32),
-            TakeValues(groups, "floormaster", "link-return", 6));
         Candle = new(TakeValues(groups, "candle", "state-profile", 12),
             TakeValues(groups, "candle", "collision-effects", 32), TakeValues(groups, "candle", "explosion-collision-effects", 32),
             TakeValues(groups, "candle", "active-collisions", 32), TakeValues(groups, "candle", "flame-part-data", 8));
@@ -674,10 +669,10 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "vire", "behaviors", 16), TakeValues(groups, "vire", "spawn-positions", 24),
             TakeValues(groups, "vire", "bat-z", 8), TakeValues(groups, "vire", "bat-offsets", 2),
             TakeValues(groups, "vire", "collision-effects", 32), TakeValues(groups, "vire", "active-collisions", 32));
-        if (table.Rows.Count != 3188 || groups.Count != 0)
+        if (table.Rows.Count != 3086 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 3188 rows and no " +
+                $"Enemy behavior table contract expected 3086 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

@@ -4,7 +4,7 @@ namespace Oracles;
 internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
 {
     private MoblinBoomerangBehaviorProfile? _behaviorSourceCache;
-    private MoblinBoomerangBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).MoblinBoomerang;
+    private MoblinBoomerangBehaviorProfile _behavior => _behaviorSourceCache ??= BoomerangMoblinDatabase.For(AssetRoot).Projectile;
     private readonly BoomerangMoblinCharacter _owner;
     private readonly OracleRoomData _room;
     private readonly EnemyAnimationPlayer _animation;

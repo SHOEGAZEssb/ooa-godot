@@ -54,6 +54,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
     private NewGameIntroScreen? _pregameScreen;
     private SeasonsOpeningLink _nativeLink = null!;
     private SeasonsOpeningSequence _sequence = null!;
+    private DungeonEssenceEvent? _essenceEvent;
     private bool _foregroundScroll, _foregroundTransition, _arrivalPaletteAdvanced;
     private bool _foregroundCollisions;
     private bool NormalCollisionCaller => Phase is SeasonsOpeningPhase.Forest or SeasonsOpeningPhase.Troupe or
@@ -114,6 +115,9 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         Collision = new(Rooms,Entities,tiles.Blocks,HasNeighbor,normalizeCornerWalls:false);
         Combat = new(Rooms,RoomView,Entities,BreakableTileDatabase.For(SeasonsGameContent.AssetRoot),Save,Sound,() => _roomTicks);
         Transitions = new(Rooms,Data.World,this,Entities,Checkpoints,Sound);
+        _essenceEvent=new(Rooms,Link,Inventory,Sound,Transitions,Dialogue,message=>ShowText(0x000e,message));
+        Entities.DungeonEssenceTriggered+=_essenceEvent.Begin;
+        Entities.RoomInitializing+=(_,_)=>_essenceEvent.Cancel();
         Transitions.ScreenTransitionsDisabledSource = () => Phase is not (SeasonsOpeningPhase.Troupe or SeasonsOpeningPhase.Complete);
         Engine.BindTransitions(Transitions);
         Engine.BindInteractions(null, () => _roomTicks, () =>
@@ -225,6 +229,8 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
 
     bool IGameplayObjectPhases.PrepareObjectUpdate(double delta)
     {
+        foreach(var maku in Entities.EntityAdapters<SeasonsRemoteMakuRoomEntity>())maku.AdvancePaletteBeforeObjects();
+        _essenceEvent?.AdvancePaletteBeforeObjects();
         if (Transitions.AdvanceFadeOutWarpBeforeObjects(delta)) return false;
         _arrivalPaletteAdvanced = Transitions.AdvanceStandingArrivalPaletteBeforeObjects(delta);
         return true;
@@ -248,6 +254,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
     bool IGameplayObjectPhases.UpdateRoomInteractions(double delta, bool resuming)
     {
         Interactions.Update(delta, Link);
+        _essenceEvent?.UpdateFrame();
         return true;
     }
     void IGameplayObjectPhases.BeforeObjectTail(double delta)
@@ -435,7 +442,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
     }
 
 
-    internal void ReleaseRuntime() { Engine?.Dispose(); Entities?.Dispose(); }
+    internal void ReleaseRuntime() { _essenceEvent?.Cancel(); Engine?.Dispose(); Entities?.Dispose(); }
     public override void _ExitTree() => ReleaseRuntime();
 }
 

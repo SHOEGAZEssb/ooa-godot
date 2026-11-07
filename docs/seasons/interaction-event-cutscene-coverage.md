@@ -43,8 +43,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 27 | 46 | 152 | 7 | 232 |
-| Expanded placed interaction contexts | 168 | 12 | 855 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 27 | 55 | 143 | 7 | 232 |
+| Expanded placed interaction contexts | 200 | 12 | 823 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -72,6 +72,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | --- | --- |
 | Standard-opening character rows listed as **I** in the NPC ledger | Implemented within the stated standard-opening boundary |
 | Hero's Cave first sword | Runtime route through shared push blocks, floor buttons, key chest, door contacts, shutters and scripted sword return; optional side-view Gasha producer remains unbound |
+| Gnarled Root Dungeon 1 | Runtime route from `$4:1c` through the keys, map, compass, minecart/switch, torches, Bomb passage, traps, Brother Goriyas/portal, `$6:09` Seed Satchel, Floormasters, boss key, Aquamentus/heart container and `$4:13` Fertile Soil Essence, returning to `$0:96`'s first-Essence Maku message; optional Gasha/ring chests and the wise man's room are reachable |
 | First Maku Tree story and sword gate | Runtime route through gate `$22:$0a`, Maku `$87:$00` stage0, unlinked Impa/Zelda initialization, sleeping bubble, quest choice, Gnarled Key drop/pickup and repeated advice; later Maku stages remain unbound |
 | Talk-only characters, source story predicates and native child handoffs | Runtime route for 149 positioned rows; spring-boy Link launch and Mittens' trade-owner producer retain their external-system limitations |
 | Missing character rows and family variants in the NPC ledger | Quest, trade, secret, minigame, event and family progression remain missing |
@@ -122,11 +123,11 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$0f` | [fallDownHole](../../external/oracles-disasm/object_code/common/interactions/fallDownHole.s) | — | — | — | 6 | **P** ? Common falling-hole effect `$00`; dust and other native producers remain incomplete. |
 | `$10` | [farore](../../external/oracles-disasm/object_code/common/interactions/farore.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$11` | [farore](../../external/oracles-disasm/object_code/common/interactions/farore.s) | — | `$01, $11, $21, $31, $41, $51, $61, $71` | — | 1 | **M** — No Seasons production route. |
-| `$12` | [dungeonStuff](../../external/oracles-disasm/object_code/common/interactions/dungeonStuff.s) | `$00-$02, $04` | — | — | 0 | **P** — Hero's Cave dungeon$00 entry and enemy-clear stairs; other placements and variants remain unbound. |
-| `$13` | [pushblockTrigger](../../external/oracles-disasm/object_code/common/interactions/pushblockTrigger.s) | `$01` | — | — | 0 | **P** — Hero's Cave $4:05/$4:07 push-block triggers; other placements remain unbound. |
+| `$12` | [dungeonStuff](../../external/oracles-disasm/object_code/common/interactions/dungeonStuff.s) | `$00-$02, $04` | — | — | 0 | **P** — Hero's Cave dungeon$00 and Gnarled Root dungeon$01 entry; Hero's Cave enemy-clear stairs, Gnarled Root `$4:19` enemy-clear chest and `$4:1b` falling key; other placements and variants remain unbound. |
+| `$13` | [pushblockTrigger](../../external/oracles-disasm/object_code/common/interactions/pushblockTrigger.s) | `$01` | — | — | 0 | **P** — Hero's Cave $4:05/$4:07 and Gnarled Root $4:1a push-block triggers; other placements remain unbound. |
 | `$14` | [pushblock](../../external/oracles-disasm/object_code/common/interactions/pushblock.s) | — | — | — | 2 | **P** — Shared tile contact constructs reserved normal/sliding blocks; additional scripted producers remain unbound. |
 | `$15` | [usedRodOfSeasons](../../external/oracles-disasm/object_code/seasons/interactions/usedRodOfSeasons.s) | — | — | — | 1 | **M** — No Seasons production route. |
-| `$16` | [minecart](../../external/oracles-disasm/object_code/common/interactions/minecart.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$16` | [minecart](../../external/oracles-disasm/object_code/common/interactions/minecart.s) | — | — | — | 1 | **P** — Native static cart in Gnarled Root $4:15, shared boarding/D1/ITEM lifecycle and rail travel to $4:0f; other placed contexts and dungeon routes remain unbound. |
 | `$17` | [dungeonKeySprite](../../external/oracles-disasm/object_code/common/interactions/dungeonKeySprite.s) | — | — | — | 1 | **P** — Dungeon-key and Subrosia-door tile contacts construct checked shared key sprites; placed contexts remain unbound. |
 | `$18` | [overworldKeySprite](../../external/oracles-disasm/object_code/common/interactions/overworldKeySprite.s) | — | — | — | 0 | **P** — Gnarled Key contact producer; other entrance producers remain unbound. |
 | `$19` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
@@ -134,11 +135,11 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$1b` | `interactionDelete` | — | — | — | 0 | **D** — Original dispatch deletes the object. |
 | `$1c` | [faroresMemory](../../external/oracles-disasm/object_code/common/interactions/faroresMemory.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$1d` | [rupeeRoomRupees](../../external/oracles-disasm/object_code/seasons/interactions/rupeeRoomRupees.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
-| `$1e` | [doorController](../../external/oracles-disasm/object_code/common/interactions/doorController.s) | `$04-$0b, $10, $12, $14-$15` | `$14` | `$13` | 5 | **P** — Shared dungeon-key contacts and Hero's Cave placed $04/$08/$0a/$0b shutters; other placements and variants remain unbound. |
+| `$1e` | [doorController](../../external/oracles-disasm/object_code/common/interactions/doorController.s) | `$04-$0b, $10, $12, $14-$15` | `$14` | `$13` | 5 | **P** — Shared dungeon-key contacts, Hero's Cave shutters, Gnarled Root $4:1a/$4:19/$4:1b/$4:15 enemy/torch shutters, $4:0b miniboss shutters and layout/one-shot minecart doors through $4:15/$4:0f; other placements and variants remain unbound. |
 | `$1f` | [specialWarp](../../external/oracles-disasm/object_code/seasons/interactions/specialWarp.s) | `$00, $02-$0d` | — | — | 0 | **M** — No Seasons production route. |
-| `$20` | [dungeonScript](../../external/oracles-disasm/object_code/seasons/interactions/dungeonScript.s) | `$00-$0e` | — | — | 0 | **P** — Hero's Cave $4:03 exact-trigger key chest; other dungeon scripts remain unbound. |
+| `$20` | [dungeonScript](../../external/oracles-disasm/object_code/seasons/interactions/dungeonScript.s) | `$00-$0e` | — | — | 0 | **P** — Exact-trigger key chests in Hero's Cave `$4:03` and Gnarled Root `$4:11`, Gnarled Root `$4:0b` miniboss reward and `$4:12` boss/heart-container reward; other dungeon scripts remain unbound. |
 | `$21` | [gnarledKeyhole](../../external/oracles-disasm/object_code/seasons/interactions/gnarledKeyhole.s) | `$00` | — | — | 0 | **R** — Native Gnarled Root entrance, script, collision, graphics and rising-stone producer. |
-| `$22` | [makuCutscenes](../../external/oracles-disasm/object_code/seasons/interactions/makuCutscenes.s) | `$00-$08, $0a` | — | — | 1 | **P** — Sword gate `$0a`; remote Maku variants remain unbound. |
+| `$22` | [makuCutscenes](../../external/oracles-disasm/object_code/seasons/interactions/makuCutscenes.s) | `$00-$08, $0a` | — | — | 1 | **P** — Sword gate `$0a` and first-Essence remote Maku `$00` in `$0:96`; other remote variants remain unbound. |
 | `$23` | [seasonSpiritsScripts](../../external/oracles-disasm/object_code/seasons/interactions/seasonSpiritsScripts.s) | `$01, $11, $21, $30-$31, $40` | — | — | 0 | **M** — No Seasons production route. |
 | `$24` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00, $03` | — | — | 1 | **M** — No Seasons production route. |
 | `$25` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 0 | **P** — Native dialogue, room-flag selection and jump consumer; the trade-owner `$26:$00` producer remains unbound. |
@@ -176,7 +177,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$45` | [talon](../../external/oracles-disasm/object_code/seasons/interactions/talon.s) | `$00` | — | `$01` | 1 | **M** — No Seasons production route. |
 | `$46` | [shopkeeper](../../external/oracles-disasm/object_code/common/interactions/shopkeeper.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
 | `$47` | [shopItem](../../external/oracles-disasm/object_code/common/interactions/shopItem.s) | `$00-$05, $0e-$10` | — | `$07-$08, $0b` | 4 | **M** — No Seasons production route. |
-| `$48` | [makuLeaf](../../external/oracles-disasm/object_code/seasons/interactions/makuLeaf.s) | — | — | `$00` | 3 | **M** — No Seasons production route. |
+| `$48` | [makuLeaf](../../external/oracles-disasm/object_code/seasons/interactions/makuLeaf.s) | — | — | `$00` | 3 | **P** — First-Essence remote Maku producer and its three leaves/sparkles with var03 `$00`; other producers remain unbound. |
 | `$49` | [syrupCucco](../../external/oracles-disasm/object_code/common/interactions/syrupCucco.s) | `$80` | — | — | 0 | **M** — No Seasons production route. |
 | `$4a` | [introSprites1](../../external/oracles-disasm/object_code/common/interactions/introSprites1.s) | — | — | — | 5 | **M** — No Seasons production route. |
 | `$4b` | [d1RisingStones](../../external/oracles-disasm/object_code/seasons/interactions/d1RisingStones.s) | — | — | — | 2 | **P** — Gnarled entrance dust/stone subids `$00/$01`; subid `$02` producer remains unbound. |
@@ -211,7 +212,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$68` | [swordShieldMazeGrabbableIce](../../external/oracles-disasm/object_code/seasons/interactions/swordShieldMazeGrabbableIce.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$69` | [swordShieldMazeFreezingLavaEvent](../../external/oracles-disasm/object_code/seasons/interactions/swordShieldMazeFreezingLavaEvent.s) | `$00` | — | — | 4 | **M** — No Seasons production route. |
 | `$6a` | [danceHallMinigame](../../external/oracles-disasm/object_code/seasons/interactions/danceHallMinigame.s) | `$00` | `$01-$02` | `$03` | 1 | **M** — No Seasons production route. |
-| `$6b` | [miscellaneous1](../../external/oracles-disasm/object_code/seasons/interactions/miscellaneous1.s) | `$00-$13, $15, $17-$24, $26` | — | `$14, $16` | 3 | **M** — No Seasons production route. |
+| `$6b` | [miscellaneous1](../../external/oracles-disasm/object_code/seasons/interactions/miscellaneous1.s) | `$00-$13, $15, $17-$24, $26` | — | `$14, $16` | 3 | **P** — Native `$20` side-view Seed Satchel producer; other subids and placements remain unbound. |
 | `$6c` | [subrosiansHiding](../../external/oracles-disasm/object_code/seasons/interactions/subrosiansHiding.s) | `$00` | — | — | 1 | **M** — No Seasons production route. |
 | `$6d` | [subrosiansHiding](../../external/oracles-disasm/object_code/seasons/interactions/subrosiansHiding.s) | `$00` | — | — | 2 | **M** — No Seasons production route. |
 | `$6e` | [stealingFeather](../../external/oracles-disasm/object_code/seasons/interactions/stealingFeather.s) | `$01-$02` | — | — | 1 | **M** — No Seasons production route. |
@@ -224,19 +225,19 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$75` | [75](../../external/oracles-disasm/object_code/seasons/interactions/75.s) | — | — | — | 2 | **M** — No Seasons production route. |
 | `$76` | [sunkenCityBullies](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityBullies.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
 | `$77` | [77](../../external/oracles-disasm/object_code/seasons/interactions/77.s) | — | — | — | 1 | **R** — Opening temple-sinking scenery `$00-$01`. |
-| `$78` | [switchTileToggler](../../external/oracles-disasm/object_code/common/interactions/switchTileToggler.s) | `$01-$02, $04, $08, $10` | — | — | 0 | **M** — No Seasons production route. |
+| `$78` | [switchTileToggler](../../external/oracles-disasm/object_code/common/interactions/switchTileToggler.s) | `$01-$02, $04, $08, $10` | — | — | 0 | **P** — Gnarled Root $4:0f consumes the live PART$05 switch bit and source track-replacement row$13; other placements remain unbound. |
 | `$79` | [movingPlatform](../../external/oracles-disasm/object_code/common/interactions/movingPlatform.s) | `$00-$01, $05, $08-$09, $10-$11, $13, $15, $18, $1b, $1d, $20, $24-$25, $28, $2b-$2c, $30, $34, $38, $40, $48` | — | — | 0 | **M** — No Seasons production route. |
 | `$7a` | [roller](../../external/oracles-disasm/object_code/common/interactions/roller.s) | `$00-$02` | — | — | 0 | **M** — No Seasons production route. |
 | `$7b` | [magnetSpinner](../../external/oracles-disasm/object_code/seasons/interactions/magnetSpinner.s) | `$00, $84` | — | — | 0 | **M** — No Seasons production route. |
 | `$7c` | [trampoline](../../external/oracles-disasm/object_code/seasons/interactions/trampoline.s) | `$00-$01` | — | — | 1 | **M** — No Seasons production route. |
 | `$7d` | [spinner](../../external/oracles-disasm/object_code/common/interactions/spinner.s) | `$00` | — | — | 1 | **R** — Native placed parent/arrow handler in `$04:$26`, `$04:$b1`, `$05:$6f`; shared Link state `$08/$0b` handoff. |
-| `$7e` | [minibossPortal](../../external/oracles-disasm/object_code/common/interactions/minibossPortal.s) | `$00-$02` | — | `$00` | 3 | **M** — No Seasons production route. |
-| `$7f` | [essence](../../external/oracles-disasm/object_code/common/interactions/essence.s) | `$00` | — | — | 2 | **M** — No Seasons production route. |
+| `$7e` | [minibossPortal](../../external/oracles-disasm/object_code/common/interactions/minibossPortal.s) | `$00-$02` | — | `$00` | 3 | **P** — Gnarled Root $4:0b/$4:15 uses the shared $00 portal, selected room pair and miniboss reward producer; other placements and variants remain unbound. |
+| `$7f` | [essence](../../external/oracles-disasm/object_code/common/interactions/essence.s) | `$00` | — | — | 2 | **P** — Gnarled Root's Fertile Soil, pedestal/glow, energy swirl and exit warp; other Essence placements remain unbound. |
 | `$80` | [fickleOldMan](../../external/oracles-disasm/object_code/seasons/interactions/fickleOldMan.s) | `$00-$03` | — | — | 0 | **R** — Horon-stage old-man dialogue and source visibility whitelist. |
 | `$81` | [subrosianShop](../../external/oracles-disasm/object_code/seasons/interactions/subrosianShop.s) | `$00, $04, $0a, $0c-$0d` | — | — | 0 | **M** — No Seasons production route. |
 | `$82` | [horonDog](../../external/oracles-disasm/object_code/seasons/interactions/horonDog.s) | — | — | — | 1 | **R** — Native dog allocated by ball `$83`, consuming and publishing shared `$cceb` handoff. |
 | `$83` | [ballThrownToDog](../../external/oracles-disasm/object_code/seasons/interactions/ballThrownToDog.s) | — | — | — | 1 | **R** — Native ball allocated by boy `$3e`, spawning dog `$82` and preserving shared RNG/bounce/return order. |
-| `$84` | [sparkle](../../external/oracles-disasm/object_code/seasons/interactions/sparkle.s) | — | — | — | 19 | **M** — No Seasons production route. |
+| `$84` | [sparkle](../../external/oracles-disasm/object_code/seasons/interactions/sparkle.s) | — | — | — | 19 | **P** — Native `$02` component movement and animation through the first-Essence Maku leaf producer; other producers and variants remain unbound. |
 | `$85` | [introSceneMusic](../../external/oracles-disasm/object_code/seasons/interactions/introSceneMusic.s) | `$00` | — | — | 0 | **R** — Opening carnival-music route `$00`. |
 | `$86` | [templeSinkingExplosion](../../external/oracles-disasm/object_code/seasons/interactions/templeSinkingExplosion.s) | — | — | — | 1 | **R** — Opening temple explosions `$00-$04`. |
 | `$87` | [makuTree](../../external/oracles-disasm/object_code/seasons/interactions/makuTree.s) | `$00` | `$01-$02` | — | 0 | **P** — Standard first story stage in native group `$02` room `$0b`, Gnarled Key and repeat advice; later stages and endgame variants remain unbound. |
@@ -303,7 +304,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$c4` | [zeldaVillagersRoom](../../external/oracles-disasm/object_code/seasons/interactions/zeldaVillagersRoom.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$c5` | [d4HolesFloortrapRoom](../../external/oracles-disasm/object_code/seasons/interactions/d4HolesFloortrapRoom.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$c6` | [herosCaveSwordChest](../../external/oracles-disasm/object_code/seasons/interactions/herosCaveSwordChest.s) | `$00` | — | — | 0 | **R** — Unlinked Hero's Cave sword chest, native spin handoff and direct return warp. |
-| `$c7` | [createObjectAtEachTileindex](../../external/oracles-disasm/object_code/common/interactions/createObjectAtEachTileindex.s) | `$04, $08, $bc` | `$a0` | — | 0 | **M** — No Seasons production route. |
+| `$c7` | [createObjectAtEachTileindex](../../external/oracles-disasm/object_code/common/interactions/createObjectAtEachTileindex.s) | `$04, $08, $bc` | `$a0` | — | 0 | **P** — Gnarled Root $4:1b $08 scanner creates permanent torches; other placements and tile/object variants remain unbound. |
 | `$c8` | [boomerangSubrosian](../../external/oracles-disasm/object_code/seasons/interactions/boomerangSubrosian.s) | `$00` | — | — | 0 | **R** — Native boomerang Subrosian talk, child `$c9`, return signal and shared RNG. |
 | `$c9` | [boomerang](../../external/oracles-disasm/object_code/seasons/interactions/boomerang.s) | — | — | — | 1 | **R** — Native thrown-boomerang child with source movement, sound and parent completion. |
 | `$ca` | [troy](../../external/oracles-disasm/object_code/seasons/interactions/troy.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
@@ -330,7 +331,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$df` | [nayruRalphCredits](../../external/oracles-disasm/object_code/common/interactions/nayruRalphCredits.s) | — | `$00-$01` | — | 0 | **M** — No Seasons production route. |
 | `$e0` | [eraOrSeasonInfo](../../external/oracles-disasm/object_code/common/interactions/eraOrSeasonInfo.s) | — | — | — | 1 | **P** — Shared banner after bound ordinary full-room loads; placed contexts and unsupported room/event producers missing. |
 | `$e1` | [portalSpawner](../../external/oracles-disasm/object_code/seasons/interactions/portalSpawner.s) | `$00-$01` | — | — | 1 | **M** — No Seasons production route. |
-| `$e2` | [statueEyeball](../../external/oracles-disasm/object_code/common/interactions/statueEyeball.s) | `$00-$01, $03` | — | — | 1 | **M** — No Seasons production route. |
+| `$e2` | [statueEyeball](../../external/oracles-disasm/object_code/common/interactions/statueEyeball.s) | `$00-$01, $03` | — | — | 1 | **P** — Gnarled Root entrance subid `$01` scanner and native `$02` children; other placements and variants remain unbound. |
 | `$e3` | [vire](../../external/oracles-disasm/object_code/seasons/interactions/vire.s) | — | — | — | 0 | **M** — No Seasons production route. |
 | `$e4` | [linkedHerosCaveOldMan](../../external/oracles-disasm/object_code/seasons/interactions/linkedHerosCaveOldMan.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$e5` | [ringHelpBook](../../external/oracles-disasm/object_code/common/interactions/ringHelpBook.s) | `$00-$01` | — | — | 0 | **R** — Source book palettes, bottom-positioned non-exitable dialogue, choices and reset/fallthrough paths. |
@@ -421,7 +422,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:92` | [M] `$5f:$02/v$00` companionSpawner<br>[M] `$71:$04/v$00` companionScripts<br>[M] `$73:$00/v$00` animalMoblinBullies<br>[M] `$73:$01/v$00` animalMoblinBullies<br>[M] `$73:$02/v$00` animalMoblinBullies |
 | `0:93` | [M] `$d0:$01/v$00` companionTutorial |
 | `0:95` | [M] `$b6:$09/v$00` gashaSpot |
-| `0:96` | [M] `$22:$00/v$00` makuCutscenes<br>[R] `$21:$00/v$00` gnarledKeyhole |
+| `0:96` | [R] `$22:$00/v$00` makuCutscenes<br>[R] `$21:$00/v$00` gnarledKeyhole |
 | `0:97` | [R] `$85:$00/v$00` introSceneMusic |
 | `0:98` | [R] `$4e:$0b/v$00` dinDancingEvent |
 | `0:9a` | [M] `$e1:$00/v$00` portalSpawner |
@@ -606,20 +607,20 @@ An opening implementation of the same ID does not cover another room's placement
 | `4:06` | [R] `$c6:$00/v$00` herosCaveSwordChest |
 | `4:07` | [R] `$13:$01/v$00` pushblockTrigger<br>[R] `$12:$04/v$00` dungeonStuff |
 | `4:08` | [R] `$1e:$04/v$00` doorController |
-| `4:09` | [M] `$6b:$20/v$00` miscellaneous1 |
-| `4:0b` | [M] `$20:$00/v$00` dungeonScript<br>[M] `$7e:$00/v$00` minibossPortal<br>[M] `$1e:$0b/v$00` doorController<br>[M] `$1e:$0a/v$00` doorController |
-| `4:0e` | [M] `$13:$01/v$00` pushblockTrigger<br>[M] `$1e:$0b/v$00` doorController |
-| `4:0f` | [M] `$78:$01/v$00` switchTileToggler |
-| `4:11` | [M] `$20:$02/v$00` dungeonScript |
-| `4:12` | [M] `$20:$03/v$00` dungeonScript<br>[M] `$1e:$09/v$00` doorController<br>[M] `$1e:$0a/v$00` doorController |
-| `4:13` | [M] `$7f:$00/v$00` essence |
-| `4:14` | [M] `$12:$02/v$00` dungeonStuff |
-| `4:15` | [M] `$1e:$0a/v$00` doorController<br>[M] `$1e:$15/v$00` doorController<br>[M] `$7e:$00/v$00` minibossPortal<br>[M] `$c7:$08/v$00` createObjectAtEachTileindex |
+| `4:09` | [R] `$6b:$20/v$00` miscellaneous1 |
+| `4:0b` | [R] `$20:$00/v$00` dungeonScript<br>[R] `$7e:$00/v$00` minibossPortal<br>[R] `$1e:$0b/v$00` doorController<br>[R] `$1e:$0a/v$00` doorController |
+| `4:0e` | [R] `$13:$01/v$00` pushblockTrigger<br>[R] `$1e:$0b/v$00` doorController |
+| `4:0f` | [R] `$78:$01/v$00` switchTileToggler |
+| `4:11` | [R] `$20:$02/v$00` dungeonScript |
+| `4:12` | [R] `$20:$03/v$00` dungeonScript<br>[R] `$1e:$09/v$00` doorController<br>[R] `$1e:$0a/v$00` doorController |
+| `4:13` | [R] `$7f:$00/v$00` essence |
+| `4:14` | [R] `$12:$02/v$00` dungeonStuff |
+| `4:15` | [R] `$1e:$0a/v$00` doorController<br>[R] `$1e:$15/v$00` doorController<br>[R] `$7e:$00/v$00` minibossPortal<br>[R] `$c7:$08/v$00` createObjectAtEachTileindex |
 | `4:16` | [R] `$38:$00/v$00` miscNpcs |
-| `4:19` | [M] `$1e:$08/v$00` doorController<br>[M] `$1e:$09/v$00` doorController<br>[M] `$12:$02/v$00` dungeonStuff |
-| `4:1a` | [M] `$13:$01/v$00` pushblockTrigger<br>[M] `$1e:$08/v$00` doorController<br>[M] `$1e:$09/v$00` doorController<br>[M] `$1e:$0a/v$00` doorController |
-| `4:1b` | [M] `$1e:$14/v$00` doorController<br>[M] `$12:$01/v$00` dungeonStuff<br>[M] `$1e:$0b/v$00` doorController<br>[M] `$c7:$08/v$00` createObjectAtEachTileindex |
-| `4:1c` | [M] `$12:$00/v$00` dungeonStuff<br>[M] `$e2:$01/v$00` statueEyeball |
+| `4:19` | [R] `$1e:$08/v$00` doorController<br>[R] `$1e:$09/v$00` doorController<br>[R] `$12:$02/v$00` dungeonStuff |
+| `4:1a` | [R] `$13:$01/v$00` pushblockTrigger<br>[R] `$1e:$08/v$00` doorController<br>[R] `$1e:$09/v$00` doorController<br>[R] `$1e:$0a/v$00` doorController |
+| `4:1b` | [R] `$1e:$14/v$00` doorController<br>[R] `$12:$01/v$00` dungeonStuff<br>[R] `$1e:$0b/v$00` doorController<br>[R] `$c7:$08/v$00` createObjectAtEachTileindex |
+| `4:1c` | [R] `$12:$00/v$00` dungeonStuff<br>[R] `$e2:$01/v$00` statueEyeball |
 | `4:1f` | [M] `$7a:$00/v$00` roller<br>[M] `$7a:$00/v$00` roller |
 | `4:20` | [M] `$7a:$02/v$00` roller<br>[M] `$7a:$01/v$00` roller |
 | `4:21` | [M] `$7e:$00/v$00` minibossPortal<br>[M] `$20:$01/v$00` dungeonScript<br>[M] `$1e:$08/v$00` doorController<br>[M] `$1e:$09/v$00` doorController |

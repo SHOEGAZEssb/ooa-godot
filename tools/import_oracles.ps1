@@ -448,9 +448,6 @@ $stageContracts = @(
     New-ImportStageContract 'seasons-room-runtime' 'Seasons/Import-RoomRuntime.ps1' `
         -inputs @('seasonsRomBytes', 'seasonsSymbols')
     New-ImportStageContract 'common-engine' 'Shared/Import-CommonEngineData.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes')
-    New-ImportStageContract 'minecart-native' 'Shared/Import-MinecartData.ps1' `
-        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
-        -functionInputs @('Read-AssemblyConstants')
     New-ImportStageContract 'wram-fields' 'Shared/Import-WramFields.ps1' -inputs @('agesSymbols', 'seasonsSymbols')
     New-ImportStageContract 'maple-admission' 'Shared/Import-MapleAdmission.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
@@ -467,6 +464,12 @@ $stageContracts = @(
         -functionInputs @('Read-TreasureObjectCatalog', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
     New-ImportStageContract 'inventory-presentation' 'Shared/Import-InventoryPresentation.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
         -functionOutputs @('Read-MenuRomBytes', 'Add-MenuRomOam')
+    New-ImportStageContract 'minecart-native' 'Shared/Import-MinecartData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-AssemblyConstants', 'Read-AssemblyMacroInvocations', 'Read-AssemblyDwTables', 'Read-MenuRomBytes', 'Find-ImportSpriteSource')
+    New-ImportStageContract 'dungeon-switches' 'Shared/Import-DungeonSwitches.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-AssemblyConstants', 'Read-MenuRomBytes')
     New-ImportStageContract 'status-bar' 'Shared/Import-StatusBarData.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
         -functionInputs @('Read-MenuRomBytes')
@@ -487,10 +490,13 @@ $stageContracts = @(
         -functionInputs @('Read-MenuRomBytes')
     New-ImportStageContract 'dungeon-puzzles' 'Shared/Import-DungeonPuzzles.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
-        -functionInputs @('Read-MenuRomBytes')
+        -functionInputs @('Read-MenuRomBytes', 'Read-AssemblyCutsceneCommands', 'Read-AssemblyMacroInvocations', 'ConvertTo-CutsceneCommandRows', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'seasons-heros-cave' 'Seasons/Import-HerosCave.ps1' `
         -inputs @('seasonsSymbols', 'seasonsRomBytes', 'seasonTreasureTexts', 'seasonMapTexts') `
         -functionInputs @('Read-MenuRomBytes', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted')
+    New-ImportStageContract 'seasons-dungeon-entrances' 'Seasons/Import-DungeonEntrances.ps1' `
+        -inputs @('seasonsRomBytes', 'seasonsSymbols', 'seasonMapTexts') `
+        -functionInputs @('Read-MenuRomBytes', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Find-ImportSpriteSource')
     New-ImportStageContract 'treasure-collection' 'Shared/Import-TreasureCollection.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
         -outputs @('rupeeValuesByGame') `
@@ -573,6 +579,24 @@ $stageContracts = @(
         -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-NativeObjectPointerLabels')
     New-ImportStageContract 'enemy-definitions' 'Shared/Import-EnemyDefinitions.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'commonEnemyRows') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'moblin-trap-data' 'Shared/Import-MoblinTrapData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'boss-death-data' 'Shared/Import-BossDeathData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'floormaster-data' 'Shared/Import-FloormasterData.ps1' `
+        -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes')
+    New-ImportStageContract 'aquamentus' 'Seasons/Import-Aquamentus.ps1' `
+        -inputs @('seasonsSymbols', 'seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
+    New-ImportStageContract 'root-dungeon-essence' 'Seasons/Import-RootDungeonEssence.ps1' `
+        -inputs @('seasonsSymbols', 'seasonsRomBytes', 'seasonNpcTexts', 'cutsceneCommandSchemas') `
+        -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation', 'Read-AssemblyCutsceneCommands', 'New-CutsceneCommandRow', 'ConvertTo-CutsceneCommandPayload', 'Test-GeneratedCutsceneCommandStreams')
+    New-ImportStageContract 'brother-goriyas' 'Seasons/Import-BrotherGoriyas.ps1' `
+        -inputs @('seasonsSymbols', 'seasonsRomBytes', 'seasonNpcTexts') `
         -functionInputs @('Read-MenuRomBytes', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-NativeObjectPointerLabels', 'Read-NativeEnemyAnimation')
     New-ImportStageContract 'digging-enemy-data' 'Shared/Import-DiggingEnemyData.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `

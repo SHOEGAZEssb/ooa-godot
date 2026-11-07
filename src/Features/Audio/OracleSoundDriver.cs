@@ -43,8 +43,9 @@ internal sealed class OracleSoundDriver
         // wChannelVibratos, wChannelVibratoCounters and wChannelDutyCycles
         // are consecutive six-channel byte arrays. Farore's unchecked
         // relatedObj1 write also reaches $c056/$c057.
-        if (address is < 0xc03f or >= 0xc05d)
-            throw new ArgumentOutOfRangeException(nameof(address), $"Allocation failure sound alias ${address:x4} is outside the traced channel arrays ($c03f-$c05c).");
+        // makuLeaf's post-playSound HL alias also decrements channel6's wait.
+        if (address is not 0xc07b && (address is < 0xc03f or >= 0xc05d))
+            throw new ArgumentOutOfRangeException(nameof(address), $"Native sound alias ${address:x4} is outside the traced channel arrays ($c03f-$c05c/$c07b).");
     }
     internal void SetChannelPitchSlideByte(int channel, byte value)
     {

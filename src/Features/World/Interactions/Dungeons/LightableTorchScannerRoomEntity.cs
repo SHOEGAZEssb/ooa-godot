@@ -14,7 +14,7 @@ internal sealed partial class LightableTorchScannerRoomEntity :
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
     private readonly LightableTorchState _state;
-    private readonly DarkRoomDatabase _data;
+    private readonly LightableTorchDatabase _data;
     private readonly Func<LightableTorchState,int,bool> _createTorch;
 
     public bool Finished { get; private set; }
@@ -25,7 +25,7 @@ internal sealed partial class LightableTorchScannerRoomEntity :
         DungeonMechanicDatabaseRecord record,
         OracleRoomData room,
         LightableTorchState state,
-        DarkRoomDatabase data,
+        LightableTorchDatabase data,
         Func<LightableTorchState,int,bool> createTorch)
         : base(record, $"LightableTorchScanner_{record.Order}")
     {

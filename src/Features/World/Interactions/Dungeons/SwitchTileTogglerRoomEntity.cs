@@ -7,7 +7,7 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly DungeonObjectRecord _record;
-    private readonly DungeonInteractionDatabase _data;
+    private readonly DungeonSwitchDatabase _data;
     private readonly OracleRuntimeState _runtime;
     private readonly Action _roomTileChanged;
     private readonly Func<byte,byte,bool> _setTile;
@@ -20,7 +20,7 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
 
     internal SwitchTileTogglerRoomEntity(
         DungeonObjectRecord record,
-        DungeonInteractionDatabase data,
+        DungeonSwitchDatabase data,
         OracleRuntimeState runtime,
         Action roomTileChanged,
         Func<byte,byte,bool> setTile)

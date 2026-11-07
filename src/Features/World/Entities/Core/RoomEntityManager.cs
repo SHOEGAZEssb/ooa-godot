@@ -343,6 +343,8 @@ public sealed partial class RoomEntityManager : IDisposable
     internal event Action<int>? NativeActiveMusicWritten;
     internal Func<int> NativeActiveMusicSource { get; set; } = () =>
         throw new InvalidOperationException("wActiveMusic has no sound owner.");
+    internal Func<int> NativeRoomMusicSource { get; set; } = () =>
+        throw new InvalidOperationException("wActiveMusic2 has no sound owner.");
     internal void OnNativeSoundRequested(int sound) => NativeSoundRequested?.Invoke(sound);
     internal void SetNativeActiveMusic(int music) => NativeActiveMusicWritten?.Invoke(music);
     internal event Action<int, byte>? NativeChannelVolumeWritten;
@@ -2821,6 +2823,8 @@ public sealed partial class RoomEntityManager : IDisposable
             if (entity.PresentationNode is FallingBoulder boulder) boulder.SetPartSlot(slot);
             if (entity is RoomOfRitesBoulderRoomEntity ritesBoulder) ritesBoulder.Slot=slot;
             if (entity is FallingFireRoomEntity fire) fire.Slot = slot;
+            if (entity is BrotherGoriyaBoomerangRoomEntity brotherBoomerang) brotherBoomerang.BindSlot(slot);
+            if (entity is AquamentusProjectileRoomEntity aquamentusProjectile) aquamentusProjectile.BindSlot(slot);
             if (entity.PresentationNode is RamrockPart ramrockPart) ramrockPart.Slot = slot;
             if (entity is VeranSpiderwebRoomEntity web) web.Slot=slot;
         }
@@ -3048,7 +3052,7 @@ public sealed partial class RoomEntityManager : IDisposable
         // node and never becomes a logical interaction-phase enemy.
         if (spawn is GelSpawn or FlyingTileSpawn or ArmosSpawnerSpawn or ArmosSpawn or
             BariChildSpawn or GiantGhiniChildSpawn or ShadowHagBugSpawn or FireballShooterChildSpawn or
-            MaskedMoblinSpawn or GhiniSpawn)
+            MaskedMoblinSpawn or GhiniSpawn or BrotherGoriyaSpawn or AquamentusSpawn)
             return TryCreateEnemyEntity(spawn);
         if (spawn is HeadThwompBombDropSpawn bomb)
         {
@@ -3060,7 +3064,7 @@ public sealed partial class RoomEntityManager : IDisposable
         // ecom_spawnProjectile / createFlamePart: getFreePartSlot failure
         // creates nothing. Check at commit too: post-object collisions can
         // queue several burn requests while only one physical slot is free.
-        var entity = spawn is OctorokRockSpawn or MoblinBoomerangSpawn or BurningEnemySpawn or
+        var entity = spawn is OctorokRockSpawn or MoblinBoomerangSpawn or BrotherGoriyaBoomerangSpawn or AquamentusProjectileSpawn or BurningEnemySpawn or
             EnemyArrowSpawn or StalfosBoneSpawn or CuccoAttackerSpawn or MoonlitGrottoOrbSpawn or
             SubterrorDirtSpawn or LightableTorchSpawn or ShootingGalleryBallSpawn or ItemDropSpawn or MapleDroppedItemSpawn or
             HeadThwompProjectileSpawn or HeadThwompBoulderSpawn or BossShadowSpawn or BossDeathExplosionSpawn or PumpkinHeadProjectileSpawn
@@ -3131,7 +3135,7 @@ public sealed partial class RoomEntityManager : IDisposable
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
             or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity or RespawnableBushRoomEntity
-            or CuccoAttackerRoomEntity or MoblinBoomerangRoomEntity or SeedOnTreeRoomEntity or ShootingGalleryBallRoomEntity
+            or CuccoAttackerRoomEntity or MoblinBoomerangRoomEntity or BrotherGoriyaBoomerangRoomEntity or AquamentusProjectileRoomEntity or SeedOnTreeRoomEntity or ShootingGalleryBallRoomEntity
             or HeadThwompBombDropRoomEntity or PumpkinHeadProjectileRoomEntity or ShadowHagShadowRoomEntity or MapleDroppedItemRoomEntity ||
         entity.PresentationNode is OctorokRockProjectile or EnemyArrowProjectile or HeadThwompProjectile or HeadThwompBoulder or SubterrorDirtEffect ? 1 : 2;
 

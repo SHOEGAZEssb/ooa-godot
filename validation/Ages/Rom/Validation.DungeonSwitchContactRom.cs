@@ -26,7 +26,7 @@ public partial class ValidationRoot
             var record = data.GetRoomRecords(4,c.Room).Single(row => row.Id == 5);
             FailIf(record.SubId != c.Mask || record.PackedPosition != c.Switch || _currentRoom.Layout[c.Switch] != 0x0a,
                 $"Native switch fixture requires original PART$05:${c.Mask:x2} at room$4:${c.Room:x2}:${c.Switch:x2}.");
-            var part = new DungeonSwitchRoomEntity(record,_currentRoom,data,_entities.RuntimeState,
+            var part = new DungeonSwitchRoomEntity(record,_currentRoom,DungeonSwitchDatabase.For(AgesGameContent.AssetRoot),_entities.RuntimeState,
                 () => (long)_animationTicks,_roomView.QueueRedraw,_sound.PlaySound,_rooms.TrySetTile,_saveData);
             _entities.AddEntity(part);
             // Both original streams order INTERAC$78 before PART$05.
@@ -35,7 +35,7 @@ public partial class ValidationRoot
             FailIf(railRecord.Id != 0x78 || railRecord.SubId != c.Mask || railRecord.Y != c.Rail ||
                 railRecord.X != c.Row || railRecord.Order != 0,
                 $"Original switch rail$4:${c.Room:x2} lost its placement, mask or replacement row.");
-            var rail = new SwitchTileTogglerRoomEntity(railRecord,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),
+            var rail = new SwitchTileTogglerRoomEntity(railRecord,DungeonSwitchDatabase.For(AgesGameContent.AssetRoot),
                 _entities.RuntimeState,_roomView.QueueRedraw,_rooms.TrySetTile);
             _entities.AddEntity(rail);
             _inventory.GiveTreasure(treasure,item.Beam ? 2 : 1); _inventory.EquipA(treasure);
@@ -225,9 +225,9 @@ public partial class ValidationRoot
                 $"PART=${reload[0xd0c1]:x2}:${reload[0xd0c2]:x2}/hit${reload[0xd0ea]:x2}/lock${reload[0xd0eb]:x2}, " +
                 $"railSlot=${reloadRail:x4}/state${reload[reloadRail+4]:x2}, runtime lock={part.HitLockout}/init={SomariaPrivate<bool>(rail,"_initialized")}/slot={_entities.InteractionSlot(rail)}.");
             _entities.Clear();
-            part = new DungeonSwitchRoomEntity(record,_currentRoom,data,_entities.RuntimeState,
+            part = new DungeonSwitchRoomEntity(record,_currentRoom,DungeonSwitchDatabase.For(AgesGameContent.AssetRoot),_entities.RuntimeState,
                 () => (long)_animationTicks,_roomView.QueueRedraw,_sound.PlaySound,_rooms.TrySetTile,_saveData);
-            rail = new SwitchTileTogglerRoomEntity(railRecord,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),
+            rail = new SwitchTileTogglerRoomEntity(railRecord,DungeonSwitchDatabase.For(AgesGameContent.AssetRoot),
                 _entities.RuntimeState,_roomView.QueueRedraw,_rooms.TrySetTile);
             _entities.AddEntity(part); _entities.AddEntity(rail);
             _player.WarpTo(returnPoint); _player.Face((Vector2I)OracleObjectMath.StrictCardinalVector(c.Direction*8));

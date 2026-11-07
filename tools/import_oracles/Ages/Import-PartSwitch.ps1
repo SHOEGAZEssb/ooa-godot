@@ -17,18 +17,6 @@ if ($code -notmatch '(?ms)^collisionEffect26:\s+ldhl LINKDMG_1c, ENEMYDMG_34\s+j
     $code -notmatch '\.db \$50 \$00 \$00 \$00 ; ENEMYDMG_44') {
     throw 'PART_SWITCH collision effects $20/$26 or signed hit lockout changed.'
 }
-$rows = [Collections.Generic.List[string]]::new()
-$rows.Add("# item`tenabled`teffect`tlockout`tsource")
-for ($item = 0; $item -lt 32; $item++) {
-    $effect = $effects[$item].Groups['value'].Value
-    if ($bits[$item] -eq '1' -and $effect -notin @('20', '26')) {
-        throw "PART_SWITCH collision $item enables unsupported effect $effect."
-    }
-    $lockout = if ($effect -eq '26') { '1c' } else { '00' }
-    $rows.Add("$($item.ToString('x2'))`t$($bits[$item])`t$effect`t$lockout`tdata/ages/partActiveCollisions.s:partActiveCollisions+0014;data/ages/objectCollisionTable.s:objectCollisionTable+$((0x60 + $item).ToString('x4'))")
-}
-Write-GeneratedTable((Join-Path $destination 'objects/part_switch_collisions.tsv'), $rows)
-
 # Stationary and moving orbs share mode03 but have their own active mask.
 # partCheckCollisions indexes collisionType$83, not the part's ID$0b.
 $orbMask = [regex]::Match($active, '(?m)^\s*dbrev (?<bits>%[01]{8} %[01]{8} %[01]{8} %[01]{8}) ; 0x03\s*$')

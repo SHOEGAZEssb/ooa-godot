@@ -58,20 +58,22 @@ internal sealed class LinkCollisionRom
     }
 
     internal void Call(int entry, int speed = 0x28, int angle = 0, int bank = 5, int objectPage = 0xd0, int accumulator = 0,
-        bool restoresBank = true, int? objectOffset = null, bool captureB = false)
+        bool restoresBank = true, int? objectOffset = null, bool captureB = false, int stackAddress = 0xdff0, int? dataAddress = null)
     {
         _bank = bank;
         _memory[0xff97] = (byte)bank;
-        byte[] entryStack = _bankedStack ? [0x31, 0xf0, 0xc2] : [];
-        byte[] exitStack = _bankedStack ? [0x31, 0xf0, 0xdf] : [];
+        int bankedStackAddress=stackAddress==0xdff0?0xc2f0:stackAddress;
+        byte[] entryStack = _bankedStack ? [0x31, (byte)bankedStackAddress, (byte)(bankedStackAddress>>8)] : [];
+        byte[] exitStack = _bankedStack ? [0x31, (byte)stackAddress, (byte)(stackAddress>>8)] : [];
         byte[] objectLow = objectOffset is int low ? [0x1e,checked((byte)low)] : [];
+        byte[] dataPointer = dataAddress is int pointer ? [0x21,(byte)pointer,(byte)(pointer>>8)] : [];
         byte[] saveB = captureB ? [0xc5] : [];
         byte[] storeB = captureB ? [0xc1, 0x78, 0xea, 0x02, 0xc2] : [];
         _caller = [.. entryStack, 0x16, (byte)objectPage, 0x62, 0x3e, (byte)accumulator, 0x01, (byte)angle, (byte)speed,
-            .. objectLow,
+            .. objectLow, .. dataPointer,
             0xcd, (byte)entry, (byte)(entry >> 8),
             .. saveB, 0xf5, 0xc1, 0x78, 0xea, 0x00, 0xc2, 0x79, 0xea, 0x01, 0xc2, .. storeB, .. exitStack, 0xc9];
-        _cpu.RunCall(0xc100);
+        _cpu.RunCall(0xc100,stackAddress:stackAddress);
         if (restoresBank && (_bank != bank || _memory[0xff97] != bank))
             throw new InvalidDataException("Link collision call failed to restore ROM bank ownership.");
     }
@@ -79,8 +81,8 @@ internal sealed class LinkCollisionRom
     private int Read(int address)
     {
         if (address < 0x4000) return _rom.Span[address];
-        // Flute callers use $09, HUD/common graphics $19/$1b/$27/$28, interactions Seasons $29/Ages $2a.
-        if (address < 0x8000 && _bank is 1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 0x0a or 0x0b or 0x0c or 0x0d or 0x0e or 0x0f or 0x10 or 0x11 or 0x12 or 0x14 or 0x15 or 0x16 or 0x19 or 0x1b or 0x27 or 0x28 or 0x29 or 0x2a or 0x2c or 0x3f)
+        // Flute $09, dungeon sprite uploads $1a, HUD/common graphics $19/$1b/$27/$28, interactions Seasons $29/Ages $2a, Seasons boss PARTs $2b.
+        if (address < 0x8000 && _bank is 1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 0x0a or 0x0b or 0x0c or 0x0d or 0x0e or 0x0f or 0x10 or 0x11 or 0x12 or 0x14 or 0x15 or 0x16 or 0x19 or 0x1a or 0x1b or 0x27 or 0x28 or 0x29 or 0x2a or 0x2b or 0x2c or 0x3f)
             return _rom.Span[_bank * 0x4000 + address - 0x4000];
         if (address is >= 0x8000 and < 0xa000) return _vram[_memory[0xff4f] & 1][address - 0x8000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];

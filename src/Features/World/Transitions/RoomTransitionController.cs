@@ -150,12 +150,15 @@ public class RoomTransitionController : IDisposable
 	internal void BeginNativeWhiteFade(bool fadeOut, int delay = 1, int speed = 1)
 		=> BeginNativePaletteFade(Colors.White, fadeOut, delay, speed);
 	internal void BeginNativeLightRoomDarkening()
+		=> BeginNativeRoomDarkening(-9); // darkenRoomLightly: target $f7.
+	internal void BeginNativeRoomDarkening(int offset)
 	{
-		// Ages bank0.darkenRoomLightly: BG 2-7 only, target $f7, speed $01.
+		if(offset is < -31 or >= 0)throw new ArgumentOutOfRangeException(nameof(offset));
+		// bank0._darkenRoomHelper: BG 2-7 only, speed $01.
 		_nativePaletteDirection = 0;
 		_nativeDarkeningRoom = _rooms.CurrentRoom;
 		_nativeDarkeningOffset = 0;
-		_nativeRoomColorTarget = -9;
+		_nativeRoomColorTarget = offset;
 		_nativeDarkeningRoom.SetTemporaryBackgroundPaletteOffset(0);
 	}
 	internal void BeginNativeRoomBrightening()

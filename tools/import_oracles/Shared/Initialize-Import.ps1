@@ -7,22 +7,27 @@ $destination = Join-Path $assetRoot 'ages'
 $previewDestination = Join-Path $assetRoot 'seasons/preview'
 
 $spriteSourceIndex = @{}
-function Find-ImportSpriteSource([string]$name) {
+function Find-ImportSpriteSource([string]$name, [ValidateSet('', 'ages', 'seasons')][string]$game = '') {
     if ($spriteSourceIndex.Count -eq 0) {
         foreach ($directory in Get-ChildItem $Disassembly -Directory -Filter 'gfx*') {
             foreach ($source in Get-ChildItem $directory.FullName -Recurse -File -Filter '*.png') {
                 if (-not $spriteSourceIndex.ContainsKey($source.BaseName)) {
                     $spriteSourceIndex[$source.BaseName] = $source
                 }
+                $segments = [IO.Path]::GetRelativePath($Disassembly, $source.FullName) -split '[\\/]'
+                $pack = if ($segments -contains 'ages') { 'ages' } elseif ($segments -contains 'seasons') { 'seasons' } else { 'common' }
+                $key = "$pack/$($source.BaseName)"
+                if (-not $spriteSourceIndex.ContainsKey($key)) { $spriteSourceIndex[$key] = $source }
             }
         }
     }
-    if (-not $spriteSourceIndex.ContainsKey($name)) { throw "Sprite not found: $name.png" }
-    return $spriteSourceIndex[$name]
+    $key = if ($game -eq '') { $name } elseif ($spriteSourceIndex.ContainsKey("$game/$name")) { "$game/$name" } else { "common/$name" }
+    if (-not $spriteSourceIndex.ContainsKey($key)) { throw "Sprite not found: $game/$name.png" }
+    return $spriteSourceIndex[$key]
 }
 
-function Get-ImportSpriteSourceGrayscaleInverted([string]$name) {
-    $source = Find-ImportSpriteSource $name
+function Get-ImportSpriteSourceGrayscaleInverted([string]$name, [ValidateSet('', 'ages', 'seasons')][string]$game = '') {
+    $source = Find-ImportSpriteSource $name $game
     # tools/gfx/gfx.py defaults spr_* to invert:true; sibling .properties
     # files can reverse the source color IDs for any consumer of the sheet.
     $inverted = $source.BaseName.StartsWith('spr_', [StringComparison]::Ordinal)

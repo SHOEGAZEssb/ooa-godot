@@ -10,7 +10,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
     private StalfosBehaviorProfile? _behaviorSourceCache;
-    private StalfosBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Stalfos;
+    private StalfosBehaviorProfile _behavior => _behaviorSourceCache ??= StalfosDatabase.For(AssetRoot).Behavior;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private StalfosState _state;

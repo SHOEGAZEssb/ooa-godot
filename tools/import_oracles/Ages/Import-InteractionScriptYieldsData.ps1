@@ -18,17 +18,3 @@ foreach ($sound in @('SND_OPENCHEST','SND_OPENING','SND_SOLVEPUZZLE')) {
 }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/tokay_socket_commands.tsv'),
     (ConvertTo-CutsceneCommandRows $socketCommands 'Socket' -bindings $socketBindings))
-
-$keyOps = [Collections.Generic.HashSet[string]]::new([string[]]@(
-    'stopifitemflagset','checknoenemies','spawnitem','scriptend'))
-$keyCommands = @(Read-AssemblyCutsceneCommands (Join-Path $Disassembly 'scripts/common/commonScripts.s') `
-    'dropSmallKeyWhenNoEnemiesScript' $keyOps)
-$keyEnd = @($keyCommands | Where-Object Opcode -eq 'scriptend')
-if ($keyEnd.Count -ne 1) { throw 'dropSmallKeyWhenNoEnemiesScript requires one scriptend.' }
-$keyBindings = @{
-    'stopifitemflagset|' = @{Opcode='jumpifroomflagset';Arg0='20';Arg1=$keyEnd[0].Index.ToString()}
-    'checknoenemies|' = @{Opcode='gate';Payload='NoEnemies'}
-    'spawnitem|TREASURE_SMALL_KEY, $01' = @{Opcode='nativeyield';Payload='SpawnSmallKey'}
-}
-Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/enemy_small_key_commands.tsv'),
-    (ConvertTo-CutsceneCommandRows $keyCommands 'Watcher' -bindings $keyBindings))

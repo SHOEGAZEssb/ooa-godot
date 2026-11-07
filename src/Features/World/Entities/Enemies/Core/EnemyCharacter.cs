@@ -489,6 +489,18 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     protected void RestartAnimation(int index) =>
         _animation.SetAnimation(Mathf.Clamp(index, 0, _animationCount - 1));
 
+    protected void SetNativeAngleAnimation(int angle)
+    {
+        int index=CommonEnemyBehavior.Shared.AngleAnimations[angle].Value;
+        if(index>=4)
+        {
+            int difference=(index-AnimationIndex)&255;
+            if(difference==7||((difference-3)&255)<2)return;
+            index=((angle+4)&ObjectAngle.CardinalMask)>>3;
+        }
+        SetAnimation(index);
+    }
+
     protected void AdvanceAnimation(int decrement = 1) =>
         _animation.Advance(decrement);
 

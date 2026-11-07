@@ -22,6 +22,22 @@ foreach ($minecartPack in @(
 )) {
     $minecartBytes = $minecartPack.Bytes
     $minecartSymbols = $minecartPack.Symbols
+    $specialAnimationPath=Join-Path $Disassembly "data/$($minecartPack.Name)/specialObjectAnimationData.s"
+    $cartGfx=@(Read-AssemblyMacroInvocations $specialAnimationPath 'specialObject0aGfxPointers' 'm_SpecialObjectGfxPointer')
+    if($cartGfx.Count -ne 4) {throw "$($minecartPack.Name): missing minecart GFX rows."}
+    foreach($row in $cartGfx) {
+        if($row.Operands.Count -ne 4 -or $row.Operands[1] -ne 'spr_dungeon_sprites' -or $row.Operands[3] -ne '$04') {
+            throw "$($minecartPack.Name): unsupported minecart GFX source/upload length."
+        }
+    }
+    $cartGraphic=Read-MenuRomBytes $minecartPack 'interactionData' (0x17*3)
+    $tileBase=[int]$cartGraphic[0x16*3+1];$palette=([int]$cartGraphic[0x16*3+2] -shr 4)-band 7
+    $headers=@(Read-AssemblyMacroInvocations (Join-Path $Disassembly "data/$($minecartPack.Name)/objectGfxHeaders.s") '' 'm_ObjectGfxHeader')
+    $cartSprite=$headers[[int]$cartGraphic[0x16*3]].Operands[0]
+    if($cartSprite -ne 'spr_dungeon_sprites' -or $tileBase -ne 0 -or $palette -ne 4) {
+        throw "$($minecartPack.Name): INTERAC$16 graphics must share the mounted cart's source sheet and palette."
+    }
+    Copy-Item -LiteralPath (Find-ImportSpriteSource $cartSprite).FullName -Destination (Join-Path $minecartPack.Root "gfx/$cartSprite.png") -Force
     $minecartBehavior = [Collections.Generic.List[string]]::new()
     $minecartBehavior.Add('# name`tvalue`tsource')
     foreach ($entry in $minecartTiles.GetEnumerator()) {
@@ -89,6 +105,7 @@ foreach ($minecartPack in @(
         return $word
     }
     $minecartRows = [Collections.Generic.List[string]]::new()
+    $cartAnimations=[Collections.Generic.List[string]]::new()
     $minecartRows.Add('# kind`tanimation`tframe`tduration`tgraphic`tparameter`tnext-pointer`toam-pointer`tsource')
     foreach ($spec in @(
         @{ Kind='waiting'; Table='interaction16Animations'; Oam='interaction16OamDataPointers'; Frames=1; Duration=0x7f },
@@ -99,7 +116,12 @@ foreach ($minecartPack in @(
         }
         $table = [int]$minecartSymbols[$spec.Table]
         $oamTable = [int]$minecartSymbols[$spec.Oam]
+        $animationPath=if($spec.Kind -eq 'waiting') {Join-Path $Disassembly "data/$($minecartPack.Name)/interactionAnimations.s"}else{$specialAnimationPath}
+        $oamPattern=if($spec.Kind -eq 'waiting'){'interaction[0-9a-f]{2}OamDataPointers'}else{'specialObject[0-9a-f]{2}OamDataPointers'}
+        $oamLabels=(Read-AssemblyDwTables $animationPath $oamPattern '(?:interactionOamData|oamData)[0-9a-f]+')[$spec.Oam]
+        if($oamLabels.Count -ne $(if($spec.Kind -eq 'waiting'){2}else{3})) {throw "$($minecartPack.Name): minecart OAM table extent changed."}
         for ($animation = 0; $animation -lt 2; $animation++) {
+            $visualFrames=[Collections.Generic.List[string]]::new()
             $pointer = Read-MinecartWord ($table + $animation * 2)
             if ($spec.Kind -eq 'mounted' -and (Read-MinecartWord ($table + ($animation + 2) * 2)) -ne $pointer) {
                 throw "Minecart $($minecartPack.Name): direction animation aliases changed."
@@ -120,6 +142,21 @@ foreach ($minecartPack in @(
                 }
                 $oamIndex = if ($spec.Kind -eq 'waiting') { $graphic } else { 2 * $(if ($graphic -lt 2) { $graphic } else { 2 }) }
                 $oam = Read-MinecartWord ($oamTable + $oamIndex)
+                $oamLabel=$oamLabels[$oamIndex/2]
+                $cells=Read-MenuRomBytes $minecartPack $oamLabel 1
+                if($cells[0] -ne 2 -or (([int]$minecartSymbols[$oamLabel] -band 0x3fff)-bor 0x4000) -ne $oam) {
+                    throw "$($minecartPack.Name): minecart frame OAM must retain its two-cell native pointer."
+                }
+                $cells=Read-MenuRomBytes $minecartPack $oamLabel 9
+                $tileOffset=if($spec.Kind -eq 'mounted'){(Convert-AssemblyInteger $cartGfx[$graphic].Operands[2])/16}else{0}
+                if($spec.Kind -eq 'mounted' -and (Convert-AssemblyInteger $cartGfx[$graphic].Operands[0]) -ne $oamIndex/2) {
+                    throw "$($minecartPack.Name): minecart graphic/OAM selection changed."
+                }
+                $parts=@(for($cell=1;$cell -lt 9;$cell+=4){
+                    @([int]$cells[$cell],[int]$cells[$cell+1],([int]$cells[$cell+2]+$tileOffset),[int]$cells[$cell+3])-join ','
+                })-join ';'
+                $metadata=if($parameter -eq 0){"$($spec.Duration)"}else{"$($spec.Duration),$parameter"}
+                $visualFrames.Add("$metadata@$parts")
                 $next = (($at + 3) -band 0x3fff) -bor 0x4000
                 $minecartRows.Add("$($spec.Kind)`t$animation`t$frame`t$($spec.Duration)`t$($graphic.ToString('x2'))`t$($parameter.ToString('x2'))`t$($next.ToString('x4'))`t$($oam.ToString('x4'))`tdata/$($minecartPack.Name):$($spec.Table)[$animation]+$($frame * 3)")
             }
@@ -127,7 +164,13 @@ foreach ($minecartPack in @(
             if ($minecartBytes[$loop] -ne 0xff -or $minecartBytes[$loop + 1] -ne (255 - $spec.Frames * 3)) {
                 throw "Minecart $($minecartPack.Name): native animation backward loop changed."
             }
+            $cartAnimations.Add($visualFrames -join '|')
         }
     }
     Write-GeneratedTable((Join-Path $minecartPack.Root 'objects/minecart_animation_state.tsv'), $minecartRows)
+    $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($cartAnimations -join "`n"))
+    Write-GeneratedTable((Join-Path $minecartPack.Root 'objects/minecart_visual.tsv'),@(
+        "# sprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimations-base64`tsource",
+        "$cartSprite`t$tileBase`t$palette`t1`t$encoded`tdata/$($minecartPack.Name)/interactionAnimations.s:interaction16Animations;specialObjectAnimationData.s:specialObject0aAnimationDataPointers"
+    ))
 }

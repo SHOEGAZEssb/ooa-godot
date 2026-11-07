@@ -21,7 +21,7 @@ public partial class ValidationRoot
         foreach (int distance in new[] { -11,-10,9,10 })
         foreach (float fraction in new[] { 0f,0.5f })
         {
-            var part = new DungeonSwitchRoomEntity(source,_currentRoom,data,_runtimeState,
+            var part = new DungeonSwitchRoomEntity(source,_currentRoom,DungeonSwitchDatabase.For(AgesGameContent.AssetRoot),_runtimeState,
                 () => 0,() => { },_ => { },_rooms.TrySetTile,_saveData);
             try
             {

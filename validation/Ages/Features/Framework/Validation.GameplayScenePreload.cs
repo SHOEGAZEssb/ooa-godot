@@ -167,6 +167,14 @@ public sealed partial class ValidationRoot
         FailIf(ReferenceEquals(_entities, retiredEntities) || _entities.IsDisposed ||
             !ReferenceEquals(_roomEvents, retiredEvents) || !retiredEntities.IsDisposed,
             "Partial-preparation cleanup fixture missed the new-entities/old-events boundary.");
+        ValidateRoomEventsBeforeReset();
+        // Cancellation also applies after event registration but before Link's
+        // world/inventory binding permits acquiring successor player control.
+        while(ReferenceEquals(_roomEvents,retiredEvents) && preparationSteps++<512 && partial.MoveNext()) { }
+        FailIf(ReferenceEquals(_roomEvents,retiredEvents) || _player.World is not null ||
+            !ReferenceEquals(RegisteredRoomEventContext(_roomEvents).Entities,_entities),
+            "Partial-preparation cleanup fixture missed new events before Player.Initialize.");
+        ValidateRoomEventsBeforeReset();
         ReinitializeGameplayForValidation();
         GD.Print("Validated staged intro preparation and original handoff through individual and batched host updates.");
         ValidatePreparedSavedGameHandoff();

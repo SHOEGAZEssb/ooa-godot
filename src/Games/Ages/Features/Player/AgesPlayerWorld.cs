@@ -39,18 +39,6 @@ public sealed class AgesPlayerWorld : PlayerWorld, IPlayerWorld
         _entities.RuntimeState.ReadField("wWarpsDisabled") != 0 ||
         _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;
     public bool PlayerContactDisabled => _transitions.TimeWarpActive || _entities.PlayerContactDisabled;
-    public bool NativeWarpsDisabled =>
-        _entities.RuntimeState.ReadField("wWarpsDisabled") != 0;
-    public void SetNativeWarpsDisabled(bool disabled) =>
-        _entities.RuntimeState.SetField("wWarpsDisabled", disabled ? (byte)1 : (byte)0);
-    public void RequestWallmasterReturn()
-    {
-        var profile = EnemyBehaviorTables.For(AssetRoot).Floormaster;
-        _entities.OnRoomWarpRequested(new Warp(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, -1, 0,
-            WarpSourceTransition.FadeOut, _rooms.ActiveGroup,
-            _entities.RuntimeState.ReadField("wDungeonWallmasterDestRoom"), profile.ReturnPosition,
-            0, profile.ReturnTransition, DirectFadeOut: true)); // wWarpDestTransition2=$03.
-    }
     public bool SeedShooterActive => _seedShooter.ShooterActive;
     public int SeedShooterAngle => _seedShooter.ShooterAngle;
     public bool SwitchHookActive => _entities.SwitchHook?.Active == true;

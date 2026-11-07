@@ -2,8 +2,8 @@
 namespace Oracles;
 
 /// <summary>
-/// ENEMY_ITEM_DROP_PRODUCER ($59), created by Ages object opcode $fa. It is
-/// invisible and uncounted, captures its metatile on the first update, and
+/// ENEMY_ITEM_DROP_PRODUCER ($59), placed directly or by object opcode $fa. It is
+/// invisible, captures its metatile on the first update, and
 /// creates PART_ITEM_DROP only after that tile changes.
 /// </summary>
 public partial class ItemDropProducer : Node2D

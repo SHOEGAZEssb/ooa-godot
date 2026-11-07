@@ -60,6 +60,8 @@ public static class InteractionId
     public const int CreateObjectAtEachTileIndex = 0xc7;
     // constants/common/interactions.s: INTERAC_BUSINESS_SCRUB
     public const int BusinessScrub = 0xce;
+    // constants/common/interactions.s: INTERAC_STATUE_EYEBALL
+    public const int StatueEyeball = 0xe2;
     // constants/common/interactions.s: INTERAC_RING_HELP_BOOK
     public const int RingHelpBook = 0xe5;
 }

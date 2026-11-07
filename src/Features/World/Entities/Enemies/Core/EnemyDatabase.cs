@@ -545,6 +545,7 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.Bubble => HasImportedDefinition(descriptor, 0x15),
         EnemyHandlerKind.Bari => HasImportedDefinition(descriptor, 0x3c),
         EnemyHandlerKind.Floormaster => HasImportedDefinition(descriptor, 0x35),
+        EnemyHandlerKind.Aquamentus => HasImportedDefinition(descriptor, 0x78),
         EnemyHandlerKind.Wizzrobe => HasImportedDefinition(descriptor, 0x40),
         EnemyHandlerKind.Candle => HasImportedDefinition(descriptor, 0x55),
         EnemyHandlerKind.Peahat =>
@@ -615,8 +616,3 @@ public readonly record struct CrowRecord(string AssetRoot, int Id, int SubId, st
 
 
 internal readonly record struct EnemyProjectileVisualRecord(string AssetRoot, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, string[] Animations);
-
-
-
-
-public readonly record struct StalfosRecord(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);

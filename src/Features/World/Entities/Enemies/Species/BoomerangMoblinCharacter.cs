@@ -15,8 +15,8 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
     private int _angle;
     private bool _initialized;
     private bool _boomerangReturned;
-    private EnemyBehaviorTables? _behaviorSourceCache;
-    private EnemyBehaviorTables _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
+    private BoomerangMoblinDatabase? _dataSourceCache;
+    private BoomerangMoblinDatabase _data => _dataSourceCache ??= BoomerangMoblinDatabase.For(AssetRoot);
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal BoomerangMoblinCharacterMoblinState State => _state;
@@ -68,7 +68,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
             SetAnimation(_angle >> 3);
             _movement.MoveAtAngle(
                 _angle,
-                _behavior.BoomerangMoblin.SpeedRaw,
+                _data.SpeedRaw,
                 allowHoles: false);
             AdvanceAnimation();
             return -1;
@@ -84,7 +84,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
                 _counter--;
                 if (_counter == 0 || !_movement.MoveAtAngle(
                     _angle,
-                    _behavior.BoomerangMoblin.SpeedRaw,
+                    _data.SpeedRaw,
                     allowHoles: false))
                 {
                     _state = BoomerangMoblinCharacterMoblinState.Deciding;
@@ -99,13 +99,14 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
                 {
                     return _angle;
                 }
-                break;
+                return -1;
 
             case BoomerangMoblinCharacterMoblinState.WaitingForBoomerang:
                 if (_boomerangReturned)
                 {
                     _boomerangReturned = false;
                     ChooseDirection();
+                    return -1;
                 }
                 break;
         }
@@ -124,7 +125,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
     {
         // @gotoState8WithRandomAngleAndCounter calls getRandomNumber for the
         // duration, then ecom_setRandomCardinalAngle consumes a second value.
-        _counter = _behavior.BoomerangMoblinRouteCounters[
+        _counter = _data.RouteCounters[
             _random.Next().Value & 0x03].Value;
         _angle = _random.NextCardinalAngle();
         _state = BoomerangMoblinCharacterMoblinState.Moving;

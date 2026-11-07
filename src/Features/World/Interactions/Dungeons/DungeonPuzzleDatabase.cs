@@ -4,10 +4,15 @@ namespace Oracles;
 // Shared native push, shutter, button and staircase parameters.
 internal class DungeonPuzzleDatabase
 {
+    private readonly string _root;
+    private IReadOnlyList<CutsceneCommand>? _enemyClearChestCommands;
+    internal IReadOnlyList<CutsceneCommand> EnemyClearChestCommands => _enemyClearChestCommands ??=
+        CutsceneCommandCatalog.Load(_root+"cutscenes/enemy_clear_chest_commands.tsv");
     private readonly Dictionary<string,int> _puzzleConstants = new(StringComparer.Ordinal);
     internal int PushableBlock => PuzzleConstant("pushable-block");
     internal int PushDelay => PuzzleConstant("push-delay");
     internal int SolveWait => PuzzleConstant("solve-wait");
+    internal int ChestPuffWait => PuzzleConstant("chest-puff-wait");
     internal int SolveSound => PuzzleConstant("solve-sound");
     internal int DoorFrameWait => PuzzleConstant("door-frame-wait");
     internal int OpenTile => PuzzleConstant("open-tile");
@@ -38,11 +43,12 @@ internal class DungeonPuzzleDatabase
 
     internal DungeonPuzzleDatabase(string root)
     {
+        _root=root;
         var table=GeneratedTable.Load(root+"objects/dungeon_puzzle_constants.tsv",
             new("native dungeon puzzle parameters",GeneratedTableKeySemantics.Unique,
                 ["key","value"],["key"],headerRequired:true));
         foreach(var row in table.Rows)_puzzleConstants.Add(row.RequiredString(0),row.Decimal(1));
-        if(_puzzleConstants.Count!=55)throw new InvalidOperationException($"{table.Path}: expected 55 native dungeon puzzle parameters.");
+        if(_puzzleConstants.Count!=56)throw new InvalidOperationException($"{table.Path}: expected 56 native dungeon puzzle parameters.");
     }
     protected int PuzzleConstant(string key) => _puzzleConstants.TryGetValue(key,out int value)?value:
         throw new KeyNotFoundException($"Native dungeon puzzle parameter '{key}' was not imported.");

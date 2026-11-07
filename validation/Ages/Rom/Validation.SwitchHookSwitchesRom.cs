@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         CompareSwitchTileTogglerGatesRom();
         CompareNuunSwitchBridgeRom();
         CompareNuunSwitchAllocationRom();
-        var collisions = PartSwitchCollisionDatabase.For(AgesGameContent.AssetRoot);
+        var collisions = DungeonSwitchDatabase.For(AgesGameContent.AssetRoot);
         // Independent partActiveCollisions $05 mask/effect goldens remain
         // useful alongside the executed contact and rail handoff checks.
         const string enabled = "00001111111101100000001101111110";

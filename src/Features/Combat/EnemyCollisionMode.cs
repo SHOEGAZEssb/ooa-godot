@@ -14,6 +14,10 @@ public static class EnemyCollisionMode
     public const int Projectile = 0x06;
     // constants/common/enemyCollisionModes.s: ENEMYCOLLISION_PROJECTILE_WITH_RING_MOD
     public const int ProjectileWithRingMod = 0x07;
+    // constants/common/enemyCollisionModes.s: ENEMYCOLLISION_AQUAMENTUS_HORN (Seasons).
+    public const int AquamentusHorn = 0x48;
+    // constants/common/enemyCollisionModes.s: ENEMYCOLLISION_AQUAMENTUS_BODY (Seasons).
+    public const int AquamentusBody = 0x5d;
     // constants/common/enemyCollisionModes.s: ENEMYCOLLISION_BURNABLE_ENEMY
     public const int BurnableEnemy = 0x11;
     // constants/common/enemyCollisionModes.s: ENEMYCOLLISION_BLADE_TRAP

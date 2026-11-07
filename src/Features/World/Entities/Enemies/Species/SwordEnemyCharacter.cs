@@ -270,16 +270,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
 
     private void SetDirectionalAnimation()
     {
-        // ecom_updateAnimationFromAngle preserves the previous facing within
-        // diagonal sectors when it is one of the two neighboring directions.
-        int index = EnemyBehaviorTables.For(AssetRoot).SwordEnemyAngleAnimations[_angle].Value;
-        if (index >= 4)
-        {
-            int difference = (index - AnimationIndex) & 0xff;
-            if (difference == 7 || ((difference - 3) & 0xff) < 2) return;
-            index = ((_angle + 4) & ObjectAngle.CardinalMask) >> 3;
-        }
-        SetAnimation(index);
+        SetNativeAngleAnimation(_angle);
     }
 
     internal override bool TakeBurnHit(int damage) => base.TakeBurnHit(Health);

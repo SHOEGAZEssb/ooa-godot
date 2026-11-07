@@ -21,6 +21,16 @@ public abstract class PlayerWorld
     protected readonly Func<bool> _collisionsDisabled;
     protected readonly CombatController _combat;
     protected readonly TerrainController _terrain;
+    public bool NativeWarpsDisabled => _entities.RuntimeState.ReadField("wWarpsDisabled")!=0;
+    public void SetNativeWarpsDisabled(bool disabled) =>
+        _entities.RuntimeState.SetField("wWarpsDisabled",disabled?(byte)1:(byte)0);
+    public void RequestWallmasterReturn()
+    {
+        var profile=FloormasterDatabase.For(_rooms.AssetRoot);
+        _entities.OnRoomWarpRequested(new Warp(_rooms.ActiveGroup,_rooms.CurrentRoom.Id,-1,0,
+            WarpSourceTransition.FadeOut,_rooms.ActiveGroup,_entities.RuntimeState.ReadField("wDungeonWallmasterDestRoom"),
+            profile.ReturnPosition,0,profile.ReturnTransition,DirectFadeOut:true));
+    }
     private readonly RoomTransitionController _roomTransitions;
     internal TerrainController Terrain => _terrain;
     internal RoomTransitionController Transitions => _roomTransitions;

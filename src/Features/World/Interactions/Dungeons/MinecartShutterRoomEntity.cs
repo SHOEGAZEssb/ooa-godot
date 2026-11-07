@@ -12,7 +12,7 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly OracleRoomData _room;
-    private readonly DungeonMechanicDatabase _data;
+    private readonly DungeonPuzzleDatabase _data;
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
@@ -38,7 +38,7 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
         int closedTile,
         bool oneShotOpener,
         OracleRoomData room,
-        DungeonMechanicDatabase data,
+        DungeonPuzzleDatabase data,
         Func<Vector2, Vector2> worldToScreen,
         Func<long> animationTick,
         Action<int> playSound,

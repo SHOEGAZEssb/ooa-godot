@@ -9,8 +9,6 @@ namespace Oracles;
 internal sealed class DungeonInteractionDatabase
 {
     public string AssetRoot { get; }
-    private IReadOnlyList<CutsceneCommand>? SmallKeyCommandsSourceCache;
-    internal IReadOnlyList<CutsceneCommand> SmallKeyCommands => SmallKeyCommandsSourceCache ??= CutsceneCommandCatalog.Load(AssetRoot + "cutscenes/enemy_small_key_commands.tsv");
     private readonly Dictionary<string, int> _constants =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, MovingSideScrollPlatformRecord> _platforms =
@@ -19,7 +17,6 @@ internal sealed class DungeonInteractionDatabase
     internal DungeonInteractionDatabase(string assetRoot)
     {
         AssetRoot = assetRoot;
-        SmallKeyCommandsSourceCache = CutsceneCommandCatalog.Load(AssetRoot + "cutscenes/enemy_small_key_commands.tsv");
 
         LoadConstants(
             AssetRoot + "objects/dungeon_interaction_constants.tsv",

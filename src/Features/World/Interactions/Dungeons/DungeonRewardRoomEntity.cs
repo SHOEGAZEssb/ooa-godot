@@ -7,7 +7,8 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     IScreenTransitionPreloadRoomEntity
 {
     private readonly DungeonObjectRecord _record;
-    private readonly DungeonInteractionDatabase _data;
+    private readonly DungeonRewardDatabase _data;
+    private readonly OracleRuntimeState _runtime;
     private readonly OracleSaveData? _save;
     private readonly Func<int> _enemyCount;
     private readonly GroundTreasureGrantRequest? _treasure;
@@ -33,11 +34,12 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     public Node2D Node => this;
     public bool Finished { get; private set; }
     public bool UpdatesDuringDialogue => !_initialized;
-    public bool UpdatesDuringRoomEntityFreeze => _smallKeyScript is null || !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     internal DungeonRewardRoomEntity(
         DungeonObjectRecord record,
-        DungeonInteractionDatabase data,
+        DungeonRewardDatabase data,
+        OracleRuntimeState runtime,
         OracleSaveData? save,
         Func<int> enemyCount,
         GroundTreasureGrantRequest? treasure,
@@ -47,6 +49,7 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     {
         _record = record;
         _data = data;
+        _runtime = runtime;
         _save = save;
         _enemyCount = enemyCount;
         _treasure = treasure;
@@ -97,8 +100,18 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
             // interactionSetScript clears counter1/counter2, including bytes
             // inherited from a write while this native page was disabled.
             Counter2Alias = 0;
+            if (_record.Id == InteractionId.DungeonScript)
+            {
+                _runtime.SetWramByte(0xcfc1,0);
+                _runtime.SetWramByte(0xcfc2,0);
+            }
             _initialized = true;
+            if(_record.Kind==DungeonObjectKind.MinibossReward &&
+                _save?.HasRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlag80)==true)
+            { _minibossScriptStep=-1;return; }
         }
+        if (_runtime.ReadField("wLinkDeathTrigger") != 0 || _scriptTextActive?.Invoke() == true)
+            return;
         if (Counter2Alias != 0)
         {
             // interactionRunScript returns even on the 1->0 update. The
@@ -147,6 +160,7 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
             // interactionRunScript continues on the counter1 1->0 update.
             switch (_minibossScriptStep)
             {
+                case -1: Finished=true;return; // state0 retains the ended stub until its next state1 visit.
                 case 0: // checknoenemies
                     if (_enemyCount() == 0) _minibossScriptStep++;
                     return;
@@ -154,7 +168,7 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
                     _save?.SetRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlag80);
                     _minibossScriptStep++; return;
                 case 2: // wait 20
-                    _counter = _data.Constant("miniboss-reward-wait");
+                    _counter = _data.MinibossWait;
                     _minibossScriptStep++; return;
                 case 3: // spawninteraction $7e, then yield even on failure
                     if (--_counter != 0) return;

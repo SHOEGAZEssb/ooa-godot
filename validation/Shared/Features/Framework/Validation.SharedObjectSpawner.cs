@@ -22,8 +22,14 @@ public sealed partial class ValidationRoot
         if (seasons)
         {
             var native = new EnemyHandlerRegistry(rooms.AssetRoot).Handlers.ToArray();
-            FailIf(native.Length != 144 || native.Count(entry => entry.Classification == EnemyHandlerClassification.Unimplemented) != 116 ||
-                native.Where(entry => entry.Id is not (0x08 or 0x09 or 0x0c or 0x10 or 0x17 or 0x20 or 0x22 or 0x2d or 0x32 or 0x34 or 0x43 or 0x51)).Any(entry => entry.SubId != 0 || entry.SupportsCombatSource) ||
+            FailIf(native.Length != 153 || native.Count(entry => entry.Classification == EnemyHandlerClassification.Unimplemented) != 110 ||
+                native.Where(entry => entry.Id is not (0x08 or 0x09 or 0x0a or 0x0c or 0x0e or 0x10 or 0x17 or 0x20 or 0x22 or 0x2d or 0x31 or 0x32 or 0x34 or 0x35 or 0x43 or 0x51 or 0x70 or 0x78)).Any(entry => entry.SubId != 0 || entry.SupportsCombatSource) ||
+                native.Where(entry=>entry.Id==0x78).Any(entry=>entry.SubId is <0 or >3||entry.Handler!=EnemyHandlerKind.Aquamentus||entry.CollisionMode!=0xc8||entry.SupportsStandaloneConstruction) ||
+                native.Where(entry=>entry.Id==0x35).Any(entry=>entry.SubId is <0 or >2||entry.Handler!=EnemyHandlerKind.Floormaster||entry.CollisionMode!=0x24||!entry.SupportsStandaloneConstruction) ||
+                native.Where(entry=>entry.Id==0x70).Any(entry=>entry.SubId is not (0 or 1)||entry.Handler!=EnemyHandlerKind.BrotherGoriyas||entry.CollisionMode!=0x41||!entry.SupportsStandaloneConstruction) ||
+                native.Single(entry=>entry.Id==0x0a) is not {Handler:EnemyHandlerKind.BoomerangMoblin,SubId:0,CollisionMode:0x91,SupportsStandaloneConstruction:true} ||
+                native.Where(entry=>entry.Id==0x0e).Any(entry=>entry.SubId is not (0 or 1 or 2 or 5) || entry.Handler!=EnemyHandlerKind.BladeTrap || entry.CollisionMode!=0x93 || !entry.SupportsStandaloneConstruction) ||
+                native.Single(entry => entry.Id == 0x31) is not {Handler:EnemyHandlerKind.Stalfos,SubId:0,CollisionMode:0xa8,SupportsStandaloneConstruction:true} ||
                 native.Single(entry => entry.Id == 0x08) is not {Handler:EnemyHandlerKind.RiverZora,CollisionMode:0x0f,SupportsStandaloneConstruction:true} ||
                 native.Single(entry => entry.Id == 0x43) is not {Handler:EnemyHandlerKind.Gel,CollisionMode:0xb1,SupportsStandaloneConstruction:true} ||
                 native.Where(entry => entry.Id == 0x34).Any(entry=>entry.SubId is <0 or >1 || entry.Handler!=EnemyHandlerKind.Zol ||

@@ -11,6 +11,7 @@ internal sealed class CommonEnemyBehavior
     internal ScentSeedAttractionBehaviorProfile ScentSeedAttraction { get; }
     internal ProjectileBounceBehaviorProfile ProjectileBounce { get; }
     internal IReadOnlyList<EnemyBehaviorPair> ProjectileBoundaryOffsets { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> AngleAnimations {get;}
 
     private CommonEnemyBehavior()
     {
@@ -44,8 +45,9 @@ internal sealed class CommonEnemyBehavior
         values = Values("projectile-bounce-profile",4);
         ProjectileBounce = new(values[0].Value,values[1].Value,values[2].Value,values[3].Value,values);
         ProjectileBoundaryOffsets = Pairs("projectile-boundary-offsets",8);
-        if (groups.Count != 0 || table.Rows.Count != 29)
-            throw new InvalidOperationException($"{table.Path}: expected $1d common enemy rows without unclaimed profiles.");
+        AngleAnimations=Values("angle-animation",32);
+        if (groups.Count != 0 || table.Rows.Count != 61)
+            throw new InvalidOperationException($"{table.Path}: expected $3d common enemy rows without unclaimed profiles.");
     }
 }
 

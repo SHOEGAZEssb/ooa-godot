@@ -73,50 +73,6 @@ if ($commonTileSubstitutionSource -notmatch
     throw 'applySingleTileChanges linked/completion predicate behavior changed.'
 }
 
-# replaceSwitchTiles runs before object parsing, independently of the PART
-# and INTERACTION allocators. Preserve every ordered row in the Ages branch.
-if ($commonTileSubstitutionSource -notmatch '(?ms)^replaceSwitchTiles:.*?sub NUM_SMALL_GROUPS.*?dec a\s*ret nz.*?ld a,\(wSwitchState\).*?and c.*?ld \(de\),a') {
-    throw 'commonTileSubstitutions.s:replaceSwitchTiles group/mask/write flow changed.'
-}
-$switchReplacementRows = [Collections.Generic.List[string]]::new()
-$switchReplacementRows.Add("# group`troom`tmask`tposition`ttile`tsource")
-$switchTableGroup = 0
-$switchTableEnds = @{}
-foreach ($switchNode in Read-AssemblyNodes (Join-Path $Disassembly 'code/commonTileSubstitutions.s')) {
-    if ($switchNode.EnclosingGlobalLabel -ne 'replaceSwitchTiles') { continue }
-    if ($switchNode.Kind -eq 'Label') {
-        if ($switchNode.Name -match '^@group(?<group>[45])SwitchData$') {
-            $switchTableGroup = [int]$Matches['group']
-            if ($switchTableEnds.ContainsKey($switchTableGroup)) {
-                throw "$($switchNode.Path):$($switchNode.Line): repeated active switch table."
-            }
-            $switchTableEnds[$switchTableGroup] = $false
-        }
-        continue
-    }
-    if ($switchTableGroup -eq 0 -or $switchNode.Kind -in @('Blank','Comment')) { continue }
-    if ($switchNode.Kind -eq 'Directive' -and $switchNode.Name -in @('.ifdef','.else','.endif')) { continue }
-    if ($switchNode.Kind -ne 'Data' -or $switchNode.Name -ne '.db' -or $switchTableEnds[$switchTableGroup]) {
-        throw "$($switchNode.Path):$($switchNode.Line): unsupported switch table node '$($switchNode.Code)'."
-    }
-    $switchBytes = @($switchNode.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
-    if ($switchBytes.Count -eq 1 -and $switchBytes[0] -eq 0) {
-        $switchTableEnds[$switchTableGroup] = $true
-        continue
-    }
-    if ($switchBytes.Count -ne 4 -or $switchBytes[0] -eq 0 -or $switchBytes[1] -eq 0 -or
-        @($switchBytes | Where-Object { $_ -lt 0 -or $_ -gt 0xff }).Count -ne 0) {
-        throw "$($switchNode.Path):$($switchNode.Line): expected room/mask/tile/position bytes."
-    }
-    $switchReplacementRows.Add("$switchTableGroup`t$($switchBytes[0].ToString('x2'))`t$($switchBytes[1].ToString('x2'))`t$($switchBytes[3].ToString('x2'))`t$($switchBytes[2].ToString('x2'))`tcommonTileSubstitutions.s:replaceSwitchTiles.@group${switchTableGroup}SwitchData")
-}
-if ($switchTableEnds.Count -ne 2 -or -not $switchTableEnds[4] -or -not $switchTableEnds[5]) {
-    throw 'commonTileSubstitutions.s: missing terminated Ages switch tables.'
-}
-if ($switchReplacementRows.Count -ne 13) {
-    throw "commonTileSubstitutions.s: expected12 Ages switch replacement rows, parsed$($switchReplacementRows.Count-1)."
-}
-Write-GeneratedTable((Join-Path $destination 'metadata/switch_tile_replacements.tsv'),$switchReplacementRows)
 
 # Import applyRoomSpecificTileChanges as declarative
 # conditions and layout operations. The dispatcher is parsed rather than

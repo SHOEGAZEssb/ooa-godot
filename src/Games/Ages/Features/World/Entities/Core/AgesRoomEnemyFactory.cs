@@ -168,14 +168,6 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
                     owner.InteractionAnimationParameter, owner.ConsumeCandleExplosionSignal);
                 candleOwner = new CandleRoomEntity(candle, combatSource, owner.OnSoundRequested);
                 return candleOwner;
-            case EnemyHandlerKind.Floormaster:
-                FloormasterRoomEntity? floorOwner = null;
-                var floor = new FloormasterCharacter { Name = $"Floormaster_{source.Order}_{instance}" };
-                floor.Initialize(enemies.ImportedEnemy(EnemyId.Floormaster, source.SubId), room, position, _random,
-                    spawn: () => owner.TryAllocateEnemy(_ => CreateFloormasterChild(floorOwner!, room)) is not null);
-                floorOwner = new FloormasterRoomEntity(floor, combatSource, owner.OnSoundRequested, () => _random.Next().Value,
-                    () => owner.PartSlotAvailable);
-                return floorOwner;
             case EnemyHandlerKind.Bari:
                 var bari = new BariCharacter { Name = $"Bari_{source.Order}_{instance}" };
                 bari.Initialize(enemies.ImportedEnemy(AgesEnemyId.Bari, source.SubId), room, position, _random);
@@ -268,21 +260,6 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
                 return new StalfosRoomEntity(
                     stalfos, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable);
 
-            case EnemyHandlerKind.BoomerangMoblin:
-                if (!enemies.TryGetImportedEnemyDefinition(
-                    source, out ImportedEnemyDefinition moblinRecord))
-                {
-                    throw MissingEnemyDefinition(handler, source);
-                }
-                var moblin = new BoomerangMoblinCharacter
-                {
-                    Name = $"BoomerangMoblin_{source.Order}_{instance}",
-                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
-                };
-                moblin.Initialize(moblinRecord, room, position, _random);
-                return new BoomerangMoblinRoomEntity(
-                    moblin, combatSource, owner.OnSoundRequested);
-
             case EnemyHandlerKind.Leever:
                 if (!enemies.TryGetImportedEnemyDefinition(
                     source, out ImportedEnemyDefinition leeverRecord))
@@ -311,13 +288,6 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
                 var lynel = new LynelCharacter { Name = $"Lynel_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
                 lynel.Initialize(lynelRecord, room, position, _random);
                 return new LynelRoomEntity(lynel, combatSource, owner);
-
-            case EnemyHandlerKind.BladeTrap:
-                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition trapRecord))
-                    throw MissingEnemyDefinition(handler, source);
-                var trap = new BladeTrapCharacter { Name = $"BladeTrap_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
-                trap.Initialize(trapRecord, room, position, _random, owner.OnSoundRequested);
-                return new BladeTrapRoomEntity(trap, combatSource, owner.OnSoundRequested);
 
             case EnemyHandlerKind.PolsVoice:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -744,17 +714,6 @@ internal sealed class AgesRoomEnemyFactory(RoomEntityManager owner, EnemyDatabas
         return new(actor,source,owner.OnSoundRequested) {PartSlotAvailable=()=>owner.PartSlotAvailable};
     }
 
-    private IRoomEntity CreateFloormasterChild(FloormasterRoomEntity parent, OracleRoomData room)
-    {
-        var child = new FloormasterCharacter { Name = "FloormasterHand" };
-        var spawner = (FloormasterCharacter)parent.Node;
-        child.Initialize(enemies.ImportedEnemy(EnemyId.Floormaster, spawner.ChildSubId), room, Vector2.Zero, _random,
-            parent: () => parent.ResolveSlot(parent.Slot)?.Node as FloormasterCharacter ??
-                throw new InvalidOperationException($"floorMaster.s: relatedObj1 slot ${parent.Slot:x2} lost its spawner."));
-        var source = enemies.EnemyHandlers.ResolveHandler(EnemyId.Floormaster, spawner.ChildSubId, "floorMaster.s:floormaster_state1")
-            .CombatSource(2, 0, "object_code/common/enemies/floorMaster.s:ecom_spawnUncountedEnemyWithSubid01");
-        return new FloormasterRoomEntity(child, source, owner.OnSoundRequested, () => _random.Next().Value, () => owner.PartSlotAvailable);
-    }
 
     private (int Group, int Room) ResolveWallmasterDestination(
         RoomObjectRecord source)

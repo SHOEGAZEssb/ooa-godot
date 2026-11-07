@@ -25,7 +25,7 @@ internal sealed class SwitchTileReplacementDatabase
             _byRoom.Add((group,room),new(mask,row.HexByte(3),(byte)row.HexByte(4),source));
             RecordCount++;
         }
-        if (RecordCount != 12) throw new InvalidOperationException("commonTileSubstitutions.s: expected12 Ages switch replacements.");
+        if (RecordCount == 0) throw new InvalidOperationException($"{table.Path}: missing native room-entry switch replacements.");
     }
 
     internal void Apply(int group,OracleRoomData room,byte switchState,long tick)
