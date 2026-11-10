@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
                 database.Projectile.NormalAnimation != "127@8,0,0,0;8,8,0,32" ||
                 database.Projectile.BounceAnimation != "127@8,0,0,0;8,8,0,32",
                 $"{game}: original Octorok and common PART bounce operands differ.");
-            foreach (int sub in new[] {0,1,2})
+            foreach (int sub in Enumerable.Range(0, game == OracleGame.Seasons ? 4 : 3))
             foreach (bool pressure in new[] {false,true})
             {
                 Floor();
@@ -59,8 +59,8 @@ public sealed partial class ValidationRoot
                 // Native retained position bytes are explicit inputs; F4 accepts whole pixels.
                 actor.Position=new(80.25f,72.5f);
                 FailIf(!actor.InitializationPending || actor.Visible || entities.Random.Calls != seed.Calls ||
-                    actor.Record.Health != (sub == 2 ? 3 : 2) || actor.Record.RawDamage != (sub == 2 ? 0xfc : 0xfe) ||
-                    actor.Record.SpeedRaw != (sub == 1 ? 30 : 20) || actor.Record.CounterMask != (sub == 2 ? 3 : 7),
+                    actor.Record.Health != (sub >= 2 ? 3 : 2) || actor.Record.RawDamage != (sub >= 2 ? 0xfc : 0xfe) ||
+                    actor.Record.SpeedRaw != ((sub & 1) != 0 ? 30 : 20) || actor.Record.CounterMask != (sub >= 2 ? 3 : 7),
                     $"{game}: Octorok native construction/properties differ.");
                 var native = SharedNativeEnemyReference(rooms,player,9);
                 native.SetResidentObjectGraphics(2,game == OracleGame.Ages ? 0x8f : 0x74);

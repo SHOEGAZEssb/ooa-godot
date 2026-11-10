@@ -342,6 +342,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeasonsWorldRooms, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsTalkNpcPredicates);
         RunIsolatedValidation(ValidateSeasonsTalkNpcConversations);
+        RunIsolatedValidation(ValidateSeasonsOldManCave);
+        RunIsolatedValidation(ValidateSeasonsRosaChase);
+        RunIsolatedValidation(ValidateSeasonsRosaChaseRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsSubrosiaPortal, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsTalkNpcNativeUpdates);
         RunIsolatedValidation(ValidateSeasonsTalkNpcBindings);
         RunIsolatedValidation(ValidateSeasonsMiscNpcState);
@@ -393,6 +397,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeasonsMenuAssets);
         RunIsolatedValidation(ValidateSeasonsOpeningFlow);
         RunIsolatedValidation(ValidateSeasonsPersistence);
+        RunIsolatedValidation(ValidateSeasonsSavedEntranceWarp);
         RunIsolatedValidation(ValidateMenuLifecycleFoundation);
         RunIsolatedValidation(ValidateRepresentativeRooms);
         RunIsolatedValidation(ValidateNuunCompanionLayouts);

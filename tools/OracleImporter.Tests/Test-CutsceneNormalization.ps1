@@ -151,6 +151,26 @@ foreach($name in 'book','alias'){
     Assert-Normalization ($commands[6][4] -eq 'scriptjump' -and $commands[6][6] -eq '0') 'Synthetic reset fallthrough added a native update.'
 }
 Write-Host 'Shared NPC program fixtures passed (aliases, backward reset fallthrough and explicit jump yields).'
+function Read-AssemblyNodes([string]$path) {
+    $line=0
+    foreach($entry in @(
+        @('Label','chase',''),@('MacroInvocation','jumprandom','left, right'),
+        @('Label','left',''),@('MacroInvocation','loadscript','scripts2.body'),
+        @('Label','right',''),@('MacroInvocation','scriptend',''),
+        @('Label','body',''),@('MacroInvocation','callscript','mainScripts.look'),@('MacroInvocation','scriptend',''),
+        @('Label','look',''),@('MacroInvocation','wait','30'),@('MacroInvocation','retscript',''))){
+        [pscustomobject]@{Path=$path;Line=++$line;Kind=$entry[0];Name=$entry[1];EnclosingGlobalLabel='chase';Operands=@($entry[2] -split ',\s*')}
+    }
+}
+$chaseProgram=@(Read-AssemblyNpcProgramRows @('chase.s') @('chase'))
+$chaseCommands=@(ConvertTo-NpcProgramRows $chaseProgram 'Self' @{})
+$branch=$chaseCommands[1].Split([char]9)
+Assert-Normalization ($branch[4] -eq 'jumptablememory' -and
+    [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($branch[8])) -eq 'random-bit|1,2') 'Random script branch lost either source target.'
+Assert-Normalization ($chaseCommands[2].Split([char]9)[4] -eq 'scriptjump' -and $chaseCommands[2].Split([char]9)[6] -eq '3') 'Bank-switching loadscript must jump to its body without fallthrough or a yield.'
+Assert-Normalization (@($chaseCommands | Select-Object -Skip 1 | Where-Object { $_.Split([char]9)[4] -eq 'callscript' }).Count -eq 1 -and
+    $chaseCommands[-1].Split([char]9)[4] -eq 'return') 'Bank-switched script lost its shared call/return body.'
+Write-Host 'NPC chase program fixtures passed (random targets, bank-switched bodies and shared calls).'
 $makuFixture=@("# script`tlabel`tindex`tline`topcode`toperands`tjump-targets`tpath",
     "maku`troot`t0`t1`tjumptable_memoryaddress`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('$cfc0')))`tdone`tfixture.s",
     "maku`tdone`t1`t2`tcheckcfc0bit`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('7')))`t`tfixture.s",

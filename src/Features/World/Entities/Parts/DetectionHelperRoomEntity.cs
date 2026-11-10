@@ -8,7 +8,7 @@ internal sealed class DetectionHelperRoomEntity : IRoomEntity, IFixedRoomEntity,
     IScreenTransitionPreloadRoomEntity
 {
     private readonly RoomEntityManager _owner;
-    private readonly AmbiGuardRoomEntity _parent;
+    private readonly IRoomEntity _parent;
     private readonly int _subid, _variation;
     private int _angle, _counter1, _counter2, _cycle, _speedY, _speedX;
     internal int State { get; private set; }
@@ -23,7 +23,7 @@ internal sealed class DetectionHelperRoomEntity : IRoomEntity, IFixedRoomEntity,
         InitializeStateZero();
         return ScreenTransitionPresentation.Hidden;
     }
-    internal DetectionHelperRoomEntity(RoomEntityManager owner, AmbiGuardRoomEntity parent,
+    internal DetectionHelperRoomEntity(RoomEntityManager owner, IRoomEntity parent,
         int subid = 0, Vector2 position = default, int angle = 0, int variation = 0)
     { _owner = owner; _parent = parent; _subid = subid; _variation = variation; Node.Position = position; _angle = angle; }
     private void InitializeStateZero()
@@ -47,24 +47,30 @@ internal sealed class DetectionHelperRoomEntity : IRoomEntity, IFixedRoomEntity,
             return;
         }
         if (Health == 0) { Finished = true; return; }
-        var guard = _owner.ResolveEnemySlot(_parent.Slot) as AmbiGuardRoomEntity;
+        var guard = _parent is AmbiGuardRoomEntity original ? _owner.ResolveEnemySlot(original.Slot) as AmbiGuardRoomEntity : null;
+        var interaction = _parent as NativeNpcRoomEntity;
         if (_subid == 0)
         {
-            if (guard is null || guard.Finished) { Finished = true; return; }
-            Node.Position = guard.Actor.Position; _angle = guard.Actor.Angle;
-            if (--_counter1 == 0) { _counter1 = 15; _owner.TryCreateGuardDetectionRay(_parent, 1, Node.Position, _angle, 0); }
+            if (guard is null && interaction is not { Finished: false }) { Finished = true; return; }
+            Node.Position = guard?.Actor.Position ?? interaction!.Npc.Position;
+            _angle = guard?.Actor.Angle ?? interaction!.ReadByte(0x49);
+            if (--_counter1 == 0) { _counter1 = 15; _owner.TryCreateDetectionRay(_parent, 1, Node.Position, _angle, 0); }
             if (--_counter2 == 0)
             {
                 _counter2 = 6; _cycle = (_cycle + 1) & 3;
-                _owner.TryCreateGuardDetectionRay(_parent, 2, Node.Position, _angle, _cycle);
-                _owner.TryCreateGuardDetectionRay(_parent, 3, Node.Position, _angle, _cycle);
+                _owner.TryCreateDetectionRay(_parent, 2, Node.Position, _angle, _cycle);
+                _owner.TryCreateDetectionRay(_parent, 3, Node.Position, _angle, _cycle);
             }
             return;
         }
         if (_subid >= 2 && --_counter1 == 0) { Finished = true; return; }
         Vector2 radius = _subid == 1 ? (((_angle + 4) & 8) == 0 ? new(1, 2) : new(2, 1)) : new(2, 2);
         if (Player.EnemyCollisionOverlaps(frame.Player.Position.Floor(), new Rect2(Node.Position.Floor() - radius, radius * 2)))
-        { if (guard is not null) guard.Actor.DetectionSignal = 0xff; Finished = true; return; }
+        {
+            if (guard is not null) guard.Actor.DetectionSignal = 0xff;
+            else if (interaction is { Finished: false }) interaction.WriteByte(0x7b, 0xff);
+            Finished = true; return;
+        }
         Node.Position = OracleObjectPosition.FromPixels(Node.Position).Add(_speedY, _speedX).PrecisePosition;
         Vector2 pixel = Node.Position.Floor();
         byte collision = _owner.ActiveRoom.GetTerrainInfo(pixel).Collision;

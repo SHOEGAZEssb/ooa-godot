@@ -62,6 +62,7 @@ public sealed partial class ValidationRoot
         foreach (var example in new (int Source,int Arrival,string Handler)[] { (0,6,game == OracleGame.Ages ? "TimeWarp" : "Trampoline"),
             (0,0x0b,"SlowFall"),(8,0,"Subrosia"),(0,2,"FadeOut") })
         {
+            if (game == OracleGame.Seasons && example.Source == 8) continue; // Native round trip has its own ROM regression.
             entities.Clear(); player.WarpTo(floor);
             root._scene.Dialogue.ShowMessage("Unsupported native sequence boundary.",floor.Y);
             var before = rooms.RuntimeState.CaptureState().Wram;

@@ -30,7 +30,7 @@ internal class NativeNpcRoomEntity : NpcRoomEntity, INativeInteractionRoomEntity
         _state[0x66] = 6; _state[0x67] = 6;
         Entity.BindNativeState(_state);
     }
-    public void ReleaseNativeInteractionSlot() { Script?.Cancel(); Delete(); Entity.BindNativeState(null); }
+    public virtual void ReleaseNativeInteractionSlot() { Script?.Cancel(); Delete(); Entity.BindNativeState(null); }
     internal int ReadByte(int offset) => _state[offset];
     internal void WriteByte(int offset, int value)
     {

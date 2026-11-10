@@ -20,6 +20,7 @@ public sealed partial class ValidationRoot
         BraceletRom native = null!;
         string context = "";
         int updates = 0;
+        bool compareAirPresentation = false;
         void Load(int group, int room)
         {
             if (game == OracleGame.Ages) root.LoadDebugRoom(group, room);
@@ -60,6 +61,15 @@ public sealed partial class ValidationRoot
                     native.UpdateLinkItems(entities.FrameCounter, keys | (burst ? 1 : jump ? 2 : 0), interactions: true);
                     if (native[0xcd00] != 0) native.AdvanceScreenBoundary();
                     updates++;
+                    if (compareAirPresentation)
+                    {
+                        foreach (int address in new[] { 0xd020, 0xd021, 0xd022, 0xd023, 0xd030, 0xd031 })
+                            FailIf(memory.ReadWramByte(address) != native[address],
+                                $"{context}: update {updates}: live air animation ${address:x4} differs from the ROM.");
+                        var body = player.NativeLinkBodyFrame;
+                        FailIf(!TextureHasOpaquePixel(body.Texture),
+                            $"{context}: update {updates}: live air graphics must remain renderable across native stream boundaries.");
+                    }
                     FailIf(player.PrecisePosition != new Vector2(native.Word(0xd00c) / 256f, native.Word(0xd00a) / 256f) ||
                         player.SideScrollAirborne != (native[0xcc5c] != 0) ||
                         player.SideScrollSwimmingState != (native[0xcc5d] & 15) ||
@@ -122,6 +132,27 @@ public sealed partial class ValidationRoot
                 FailIf(memory.ReadField("wScreenTransitionDirection") != expected || native[0xcd02] != expected,
                     context + ": only Seasons' exact LADDER type publishes the native downward forced request.");
             }
+            Prepare("long fall presentation");
+            var empty = rooms.CurrentRoom;
+            for (int y = 0; y < empty.HeightInTiles; y++)
+            for (int x = 0; x < empty.WidthInTiles; x++)
+                empty.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8), 0, 0, 0);
+            player.WarpTo(new(88.25f, 16.5f));
+            native.CopyRoom(empty); native.Word(0xd00a, 0x1080); native.Word(0xd00c, 0x5840);
+            // Isolate Link's source fall and presentation from the room exit consumer.
+            memory.SetField("wScrollMode", 0); native[0xcd00] = 0;
+            compareAirPresentation = true;
+            Step(151, Vector2.Zero);
+            if (game == OracleGame.Seasons)
+                FailIf(!player.SideScrollAirborne || memory.ReadWramByte(0xd030) != 0x18 ||
+                    (memory.ReadWramByte(0xd022) | memory.ReadWramByte(0xd023) << 8) != 0x5ce5 ||
+                    memory.ReadWramByte(0xd031) != 0xe4 || player.CapeGliding,
+                    "Seasons' 151st unsupported-bottom fall visit must reach cursor $5ce5/graphics $e4 while retaining JUMP mode $18 and ordinary gravity.");
+            Step(64, Vector2.Zero);
+            player.WarpTo(new(88, 89));
+            FailIf(player.SideScrollAirborne || player.CapeGliding || memory.ReadWramByte(0xd030) != 0x10,
+                "Cancelling the long fall must restore ordinary grounded Link animation.");
+            compareAirPresentation = false;
             CheckSharedSideScrollDrowning(root, batched);
         }
         finally

@@ -181,6 +181,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host, NativeInt
         _speedZ = 0;
         _startPosition = Vector2.Zero;
         _startPosition2 = Vector2.Zero;
+        // bank0.interactionSetScript clears both native counters when replacing the script.
+        if (nativeState is not null) { nativeState[0x46] = 0; nativeState[0x47] = 0; }
         Counter = 0;
         _nativeCounterPending = false;
         _nativeCounter1 = 0;

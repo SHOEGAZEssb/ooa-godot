@@ -2,7 +2,7 @@ $seasonDestination = Split-Path $previewDestination -Parent
 $rows = [Collections.Generic.List[string]]::new()
 $rows.Add("# group`troom`tsource")
 $path = Join-Path $Disassembly 'objects/seasons/mainData.s'
-foreach ($room in @(0x97, 0x98, 0xa7, 0xb6, 0xb5, 0xb4, 0xc4, 0xc3, 0xd3, 0xd4)) {
+foreach ($room in @(0x97, 0x98, 0xa7, 0xb6, 0xb5, 0xb4, 0xc4, 0xc3, 0xd3, 0xd4, 0xcb, 0xbb, 0xab, 0x9b, 0x9a)) {
     $label = 'group0Map' + $room.ToString('x2') + 'ObjectData'
     $nodes = @(Read-AssemblyMacroInvocations $path $label)
     if ($nodes.Count -eq 0) {
@@ -34,6 +34,8 @@ foreach ($placement in @(@(4, 0x26, 0x57), @(4, 0xb1, 0x57), @(5, 0x6f, 0x67))) 
     }
     $rows.Add("$group`t$($room.ToString('x2'))`tobjects/seasons/mainData.s:$label")
 }
+$rows.Add("5`t03`tobjects/seasons/mainData.s:group5Map03ObjectData")
+$rows.Add("1`t05`tobjects/seasons/mainData.s:group1Map05ObjectData")
 Write-GeneratedTable((Join-Path $seasonDestination 'opening/supported_object_rooms.tsv'), $rows)
 
 $satchel=$seasonsSymbols['sidescrollingStaticSeedSatchel']

@@ -150,6 +150,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
             if (debugSavestate is null)
             {
                 GameplayInitialization.RestorePlayer(Save, Link);
+                Transitions.DeactivateWarpAtPlayerPosition(Link);
                 Checkpoints.RecordRoomInitialization(Link.PrecisePosition, Save.RespawnFacing);
             }
             else debugSavestate.RestoreRoomParseState(Entities,Memory);
@@ -179,7 +180,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         ButtonConsumed = false;
         _foregroundScroll = Transitions.ScrollActive;
         _foregroundTransition = Transitions.IsTransitioning;
-        _foregroundCollisions = NormalCollisionCaller;
+        _foregroundCollisions = NormalCollisionCaller && !Transitions.SubrosiaWarpActive;
         AdvanceFade();
         if (Phase == SeasonsOpeningPhase.Arrival) { AdvanceArrival(); return GameplayForegroundMode.Handled; }
         if (_foregroundScroll) return GameplayForegroundMode.ObjectsOnly;
@@ -229,6 +230,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
 
     bool IGameplayObjectPhases.PrepareObjectUpdate(double delta)
     {
+        Transitions.AdvanceSubrosiaBeforeObjects();
         foreach(var maku in Entities.EntityAdapters<SeasonsRemoteMakuRoomEntity>())maku.AdvancePaletteBeforeObjects();
         _essenceEvent?.AdvancePaletteBeforeObjects();
         if (Transitions.AdvanceFadeOutWarpBeforeObjects(delta)) return false;

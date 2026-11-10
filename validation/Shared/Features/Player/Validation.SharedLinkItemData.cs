@@ -126,7 +126,7 @@ public sealed partial class ValidationRoot
                 for (int phase = 0; phase < 3; phase++)
                 for (int direction = 0; direction < 4; direction++)
                 {
-                    var frame = sprites.CapeFrame(phase,direction,damage != 0);
+                    var frame = sprites.NativeFrame(phase < 2 ? 0xe4 : 0x80,direction,damage != 0);
                     FailIf(frame.Offset != new Vector2(-8,-8),"Native Cape OAM must stay centered on Link.");
                     CheckPixels(frame.Texture,goldens[damage][direction + (phase == 2 ? 4 : 0)],
                         $"Cape {phase}/{direction}, damage={damage}");

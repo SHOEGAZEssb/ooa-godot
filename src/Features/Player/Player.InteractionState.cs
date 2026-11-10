@@ -26,7 +26,7 @@ public partial class Player
             // its pre-scroll and waiting phases; landing restores state01.
             // A boss entry publishes its request after Link or during preload;
             // consuming it selects state0b, which restores state01 on counter zero.
-            if ((_holeWarpActive && _inventory.RuntimeState.ReadField("wLinkForceState")!=0x0a) ||
+            if (((_holeWarpActive || _subrosiaWarpActive) && _inventory.RuntimeState.ReadField("wLinkForceState")!=0x0a) ||
                 _ringTransformationRequested != 0 || _getItemStatePhase >= 2 || _forcedRespawnPhase >= 2 || _nativeForcedMovementSelected || _ledgeJumpState != LedgeJumpState.None ||
                 _deathAnimationActive || EnemyGrabActive || WallmasterGrabActive || CollapsedActive || _squishAnimation is not null ||
                 GaleActive && _galePending < 2 || _forcedState08Phase >= 2 ||

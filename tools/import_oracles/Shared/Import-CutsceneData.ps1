@@ -158,7 +158,7 @@ function Read-AssemblyNpcProgramRows {
         }elseif($node.Kind -in @('MacroInvocation','Instruction','Data')){$operations.Add($node)}
     }}
     function Resolve-ProgramTarget([string]$name,[object]$node,[int]$index){
-        $name=$name.Replace('mainScripts.','')
+        $name=$name.Replace('mainScripts.','').Replace('scripts2.','')
         if($name.StartsWith('@')){$name=$node.EnclosingGlobalLabel+$name}
         if($name -match '^[+-]+$'){
             $found=@($anonymous[$node.Path+'|'+$name] | Where-Object {if($name[0] -eq '+'){$_ -gt $index}else{$_ -le $index}})
@@ -178,13 +178,18 @@ function Read-AssemblyNpcProgramRows {
             $index=$pending.Dequeue();if(!$reached.Add($index)){continue}
             if($index -ge $operations.Count){throw "${script}: unterminated script fallthrough."}
             $node=$operations[$index];$op=$node.Name.ToLowerInvariant();$parts=@($node.Operands);$targets=@();$next=$index+1;$fallthrough=-1
+            if($op -eq 'loadscript'){$op='scriptjump'}
             if($op -eq 'stopifroomflag80set'){$op='jumpifroomflagset';$parts=@('$80','stubScript')}
             $taken=$takenBranches.ContainsKey($script) -and $takenBranches[$script] -eq ($op+' '+$parts[0])
             if($op -in @('scriptjump','callscript') -or $op.StartsWith('jumpif')){
                 $targets+=Resolve-ProgramTarget $parts[-1] $node $index
                 $parts[-1]='node'+$targets[-1]
             }
-            if($op.StartsWith('jumptable_')){
+            if($op -eq 'jumprandom'){
+                foreach($target in $parts){$targets+=Resolve-ProgramTarget $target $node $index}
+                if($targets.Count -ne 2){throw "$($node.Path):$($node.Line): jumprandom requires two targets."}
+                $op='jumptable_memoryaddress';$parts=@('random-bit')
+            }elseif($op.StartsWith('jumptable_')){
                 while($next -lt $operations.Count -and $operations[$next].Name -eq '.dw'){
                     foreach($target in $operations[$next].Operands){$targets+=Resolve-ProgramTarget $target $node $index};$next++
                 }

@@ -39,6 +39,7 @@ public partial class Player
     private bool ConsumeContactDamageBeforeStateDispatch()
     {
         if (WallmasterGrabActive) return false; // linkState0c never calls updateLinkDamageTaken.
+        if (SubrosiaWarpActive && !SubrosiaWarpPending) return false; // state0a has no normal-state palette/damage gate.
         // commonCode.updateLinkDamageTaken is called by state01, transformed
         // state1, animal-rider state1 and grabbed state0d substate1. The latter
         // has no text/palette/scroll gate. Other represented states retain the

@@ -57,11 +57,12 @@ internal sealed class SeasonsTalkNpcRoomEntity : NativeNpcRoomEntity,
         if(id is 0x3e or 0x3b)
         {WriteByte(0x43,_source.SubId>>4);WriteByte(0x42,id==0x3b?_source.SubId&15:_source.SubId>>4==3?SeasonsNpcStoryState.SunkenStage(_session.Save):SeasonsNpcStoryState.HoronStage(_session.Save,_session.Memory));}
         if(id is 0x8a or 0x8b or 0x8d)WriteByte(0x49,4);
+        if(id==0x99){WriteByte(0x73,0x1f);WriteByte(0x4b,0x38);WriteByte(0x4d,0x80);}
         if (_source.Id is 0x30 or 0x32 or 0xb1) WriteByte(0x49,0xff);
         _selectedState = _source.Id == 0x3e ? SeasonsNpcStoryState.HoronStage(_session.Save,_session.Memory) : 0;
         Entity.SetScriptVisible(true);
         Entity.ZIndex=id==0xb8?ObjectDrawPriority.FixedHighPriorityZIndex:ObjectDrawPriority.BehindLinkZIndex;
-        Script = new SeasonsTalkNpcScriptHost(this, _session, selected.Script);
+        Script = new SeasonsTalkNpcScriptHost(this, _session, _data, selected.Script);
         if(_source.Id==0xe5)
         {
             Entity.SetBasePalette(Entity.Record.Palette+_source.SubId);
@@ -122,6 +123,7 @@ internal sealed class SeasonsTalkNpcRoomEntity : NativeNpcRoomEntity,
         if (_source.Id is 0x30 or 0x32 or 0xb1)
         { Script.AdvanceObjectUpdate(frame.Player); Script.AdvanceObjectUpdate(frame.Player); }
         else if (_source.Id != 0x9d) Script.AdvanceObjectUpdate(frame.Player);
+        if (_source.Id == 0x99) Entity.FaceLinkAndAnimateOneUpdate(frame.Player);
         if(_source.Id is 0x8a or 0x8b or 0x8d)Entity.AnimateAsNpcOneUpdate(frame.Player);
         return false;
     }

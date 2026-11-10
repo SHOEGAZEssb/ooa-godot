@@ -1,7 +1,7 @@
 
 namespace Oracles;
 
-internal sealed class SeasonsRoomTransitionController : RoomTransitionController
+internal sealed partial class SeasonsRoomTransitionController : RoomTransitionController
 {
     private readonly SeasonsWorldData _data;
 

@@ -907,6 +907,8 @@ including movement, counters and deletion, in physical PART-slot order.
 Always-update eligibility and scroll persistence are separate: marking preserves
 enabled bit 7, but cleanup still clears objects whose low enabled bits are `$02`.
 Native `$03` reserved items retain their physical allocation and coordinates.
+Room-pack fade reloads also retain interactions whose low enabled bits are `$03`,
+including their physical slots and script cursors; ordinary warp and direct loads clear them.
 
 Scroll setup, motion, row loading, and cleanup are separate updates. Scrolling
 retains source-defined fractional positions, item state, and outgoing slots;
@@ -939,6 +941,11 @@ Link arrival transition, packed position and main-thread request. Requests
 `$03/$83` select the fade-out cutscene; they are not Link arrival transition
 `$03`. An interaction's request is consumed after the object pass, while the
 destination's arrival handler uses the independently imported transition byte.
+
+Subrosia travel keeps Link's native warp state through its cutscene-owned room
+load. Link owns spinning, Z motion and counters; the transition owner advances
+the inverted screen wave and palette thread before the special-object pass.
+Input remains disabled until the cutscene and Link's final facing both complete.
 
 Tile warps use imported behavior and exact position windows. Use the room's
 active collision set to classify warp tiles, including adjacent

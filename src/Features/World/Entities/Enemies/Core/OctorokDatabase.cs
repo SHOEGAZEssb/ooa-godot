@@ -26,10 +26,12 @@ internal sealed class OctorokDatabase
                 row.UnsignedDecimal(3), row.UnsignedDecimal(4), row.UnsignedDecimal(5), row.UnsignedDecimal(6),
                 row.UnsignedDecimal(7), row.UnsignedDecimal(8), row.UnsignedDecimal(9), row.UnsignedDecimal(10),
                 row.RequiredString(11), row.RequiredString(12), row.RequiredString(13), row.RequiredString(14), row.HexByte(15));
-            if (definition.Id != EnemyId.Octorok || definition.SubId > 2 || !_definitions.TryAdd(definition.SubId, definition))
-                throw row.Invalid(0, "unique ENEMY_OCTOROK $09:$00-$02 definition");
+            int last = root == OracleAssetPack.ForGame(OracleGame.Seasons) ? 3 : 2;
+            if (definition.Id != EnemyId.Octorok || definition.SubId > last || !_definitions.TryAdd(definition.SubId, definition))
+                throw row.Invalid(0, $"unique ENEMY_OCTOROK $09:$00-${last:x2} definition");
         }
-        if (_definitions.Count != 3) throw new InvalidOperationException($"{table.Path}: requires all three supported Octorok definitions.");
+        int expected = root == OracleAssetPack.ForGame(OracleGame.Seasons) ? 4 : 3;
+        if (_definitions.Count != expected) throw new InvalidOperationException($"{table.Path}: requires all {expected} supported Octorok definitions.");
         table = GeneratedTable.Load(root + "effects/octorok_projectile.tsv",
             new("Octorok projectile", GeneratedTableKeySemantics.Ordered,
                 ["sprite", "tile-base", "palette", "radius-y", "radius-x", "damage-quarters",

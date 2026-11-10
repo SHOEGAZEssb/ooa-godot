@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
         if (seasons)
         {
             var native = new EnemyHandlerRegistry(rooms.AssetRoot).Handlers.ToArray();
-            FailIf(native.Length != 153 || native.Count(entry => entry.Classification == EnemyHandlerClassification.Unimplemented) != 110 ||
+            FailIf(native.Length != 154 || native.Count(entry => entry.Classification == EnemyHandlerClassification.Unimplemented) != 110 ||
                 native.Where(entry => entry.Id is not (0x08 or 0x09 or 0x0a or 0x0c or 0x0e or 0x10 or 0x17 or 0x20 or 0x22 or 0x2d or 0x31 or 0x32 or 0x34 or 0x35 or 0x43 or 0x51 or 0x70 or 0x78)).Any(entry => entry.SubId != 0 || entry.SupportsCombatSource) ||
                 native.Where(entry=>entry.Id==0x78).Any(entry=>entry.SubId is <0 or >3||entry.Handler!=EnemyHandlerKind.Aquamentus||entry.CollisionMode!=0xc8||entry.SupportsStandaloneConstruction) ||
                 native.Where(entry=>entry.Id==0x35).Any(entry=>entry.SubId is <0 or >2||entry.Handler!=EnemyHandlerKind.Floormaster||entry.CollisionMode!=0x24||!entry.SupportsStandaloneConstruction) ||
@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
                     entry.CollisionMode!=0x2a || !entry.SupportsStandaloneConstruction) ||
                 native.Where(entry => entry.Id is 0x0c or 0x20 or 0x22).Any(entry => entry.SubId is < 0 or > 1 ||
                     entry.Handler != EnemyHandlerKind.ArrowMoblin || !entry.SupportsStandaloneConstruction) ||
-                native.Where(entry => entry.Id == 0x09).Any(entry => entry.SubId is < 0 or > 2 ||
+                native.Where(entry => entry.Id == 0x09).Any(entry => entry.SubId is < 0 or > 3 ||
                     entry.CollisionMode != 0x90 || !entry.SupportsStandaloneConstruction || entry.Handler != EnemyHandlerKind.Octorok) ||
                 native.Where(entry => entry.Id == 0x32).Any(entry => entry.SubId is < 0 or > 1 ||
                     entry.CollisionMode != 0xa9 || !entry.SupportsCombatSource || entry.Handler != EnemyHandlerKind.Keese) ||

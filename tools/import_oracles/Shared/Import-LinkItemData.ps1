@@ -52,6 +52,14 @@ foreach ($pack in @(
             }
             return $parts -join ';'
         }
+        $nativeGraphics = [Collections.Generic.List[string]]::new()
+        $nativeGraphics.Add('# index`tsource-offset`tupload-tiles`toam`tsource')
+        for ($index = 0; $index -lt $entries.Count; $index++) {
+            $entry = $entries[$index]
+            $oam = Read-LinkOam $entry.Oam
+            $nativeGraphics.Add("$($index.ToString('x2'))`t$($entry.Offset.ToString('x4'))`t$($entry.Size)`t$oam`t${source}:specialObject00GfxPointers/specialObject00OamDataPointers")
+        }
+        Write-GeneratedTable((Join-Path $pack.Root 'metadata/link_native_graphics.tsv'), $nativeGraphics)
         $animationPointers = @((Invoke-AssemblySourceHost $connection 'DATA_DIRECTIVES' "$path`0specialObject09AnimationDataPointers`0.dw" | ConvertFrom-Json) | Where-Object IsActive)
         if ($animationPointers.Count -ne 56) { throw "${source}: expected 56 native Link animation modes." }
         $nativePointers = Read-MenuRomBytes $pack 'specialObject00AnimationDataPointers' 112

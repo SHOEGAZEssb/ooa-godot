@@ -58,7 +58,8 @@ internal sealed class LinkCollisionRom
     }
 
     internal void Call(int entry, int speed = 0x28, int angle = 0, int bank = 5, int objectPage = 0xd0, int accumulator = 0,
-        bool restoresBank = true, int? objectOffset = null, bool captureB = false, int stackAddress = 0xdff0, int? dataAddress = null)
+        bool restoresBank = true, int? objectOffset = null, bool captureB = false, int stackAddress = 0xdff0, int? dataAddress = null,
+        int instructionLimit = 100000)
     {
         _bank = bank;
         _memory[0xff97] = (byte)bank;
@@ -73,16 +74,19 @@ internal sealed class LinkCollisionRom
             .. objectLow, .. dataPointer,
             0xcd, (byte)entry, (byte)(entry >> 8),
             .. saveB, 0xf5, 0xc1, 0x78, 0xea, 0x00, 0xc2, 0x79, 0xea, 0x01, 0xc2, .. storeB, .. exitStack, 0xc9];
-        _cpu.RunCall(0xc100,stackAddress:stackAddress);
+        _cpu.RunCall(0xc100,stackAddress:stackAddress,instructionLimit:instructionLimit);
         if (restoresBank && (_bank != bank || _memory[0xff97] != bank))
             throw new InvalidDataException("Link collision call failed to restore ROM bank ownership.");
     }
 
     private int Read(int address)
     {
+        // These atomic gameplay calls run at VBlank; LCD-disable waits see LY=$90.
+        if (address == 0xff44) return 0x90;
+        if (address is >= 0xe000 and < 0xfe00) return Read(address - 0x2000);
         if (address < 0x4000) return _rom.Span[address];
-        // Flute $09, dungeon sprite uploads $1a, HUD/common graphics $19/$1b/$27/$28, interactions Seasons $29/Ages $2a, Seasons boss PARTs $2b.
-        if (address < 0x8000 && _bank is 1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 0x0a or 0x0b or 0x0c or 0x0d or 0x0e or 0x0f or 0x10 or 0x11 or 0x12 or 0x14 or 0x15 or 0x16 or 0x19 or 0x1a or 0x1b or 0x27 or 0x28 or 0x29 or 0x2a or 0x2b or 0x2c or 0x3f)
+        // Full room loading also reads compressed graphics and the selected audio bank.
+        if (address < 0x8000 && _bank is >= 1 and < 0x40)
             return _rom.Span[_bank * 0x4000 + address - 0x4000];
         if (address is >= 0x8000 and < 0xa000) return _vram[_memory[0xff4f] & 1][address - 0x8000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
@@ -94,6 +98,7 @@ internal sealed class LinkCollisionRom
 
     private void Write(int address, int value)
     {
+        if (address is >= 0xe000 and < 0xfe00) { Write(address - 0x2000, value); return; }
         // getRandomNumber_noPreserveVars commits hRng1 once per native draw.
         if (address == 0xff94) RandomUpdates++;
         if (address is >= 0xc0a0 and <= 0xc0af) SoundRequests.Add(value);
@@ -110,6 +115,7 @@ internal sealed class LinkCollisionRom
     // respawn routines use WRAM. LCD-off graphics DMA registers are staged;
     // these gameplay fixtures do not render or consume VRAM pixels.
     private static bool Allowed(int address) => address is
-        >= 0xc000 and < 0xe000 or >= 0xff80 and < 0xffc0 or 0xff70 or
-        0xff40 or 0xff4f or >= 0xff51 and <= 0xff55;
+        >= 0xc000 and < 0xe000 or >= 0xff80 or 0xff70 or
+        >= 0xff04 and <= 0xff07 or 0xff0f or >= 0xff10 and <= 0xff3f or
+        >= 0xff40 and <= 0xff4f or >= 0xff51 and <= 0xff55;
 }

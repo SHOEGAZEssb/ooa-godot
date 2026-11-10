@@ -22,6 +22,17 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
     private NativeNpcRoomEntity CreateTalkNpc(NativeObjectInstruction source, OracleRoomData room)
     {
         var data = TalkNpcs;
+        if (source is { Id: 0x27, SubId: 1 })
+            return new(data.Create(source, room, session.Data.World.SpritePalettes), session.Memory, session.Link,
+                index => data.Animation(source.Id, index), data.Text, (npc, player) =>
+                {
+                    if (session.Save.HasGlobalFlag(SeasonsGlobalFlag.FinishedGame)) { npc.Delete(); return; }
+                    npc.WriteByte(0x44, 1); npc.WriteByte(0x73, 0x52);
+                    if ((session.Save.ReadField("wObtainedSeasons") & 8) != 0 && !session.Save.HasRoomFlag(room.Group, room.Id, 0x40))
+                        throw new NotSupportedException("sokra.s: $27:$01 autumn-power portal dialogue is not bound.");
+                    owner.ParseNativeObjectStream("objectData7e4a", EnemyPlacementContext.Unrestricted);
+                    npc.Delete();
+                });
         if (!SeasonsTalkNpcDatabase.UsesMiscNpcHandler(source.Id)) return new SeasonsTalkNpcRoomEntity(session, data, source, room);
         return new(data.Create(source, room, session.Data.World.SpritePalettes), session.Memory, session.Link,
             index => data.Animation(source.Id, index), data.Text, (owner, player) =>
@@ -36,7 +47,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
                     ? source.Id == 0x37 && subid == 6 ? 11 : SeasonsNpcStoryState.HoronStage(session.Save, session.Memory) : subid);
                 owner.Npc.SetCollisionRadii(0, 0);
                 owner.Npc.SetScriptVisible(true);
-                owner.Script = new SeasonsTalkNpcScriptHost(owner, session, selected.Script);
+                owner.Script = new SeasonsTalkNpcScriptHost(owner, session, data, selected.Script);
                 if (source.Id == 0x38)
                 {
                     int dungeon = Math.Max(0, session.Rooms.CurrentDungeonIndex - 1);
@@ -277,6 +288,9 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         _common.TryCreateStreamInteraction(source,room,placement,_torches) ??
         (source switch
         {
+            {Id:0x6c,SubId:0 or 1}=>new SeasonsRosaChaseRoomEntity(session,TalkNpcs,source,room),
+            {Id:0xe1,SubId:0}=>new SeasonsPortalSpawnerRoomEntity(session,TalkNpcs,source,room),
+            {Id:0x27,SubId:1}=>CreateTalkNpc(source,room),
             {Id:0x21}=>new SeasonsGnarledKeyholeRoomEntity(session,TalkNpcs,source),
             {Id:0x22,SubId:0}=>new SeasonsRemoteMakuRoomEntity(session,Essences,source),
             {Id:InteractionId.Essence,SubId:0} when session.Rooms.CurrentDungeonIndex==1=>new DungeonEssence(
@@ -284,6 +298,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
                 Essences.Visual("essence"),Essences.Visual("pedestal"),Essences.Visual("glow"),Essences.Visual("energy-bead"),room,
                 session.Save.HasRoomFlag(room.Group,room.Id,OracleSaveData.RoomFlagItem),owner.AnimationTick,owner.OnDungeonEssenceTriggered,Essences.Essence),
             {Id:0x6b,SubId:0x20}=>new SeasonsStaticTreasureRoomEntity(source,room,owner),
+            {Id:0x6b,SubId:0x26}=>new SeasonsTempleFallenTextRoomEntity(session,TalkNpcs,source,room),
             {Id:0xc6,SubId:0}=>new SeasonsHerosCaveSwordRoomEntity(session,HerosCave,
                 HerosCave.CreateSword(new(source.X,source.Y),session.Data.World.SpritePalettes)),
             {Id:0xdc,SubId:1 or 2}=>new SeasonsUnlinkedInteractionRoomEntity(session.Memory,source),
@@ -320,6 +335,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
             int address=((0xd0+slot)<<8)|0x40;
             if(memory.ReadWramByte(address)==0)continue;
             int id=memory.ReadWramByte(address+1),subid=memory.ReadWramByte(address+2);
+            if(id==0x6c)throw new NotSupportedException($"subrosiansHiding.s: INTERAC$6c:${subid:x2} slot${slot:x2} chase cursors and detection rays cannot be reconstructed.");
             // shortcut: restore the script cursor and entrance graphics before admitting active captures.
             if(id is 0x21 or 0x4b)
                 throw new NotSupportedException($"gnarledKeyhole.s: INTERAC${id:x2}:${subid:x2} slot${slot:x2} has no transient debug reconstruction.");

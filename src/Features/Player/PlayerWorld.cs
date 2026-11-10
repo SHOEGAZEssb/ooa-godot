@@ -184,6 +184,13 @@ public abstract class PlayerWorld
         _entities.PlayerMovementDisabled;
     public bool FeatherBlockedByMagnet => _entities.RuntimeState.ReadField("wMagnetGloveState") != 0;
     public void PlaySound(int soundId) => _sound.PlaySound(soundId);
+    public void RestartNativeSound()
+    {
+        int room = _sound.NativeRoomMusic, active = _sound.NativeActiveMusic;
+        _sound.RestartSound();
+        _sound.SetNativeMusicSelection(room, active);
+    }
+    public void BeginNativeWhiteFade(bool fadeOut, int delay) => _roomTransitions.BeginNativeWhiteFade(fadeOut, delay);
     public bool ApplySwordHit(Player player, Rect2 hitbox) => _combat.ApplySwordHit(player,hitbox);
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke) => _combat.ApplySwordTileHit(player,direction,swordPoke);
     public bool ApplyExpertsRingTileHit(Player player, int direction) => _combat.ApplyExpertsRingTileHit(player,direction);

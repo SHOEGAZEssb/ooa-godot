@@ -66,6 +66,8 @@ public interface IPlayerWorld
     bool ApplyExpertsRingTileHit(Player player, int direction);
     bool TryCreateSwordBeam(Player player, int direction);
     void PlaySound(int soundId);
+    void RestartNativeSound() => throw new NotSupportedException("restartSound has no sound owner.");
+    void BeginNativeWhiteFade(bool fadeOut, int delay) => throw new NotSupportedException("Native white fade has no palette owner.");
     void UpdateElectricShockPresentation(int counter) { }
     bool TryInteract(Player player);
     bool TrySecondaryInteract(Player player);

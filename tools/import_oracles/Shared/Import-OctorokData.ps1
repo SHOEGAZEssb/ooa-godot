@@ -1,4 +1,4 @@
-# ENEMY $09:$00-$02 and PART $18 resolve each build's own property pointers.
+# ENEMY $09's admitted variants and PART $18 resolve each build's own property pointers.
 foreach ($pack in @(
     @{ Name='ages'; Bytes=$romBytes; Symbols=$agesSymbols; Root=$destination; Defines='ROM_AGES;AGES_ENGINE' },
     @{ Name='seasons'; Bytes=$seasonsRomBytes; Symbols=$seasonsSymbols; Root=(Split-Path $previewDestination -Parent); Defines='ROM_SEASONS;SEASONS_ENGINE' }
@@ -59,7 +59,7 @@ foreach ($pack in @(
         $poses = @($animations | ForEach-Object { (Read-NativeEnemyAnimation $pack $_ $oam $false).Encoded })
         $rows = [Collections.Generic.List[string]]::new()
         $rows.Add('# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tcounter-mask`tup-animation`tright-animation`tdown-animation`tleft-animation`traw-damage')
-        foreach ($subid in 0..2) {
+        foreach ($subid in 0..$(if($pack.Name -eq 'seasons'){3}else{2})) {
             $flags = $subids[$subid*2+1]; $at = ($subids[$subid*2] -band 0x7f) * 4
             $speed = if (($subid -band 1) -ne 0) { $init[21] } else { $init[17] }
             $rows.Add("09`t$($subid.ToString('x2'))`t$sprite`t$(($flags -band 15)*2)`t$(($flags -shr 4) -band 7)`t$($extra[$at])`t$($extra[$at+1])`t$((256-$extra[$at+2])/2)`t$($extra[$at+3])`t$speed`t$($ranges[$subid])`t$($poses -join "`t")`t$($extra[$at+2].ToString('x2'))")

@@ -45,6 +45,10 @@ an animation reloads its first frame, including repeated selections. Item-get
 saves and restores the native mode byte, and puddles consume the animation's
 sound bit rather than maintaining a second walking timer. Long-held frames
 retain native fallthrough; they are not universal stream terminators.
+Airborne presentation resolves the live graphics byte through the selected
+pack's graphics/OAM pointers. It does not require the cursor to stay inside
+the initial Jump or Cape sequence; falling through to adjacent data changes
+the picture without selecting another mode or changing gravity.
 Chained sheets with opposite source grayscale encodings normalize only the
 appended pixels; that conversion participates in the composite cache key.
 Shared background-tile blits clip to the destination image while retaining

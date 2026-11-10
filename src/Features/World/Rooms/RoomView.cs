@@ -27,6 +27,7 @@ public partial class RoomView : Node2D
     private int _wavePhase;
     private int _waveStep = 1;
     private bool _waveNormalEvenSamples;
+    private bool _waveInvertEvenSamples;
     private int _waveCameraX;
     private Texture2D? _waveBackground;
     private bool _underwaterWaveActive;
@@ -117,13 +118,14 @@ public partial class RoomView : Node2D
     }
 
     public void SetHorizontalWave(int amplitude, int phase, int step = 1, bool normalEvenSamples = false,
-        Vector2 cameraOrigin = default, Texture2D? background = null)
+        Vector2 cameraOrigin = default, Texture2D? background = null, bool invertEvenSamples = false)
     {
         _waveActive = true;
         _waveAmplitude = Mathf.Clamp(amplitude, 0, 0xff);
         _wavePhase = (phase - (int)cameraOrigin.Y * step) & 0x7f;
         _waveStep = step;
         _waveNormalEvenSamples = normalEvenSamples;
+        _waveInvertEvenSamples = invertEvenSamples;
         _waveCameraX = (int)cameraOrigin.X;
         _waveBackground = background;
         QueueRedraw();
@@ -207,7 +209,7 @@ public partial class RoomView : Node2D
             if (_roomLoadColumnReveal && _roomLoadClearedTilemap is not null)
                 DrawRoomLoadColumnReveal(_current, _roomLoadClearedTilemap);
             else if (_waveActive)
-                DrawWavedTexture(_waveBackground ?? _current, _waveAmplitude, _wavePhase, _waveStep, _waveNormalEvenSamples, _waveCameraX);
+                DrawWavedTexture(_waveBackground ?? _current, _waveAmplitude, _wavePhase, _waveStep, _waveNormalEvenSamples, _waveCameraX, _waveInvertEvenSamples);
             else if (_underwaterWaveActive && _underwaterBackground is not null)
                 DrawWavedTexture(_underwaterBackground, 0x02, _underwaterWavePhase);
             else
@@ -256,7 +258,7 @@ public partial class RoomView : Node2D
     }
 
     private void DrawWavedTexture(Texture2D texture, int amplitude, int phase,
-        int step = 1, bool normalEvenSamples = false, int cameraX = 0)
+        int step = 1, bool normalEvenSamples = false, int cameraX = 0, bool invertEvenSamples = false)
     {
         int width = texture.GetWidth();
         int height = texture.GetHeight();
@@ -264,6 +266,7 @@ public partial class RoomView : Node2D
         {
             int sample = phase + y * step;
             int offset = normalEvenSamples && (sample & 1) == 0 ? 0 : ScreenWaveData.Shared.Offset(amplitude, sample) - cameraX;
+            if (invertEvenSamples && (sample & 1) == 0) offset = -offset;
             Rect2 source = new(0, y, width, 1);
             Rect2 target = new(-offset, y, width, 1);
             DrawTextureRectRegion(texture, target, source);

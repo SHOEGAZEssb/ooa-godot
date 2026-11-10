@@ -437,7 +437,8 @@ public sealed partial class ValidationRoot
                 {
                     int group=Convert.ToInt32(row[0][..1],16),room=Convert.ToInt32(row[0][2..],16);
                     EnterSeasonsNpcRoom(session,group,room);app.Step(6,Vector2.Zero);
-                    foreach(var actor in session.Entities.EntityAdapters<NativeNpcRoomEntity>().Where(actor=>!actor.Finished && actor is not SeasonsMakuTreeRoomEntity))
+                    foreach(var actor in session.Entities.EntityAdapters<NativeNpcRoomEntity>().Where(actor=>!actor.Finished &&
+                        actor is not (SeasonsMakuTreeRoomEntity or SeasonsPortalSpawnerRoomEntity or SeasonsTempleFallenTextRoomEntity)))
                     {
                         string record=$"{actor.Npc.Record.Id:x2}{actor.Npc.Record.SubId:x2}";
                         FailIf(!row[1].Split(',').Contains(record),$"Unexpected Seasons talk-only source row {row[0]} ${record}.");

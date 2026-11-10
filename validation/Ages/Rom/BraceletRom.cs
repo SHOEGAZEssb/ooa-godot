@@ -148,6 +148,22 @@ internal sealed class BraceletRom
         _rom.Call(_game==OracleGame.Ages?0x56e3:0x554f,bank:1,stackAddress:0xc2dc);
         this[0xff70]=0;
     }
+    internal void AdvanceSubrosiaBeforeLink(int frameCounter)
+    {
+        if (_game != OracleGame.Seasons) throw new InvalidOperationException("Subrosia requires the Seasons ROM.");
+        this[0xcc00] = (byte)frameCounter;
+        AdvancePaletteThread();
+        if (ReadNativeByte(0xcc04) == 0x15)
+        { SetNativeByte(0xcc04,0); SetNativeByte(0xcc03,0); SetNativeByte(0xc2ef,0x15); }
+        // Its room-load update decompresses the complete native graphics set.
+        if (ReadNativeByte(0xc2ef) == 0x15) _rom.Call(0x4b94,bank:1,stackAddress:0xc2dc,instructionLimit:1000000); // cutscene15@update
+    }
+    internal void AdvanceSubrosiaLink()
+    {
+        // updateSpecialObjects restores the active category after the loader's interaction pass.
+        _rom[0xffac] = 0; _rom[0xffad] = 0xd0;
+        _rom.Call(0x4c55,bank:5,stackAddress:0xc2dc); // warpTransition8
+    }
     internal void LoadPaletteHeader(int header)=>_rom.Call(_game==OracleGame.Ages?0x050b:0x04e7,bank:0,accumulator:header);
     internal int FadingBackgroundColor(int index)=>_rom.BankByte(2,0xdf80+index*2)|(_rom.BankByte(2,0xdf81+index*2)<<8);
     internal void CheckDeclaredItemCollision(int collision,int damage,Vector2 position,int zHigh)

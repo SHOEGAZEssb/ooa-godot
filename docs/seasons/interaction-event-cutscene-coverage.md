@@ -43,8 +43,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 28 | 55 | 142 | 7 | 232 |
-| Expanded placed interaction contexts | 200 | 12 | 823 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 29 | 57 | 139 | 7 | 232 |
+| Expanded placed interaction contexts | 205 | 13 | 817 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -75,6 +75,9 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Gnarled Root Dungeon 1 | Runtime route from `$4:1c` through the keys, map, compass, minecart/switch, torches, Bomb passage, traps, Brother Goriyas/portal, `$6:09` Seed Satchel, Floormasters, boss key, Aquamentus/heart container and `$4:13` Fertile Soil Essence, returning to `$0:96`'s first-Essence Maku message; optional Gasha/ring chests and the wise man's room are reachable |
 | First Maku Tree story and sword gate | Runtime route through gate `$22:$0a`, Maku `$87:$00` stage0, unlinked Impa/Zelda initialization, sleeping bubble, quest choice, Gnarled Key drop/pickup and repeated advice; later Maku stages remain unbound |
 | Talk-only characters, source story predicates and native child handoffs | Runtime route for 149 positioned rows; spring-boy Link launch and Mittens' trade-owner producer retain their external-system limitations |
+| Old man's rupee cave `$5:03` | Runtime route from `$0:97`, one-time 100-rupee gift, completed dialogue and return doorway; other `$99` variants remain unbound |
+| Rosa's overworld chase | Runtime route through `$cb/$bb/$ab/$9b/$9a`, first/repeat introduction, both patrol patterns, detection/caught escape and the covered portal; dating remains unbound |
+| Subrosia portal travel | Link's native spinning/height sequence and Cutscene `$15` through `$0:9a ↔ $1:05`; other destination object streams remain outside this route |
 | Missing character rows and family variants in the NPC ledger | Quest, trade, secret, minigame, event and family progression remain missing |
 | Other room placements listed as **M** below | Missing |
 | Additional native/script variants of **P** dispatch families | Missing beyond the explicit runtime boundary |
@@ -145,7 +148,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$24` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00, $03` | — | — | 1 | **M** — No Seasons production route. |
 | `$25` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 0 | **P** — Native dialogue, room-flag selection and jump consumer; the trade-owner `$26:$00` producer remains unbound. |
 | `$26` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 1 | **P** — Post-trade `$01` dialogue and room-flag `$40` predicate; the `$00` trade sequence remains unbound. |
-| `$27` | [sokra](../../external/oracles-disasm/object_code/seasons/interactions/sokra.s) | `$00-$02` | — | — | 0 | **P** — Summer hint `$02`, source finished/summer predicates, room-flag writes and snores; village/portal progression variants remain unbound. |
+| `$27` | [sokra](../../external/oracles-disasm/object_code/seasons/interactions/sokra.s) | `$00-$02` | — | — | 0 | **P** — Summer hint `$02` and `$01` pre-autumn initialization/deletion with its native enemy stream; village and autumn portal dialogue remain unbound. |
 | `$28` | [bipin](../../external/oracles-disasm/object_code/common/interactions/bipin.s) | — | — | — | 23 | **M** — No Seasons production route. |
 | `$29` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$2a` | [bird](../../external/oracles-disasm/object_code/seasons/interactions/bird.s) | `$00-$09, $0b` | — | — | 1 | **P** — Know-It-All `$00-$09` and panic `$0b` dialogue, shared bird body and native story gates; Impa event `$0a` remains unbound. |
@@ -213,8 +216,8 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$68` | [swordShieldMazeGrabbableIce](../../external/oracles-disasm/object_code/seasons/interactions/swordShieldMazeGrabbableIce.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$69` | [swordShieldMazeFreezingLavaEvent](../../external/oracles-disasm/object_code/seasons/interactions/swordShieldMazeFreezingLavaEvent.s) | `$00` | — | — | 4 | **M** — No Seasons production route. |
 | `$6a` | [danceHallMinigame](../../external/oracles-disasm/object_code/seasons/interactions/danceHallMinigame.s) | `$00` | `$01-$02` | `$03` | 1 | **M** — No Seasons production route. |
-| `$6b` | [miscellaneous1](../../external/oracles-disasm/object_code/seasons/interactions/miscellaneous1.s) | `$00-$13, $15, $17-$24, $26` | — | `$14, $16` | 3 | **P** — Native `$20` side-view Seed Satchel producer; other subids and placements remain unbound. |
-| `$6c` | [subrosiansHiding](../../external/oracles-disasm/object_code/seasons/interactions/subrosiansHiding.s) | `$00` | — | — | 1 | **M** — No Seasons production route. |
+| `$6b` | [miscellaneous1](../../external/oracles-disasm/object_code/seasons/interactions/miscellaneous1.s) | `$00-$13, $15, $17-$24, $26` | — | `$14, $16` | 3 | **P** — Native `$20` side-view Seed Satchel producer and `$26` uninitialized script owner in `$1:05`; other subids and placements remain unbound. |
+| `$6c` | [subrosiansHiding](../../external/oracles-disasm/object_code/seasons/interactions/subrosiansHiding.s) | `$00` | — | — | 1 | **R** — Standard overworld chase controller, spawned `$01`, first/repeat introduction, both patrol patterns, detection/escape and portal completion. |
 | `$6d` | [subrosiansHiding](../../external/oracles-disasm/object_code/seasons/interactions/subrosiansHiding.s) | `$00` | — | — | 2 | **M** — No Seasons production route. |
 | `$6e` | [stealingFeather](../../external/oracles-disasm/object_code/seasons/interactions/stealingFeather.s) | `$01-$02` | — | — | 1 | **M** — No Seasons production route. |
 | `$6f` | [bombFlower](../../external/oracles-disasm/object_code/common/interactions/bombFlower.s) | `$00` | — | `$01` | 1 | **M** — No Seasons production route. |
@@ -259,7 +262,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$96` | [moblin](../../external/oracles-disasm/object_code/seasons/interactions/moblin.s) | — | `$00` | — | 10 | **M** — No Seasons production route. |
 | `$97` | [97](../../external/oracles-disasm/object_code/seasons/interactions/97.s) | — | — | — | 1 | **M** — No Seasons production route. |
 | `$98` | [woodenTunnel](../../external/oracles-disasm/object_code/common/interactions/woodenTunnel.s) | `$00-$03` | — | — | 0 | **M** — No Seasons production route. |
-| `$99` | [oldManWithRupees](../../external/oracles-disasm/object_code/seasons/interactions/oldManWithRupees.s) | `$00-$07` | — | — | 0 | **M** — No Seasons production route. |
+| `$99` | [oldManWithRupees](../../external/oracles-disasm/object_code/seasons/interactions/oldManWithRupees.s) | `$00-$07` | — | — | 0 | **P** — `$02` gift script in `$5:03`; other placed variants remain unbound. |
 | `$9a` | [9a](../../external/oracles-disasm/object_code/seasons/interactions/9a.s) | `$02` | — | — | 2 | **M** — No Seasons production route. |
 | `$9b` | [9b](../../external/oracles-disasm/object_code/seasons/interactions/9b.s) | — | `$00` | — | 0 | **M** — No Seasons production route. |
 | `$9c` | [springBloomFlower](../../external/oracles-disasm/object_code/seasons/interactions/springBloomFlower.s) | `$00` | `$00` | — | 0 | **P** — Spring-only flower NPC consumer states `$01/$05-$07`; separate Link-launch states `$02-$04` remain unbound. |
@@ -331,7 +334,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$de` | [makuSeedAndEssences](../../external/oracles-disasm/object_code/seasons/interactions/makuSeedAndEssences.s) | — | — | — | 2 | **M** — No Seasons production route. |
 | `$df` | [nayruRalphCredits](../../external/oracles-disasm/object_code/common/interactions/nayruRalphCredits.s) | — | `$00-$01` | — | 0 | **M** — No Seasons production route. |
 | `$e0` | [eraOrSeasonInfo](../../external/oracles-disasm/object_code/common/interactions/eraOrSeasonInfo.s) | — | — | — | 1 | **P** — Shared banner after bound ordinary full-room loads; placed contexts and unsupported room/event producers missing. |
-| `$e1` | [portalSpawner](../../external/oracles-disasm/object_code/seasons/interactions/portalSpawner.s) | `$00-$01` | — | — | 1 | **M** — No Seasons production route. |
+| `$e1` | [portalSpawner](../../external/oracles-disasm/object_code/seasons/interactions/portalSpawner.s) | `$00-$01` | — | — | 1 | **P** — Placed `$00` in `$0:9a` and `$1:05`, uncovered-tile visibility and discovery flags; other placed contexts remain unbound. |
 | `$e2` | [statueEyeball](../../external/oracles-disasm/object_code/common/interactions/statueEyeball.s) | `$00-$01, $03` | — | — | 1 | **P** — Gnarled Root entrance subid `$01` scanner and native `$02` children; other placements and variants remain unbound. |
 | `$e3` | [vire](../../external/oracles-disasm/object_code/seasons/interactions/vire.s) | — | — | — | 0 | **M** — No Seasons production route. |
 | `$e4` | [linkedHerosCaveOldMan](../../external/oracles-disasm/object_code/seasons/interactions/linkedHerosCaveOldMan.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
@@ -426,8 +429,8 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:96` | [R] `$22:$00/v$00` makuCutscenes<br>[R] `$21:$00/v$00` gnarledKeyhole |
 | `0:97` | [R] `$85:$00/v$00` introSceneMusic |
 | `0:98` | [R] `$4e:$0b/v$00` dinDancingEvent |
-| `0:9a` | [M] `$e1:$00/v$00` portalSpawner |
-| `0:9b` | [M] `$27:$01/v$00` sokra |
+| `0:9a` | [R] `$e1:$00/v$00` portalSpawner |
+| `0:9b` | [P] `$27:$01/v$00` sokra (pre-autumn initialization) |
 | `0:a1` | [M] `$d0:$04/v$00` companionTutorial |
 | `0:a6` | [M] `$b6:$0a/v$00` gashaSpot |
 | `0:a7` | [R] `$a5:$09/v$00` din |
@@ -447,7 +450,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:c6` | [P] `$9c:$00/v$00` springBloomFlower<br>[R] `$3e:$20/v$00` miscBoyNpcs<br>[R] `$2d:$80/v$00` miscNpcs<br>[R] `$2d:$86/v$00` miscNpcs<br>[R] `$37:$81/v$00` miscNpcs<br>[R] `$80:$02/v$00` fickleOldMan<br>[R] `$9d:$05/v$00` impa<br>[R] `$2a:$0b/v$00` bird |
 | `0:c8` | [M] `$b6:$0f/v$00` gashaSpot |
 | `0:c9` | [M] `$59:$00/v$00` lostWoodsSword |
-| `0:cb` | [M] `$6c:$00/v$00` subrosiansHiding |
+| `0:cb` | [R] `$6c:$00/v$00` subrosiansHiding |
 | `0:cc` | [P] `$9c:$00/v$00` springBloomFlower |
 | `0:cd` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:ce` | [M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand<br>[M] `$5e:$00/v$00` quicksand |
@@ -487,7 +490,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:fd` | [M] `$5e:$05/v$00` quicksand<br>[M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `1:00` | [M] `$b3:$02/v$00` linkedCutscene<br>[M] `$22:$07/v$00` makuCutscenes<br>[M] `$e2:$00/v$00` statueEyeball<br>[M] `$e2:$00/v$00` statueEyeball |
 | `1:03` | [R] `$30:$15/v$00` subrosian<br>[R] `$30:$16/v$00` subrosian |
-| `1:05` | [M] `$e1:$00/v$00` portalSpawner<br>[R] `$30:$17/v$00` subrosian<br>[R] `$30:$18/v$00` subrosian<br>[M] `$6b:$26/v$00` miscellaneous1 |
+| `1:05` | [R] `$e1:$00/v$00` portalSpawner<br>[R] `$30:$17/v$00` subrosian<br>[R] `$30:$18/v$00` subrosian<br>[R] `$6b:$26/v$00` miscellaneous1 |
 | `1:06` | [M] `$6b:$09/v$00` miscellaneous1<br>[R] `$33:$80/v$00` miscNpcs<br>[M] `$33:$81/v$00` miscNpcs<br>[M] `$33:$82/v$00` miscNpcs |
 | `1:07` | [M] `$6b:$09/v$00` miscellaneous1<br>[M] `$51:$00/v$00` smallVolcano |
 | `1:0a` | [M] `$53:$00/v$00` headSmelter<br>[M] `$30:$00/v$00` subrosian |
@@ -750,7 +753,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `4:fb` | [M] `$90:$05/v$00` jewelHelper |
 | `5:01` | [M] `$99:$00/v$00` oldManWithRupees |
 | `5:02` | [M] `$99:$01/v$00` oldManWithRupees |
-| `5:03` | [M] `$99:$02/v$00` oldManWithRupees |
+| `5:03` | [R] `$99:$02/v$00` oldManWithRupees |
 | `5:04` | [M] `$99:$03/v$00` oldManWithRupees |
 | `5:05` | [M] `$99:$04/v$00` oldManWithRupees |
 | `5:06` | [M] `$99:$05/v$00` oldManWithRupees |
@@ -974,6 +977,7 @@ Coordinates are `(Y, X)`. The default var03 is `$00` for this command.
 | Cutscene `$06` | Din dancing and capture | Runtime route |
 | Cutscene `$07` | Din imprisoned by Onox | Runtime route |
 | Cutscene `$08` | Temple sinking and season changes | Runtime route |
+| Cutscene `$15`, Link `$0a` source `$08` | Subrosia portal round trip `$0:9a ↔ $1:05` | Runtime route |
 | Link `$08:$01` | Dance and tornado | Runtime route |
 | Link `$08:$02` | Collapsed wake-up | Runtime route |
 | Link `$08:$0a` | Pregame summons | Runtime route |

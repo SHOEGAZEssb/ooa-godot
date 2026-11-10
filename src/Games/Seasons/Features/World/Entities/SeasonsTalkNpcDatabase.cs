@@ -67,6 +67,7 @@ internal sealed class SeasonsTalkNpcDatabase
         0x3b => (subid & 15) <= 5,
         0xb8 => subid is 0 or 1 or 2 or 4,
         0x9d => subid is 1 or 5,
+        0x99 => subid == 2,
         _ => false
     };
 
@@ -75,7 +76,7 @@ internal sealed class SeasonsTalkNpcDatabase
         int graphicsSubid = source.Id == 0x3e ? source.SubId >> 4 : source.Id == 0x3b ? source.SubId & 15 : source.SubId & 0x7f;
         int last = _visuals.Keys.Where(key => key.Id == source.Id).Max(key => key.Subid);
         bool faces = UsesMiscNpcHandler(source.Id) ? (source.SubId & 0x80) == 0 :
-            source.Id is 0x25 or 0x30 or 0x42 or 0x3b or 0x9d or 0xb1 or 0xb8;
+            source.Id is 0x25 or 0x30 or 0x42 or 0x3b or 0x99 or 0x9d or 0xb1 or 0xb8;
         var npc = SeasonsNpcPresentation.CreateActor(_visuals[(source.Id, Math.Min(graphicsSubid, last))], source.Id, source.SubId,
             new(source.X, source.Y), index => Animation(source.Id, index), palettes, room.Group, room.Id, faces,presenter,
             UsesMiscNpcHandler(source.Id) ? NpcImplementationClassification.OrdinaryGeneric : NpcImplementationClassification.SpecializedNative, source.Var03);
@@ -87,9 +88,13 @@ internal sealed class SeasonsTalkNpcDatabase
         throw new NotSupportedException($"data/seasons/interactionAnimations.s: NPC ${id:x2} has no animation ${index:x2}.");
     internal string Text(int id) => _texts[id];
     internal IReadOnlyList<CutsceneCommand> Program(string name) => _scripts[name];
+    internal IReadOnlyList<CutsceneCommand> Program(int id, int variant, int state) => _scripts[_selectors[(id, variant, state)]];
     internal NpcCharacter CreateMakuActor(NativeObjectInstruction source, OracleRoomData room, Color[,] palettes) =>
         SeasonsNpcPresentation.CreateActor(_visuals[(0x87,0)],source.Id,source.SubId,new(source.X,source.Y),
             index=>Animation(0x87,index),palettes,room.Group,room.Id);
+    internal NpcCharacter CreateUninitializedActor(NativeObjectInstruction source, OracleRoomData room, Color[,] palettes) =>
+        SeasonsNpcPresentation.CreateActor(_visuals[(0x30,0)], source.Id, source.SubId, new(source.X, source.Y),
+            index => Animation(0x30,index), palettes, room.Group, room.Id, false);
     internal DungeonInteractionVisual MakuBubbleVisual
     {
         get
@@ -123,7 +128,7 @@ internal sealed class SeasonsTalkNpcDatabase
         }
         else if(id is 0x2e or 0x36 or 0x39 or 0x8a or 0x8b)state=SeasonsNpcStoryState.SunkenStage(save);
         else if(id is 0x8d or 0x42 or 0xe5 or 0x33 or 0x32)state=subid;
-        else if(id is 0x30 or 0xb1 or 0xb8)variant=npc.SubId;
+        else if(id is 0x30 or 0x99 or 0xb1 or 0xb8)variant=npc.SubId;
         else if(id==0x2a && subid==0x0b)variant=0x0b;
         else if(id==0x3b){variant=subid&15;state=save.ReadField("wTradeItem")>=5&&save.HasTreasure(TreasureId.TradeItem)?1:0;}
         else if(id==0x9d)

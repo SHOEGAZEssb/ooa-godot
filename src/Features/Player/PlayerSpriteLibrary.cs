@@ -9,16 +9,16 @@ internal sealed class PlayerSpriteLibrary(string assetRoot)
     private LinkItemDatabase _linkItems => LinkItemDatabase.For(AssetRoot);
     private SideScrollPlayerDatabase _sideScrollPlayerData => SideScrollPlayerDatabase.For(AssetRoot);
     private TopDownSwimmingDatabase _topDownSwimmingData => TopDownSwimmingDatabase.For(AssetRoot);
-    private readonly System.Collections.Generic.Dictionary<(int Phase,int Direction,bool Damage), (Texture2D Texture,Vector2 Offset)> _capeFrames = new();
-    internal (Texture2D Texture,Vector2 Offset) CapeFrame(int phase,int direction,bool damage)
+    private readonly System.Collections.Generic.Dictionary<(int Graphic,int Direction,bool Damage), (Texture2D Texture,Vector2 Offset)> _nativeFrames = new();
+    internal (Texture2D Texture,Vector2 Offset) NativeFrame(int graphic,int direction,bool damage)
     {
-        var key = (phase,direction,damage);
-        if (_capeFrames.TryGetValue(key,out var frame)) return frame;
-        LinkGraphicRecord record = _linkItems.Graphic("cape",0,phase,direction);
+        var key = (graphic,direction,damage);
+        if (_nativeFrames.TryGetValue(key,out var frame)) return frame;
+        var record = LinkNativeAnimationDatabase.For(AssetRoot).Graphic(graphic,direction);
         frame = OracleOamCompositor.BuildPositionedOamTexture(
             OracleGraphicsCache.LoadImage(AssetRoot + "gfx/spr_link.png"),record.Oam,0,
-            damage ? 5 : 0,null,true,sourceOffset:record.ByteOffset);
-        _capeFrames.Add(key,frame);
+            damage ? 5 : 0,null,true,sourceOffset:record.SourceOffset);
+        _nativeFrames.Add(key,frame);
         return frame;
     }
     internal Texture2D WalkTexture { get; private set; } = null!;

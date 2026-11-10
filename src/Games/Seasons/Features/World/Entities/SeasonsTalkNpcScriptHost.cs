@@ -5,9 +5,13 @@ internal sealed class SeasonsTalkNpcScriptHost : NpcInteractionCommandHost
 {
     private readonly NativeNpcRoomEntity _owner;
     private readonly SeasonsOpeningSession _session;
+    private readonly SeasonsTalkNpcDatabase _data;
     internal SeasonsTalkNpcScriptHost(NativeNpcRoomEntity owner, SeasonsOpeningSession session,
-        IReadOnlyList<CutsceneCommand> commands) : base(owner, session.Rooms, session.Entities, session.Dialogue, commands)
-    { _owner = owner; _session = session; }
+        SeasonsTalkNpcDatabase data, IReadOnlyList<CutsceneCommand> commands) : base(owner, session.Rooms, session.Entities, session.Dialogue, commands)
+    { _owner = owner; _session = session; _data = data; }
+    public override bool GateOpen(string gate) => gate == "RupeeDisplayUpdated"
+        ? _session.StatusBar.DisplayedRupees == _session.Inventory.Rupees : base.GateOpen(gate);
+    public override void OrRoomFlag(int flag) => Rooms.SaveData.SetRoomFlag(Rooms.ActiveGroup, Rooms.CurrentRoom.Id, checked((byte)flag));
     public override bool IsLinkedGame => _session.Memory.ReadField("wIsLinkedGame")!=0;
     public override bool MemoryEquals(string binding, int value) => ReadMemory(binding) == value;
     public override int ReadMemory(string binding)
@@ -66,6 +70,8 @@ internal sealed class SeasonsTalkNpcScriptHost : NpcInteractionCommandHost
             case "asm15":
                 switch (args[0])
                 {
+                    case "scriptHelp.oldMan_giveRupees":
+                        _session.Inventory.GiveTreasure(TreasureId.Rupees, _data.NativeTable("old-man-rupee-values")[_owner.ReadByte(0x42)]); return;
                     case "scriptHelp.din_animateAndLookAtLink":
                         int direction=((OracleObjectMovement.Shared.RelativeAngle(ScriptActor.Position,ScriptPlayer.Position)+4)>>3)&3;
                         _owner.WriteByte(0x48,direction);_owner.SetAnimation(direction);return;

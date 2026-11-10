@@ -4,6 +4,67 @@ namespace Oracles;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateSeasonsSavedEntranceWarp()
+    {
+        foreach (bool batched in new[] { false, true })
+        {
+            var root = new FrontendValidationRoot();
+            AddChild(root);
+            try
+            {
+                var selector = root.InitializeGameSelect(persistSaveData: true);
+                var save = OracleSaveData.CreateStandardGame(OracleGame.Seasons);
+                save.SetLinkName("LINK"); save.SetGlobalFlag(0x21); save.SetGlobalFlag(0x0a);
+                save.SetRoomFlag(0, 0x96, 0x80);
+                // group0WarpDestinations $01: opened Gnarled Root doorway, facing down.
+                save.SetDeathRespawnPoint(0, 0x96, 3, 2, 0x48, 0x48);
+                root.SeedFileSlot(0, save);
+                byte[] committed = root.FileSlotSnapshot(0, OracleGame.Seasons);
+                selector.RequestPointerSelection(OracleGame.Seasons, true); root.Step(1, batched);
+                root.CompleteBootLoading();
+                root.Step(1, batched); root.Step(1, batched, "inventory"); root.Step(32, batched);
+                root.Step(1, batched, "attack"); root.Step(1, batched);
+                root.Step(1, batched, "attack"); root.Step(32, batched);
+                var session = root._seasonsOpening!;
+                var app = new ApplicationValidationFixture(root);
+                void CheckSpawn()
+                {
+                    FailIf(session.Rooms.ActiveGroup != 0 || session.RoomId != 0x96 ||
+                        session.Transitions.IsTransitioning || session.Link.PrecisePosition != new Vector2(72, 72),
+                        $"Loading Seasons slot A must stay outside Gnarled Root at $0:96 XY($48,$48): group={session.Rooms.ActiveGroup}, room=${session.RoomId:x2}, XY={session.Link.PrecisePosition}, warp={session.Transitions.IsTransitioning}.");
+                }
+                CheckSpawn();
+                // bank1.initializeGame -> func_5a60 calls setEnteredWarpPosition before initializeRoom.
+                FailIf(session.Memory.ReadField("wEnteredWarpPosition") != 0x44,
+                    "Saved-spawn initialization must suppress the native doorway tile $44.");
+                app.Step(64, Vector2.Zero, batched: batched, afterUpdate: CheckSpawn);
+                for (int visit = 0; visit < 2; visit++)
+                {
+                    app.Step(16, Vector2.Down, batched: batched);
+                    FailIf(session.Transitions.IsTransitioning || session.Collision.Collides(session.Link.Position) ||
+                        session.Memory.ReadField("wEnteredWarpPosition") != 0xff,
+                        "Walking off the saved doorway must reach valid floor and release warp suppression.");
+                    int updates = 0;
+                    while (!session.Transitions.IsTransitioning && updates++ < 120) app.Step(1, Vector2.Up);
+                    FailIf(!session.Transitions.IsTransitioning, "Walking back onto the doorway must allow dungeon entry.");
+                    app.Step(160, Vector2.Zero, batched: batched);
+                    FailIf(session.Rooms.ActiveGroup != 4 || session.RoomId != 0x1c || session.Transitions.IsTransitioning ||
+                        session.Link.Position != new Vector2I(120, 148),
+                        "The saved doorway must retain its source $4:1c walk arrival.");
+                    session.Dialogue.Close();
+                    updates = 0;
+                    while (!session.Transitions.IsTransitioning && updates++ < 90) app.Step(1, Vector2.Down);
+                    FailIf(!session.Transitions.IsTransitioning, "Gnarled Root must still allow its normal exit.");
+                    app.Step(160, Vector2.Zero, batched: batched);
+                    CheckSpawn();
+                }
+                FailIf(root._saveWriteRequests != 0 || !root.FileSlotSnapshot(0, OracleGame.Seasons).SequenceEqual(committed),
+                    "Loading and revisiting the entrance must leave the committed slot unchanged.");
+            }
+            finally { root.Free(); }
+        }
+    }
+
     private void ValidateSeasonsPersistence()
     {
         foreach (bool batched in new[] { false, true })

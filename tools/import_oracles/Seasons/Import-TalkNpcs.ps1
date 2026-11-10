@@ -25,6 +25,7 @@ $scripts = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 [void]$scripts.Add('stage0')
 [void]$scripts.Add('makuTreeScript_gateHit')
 [void]$scripts.Add('gnarledKeyholeScript')
+[void]$scripts.Add('subrosianScript_templeFallenText')
 function Add-NpcSelector([int]$id,[int]$variant,[int]$state,[int]$address,[string]$source) {
     $target = $scriptBankBase + ((Read-NpcWord $address) -band 0x3fff)
     if (!$scriptAddress.ContainsKey($target)) { throw "${source}: unresolved script pointer at `$$($address.ToString('x5'))." }
@@ -78,6 +79,8 @@ foreach($healed in 0..1){
 }
 foreach($subid in @(0,1,2,4)){Add-NpcSelector 0xb8 $subid 0 ((Npc-Symbol 'table_7432' 0xb8)+$subid*2) 'ambi.s:table_7432'}
 foreach($state in @((0..7)+@(11,12))){Add-NpcSelector 0x9d 0 $state ((Npc-Symbol 'table_5ec8' 0x9d)+$state*2) 'impa.s:table_5ec8'}
+Add-NpcSelector 0x99 2 0 ((Npc-Symbol 'table_587b' 0x99)+4) 'oldManWithRupees.s:table_587b'
+foreach($step in 0..5){Add-NpcSelector 0x6c 1 $step ((Npc-Symbol 'table_6931' 0x6c)+$step*2) 'subrosiansHiding.s:table_6931'}
 Write-GeneratedTable((Join-Path $root 'npcs/selectors.tsv'),$selectors)
 
 # The eight native conditional families contain stage+1 bytes terminated by zero.
@@ -157,14 +160,21 @@ foreach($id in @((0x1700..0x1703)+(0x3200..0x3213)+@(0x3300,0x3301,0x3302,0x3700
 }
 Write-GeneratedTable((Join-Path $root 'npcs/texts.tsv'),$texts)
 $tables=[Collections.Generic.List[string]]::new();$tables.Add("# name`tbytes`tsource")
-foreach($spec in @(@('ball-speeds','table_7b59',8,0x83),@('bubble-speeds','partCode32@table_68b9',4,-1),@('piratian-counters','table_6c09',32,0x40))){
+foreach($spec in @(@('ball-speeds','table_7b59',8,0x83),@('bubble-speeds','partCode32@table_68b9',4,-1),@('piratian-counters','table_6c09',32,0x40),@('old-man-rupee-values','oldMan_rupeeValues',8,-1))){
     $address=if($spec[3] -ge 0){Npc-Symbol $spec[1] $spec[3]}else{$seasonsSymbols[$spec[1]]}
     if(!$address){throw "Missing Seasons native NPC table $($spec[1])."}
     $values=@($bytes[$address..($address+$spec[2]-1)] | ForEach-Object {$_.ToString('x2')})
     $tables.Add("$($spec[0])`t$($values -join ',')`t$($spec[1])")
 }
 
-$paths=@((Join-Path $Disassembly 'scripts/common/commonScripts.s'),(Join-Path $Disassembly 'scripts/seasons/scripts.s'))
+$oldMan = Read-ImportText (Join-Path $Disassembly 'object_code/seasons/interactions/oldManWithRupees.s')
+$oldManHelper = Read-ImportText (Join-Path $Disassembly 'scripts/seasons/scriptHelper.s')
+if ($oldMan -notmatch '(?s)interactionInitGraphics.*?>TX_1f00.*?interactionSetHighTextIndex.*?table_587b.*?interactionSetScript.*?ld l,\$4b\s+ld \(hl\),\$38\s+ld l,\$4d\s+ld \(hl\),\$80.*?interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    $oldManHelper -notmatch '(?s)oldMan_giveRupees:\s+ld e,\$42\s+ld a,\(de\)\s+ld hl,oldMan_rupeeValues\s+rst_addAToHl\s+ld c,\(hl\)\s+ld a,\$28\s+jp giveTreasure') {
+    throw 'oldManWithRupees.s initialization or scriptHelp.oldMan_giveRupees changed.'
+}
+
+$paths=@((Join-Path $Disassembly 'scripts/common/commonScripts.s'),(Join-Path $Disassembly 'scripts/seasons/scripts.s'),(Join-Path $Disassembly 'scripts/seasons/scripts2.s'))
 # Only owner $26:$01 is admitted: native state zero proves permanent room flag $40.
 $programRows=@(Read-AssemblyNpcProgramRows $paths @($scripts) @{mittensOwnerScript='jumpifroomflagset $40'})
 $bindings=@{};$memoryBindings=@{};$symbols=@{}
@@ -173,7 +183,7 @@ foreach($key in $nativeConstants.Keys){
     $prefix=if($key.StartsWith('GLOBALFLAG_')){'flag:'}else{'treasure:'}
     $memoryBindings[$key]=$prefix+$nativeConstants[$key].ToString('x2')
 }
-$symbols['SPEED_080']=0x14;$symbols['ANGLE_LEFT']=0x18;$symbols['ANGLE_RIGHT']=8
+$symbols['SPEED_080']=0x14;$symbols['SPEED_100']=0x28;$symbols['ANGLE_LEFT']=0x18;$symbols['ANGLE_RIGHT']=8
 foreach($match in [regex]::Matches((Read-ImportText (Join-Path $Disassembly 'constants/common/music.s')),'(?m)^\s*(?<name>\w+)\s+db\s*;\s*\$(?<value>[0-9a-f]+)')){
     $symbols[$match.Groups['name'].Value]=[Convert]::ToInt32($match.Groups['value'].Value,16)
 }
@@ -181,6 +191,17 @@ foreach($row in $programRows | Select-Object -Skip 1){
     $fields=$row.Split([char]9);$op=$fields[4];$operands=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($fields[5]))
     $p=@($operands -split ',\s*');$binding=$null
     switch($op){
+        'checkrupeedisplayupdated'{$binding=@{Opcode='checkrupeedisplayupdated'}}
+        'setsubstate'{$binding=@{Opcode='nativeyield';Payload=($op+' '+$operands)}}
+        {$_ -in @('setangleandanimation','settilehere')}{$binding=@{Opcode='native';Payload=($op+' '+$operands)}}
+        'resetmusic'{$binding=@{Opcode='setmusic';Arg0='ff'}}
+        'delay'{
+            $address=$seasonsSymbols['scriptCmd_delay@delayLengths']
+            if(!$address){throw 'Missing scripting.s:scriptCmd_delay@delayLengths.'}
+            $index=Convert-AssemblyInteger $p[0]
+            if($index -lt 0 -or $index -ge 13){throw "$($fields[7]): invalid delay index $index."}
+            $binding=@{Opcode='wait';Arg0=[string]$bytes[$address+$index]}
+        }
         {$_ -in @('showtextnonexitable','showtextnonexitablelowindex')}{
             if($p[0] -notmatch 'TX_([0-9a-f]{4})$'){throw "$($fields[7]):$($fields[3]): unresolved text $($p[0])."}
             $binding=@{Opcode='nativeyield';Payload=('nonexitabletext '+$Matches[1])}
@@ -207,14 +228,16 @@ foreach($row in $programRows | Select-Object -Skip 1){
             if($operands -ne 'ITEM_SWORD, $03'){throw "Maku gate: unexpected grant $operands."}
             $binding=@{Opcode='nativeyield';Payload='gate-sword-grant'}
         }
-        'playsound'{$binding=@{Opcode='playsound';Arg0=([int]$symbols[$p[0]]).ToString('x2')}}
+        'playsound'{$value=if($p[0].StartsWith('$')){Convert-AssemblyInteger $p[0]}else{[int]$symbols[$p[0]]};$binding=@{Opcode='playsound';Arg0=$value.ToString('x2')}}
     }
     if($null -ne $binding){$bindings[$op+'|'+$operands]=$binding}
 }
 $animations=@{};foreach($i in 0..15){$animations[$i]=[string]$i}
 $makuRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -in @('stage0','makuTreeScript_gateHit')})
-$talkRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -notin @('stage0','makuTreeScript_gateHit')})
+$rosaRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]).StartsWith('rosaHidingScript_')})
+$talkRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -notin @('stage0','makuTreeScript_gateHit') -and !($_.Split([char]9)[0]).StartsWith('rosaHidingScript_')})
 $commands=@(ConvertTo-NpcProgramRows $talkRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnJump $true)
+$commands+=@(ConvertTo-NpcProgramRows $rosaRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings | Select-Object -Skip 1)
 # Seasons scriptCmd_jump has no copied-buffer branch and continues at its ROM target.
 $commands+=@(ConvertTo-NpcProgramRows $makuRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnMemoryJumpTable $true | Select-Object -Skip 1)
 Write-CutsceneGeneratedTable((Join-Path $root 'npcs/commands.tsv'),$commands)
@@ -227,7 +250,7 @@ $animationLabels=@{}
 foreach($name in @($presentation.Definitions.Keys | Sort-Object)){
     if($seasonsSymbols.ContainsKey($name)){$animationLabels[$seasonsSymbols[$name]]=$name}
 }
-foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4b,0x4e,0x80,0x82,0x83,0x87,0x8a,0x8b,0x8d,0x8e,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe5)){
+foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4b,0x4e,0x6c,0x80,0x82,0x83,0x87,0x8a,0x8b,0x8d,0x8e,0x99,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe1,0xe5)){
     $hex=$id.ToString('x2')
     $entry=@(Read-AssemblyMacroInvocations $dataPath '' 'm_InteractionData' | Where-Object Comment -eq "`$$hex")
     if($entry.Count -ne 1){throw "NPC `$$hex has no unique graphics data."}
@@ -279,7 +302,8 @@ foreach($spec in @(@('gnarled-positions','table_5482',9,0x21),
     @('gnarled-counters','interactionCode21@table_542d',10,0x21),@('gnarled-graphics','table_54a9',5,0x21),
     @('gnarled-stone-subids','table_54e4',4,0x21),@('gnarled-stone-speed-z','interactionCode4b@table_7260',8,0x4b),
     @('gnarled-stone-speeds','interactionCode4b@table_7268',4,0x4b),@('gnarled-stone-gravity','interactionCode4b@table_726c',4,0x4b),
-    @('gnarled-stone-angles','interactionCode4b@table_7270',16,0x4b))){
+    @('gnarled-stone-angles','interactionCode4b@table_7270',16,0x4b),
+    @('rosa-start-positions','rosaSubId0@table_67f1',10,0x6c),@('rosa-rooms','rosaSubId0@table_686c',5,0x6c))){
     $address=Npc-Symbol $spec[1] $spec[3]
     $values=@($bytes[$address..($address+$spec[2]-1)] | ForEach-Object {$_.ToString('x2')})
     $tables.Add("$($spec[0])`t$($values -join ',')`tobject_code/seasons/interactions:$($spec[1])")

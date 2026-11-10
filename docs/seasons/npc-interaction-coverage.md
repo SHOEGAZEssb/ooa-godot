@@ -64,10 +64,10 @@ linked-game and later-progression branches remain outside that supported boundar
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 156 | Standard-opening and talk-only records with traced source scripts, visibility gates and focused NPC scenarios. |
-| **P** | 6 | Maku `$87:$00` supports the first story stage; Maku-room Impa `$9d:$03` and Zelda `$44:$08` support unlinked deletion; Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch and Mittens `$25:$00` trade-owner producer remain incomplete. |
+| **I** | 157 | Standard-opening, talk-only and cave-gift records with traced source scripts, visibility gates and focused NPC scenarios. |
+| **P** | 7 | Maku `$87:$00` supports the first story stage; Maku-room Impa `$9d:$03` and Zelda `$44:$08` support unlinked deletion; Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch, Mittens `$25:$00` trade-owner producer and Sokra `$27:$01` autumn portal dialogue remain incomplete. |
 | **D** | 0 | No listed source record is classified as a deliberately suppressed import. |
-| **M** | 144 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
+| **M** | 142 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
 | **Total** | **306** | **150 rooms and 265 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -75,10 +75,10 @@ linked-game and later-progression branches remain outside that supported boundar
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 31 | 0 | 31 |
-| Specialized native interaction | 120 | 0 | 120 |
+| Specialized native interaction | 122 | 0 | 122 |
 | Event-owned actor | 11 | 0 | 11 |
 | Deliberately unsupported | 0 | 0 | 0 |
-| No production owner | 144 | 72 | 216 |
+| No production owner | 142 | 72 | 214 |
 | **Total** | **306** | **72** | **378** |
 
 ## Bipin and Blossom family variants
@@ -112,7 +112,7 @@ generated Seasons NPC records.
 | `0:90` | [M] `$73:$00/v$00` animalMoblinBullies<br>[M] `$73:$01/v$00` animalMoblinBullies<br>[M] `$73:$02/v$00` animalMoblinBullies |
 | `0:92` | [M] `$73:$00/v$00` animalMoblinBullies<br>[M] `$73:$01/v$00` animalMoblinBullies<br>[M] `$73:$02/v$00` animalMoblinBullies |
 | `0:98` | [I] `$4e:$00/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$01/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$02/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$03/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$04/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$05/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$06/v$00` dinDancingEvent (room flag $40 clear) |
-| `0:9b` | [M] `$27:$01/v$00` sokra |
+| `0:9b` | [P] `$27:$01/v$00` sokra (pre-autumn initialization) |
 | `0:a7` | [I] `$a5:$09/v$00` din |
 | `0:b6` | [I] `$9d:$00/v$00` impa<br>[P] `$9d:$04/v$00` impa |
 | `0:b7` | [M] `$26:$00/v$00` mittensAndOwner<br>[I] `$26:$01/v$00` mittensAndOwner<br>[P] `$25:$00/v$00` mittensAndOwner<br>[I] `$25:$01/v$00` mittensAndOwner |
@@ -222,7 +222,7 @@ generated Seasons NPC records.
 | `4:f8` | [M] `$5b:$80/v$00` lostWoodsDekuScrub |
 | `5:01` | [M] `$99:$00/v$00` oldManWithRupees |
 | `5:02` | [M] `$99:$01/v$00` oldManWithRupees |
-| `5:03` | [M] `$99:$02/v$00` oldManWithRupees |
+| `5:03` | [I] `$99:$02/v$00` oldManWithRupees |
 | `5:04` | [M] `$99:$03/v$00` oldManWithRupees |
 | `5:05` | [M] `$99:$04/v$00` oldManWithRupees |
 | `5:06` | [M] `$99:$05/v$00` oldManWithRupees |

@@ -93,7 +93,7 @@ foreach ($group in @(0,1,2,4,5,6,7)) {
     $assignment = if ($group -eq 2) { 1 } elseif ($group -lt 6) { $group } else { $group - 2 }
     $groupTilesets = [IO.File]::ReadAllBytes((Join-Path $Disassembly "rooms/seasons/group${assignment}Tilesets.bin"))
     # Hero's Cave, Gnarled Root entrance, shared placed spinners and the sliding-block puzzle.
-    $selectedRooms = if ($group -eq 2) { @(0x0b) } elseif ($group -eq 4) { @((0x02..0x1c) + @(0x26, 0x6b, 0xb1)) } elseif ($group -eq 5) { @(0x30, 0x6f, 0x86, 0xbd, 0xc8, 0xc9, 0xd4) } else { 0..255 }
+    $selectedRooms = if ($group -eq 2) { @(0x0b) } elseif ($group -eq 4) { @((0x02..0x1c) + @(0x26, 0x6b, 0xb1)) } elseif ($group -eq 5) { @(0x03, 0x30, 0x6f, 0x86, 0xbd, 0xc8, 0xc9, 0xd4) } else { 0..255 }
 foreach ($room in $selectedRooms) {
     $tileset = $groupTilesets[$room] -band 0x7f
     $block = [regex]::Match($tilesetSource, '(?ms)^tileset' + $tileset.ToString('x2') + 'Seasons:\s*(?<body>.*?)(?=^\w+:|\z)')

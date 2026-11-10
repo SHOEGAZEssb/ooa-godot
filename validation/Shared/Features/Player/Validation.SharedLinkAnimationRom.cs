@@ -11,6 +11,36 @@ public sealed partial class ValidationRoot
             var memory = new OracleRuntimeState(game);
             var animations = LinkNativeAnimationDatabase.For(OracleAssetPack.ForGame(game));
             var native = new LinkCollisionRom(game: game);
+            var bytes = ValidationRom.LoadCleanUs(game);
+            int Byte(int address) => bytes.Span[address];
+            int Word(int address) => Byte(address) | Byte(address + 1) << 8;
+            int graphics = 6 * 0x4000 + ((game == OracleGame.Ages ? 0x59b1 : 0x5739) & 0x3fff);
+            int oams = 6 * 0x4000 + ((game == OracleGame.Ages ? 0x60a7 : 0x5d9e) & 0x3fff);
+            var sprites = new PlayerSpriteLibrary(OracleAssetPack.ForGame(game));
+            for (int graphic = 0; graphic < (game == OracleGame.Ages ? 256 : 248); graphic++)
+            {
+                int entry = graphics + graphic * 3;
+                int oam = (game == OracleGame.Ages ? 0x13 : 0x12) * 0x4000 + (Word(oams + Byte(entry) * 2) & 0x3fff);
+                string encoded = string.Join(';', Enumerable.Range(0, Byte(oam)).Select(part =>
+                    string.Join(',', Enumerable.Range(0, 4).Select(column => Byte(oam + 1 + part * 4 + column)))));
+                int tiles = Word(entry + 1) & 30;
+                if (Enumerable.Range(0, Byte(oam)).Any(part => (Byte(oam + 3 + part * 4) & 0xfe) + 1 >= tiles))
+                {
+                    bool diagnosed = false;
+                    try { animations.Graphic(graphic, 0); }
+                    catch (NotSupportedException error) when (error.Message.Contains("retained OBJ tiles")) { diagnosed = true; }
+                    FailIf(!diagnosed, $"{game}: graphic ${graphic:x2} must diagnose its retained OBJ dependency.");
+                    continue;
+                }
+                var actual = animations.Graphic(graphic, 0);
+                FailIf(actual.SourceOffset != (Word(entry + 1) & ~31) - 0x4000 || actual.Oam != encoded,
+                    $"{game}: native Link graphic ${graphic:x2} differs from clean-ROM graphics/OAM pointers.");
+                // Fixed graphics below $54 ignore facing; directional graphics add it.
+                if (graphic < 0x54)
+                    FailIf(animations.Graphic(graphic, 3) != actual, $"{game}: fixed graphic ${graphic:x2} must ignore facing.");
+                var frame = sprites.NativeFrame(graphic, 0, false);
+                FailIf(!TextureHasOpaquePixel(frame.Texture), $"{game}: native Link graphic ${graphic:x2} must render its imported OAM.");
+            }
             int set = game == OracleGame.Ages ? 0x2b0a : 0x2a51;
             int animate = set - 0x1b;
             void Check(string context)
@@ -48,6 +78,6 @@ public sealed partial class ValidationRoot
             FailIf(memory.ReadWramByte(0xd030) != before, "Unsupported Link mode must fail before native state mutation.");
             FailIf(native.RandomUpdates != 0, "Native Link animation must not consume RNG.");
         }
-        GD.Print($"Validated {comparisons} both-ROM Link animation states: all $38 modes, long-frame fallthrough, signed loops, repeated initialization and live cursor/counter/mode aliases.");
+        GD.Print($"Validated {comparisons} both-ROM Link animation states and all native Link graphics: all $38 modes, long-frame fallthrough, signed loops, repeated initialization and live cursor/counter/mode aliases.");
     }
 }

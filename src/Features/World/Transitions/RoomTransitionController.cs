@@ -77,7 +77,7 @@ public class RoomTransitionController : IDisposable
 	internal bool GameplayMenusAvailable => !IsTransitioning ||
 		_warpActive && _warpPhase == WarpPhase.FadeIn && _destinationFall &&
 		!_destinationFallInitializationPending;
-	internal bool AwaitingLinkWarpState => _warpActive && _warpPhase == WarpPhase.AwaitingLinkState;
+	internal bool AwaitingLinkWarpState => _warpActive && (_warpPhase == WarpPhase.AwaitingLinkState || _player.SubrosiaWarpPending);
 	internal bool LinkArrivalActive => _warpActive && !ExtendedSequenceActive &&
 		_warpPhase is WarpPhase.FadeIn or WarpPhase.RoomLoadColumnReveal or WarpPhase.EnterScreen;
 	internal bool DeathUpdatesSuspendedByWarp => _warpActive && !AwaitingLinkWarpState;
@@ -295,13 +295,18 @@ public class RoomTransitionController : IDisposable
 		if (!_scroll.Active) ResetLoadedScrollGraphics();
 	}
 
-	public void Dispose()
+	public virtual void Dispose()
 	{
 		if (_disposed) return;
 		_disposed = true;
 		_rooms.RoomChanged -= RoomChanged;
 		_scroll.Cancel();
 		_player.CancelHoleWarp();
+		if (_player.SubrosiaWarpActive)
+		{
+			_player.CancelSubrosiaWarp(); _roomView.ClearHorizontalWave();
+			CancelNativeWhiteFade(clearPresentation: true);
+		}
 		_warpActive = false;
 		_roomPackArrival = null;
 		_nativeWarpRequested = false;
@@ -343,7 +348,8 @@ public class RoomTransitionController : IDisposable
 		_entities.RuntimeState.SetField("wScrollMode", 2);
 		_entities.LoadRoom(
 			_rooms.ActiveGroup, room,
-			EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));
+			EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition),
+			retainReservedInteractions: _roomPackArrival is not null);
 	}
 	private protected virtual void BeginDestinationPresentation(Vector2 spawn)
 	{
@@ -849,7 +855,7 @@ public class RoomTransitionController : IDisposable
 		ResetCamera();
 	}
 
-	public void ApplyWarp(Player player, Warp warp)
+	public virtual void ApplyWarp(Player player, Warp warp)
 	{
 		if (warp.NativeFadeDelay is not (1 or 4))
 			throw new InvalidOperationException($"Unsupported native warp fade delay {warp.NativeFadeDelay}.");
@@ -1296,7 +1302,7 @@ public class RoomTransitionController : IDisposable
 			// Link's first destination dispatch precedes initialized actors;
 			// loading the room itself does not run warpTransition0/1/A/C/E/F.
 			_standingArrivalPending = !ExtendedSequenceActive;
-			_player.WarpTo(spawn);
+			PlaceStandingWarpDestination(spawn);
 		}
 
 		if (warp.DestinationTransition == WarpDestinationTransition.Invisible)
@@ -1316,6 +1322,7 @@ public class RoomTransitionController : IDisposable
 		if (!ExtendedSequenceActive)
 			SetFade(_roomLoadColumnReveal ? 0.0f : 1.0f);
 	}
+	private protected virtual void PlaceStandingWarpDestination(Vector2 spawn) => _player.WarpTo(spawn);
 
 	/// <summary>
 	/// Called after full room loads; ordinary scrolling retains banner state.

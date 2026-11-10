@@ -328,9 +328,13 @@ public sealed partial class RoomEntityManager : IDisposable
         var parent = _activeEntities.OfType<AmbiGuardRoomEntity>().Single(guard => ReferenceEquals(guard.Actor, source));
         return (DetectionHelperRoomEntity)AddEntity(new DetectionHelperRoomEntity(this, parent));
     }
-    internal void TryCreateGuardDetectionRay(AmbiGuardRoomEntity parent, int subid, Vector2 position, int angle, int variation)
+    internal void TryCreateDetectionRay(IRoomEntity parent, int subid, Vector2 position, int angle, int variation)
     {
         if (PartSlotAvailable) AddEntity(new DetectionHelperRoomEntity(this, parent, subid, position, angle, variation));
+    }
+    internal void TryCreateInteractionDetector(NativeNpcRoomEntity parent)
+    {
+        if (PartSlotAvailable) AddEntity(new DetectionHelperRoomEntity(this, parent, position: parent.Npc.Position));
     }
     internal void OnWallRetractionTriggered() => WallRetractionTriggered?.Invoke();
     internal event Action<int, string, Vector2>? RoomEntityDialogueRequested;
@@ -930,10 +934,20 @@ public sealed partial class RoomEntityManager : IDisposable
     internal void LoadRoom(
         int group,
         OracleRoomData room,
-        EnemyPlacementContext placementContext)
+        EnemyPlacementContext placementContext,
+        bool retainReservedInteractions = false)
     {
+        // cutscene05 marks ordinary interactions $02, preserving enabled $03 slots across room-pack reloads.
+        var retained = retainReservedInteractions ? _interactionSlots.Where(pair => pair.Value != 0 &&
+            pair.Key is not IRoomEntityLifetime { Finished: true } &&
+            (_runtimeState.ReadWramByte(((0xd0 + pair.Value) << 8) | 0x40) & 3) == 3)
+            .Select(pair => pair.Key).ToArray() : [];
+        foreach (var entity in retained) { _activeEntities.Remove(entity); _outgoingEntities.Remove(entity); }
         Clear();
         _roomForActiveEntities = room;
+        _activeEntities.AddRange(retained);
+        foreach (var entity in retained)
+            if (entity is IScrollPersistentRoomEntity persistent) persistent.EnterRoom(room);
         AddRoomEntities(group, room, placementContext);
     }
 
@@ -943,6 +957,12 @@ public sealed partial class RoomEntityManager : IDisposable
         foreach(var entity in _activeEntities)
             if(entity.PresentationNode is TransitionOffsetNode2D drawable)
                 drawable.BindTerrainShadow(room,()=>_enemyFrameCounter,()=>NativeDrawOrder(entity)??0,()=>_screenTransitionActive,RuntimeState);
+    }
+    internal void PrepareNativeInteractionsForRoomLoad(Player player)
+    {
+        foreach (var entity in ScreenTransitionUpdateOrder())
+            if (entity is INativeInteractionRoomEntity)
+                PrepareIncomingEntityForScreenTransition(entity, player);
     }
 
     public void BeginScreenTransition(int group, OracleRoomData room, Vector2 incomingOffset, Player? player = null)
