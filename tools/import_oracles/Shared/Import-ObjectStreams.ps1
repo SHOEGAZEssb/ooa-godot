@@ -85,7 +85,19 @@ foreach ($pack in @(
                         }
                         'obj_End' { $opcode=0xff; $header=$true }
                         'obj_EndPointer' { $opcode=0xfe; $header=$true }
-                        'obj_Garbage' { $opcode=0xfd }
+                        'obj_Garbage' {
+                            # Prove these bytes only select empty opcode $7/$8 runs, as parseGivenObjectData does.
+                            $ignored = 0
+                            while ($ignored -lt $values.Count) {
+                                $emptyOp = $values[$ignored++] -band 15
+                                if ($emptyOp -eq 7) { $ignored++ }
+                                elseif ($emptyOp -ne 8) { throw "$source garbage is not an empty native object run." }
+                                if ($ignored -gt $values.Count -or $pack.Bytes[$bank*0x4000+$cursor-0x4000+$ignored] -lt 0x80) {
+                                    throw "$source garbage opcode would construct an object."
+                                }
+                            }
+                            $opcode=0xfd
+                        }
                         default { throw "$source unsupported object macro $($node.Name)." }
                     }
                 }

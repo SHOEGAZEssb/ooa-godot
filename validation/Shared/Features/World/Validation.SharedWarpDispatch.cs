@@ -66,14 +66,21 @@ public sealed partial class ValidationRoot
             entities.Clear(); player.WarpTo(floor);
             root._scene.Dialogue.ShowMessage("Unsupported native sequence boundary.",floor.Y);
             var before = rooms.RuntimeState.CaptureState().Wram;
+            var beforeRoom = rooms.CurrentRoom;
+            var beforePosition = player.PrecisePosition;
+            byte[] disk = root.FileSlotSnapshot(0, game);
             int rng = entities.Random.Calls;
             bool rejected = false;
             try { transitions.ApplyWarp(player,new Warp(rooms.ActiveGroup,rooms.CurrentRoom.Id,packed,0,example.Source,
                 rooms.ActiveGroup,rooms.CurrentRoom.Id,packed,0,example.Arrival)); }
             catch (NotSupportedException error) when (error.Message.Contains(example.Handler,StringComparison.Ordinal) &&
                 error.Message.Contains("linkState0a",StringComparison.Ordinal)) { rejected = true; }
-            FailIf(!rejected || transitions.IsTransitioning || !root._scene.Dialogue.IsOpen || entities.Random.Calls != rng ||
-                !before.AsSpan().SequenceEqual(rooms.RuntimeState.CaptureState().Wram),
+            bool safe = game == OracleGame.Seasons
+                ? !rejected && ReferenceEquals(rooms.CurrentRoom, beforeRoom) && player.PrecisePosition == beforePosition &&
+                    root._scene.Dialogue.CurrentMessage == "This area is not\navailable yet." &&
+                    root.FileSlotSnapshot(0, game).SequenceEqual(disk) && rooms.RuntimeState.ReadField("wLinkForceState") == 0
+                : rejected && before.AsSpan().SequenceEqual(rooms.RuntimeState.CaptureState().Wram);
+            FailIf(!safe || transitions.IsTransitioning || !root._scene.Dialogue.IsOpen || entities.Random.Calls != rng,
                 $"{game}: native {example.Handler} must diagnose before mutating the ordinary room/Link/dialogue owner.");
             root._scene.Dialogue.Close();
         }

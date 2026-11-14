@@ -7,14 +7,12 @@ namespace Oracles;
 /// menus, ring-secret exchange, and no-cable serial timeout are supported.
 /// The cable transfer remains an explicit Game Link subsystem boundary.
 /// </summary>
-internal sealed class VasuShopEvent : IRoomEvent
+internal sealed class VasuShopEvent(RoomSession rooms, RoomEntityManager entities,
+    InventoryState inventory, Player player, DialogueBox dialogue,
+    Action<int, string, int, bool> showText) : IRoomEvent, INpcInteractionScripts
 {
-    private string AssetRoot => _context.Rooms.AssetRoot;
-
-
-    private readonly RoomEventContext _context;
-    private RoomEventResources? _resources;
-    private RoomEventResources EventResources => _resources ??= new(_context, this);
+    private string AssetRoot => rooms.AssetRoot;
+    private readonly NativeScriptInputControl _input = new(entities.RuntimeState);
     private VasuShopDatabase? _databaseSourceCache;
     private VasuShopDatabase _database => _databaseSourceCache ??= new(AssetRoot);
     private NpcCharacter? _npc;
@@ -25,10 +23,16 @@ internal sealed class VasuShopEvent : IRoomEvent
     private Func<RingMenuMode, Action, bool>? _openRingMenu;
     private Action? _cancelRingMenu;
     private Func<Action<bool>, bool>? _openRingSecretMenu;
+    private Action? _cancelRingSecretMenu;
     private (string First, string Second) _ringSecret;
     private bool _ringSecretValid;
 
-    public VasuShopEvent(RoomEventContext context) => _context = context;
+    public IReadOnlyList<NpcInteractionHandler> Handlers =>
+    [
+        NpcInteractionHandler.ForNpc("vasu.s", (target, _) => TryInteractNpc(target.Npc)),
+        NpcInteractionHandler.ForEntityScripts(entities)
+    ];
+    void INpcInteractionScripts.Update(double delta) => UpdateFrame();
 
     public bool HasState => _stage != EventStage.Inactive;
     public bool BlocksGameplay => HasState && _stage != EventStage.SnakeRetreat;
@@ -47,11 +51,13 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     internal void SetRingSecretMenuOpener(Func<Action<bool>, bool> opener) =>
         _openRingSecretMenu = opener ?? throw new ArgumentNullException(nameof(opener));
+    internal void SetRingSecretMenuCancellation(Action cancel) =>
+        _cancelRingSecretMenu = cancel ?? throw new ArgumentNullException(nameof(cancel));
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
-        if (HasState || _context.Rooms.ActiveGroup != _database.Group ||
-            _context.Rooms.CurrentRoom.Id != _database.Room)
+        if (HasState || rooms.ActiveGroup != _database.Group ||
+            rooms.CurrentRoom.Id != _database.Room)
         {
             return false;
         }
@@ -165,7 +171,7 @@ internal sealed class VasuShopEvent : IRoomEvent
             case EventStage.VasuLinkedGreeting:
                 if (DialogueClosed())
                 {
-                    if (_context.Inventory.HasTreasure(TreasureId.RingBox))
+                    if (inventory.HasTreasure(TreasureId.RingBox))
                         CompleteLinkedIntroduction();
                     else
                     {
@@ -203,7 +209,7 @@ internal sealed class VasuShopEvent : IRoomEvent
             case EventStage.VasuHundredthText:
                 if (DialogueClosed())
                 {
-                    _context.Rooms.SaveData.SetGlobalFlag(
+                    rooms.SaveData.SetGlobalFlag(
                         _database.GlobalAppraisedHundredth, value: false);
                     GiveRing(_database.RingHundredth);
                     _stage = EventStage.VasuSpecialReward;
@@ -409,6 +415,9 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     public void Cancel()
     {
+        if (_stage == EventStage.RedSecretInputMenu)
+            (_cancelRingSecretMenu ?? throw new InvalidOperationException(
+                "Vasu's red snake has no secret-menu cancellation owner."))();
         if (_stage is EventStage.VasuFirstAppraisalMenu or EventStage.VasuFirstListMenu or
             EventStage.VasuNormalMenuActive)
             (_cancelRingMenu ?? throw new InvalidOperationException(
@@ -426,12 +435,13 @@ internal sealed class VasuShopEvent : IRoomEvent
         _pendingRing = -1;
         _ringSecret = default;
         _ringSecretValid = false;
+        _input.Cancel();
     }
 
     private void BeginVasu(NpcCharacter npc)
     {
         Start(npc);
-        OracleSaveData save = _context.Rooms.SaveData;
+        OracleSaveData save = rooms.SaveData;
         if (!save.HasGlobalFlag(_database.GlobalObtainedRingBox))
         {
             bool linkedFirst = save.IsLinkedGame &&
@@ -488,7 +498,7 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     private void GenerateRingSecret()
     {
-        OracleSaveData save = _context.Rooms.SaveData;
+        OracleSaveData save = rooms.SaveData;
         save.MarkRingSecretGenerated();
         _ringSecret = new LinkedGameNpcDatabase(AssetRoot).GenerateRingSecretText(save);
         ShowRingSecret();
@@ -499,7 +509,7 @@ internal sealed class VasuShopEvent : IRoomEvent
         string message = _database.Text(0x301d)
             .Replace("\\secret1", _ringSecret.First, StringComparison.Ordinal)
             .Replace("\\secret2", _ringSecret.Second, StringComparison.Ordinal);
-        _context.ShowChoiceDialogue(message, textboxPosition: _database.TextboxPosition);
+        showText(0x301d, message, _database.TextboxPosition, true);
         _stage = EventStage.RedSecretListen;
     }
 
@@ -537,11 +547,16 @@ internal sealed class VasuShopEvent : IRoomEvent
         _npc = npc;
         _npc.SetScriptButtonSensitive(false);
         _pendingRing = -1;
+        if (npc.Record.Id == InteractionId.Vasu && npc.Record.SubId == 0)
+            _input.SetEnabled(player, false);
     }
 
     private void StartSnake(NpcCharacter npc)
     {
         Start(npc);
+        // vasu.s state1 writes $01 directly, without disableinput's item-parent side effects.
+        _input.SetDisabledObjects(1);
+        _input.SetMenuDisabled(1);
         npc.SetScriptAnimation(_database.Animation(InteractionId.Vasu, npc.Record.SubId + 1));
     }
 
@@ -552,7 +567,7 @@ internal sealed class VasuShopEvent : IRoomEvent
             ShowChoice(0x303a);
             return;
         }
-        if (_context.Inventory.HasTreasure(TreasureId.RingBox))
+        if (inventory.HasTreasure(TreasureId.RingBox))
         {
             ShowText(0x303f);
             _stage = EventStage.VasuFriendshipOffer;
@@ -566,7 +581,7 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     private void CompleteLinkedIntroduction()
     {
-        OracleSaveData save = _context.Rooms.SaveData;
+        OracleSaveData save = rooms.SaveData;
         save.SetGlobalFlag(_database.GlobalObtainedRingBox);
         bool changed = save.WriteWramByte(
             _database.ObtainedRingBoxAddress,
@@ -579,7 +594,7 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     private bool TryStartSpecialRing()
     {
-        OracleSaveData save = _context.Rooms.SaveData;
+        OracleSaveData save = rooms.SaveData;
         (int Earned, int Got, int Ring, int Text)[] rewards =
         [
             (_database.GlobalEarnedSlayer, _database.GlobalGotSlayer,
@@ -612,7 +627,7 @@ internal sealed class VasuShopEvent : IRoomEvent
             _stage = EventStage.VasuFinalText;
             return;
         }
-        if (choice == 0 && _context.Inventory.UnappraisedRingCount == 0)
+        if (choice == 0 && inventory.UnappraisedRingCount == 0)
         {
             ShowText(0x3014);
             _stage = EventStage.VasuFinalText;
@@ -638,18 +653,19 @@ internal sealed class VasuShopEvent : IRoomEvent
     private bool HasAppraisedRings()
     {
         for (int ring = 0; ring < 0x40; ring++)
-            if (_context.Inventory.HasAppraisedRing(ring))
+            if (inventory.HasAppraisedRing(ring))
                 return true;
         return false;
     }
 
     private bool UseLinkedSnakeScript() =>
-        _context.Inventory.HasTreasure(TreasureId.RingBox) &&
-        (_context.Rooms.SaveData.HasGlobalFlag(AgesGlobalFlag.FinishedGame) ||
-         _context.Rooms.SaveData.IsLinkedGame);
+        inventory.HasTreasure(TreasureId.RingBox) &&
+        (rooms.SaveData.HasGlobalFlag(_database.GlobalFinishedGame) ||
+         rooms.SaveData.IsLinkedGame || rooms.SaveData.ReadField("wFileIsHeroGame") != 0);
 
     private void BeginBlueFortune()
     {
+        _input.SetDisabledObjects(0x11);
         ShowChoice(0x300e);
         _stage = EventStage.BlueFortuneSetup;
     }
@@ -677,6 +693,8 @@ internal sealed class VasuShopEvent : IRoomEvent
         if (_npc is null || _npc.Record.Id != InteractionId.Vasu || _npc.Record.SubId == 0)
             throw new InvalidOperationException("Only a Vasu snake can enter retreat state.");
         _npc.SetScriptAnimation(_database.Animation(InteractionId.Vasu, _npc.Record.SubId + 2));
+        _input.SetDisabledObjects(0);
+        _input.SetMenuDisabled(0);
         _stage = EventStage.SnakeRetreat;
     }
 
@@ -689,7 +707,7 @@ internal sealed class VasuShopEvent : IRoomEvent
     private void GiveTreasure(string objectName)
     {
         TreasureObjectRecord treasure =
-            _context.Treasures.GetObject(objectName);
+            entities.Treasures.GetObject(objectName);
         CreateReward(
             treasure,
             _database.RingBoxGrabMode,
@@ -699,7 +717,7 @@ internal sealed class VasuShopEvent : IRoomEvent
     private void GiveRing(int ring)
     {
         TreasureObjectRecord treasure =
-            _context.Treasures.GetObject("TREASURE_OBJECT_RING_00");
+            entities.Treasures.GetObject("TREASURE_OBJECT_RING_00");
         CreateReward(
             treasure,
             _database.RingGrabMode,
@@ -715,7 +733,7 @@ internal sealed class VasuShopEvent : IRoomEvent
     {
         if (_reward is not null)
             throw new InvalidOperationException("Vasu already has an active reward.");
-        Vector2 position = _context.Player.Position;
+        Vector2 position = player.Position;
         var request = new GroundTreasureGrantRequest(
             _database.Group,
             _database.Room,
@@ -737,21 +755,22 @@ internal sealed class VasuShopEvent : IRoomEvent
             ExpectedSubId = treasure.SubId,
             ExpectedObjectParameter = treasure.Parameter
         };
-        _reward = _context.Entities.GrantGroundTreasure(
-            request, _context.Player);
+        _reward = entities.GrantGroundTreasure(
+            request, player);
     }
 
     private void RemoveReward()
     {
         if (_reward is null)
             return;
-        _reward.Finish(_context.Player);
+        _reward.Finish(player);
         _reward = null;
     }
 
     private void Finish(bool restoreSensitivity = true)
     {
         RemoveReward();
+        if (_npc?.Record is { Id: InteractionId.Vasu, SubId: 0 }) _input.SetEnabled(player, true);
         if (_npc is not null && restoreSensitivity)
             _npc.SetScriptButtonSensitive(true);
         _npc = null;
@@ -760,17 +779,17 @@ internal sealed class VasuShopEvent : IRoomEvent
         _pendingRing = -1;
     }
 
-    private bool DialogueClosed() => !_context.DialogueOpen;
+    private bool DialogueClosed() => !dialogue.IsOpen;
 
     private int TakeChoice() =>
-        EventResources.RequireDialogueChoice($"Vasu Jewelers stage {_stage} closed without a text-option result.");
+        dialogue.TryTakeChoiceResult(out int choice) ? choice :
+            throw new InvalidOperationException($"Vasu Jewelers stage {_stage} closed without a text-option result.");
 
     private void ShowText(int textId) =>
-        _context.ShowDialogue(_database.Text(textId), _database.TextboxPosition);
+        showText(textId, _database.Text(textId), _database.TextboxPosition, false);
 
     private void ShowChoice(int textId) =>
-        _context.ShowChoiceDialogue(
-            _database.Text(textId), textboxPosition: _database.TextboxPosition);
+        showText(textId, _database.Text(textId), _database.TextboxPosition, true);
 
     private void OpenRingMenu(
         RingMenuMode mode, EventStage activeStage, Action completion)
@@ -786,7 +805,7 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     private void FinishNormalRingMenu()
     {
-        if (_context.Rooms.SaveData.HasGlobalFlag(
+        if (rooms.SaveData.HasGlobalFlag(
             _database.GlobalAppraisedHundredth))
         {
             ShowText(0x3038);
@@ -799,7 +818,7 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     private void MarkRingBoxIntroductionComplete()
     {
-        OracleSaveData save = _context.Rooms.SaveData;
+        OracleSaveData save = rooms.SaveData;
         save.SetGlobalFlag(_database.GlobalObtainedRingBox);
         bool changed = save.WriteWramByte(
             _database.ObtainedRingBoxAddress,
@@ -812,7 +831,7 @@ internal sealed class VasuShopEvent : IRoomEvent
     private static void DeferredMenu(string source) =>
         GD.PushWarning(
             $"Vasu Jewelers reached deferred source boundary '{source}'; " +
-            "the ring-menu/Game Link subsystem is not implemented.");
+            "Game Link cable transfer is not implemented.");
 }
 
 internal enum EventStage

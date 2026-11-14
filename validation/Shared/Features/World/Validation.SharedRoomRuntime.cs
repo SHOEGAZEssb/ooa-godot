@@ -30,7 +30,8 @@ public sealed partial class ValidationRoot
         var rooms = new RoomSession(content, 0, 0xa7, () => tick, () => tick = 0, save, memory, countAsRoomEntry: false);
         FailIf(!ReferenceEquals(rooms.BackgroundPalettes, data.Palettes),
             "The shared room session must expose its selected content's authoritative palette owner.");
-        FailIf(!rooms.HasRoom(0, 0x00) || !rooms.HasRoom(0, 0xff) || !rooms.HasRoom(1, 0x00) || rooms.HasRoom(2, 0x00) ||
+        FailIf(!rooms.HasRoom(0, 0x00) || !rooms.HasRoom(0, 0xff) || !rooms.HasRoom(1, 0x00) || !rooms.HasRoom(2, 0x00) ||
+            !rooms.HasRoom(3, 0x83) || rooms.HasRoom(7, 0xff) || rooms.HasRoom(8, 0x00) ||
             rooms.HasRoom(0, -1) || rooms.HasRoom(0, 0x100) || rooms.GetDungeonIndex(0, 0xb6) != -1 || rooms.GetDungeonIndex(1, 0x00) != -1,
             "Room availability and dungeon queries must use the selected content's imported room boundary.");
         // Native roomPacks: $b6/$a6=$10; $c6=$00. Seasons compares all

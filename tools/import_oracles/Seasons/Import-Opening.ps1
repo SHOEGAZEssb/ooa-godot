@@ -68,7 +68,7 @@ function Export-SeasonGfxHeader([string]$label, [bool]$unique = $false) {
         $graphicsRows.Add("$label`t$order`t$asset`t$($node.Groups['address'].Value)`t$offset`t$count")
         $order++
     }
-    if ($order -eq 0 -and $label -ne 'UNIQUE_GFXH_NONE') { throw "Seasons ${label}: no supported graphics uploads." }
+    if ($order -eq 0 -and $label -ne 'UNIQUE_GFXH_NONE' -and $body -notmatch '(?m)^\s*m_GfxHeaderEnd\s+PALH_\w+\s*$') { throw "Seasons ${label}: no supported graphics or palette uploads." }
 }
 
 # Overworld navigation and native side-view groups share one world catalog.
@@ -88,13 +88,12 @@ foreach ($node in Read-AssemblyNodes (Join-Path $Disassembly 'data/seasons/roomL
 $exportedHeaders = [Collections.Generic.HashSet[string]]::new()
 $unsupportedHeaders = @{}
 $mappingSources = @{}
-foreach ($group in @(0,1,2,4,5,6,7)) {
-    # tilesetAssignments.s aliases group6/group4 and group7/group5.
-    $assignment = if ($group -eq 2) { 1 } elseif ($group -lt 6) { $group } else { $group - 2 }
+foreach ($group in @(0,1,2,3,4,5,6,7)) {
+    # tilesetAssignments.s aliases groups1/2/3, group6/group4 and group7/group5.
+    $assignment = if ($group -in @(2,3)) { 1 } elseif ($group -lt 6) { $group } else { $group - 2 }
     $groupTilesets = [IO.File]::ReadAllBytes((Join-Path $Disassembly "rooms/seasons/group${assignment}Tilesets.bin"))
-    # Hero's Cave, Gnarled Root entrance, shared placed spinners and the sliding-block puzzle.
-    $selectedRooms = if ($group -eq 2) { @(0x0b) } elseif ($group -eq 4) { @((0x02..0x1c) + @(0x26, 0x6b, 0xb1)) } elseif ($group -eq 5) { @(0x03, 0x30, 0x6f, 0x86, 0xbd, 0xc8, 0xc9, 0xd4) } else { 0..255 }
-foreach ($room in $selectedRooms) {
+    # Room geometry is independent of the narrower object/quest bindings.
+foreach ($room in 0..255) {
     $tileset = $groupTilesets[$room] -band 0x7f
     $block = [regex]::Match($tilesetSource, '(?ms)^tileset' + $tileset.ToString('x2') + 'Seasons:\s*(?<body>.*?)(?=^\w+:|\z)')
     if (-not $block.Success) {
@@ -134,6 +133,9 @@ foreach ($room in $selectedRooms) {
         $dungeon = (Convert-AssemblyInteger $record[0]) -band 15
         if ($dungeon -eq 15) { $dungeon = 255 }
         $unsupported = @($record[2],$record[3] | Where-Object { $unsupportedHeaders.ContainsKey($_) } | ForEach-Object { $unsupportedHeaders[$_] })
+        if (($group -lt 4) -ne ($layoutGroup -lt 5)) {
+            $unsupported += "data/seasons/tilesetAssignments.s: group $group room `$$($room.ToString('x2')) selects incompatible layout group $layoutGroup"
+        }
         $support = if ($unsupported.Count -eq 0) { 'navigation' } else { $unsupported -join '; ' }
         $roomRows.Add((@($room.ToString('x2'), $season, $tileset.ToString('x2'), $layoutGroup, $record[2], $record[3], $record[4], $record[7].TrimStart('$'), $activeCollisions.ToString('x2'), $record[1].TrimStart('$'), $layoutId, $mapping, ($groupTilesets[$room] -shr 7),$group,$dungeon.ToString('x2'),"data/seasons/tilesetAssignments.s:group${group}Tilesets/tileset`$$($tileset.ToString('x2'))",$support) -join "`t"))
     }

@@ -93,6 +93,12 @@ while conversation lanes retain their foreground update phase. Moving their
 composition must preserve handler priority, room-change cancellation and
 palette-before-object ordering.
 
+Ring-service conversations bind the selected pack's room, inventory, rewards
+and dialogue directly. Their menu uses the session's existing modal owner;
+closing consumes its own update before the conversation's post-menu wait.
+Secret encoding loads the pack's cipher and field tables independently of
+quest-NPC records, which are required only when those NPCs are queried.
+
 The ordinary NPC adapter also owns the standard entity-script update sequence.
 Native bindings supply initialization, work before the script, and the animation tail.
 A native binding that runs its whole update also owns that visit's script call;

@@ -245,6 +245,11 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         var reader = new NativeObjectStreamReader(data, session.Memory, () => session.Save.GetRoomFlags(group, room.Id));
         foreach (var instruction in reader.Read(data.Root(group, room.Id)))
         {
+            if (instruction.Opcode is not (1 or 2) && !(instruction.Opcode == 9 && instruction.Flags == 0))
+            {
+                GD.Print($"{instruction.Source}: layout navigation; unbound object ${instruction.Id:x2}:${instruction.SubId:x2} opcode ${instruction.Opcode:x2} remains unsupported.");
+                continue;
+            }
             if(instruction is {Id:0x22,SubId:0})
             {
                 if(!owner.InteractionSlotAvailable){reader.AllocationFailed();continue;}
@@ -275,7 +280,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
                 yield return new SeasonsNpcSpringBloomRoomEntity(session, TalkNpcs, instruction, room);
                 continue;
             }
-            if ((instruction.Opcode is 1 or 2 || instruction.Opcode == 9 && instruction.Flags == 0) && SeasonsTalkNpcDatabase.Supports(instruction.Id,instruction.SubId))
+            if (SeasonsTalkNpcDatabase.Supports(instruction.Id,instruction.SubId))
             {
                 if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
                 yield return CreateTalkNpc(instruction, room);
@@ -288,6 +293,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         _common.TryCreateStreamInteraction(source,room,placement,_torches) ??
         (source switch
         {
+            {Id:InteractionId.Vasu or InteractionId.RingHelpBook} when room.Group == 3 && room.Id == 0x91 => CreateVasuActor(source, room),
             {Id:0x6c,SubId:0 or 1}=>new SeasonsRosaChaseRoomEntity(session,TalkNpcs,source,room),
             {Id:0xe1,SubId:0}=>new SeasonsPortalSpawnerRoomEntity(session,TalkNpcs,source,room),
             {Id:0x27,SubId:1}=>CreateTalkNpc(source,room),
@@ -324,6 +330,14 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
             _ when SeasonsTalkNpcDatabase.Supports(source.Id,source.SubId)=>CreateTalkNpc(source,room),
             _=>new SeasonsOpeningActor(session,source.Id,source.SubId,new(source.X,source.Y),source.Var03)
         });
+
+    private IRoomEntity CreateVasuActor(NativeObjectInstruction source, OracleRoomData room)
+    {
+        var npc = TalkNpcs.Create(source, room, session.Data.World.SpritePalettes);
+        npc.SetScriptVisible(true);
+        if (source.Id == InteractionId.RingHelpBook) npc.SetBasePalette(npc.Record.Palette + source.SubId);
+        return new VasuShopNpcRoomEntity(npc, session.Vasu.Database);
+    }
 
     public IRoomEntity CreatePlacedPart(RoomObjectRecord source,OracleRoomData room)=>_common.TryCreatePlacedPart(source,room)??
         throw new NotSupportedException($"{source.Source}: Seasons PART${source.Id:x2}:${source.SubId:x2} has no native construction binding.");

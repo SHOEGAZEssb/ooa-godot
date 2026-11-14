@@ -64,10 +64,10 @@ linked-game and later-progression branches remain outside that supported boundar
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 157 | Standard-opening, talk-only and cave-gift records with traced source scripts, visibility gates and focused NPC scenarios. |
-| **P** | 7 | Maku `$87:$00` supports the first story stage; Maku-room Impa `$9d:$03` and Zelda `$44:$08` support unlinked deletion; Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch, Mittens `$25:$00` trade-owner producer and Sokra `$27:$01` autumn portal dialogue remain incomplete. |
+| **I** | 159 | Standard-opening, talk-only, cave-gift and Vasu ring-service records with traced source scripts, visibility gates and focused NPC scenarios. |
+| **P** | 8 | Maku `$87:$00` supports the first story stage; Maku-room Impa `$9d:$03` and Zelda `$44:$08` support unlinked deletion; Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch, Mittens `$25:$00` trade-owner producer, Sokra `$27:$01` autumn portal dialogue and Blue Snake `$89:$01` successful cable services remain incomplete. |
 | **D** | 0 | No listed source record is classified as a deliberately suppressed import. |
-| **M** | 142 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
+| **M** | 139 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
 | **Total** | **306** | **150 rooms and 265 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -75,10 +75,10 @@ linked-game and later-progression branches remain outside that supported boundar
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 31 | 0 | 31 |
-| Specialized native interaction | 122 | 0 | 122 |
+| Specialized native interaction | 125 | 0 | 125 |
 | Event-owned actor | 11 | 0 | 11 |
 | Deliberately unsupported | 0 | 0 | 0 |
-| No production owner | 142 | 72 | 214 |
+| No production owner | 139 | 72 | 211 |
 | **Total** | **306** | **72** | **378** |
 
 ## Bipin and Blossom family variants
@@ -186,7 +186,7 @@ generated Seasons NPC records.
 | `1:8b` | [M] `$40:$07/v$00` piratian<br>[M] `$40:$08/v$00` piratian<br>[I] `$42:$00/v$00` pirateHouseSubrosian |
 | `1:8e` | [M] `$53:$01/v$00` headSmelter<br>[I] `$30:$04/v$00` subrosian<br>[I] `$30:$05/v$00` subrosian |
 | `1:8f` | [M] `$5c:$00/v$00` lavaSoupSubrosian |
-| `1:91` | [M] `$89:$00/v$00` vasu<br>[M] `$89:$01/v$00` vasu<br>[M] `$89:$06/v$00` vasu<br>[I] `$e5:$00/v$00` ringHelpBook<br>[I] `$e5:$01/v$00` ringHelpBook |
+| `1:91` | [I] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu (no-cable timeout)<br>[I] `$89:$06/v$00` vasu<br>[I] `$e5:$00/v$00` ringHelpBook<br>[I] `$e5:$01/v$00` ringHelpBook |
 | `1:94` | [M] `$8f:$00/v$00` oldManWithJewel |
 | `1:95` | [M] `$6a:$01/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame |
 | `1:96` | [I] `$30:$23/v$00` subrosian |

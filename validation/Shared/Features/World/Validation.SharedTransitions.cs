@@ -70,13 +70,17 @@ public sealed partial class ValidationRoot
         {
             // Controlled native inputs: an off-center chimney tile and live
             // invincibility. Ordinary tile centering would reject this point.
+            // Use the bound Vasu doorway rather than another group's missing interior.
+            root._seasonsOpening!.DebugTravel(0,0xe8);
             var sourceRoom = rooms.CurrentRoom;
+            byte chimneyOriginalTile = sourceRoom.GetMetatile(floor);
+            byte chimneyOriginalCollision = sourceRoom.GetTerrainInfo(floor).Collision;
             Vector2 chimneyPoint = floor - new Vector2(7,0);
             sourceRoom.SetPositionTileAndCollision(floor,0xeb,0,0);
             player.WarpTo(chimneyPoint); transitions.ClearDeactivatedWarp();
             FailIf(RoomTransitionController.LinkWithinTileWarpBounds(sourceRoom,position,chimneyPoint),
                 "Chimney fixture must fail ordinary tile centering.");
-            var native = new WarpLookupRom(game).Lookup(initialGroup,initialRoom,position);
+            var native = new WarpLookupRom(game).Lookup(rooms.ActiveGroup,sourceRoom.Id,position);
             FailIf(!native.Found,"Native Seasons chimney must select its source/default warp.");
             var rom = ValidationRom.LoadCleanUs(game);
             int Word(int at) => rom.Span[at] | rom.Span[at + 1] << 8;
@@ -91,7 +95,7 @@ public sealed partial class ValidationRoot
             FailIf(unavailable ? !diagnosed || transitions.IsTransitioning : !transitions.IsTransitioning,
                 "Chimney must bypass centering and either start its native destination or diagnose its missing room content.");
             FailIf(player.InvincibilityFrames != 0,"Native chimney entry must reset Link invincibility before warp initiation.");
-            sourceRoom.SetPositionTileAndCollision(floor,originalTile,originalCollision,0);
+            sourceRoom.SetPositionTileAndCollision(floor,chimneyOriginalTile,chimneyOriginalCollision,0);
             for (int update = 0; update < 200 && transitions.IsTransitioning; update++) app.Step(1,Vector2.Zero,batched:batched);
             if (rooms.CurrentRoom.Id != initialRoom) root._seasonsOpening!.DebugTravel(initialGroup,initialRoom);
             entities.Clear(); player.WarpTo(floor);

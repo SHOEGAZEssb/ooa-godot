@@ -14,6 +14,24 @@ internal sealed partial class SeasonsRoomTransitionController : RoomTransitionCo
     private static RoomSession RequireSeasons(RoomSession rooms) => rooms.SaveData.Game == OracleGame.Seasons ? rooms :
         throw new ArgumentException("Seasons transition rules require Seasons room content.",nameof(rooms));
 
+    private protected override bool CanBeginWarp(Player player, Warp warp, bool sourceAlreadyHandled)
+    {
+        // Probe support without committing the index: applyWarpDest still resolves live Maku growth at the load boundary.
+        var destination = _warps.ResolveDestination(warp, _entities.RuntimeState);
+        string? reason = _data.UnavailableRoomReason(destination.DestinationGroup, destination.DestinationRoom);
+        if (reason is null)
+        {
+            try { RequireOrdinaryHandlers(destination, sourceAlreadyHandled); }
+            catch (NotSupportedException error) { reason = error.Message; }
+        }
+        if (reason is null) return true;
+        GD.Print($"{warp.NativeSource ?? AssetRoot}: warp to ${destination.DestinationGroup:x1}:{destination.DestinationRoom:x2} unavailable: {reason}");
+        _dialogue.ShowMessage("This area is not\navailable yet.",
+            DialogueScreenContext.Gameplay(player.Position.Y, -WorldToGameplayScreen(Vector2.Zero).Y));
+        DeactivateWarpAtPlayerPosition(player);
+        return false;
+    }
+
     private protected override void PrepareRoomPackTransition(int targetId)
     {
         // bank1.checkRoomPack commits the pack/season before CUTSCENE_05's fade.

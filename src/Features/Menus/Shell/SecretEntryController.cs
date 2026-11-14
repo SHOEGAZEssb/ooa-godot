@@ -176,4 +176,12 @@ internal sealed class SecretEntryController(
         completion?.Invoke(_result);
         anyCompletion?.Invoke(_result ? _expectedIndex : null);
     }
+
+    internal void CancelOwner()
+    {
+        if (!IsActive) return;
+        _completion = null;
+        _anyShortSecretCompletion = null;
+        lifecycle.CloseImmediately(this);
+    }
 }

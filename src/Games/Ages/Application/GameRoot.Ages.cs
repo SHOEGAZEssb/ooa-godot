@@ -368,5 +368,6 @@ public partial class GameRoot
         _npcInteractionScripts.OpenKidName = _gameplayMenus!.KidName.Open;
         _npcInteractionScripts.FaroreTransitions = _transitions;
         _roomEvents.Get<VasuShopEvent>().SetRingSecretMenuOpener(_secretEntry.OpenRingSecret);
+        _roomEvents.Get<VasuShopEvent>().SetRingSecretMenuCancellation(_secretEntry.CancelOwner);
     }
 }

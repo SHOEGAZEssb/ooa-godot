@@ -37,10 +37,22 @@ internal sealed class SeasonsWorldData
             if (row.UnsignedDecimal(1) != uploads.Count) throw row.Invalid(1,"source-ordered graphics uploads");
             uploads.Add(new(Root + row.RequiredString(2),row.HexWord(3),row.HexWord(4),row.HexByte(5)));
         }
+        foreach (var row in _rooms.Values)
+        {
+            string unique = row.RequiredString(4);
+            if (_graphics.ContainsKey(unique)) continue;
+            var native = _transitionGraphics.ForTileset(row.HexByte(2), row.Decimal(1, 0, 3));
+            // Palette-only unique headers need no bitmap upload; LoadRoom publishes their tileset palette.
+            if (_transitionGraphics.Uploads(native.Unique).All(upload => upload.Palette >= 0))
+                _graphics.Add(unique, []);
+        }
     }
     private static GeneratedTable Table(string name,string[] columns) => GeneratedTable.Load(
         Root + $"world/{name}.tsv",new($"Seasons world {name}",GeneratedTableKeySemantics.Ordered,columns,headerRequired:true));
     internal bool HasRoom(int group,int room) => _rooms.TryGetValue((group,room,0),out var row) && row.RequiredString(16) == "navigation";
+    internal string? UnavailableRoomReason(int group, int room) => !_rooms.TryGetValue((group, room, 0), out var row)
+        ? $"data/seasons/tilesetAssignments.s: room ${group:x1}:{room:x2} is not imported."
+        : row.RequiredString(16) == "navigation" ? null : row.RequiredString(15) + ": " + row.RequiredString(16);
     internal int GetDungeonIndex(int group,int room)
     {
         if (!_rooms.TryGetValue((group,room,0),out var row))

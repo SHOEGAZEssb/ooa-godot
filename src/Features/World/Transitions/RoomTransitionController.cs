@@ -982,6 +982,7 @@ public class RoomTransitionController : IDisposable
 	{
 		RequireActive();
 		if (_warpActive) return;
+		if (!CanBeginWarp(player, warp, delayedFadeOut || forceFadeOut || warp.DirectFadeOut)) return;
 		if (warp.DestinationIsIndex ? !Enumerable.Range(0,256).Any(room => _rooms.HasRoom(warp.DestinationGroup,room)) :
 			!_rooms.HasRoom(warp.DestinationGroup,warp.DestinationRoom))
 			throw new NotSupportedException($"bank4.applyWarpDest_b04: {AssetRoot} warp from ${warp.SourceGroup:x1}:${warp.SourceRoom:x2} " +
@@ -1056,7 +1057,9 @@ public class RoomTransitionController : IDisposable
 		}
 	}
 
-	private void RequireOrdinaryHandlers(Warp warp, bool sourceAlreadyHandled)
+	private protected virtual bool CanBeginWarp(Player player, Warp warp, bool sourceAlreadyHandled) => true;
+
+	private protected void RequireOrdinaryHandlers(Warp warp, bool sourceAlreadyHandled)
 	{
 		WarpTransitionHandler source = _warps.HandlerFor(warp.SourceTransition);
 		// A direct CUTSCENE_03 load has already bypassed Link's source handler.

@@ -340,6 +340,15 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSharedPushTileDataRom, requiresRom: true);
         RunIsolatedValidation(ValidateSharedOpenedChests, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsWorldRooms, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsNativeWarpDestinations, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsUnavailableWarps);
+        RunIsolatedValidation(ValidateSeasonsVasuShopDoorway);
+        RunIsolatedValidation(ValidateSeasonsTickTockDoorway);
+        RunIsolatedValidation(ValidateSeasonsVasuTutorial);
+        RunIsolatedValidation(ValidateSeasonsVasuAppraisal);
+        RunIsolatedValidation(ValidateSeasonsVasuSnakes);
+        RunIsolatedValidation(ValidateSeasonsVasuRingSecrets);
+        RunIsolatedValidation(ValidateSeasonsVasuCancellation);
         RunIsolatedValidation(ValidateSeasonsTalkNpcPredicates);
         RunIsolatedValidation(ValidateSeasonsTalkNpcConversations);
         RunIsolatedValidation(ValidateSeasonsOldManCave);

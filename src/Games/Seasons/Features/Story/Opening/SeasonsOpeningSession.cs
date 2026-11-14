@@ -120,7 +120,8 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         Entities.RoomInitializing+=(_,_)=>_essenceEvent.Cancel();
         Transitions.ScreenTransitionsDisabledSource = () => Phase is not (SeasonsOpeningPhase.Troupe or SeasonsOpeningPhase.Complete);
         Engine.BindTransitions(Transitions);
-        Engine.BindInteractions(null, () => _roomTicks, () =>
+        InitializeVasu();
+        Engine.BindInteractions(Vasu, () => _roomTicks, () =>
             StatusBar.DisplayedRupees == Inventory.Rupees && StatusBar.DisplayedHealth == Inventory.HealthQuarters);
         Entities.PaletteFadeActiveSource = () => Fading;
         Entities.RoomInitialized += (group,room) =>
@@ -444,7 +445,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
     }
 
 
-    internal void ReleaseRuntime() { _essenceEvent?.Cancel(); Engine?.Dispose(); Entities?.Dispose(); }
+    internal void ReleaseRuntime() { ReleaseVasu(); _essenceEvent?.Cancel(); Engine?.Dispose(); Entities?.Dispose(); }
     public override void _ExitTree() => ReleaseRuntime();
 }
 

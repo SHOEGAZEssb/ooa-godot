@@ -15,7 +15,8 @@ public sealed partial class ValidationRoot
         for (int y=0; y<room.HeightInTiles; y++)
         for (int x=0; x<room.WidthInTiles; x++) room.SetPositionTileAndCollision(new(x*16+8,y*16+8),floor,0,0);
         string[] entries=game==OracleGame.Ages ? ["targetCartCrystals","group4MapabObjectData","group0Map36ObjectData","group4Mapd2ObjectData","group4Mapd3ObjectData"] :
-            ["objectData_sandPuffsFromShipDigging","objectData7e4a","group0Map98ObjectData","group4Map0bObjectData"];
+            ["objectData_sandPuffsFromShipDigging","objectData7e4a","group0Map98ObjectData","group4Map0bObjectData",
+                "group0Map84ObjectData","group4Map52ObjectData","group5Map62ObjectData"];
         int cases=0;
         foreach (string label in entries)
         foreach (int occupied in new[] {0,15,16})

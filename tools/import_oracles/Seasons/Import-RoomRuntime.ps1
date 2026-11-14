@@ -36,6 +36,7 @@ foreach ($placement in @(@(4, 0x26, 0x57), @(4, 0xb1, 0x57), @(5, 0x6f, 0x67))) 
 }
 $rows.Add("5`t03`tobjects/seasons/mainData.s:group5Map03ObjectData")
 $rows.Add("1`t05`tobjects/seasons/mainData.s:group1Map05ObjectData")
+$rows.Add("3`t91`tobjects/seasons/mainData.s:group1Map91ObjectData")
 Write-GeneratedTable((Join-Path $seasonDestination 'opening/supported_object_rooms.tsv'), $rows)
 
 $satchel=$seasonsSymbols['sidescrollingStaticSeedSatchel']

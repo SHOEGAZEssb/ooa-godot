@@ -12,9 +12,8 @@ public sealed partial class LinkedGameNpcDatabase
     private int GameIdAddress => OracleWramLayout.Shared.Value.Require(OracleAssetPack.GameFor(AssetRoot), "wGameID");
     private const int SecretType = 3;
 
-    private readonly Dictionary<
-        (int Group, int Room, int InteractionId, int SubId),
-        LinkedGameNpcDatabaseRecord> _records = [];
+    private readonly Lazy<Dictionary<(int Group, int Room, int InteractionId, int SubId),
+        LinkedGameNpcDatabaseRecord>> _records;
     private readonly byte[] _xorCipher;
     private readonly string[] _secretSymbols;
 
@@ -64,6 +63,19 @@ public sealed partial class LinkedGameNpcDatabase
         }
         _secretSymbols = symbolValues.ToArray();
 
+        _records = new(LoadNpcRecords);
+        if (_secretSymbols.Length != 64 || _xorCipher.Length != 48)
+        {
+            throw new InvalidOperationException(
+                "Linked-secret symbol/cipher tables are incomplete.");
+        }
+    }
+
+    private Dictionary<(int Group, int Room, int InteractionId, int SubId), LinkedGameNpcDatabaseRecord> LoadNpcRecords()
+    {
+        // Secret encoding needs only the selected pack's cipher and symbols, not its quest NPC catalog.
+        var records = new Dictionary<(int, int, int, int), LinkedGameNpcDatabaseRecord>();
+        LinkedGameNpcDatabaseRecord Record(int group, int room, int id, int subid) => records[(group, room, id, subid)];
         GeneratedTable table = GeneratedTable.Load(
             AssetRoot + "objects/linked_game_npcs.tsv",
             new GeneratedTableSchema(
@@ -89,7 +101,7 @@ public sealed partial class LinkedGameNpcDatabase
                 row.Base64Utf8(13), row.Base64Utf8(14), row.Base64Utf8(15),
                 row.Base64Utf8(16), row.Base64Utf8(17),
                 row.RequiredString(18));
-            if (!_records.TryAdd(
+            if (!records.TryAdd(
                     (record.Group, record.Room, record.InteractionId, record.SubId),
                     record))
             {
@@ -98,8 +110,8 @@ public sealed partial class LinkedGameNpcDatabase
             }
         }
 
-        if (_records.Count != 10 ||
-            Get(3, 0x5e, AgesInteractionId.Subrosian, 0x03) is not
+        if (records.Count != 10 ||
+            Record(3, 0x5e, AgesInteractionId.Subrosian, 0x03) is not
                 {
                     SecretIndex: 0x02,
                     ShortSecretIndex: 0x22,
@@ -108,9 +120,9 @@ public sealed partial class LinkedGameNpcDatabase
                     FinalTextId: 0x4d0e,
                     HasExtraText: true
                 } ||
-            Get(3, 0xf8, AgesInteractionId.OldLady, 5) is not { SecretIndex: 9, ShortSecretIndex: 0x29,
+            Record(3, 0xf8, AgesInteractionId.OldLady, 5) is not { SecretIndex: 9, ShortSecretIndex: 0x29,
                 BeganFlag: 0x59, OfferTextId: 0x4d2d, FinalTextId: 0x4d31, HasExtraText: true } ||
-            Get(0, 0x5d, AgesInteractionId.LinkedGameGhini, 0x00) is not
+            Record(0, 0x5d, AgesInteractionId.LinkedGameGhini, 0x00) is not
                 {
                     SecretIndex: 0x01,
                     ShortSecretIndex: 0x21,
@@ -119,7 +131,7 @@ public sealed partial class LinkedGameNpcDatabase
                     FinalTextId: 0x4d09,
                     HasExtraText: true
                 } ||
-            Get(0, 0x83, AgesInteractionId.GreatFairy, 0x00) is not
+            Record(0, 0x83, AgesInteractionId.GreatFairy, 0x00) is not
                 {
                     SecretIndex: 0x06,
                     ShortSecretIndex: 0x26,
@@ -127,28 +139,28 @@ public sealed partial class LinkedGameNpcDatabase
                     OfferTextId: 0x4d1e,
                     FinalTextId: 0x4d22,
                     HasExtraText: true
-                } || Get(2,0xf6,AgesInteractionId.Goron,0x0f) is not {SecretIndex:8,ShortSecretIndex:0x28,BeganFlag:0x58,
+                } || Record(2,0xf6,AgesInteractionId.Goron,0x0f) is not {SecretIndex:8,ShortSecretIndex:0x28,BeganFlag:0x58,
                     OfferTextId:0x4d28,FinalTextId:0x4d2c,HasExtraText:false} ||
-            Get(1,0x96,AgesInteractionId.FemaleVillager,0x06) is not
+            Record(1,0x96,AgesInteractionId.FemaleVillager,0x06) is not
                 {SecretIndex:0x05,ShortSecretIndex:0x25,BeganFlag:0x55,
                     OfferTextId:0x4d19,FinalTextId:0x4d1d,HasExtraText:false} ||
-            Get(0,0x78,AgesInteractionId.OldLady,0x04) is not
+            Record(0,0x78,AgesInteractionId.OldLady,0x04) is not
                 {SecretIndex:0x00,ShortSecretIndex:0x20,BeganFlag:0x50,
                     OfferTextId:0x4d00,FinalTextId:0x4d04,HasExtraText:true} ||
-            Get(0,0xa0,AgesInteractionId.MasterDiver,0x00) is not
+            Record(0,0xa0,AgesInteractionId.MasterDiver,0x00) is not
                 {SecretIndex:0x03,ShortSecretIndex:0x23,BeganFlag:0x53,
                     OfferTextId:0x4d0f,FinalTextId:0x4d13,HasExtraText:false} ||
-            Get(1,0x2d,AgesInteractionId.Subrosian,0x04) is not
+            Record(1,0x2d,AgesInteractionId.Subrosian,0x04) is not
                 {SecretIndex:0x04,ShortSecretIndex:0x24,BeganFlag:0x54,
                     OfferTextId:0x4d14,FinalTextId:0x4d18,HasExtraText:false} ||
-            Get(1,0x90,0xd6,0x00) is not
+            Record(1,0x90,0xd6,0x00) is not
                 {SecretIndex:0x07,ShortSecretIndex:0x27,BeganFlag:0x57,
                     OfferTextId:0x4d23,FinalTextId:0x4d27,HasExtraText:false})
         {
             throw new InvalidOperationException(
                 "Linked-game NPC source records are incomplete.");
         }
-        foreach (LinkedGameNpcDatabaseRecord record in _records.Values)
+        foreach (LinkedGameNpcDatabaseRecord record in records.Values)
         {
             if (record.ShortSecretIndex != 0x20 + record.SecretIndex ||
                 !record.SecretMessage.Contains(
@@ -158,17 +170,13 @@ public sealed partial class LinkedGameNpcDatabase
                     $"Malformed linked-game NPC record from {record.Source}.");
             }
         }
-        if (_secretSymbols.Length != 64 || _xorCipher.Length != 48)
-        {
-            throw new InvalidOperationException(
-                "Linked-secret symbol/cipher tables are incomplete.");
-        }
+        return records;
     }
 
     internal bool TryGet(
         NpcRecord npc,
         out LinkedGameNpcDatabaseRecord record) =>
-        _records.TryGetValue(
+        _records.Value.TryGetValue(
             (npc.Group, npc.Room, npc.Id, npc.SubId), out record);
 
     internal LinkedGameNpcDatabaseRecord Get(
@@ -177,7 +185,7 @@ public sealed partial class LinkedGameNpcDatabase
         int interactionId,
         int subId)
     {
-        if (_records.TryGetValue(
+        if (_records.Value.TryGetValue(
                 (group, room, interactionId, subId), out var record))
         {
             return record;

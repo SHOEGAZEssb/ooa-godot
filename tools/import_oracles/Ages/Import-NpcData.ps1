@@ -3497,74 +3497,6 @@ function Resolve-ShopText(
     return $message
 }
 
-$vasuShopTextIds = @(
-    0x3000, 0x3002, 0x3003, 0x3004, 0x3005, 0x3006, 0x3007, 0x3008,
-    0x3009, 0x300a, 0x300b, 0x300c,
-    0x300e, 0x300f, 0x3010, 0x3014, 0x3015, 0x3016, 0x3018,
-    0x3011, 0x3012, 0x3013, 0x3017, 0x3019, 0x301a, 0x301c, 0x301d, 0x301e,
-    0x301f, 0x3020, 0x3024, 0x3025, 0x3026, 0x3027,
-    0x3028, 0x302e, 0x3033, 0x3036, 0x3037, 0x3039, 0x303a, 0x303b,
-    0x3038, 0x303c, 0x303d, 0x303e, 0x303f
-)
-$vasuShopTextRows = [Collections.Generic.List[string]]::new()
-$vasuShopTextRows.Add("# text-id`tutf8-base64")
-foreach ($textId in $vasuShopTextIds) {
-    $message = Resolve-ShopText $textId ([Collections.Generic.HashSet[int]]::new())
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
-    $vasuShopTextRows.Add("$($textId.ToString('x4'))`t$encoded")
-}
-
-$vasuShopAnimationRows = [Collections.Generic.List[string]]::new()
-$vasuShopAnimationRows.Add("# interaction-id`tanimation`tencoded-animation")
-foreach ($spec in @(@(0x89, 9), @(0xe5, 2))) {
-    for ($animationIndex = 0; $animationIndex -lt $spec[1]; $animationIndex++) {
-        $animation = Resolve-NpcAnimation $spec[0] $animationIndex
-        if ([string]::IsNullOrWhiteSpace($animation)) {
-            throw "Could not resolve a Vasu Jewelers animation from the disassembly."
-        }
-        $vasuShopAnimationRows.Add(
-            "$(([int]$spec[0]).ToString('x2'))`t$($animationIndex.ToString('x2'))`t$animation")
-    }
-}
-
-$vasuShopConstantRows = @(
-    "# key`tvalue",
-    "group`t2",
-    "room`t238",
-    "textbox-position`t2",
-    "snake-proximity-radius`t24",
-    "red-snake-wait`t30",
-    "blue-snake-cable-timeout`t512",
-    "vasu-radius-y`t18",
-    "vasu-radius-x`t6",
-    "snake-radius`t6",
-    "a-button-point-offset`t10",
-    "ring-box-grab-mode`t2",
-    "ring-grab-mode`t1",
-    "obtained-ring-box-address`t50709",
-    "rings-obtained-address`t50710",
-    "rings-obtained-byte-count`t8",
-    "rings-appraised-address`t50894",
-    "linked-first-mask`t1",
-    "appraisal-cost`t20",
-    "duplicate-refund`t30",
-    "menu-close-wait`t10",
-    "appraisal-result-wait`t40",
-    "menu-exit-wait`t60",
-    "global-earned-slayer`t0",
-    "global-earned-wealth`t1",
-    "global-earned-victory`t2",
-    "global-got-slayer`t4",
-    "global-got-wealth`t5",
-    "global-got-victory`t6",
-    "global-obtained-ring-box`t8",
-    "global-appraised-hundredth`t9",
-    "ring-friendship`t0",
-    "ring-slayer`t52",
-    "ring-wealth`t53",
-    "ring-victory`t54",
-    "ring-hundredth`t56"
-)
 
 # Past room 2:5e is the normal Lynna shop. INTERAC_SHOP_ITEM $47 owns the
 # stock substitutions and product graphics while INTERAC_SHOPKEEPER $46 owns
@@ -7014,18 +6946,6 @@ $tingleAnimationPath = Join-Path $destination "objects\tingle_animations.tsv"
 Write-GeneratedTable($tingleAnimationPath, $tingleAnimationRows)
 $tingleTextPath = Join-Path $destination "objects\tingle_texts.tsv"
 Write-GeneratedTable($tingleTextPath, $tingleTextRows)
-$vasuShopTextPath = Join-Path $destination "objects\vasu_shop_texts.tsv"
-Write-GeneratedTable(
-    $vasuShopTextPath,
-    $vasuShopTextRows)
-$vasuShopAnimationPath = Join-Path $destination "objects\vasu_shop_animations.tsv"
-Write-GeneratedTable(
-    $vasuShopAnimationPath,
-    $vasuShopAnimationRows)
-$vasuShopConstantsPath = Join-Path $destination "objects\vasu_shop_constants.tsv"
-Write-GeneratedTable(
-    $vasuShopConstantsPath,
-    $vasuShopConstantRows)
 $lynnaShopItemPath = Join-Path $destination "objects\lynna_shop_items.tsv"
 Write-GeneratedTable(
     $lynnaShopItemPath,

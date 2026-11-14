@@ -444,6 +444,11 @@ $stageContracts = @(
         -functionInputs @('Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-AssemblyNpcProgramRows', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'seasons-room-runtime' 'Seasons/Import-RoomRuntime.ps1' `
         -inputs @('seasonsRomBytes', 'seasonsSymbols')
+    New-ImportStageContract 'vasu-shop' 'Shared/Import-VasuShop.ps1' `
+        -inputs @('allTexts', 'seasonNpcTexts', 'agesSymbols', 'seasonsSymbols') `
+        -functionInputs @('Resolve-NpcAnimation', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
+    New-ImportStageContract 'seasons-ring-secrets' 'Seasons/Import-RingSecrets.ps1' `
+        -inputs @('seasonsRomBytes', 'seasonsSymbols')
     New-ImportStageContract 'common-engine' 'Shared/Import-CommonEngineData.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes')
     New-ImportStageContract 'wram-fields' 'Shared/Import-WramFields.ps1' -inputs @('agesSymbols', 'seasonsSymbols')
     New-ImportStageContract 'maple-admission' 'Shared/Import-MapleAdmission.ps1' `

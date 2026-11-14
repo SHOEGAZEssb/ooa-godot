@@ -3,7 +3,7 @@ namespace Oracles;
 
 /// <summary>
 /// Imported room, script, flag, ring, text, and animation metadata for Vasu
-/// Jewelers in past room $2:$ee.
+/// Jewelers in the selected game's native interior.
 /// </summary>
 internal sealed class VasuShopDatabase
 {
@@ -43,6 +43,7 @@ internal sealed class VasuShopDatabase
     public int GlobalGotVictory => Constant("global-got-victory");
     public int GlobalObtainedRingBox => Constant("global-obtained-ring-box");
     public int GlobalAppraisedHundredth => Constant("global-appraised-hundredth");
+    public int GlobalFinishedGame { get; }
     public int RingFriendship => Constant("ring-friendship");
     public int RingSlayer => Constant("ring-slayer");
     public int RingWealth => Constant("ring-wealth");
@@ -52,6 +53,7 @@ internal sealed class VasuShopDatabase
     public VasuShopDatabase(string assetRoot)
     {
         AssetRoot = assetRoot;
+        GlobalFinishedGame = new GlobalFlagDatabase(assetRoot).GetId("GLOBALFLAG_FINISHEDGAME");
 
         LoadConstants();
         LoadTexts();
@@ -136,14 +138,16 @@ internal sealed class VasuShopDatabase
 
     private void Validate()
     {
-        if (_constants.Count != 35 || _texts.Count != 47 || _animations.Count != 11 ||
-            Group != 2 || Room != 0xee || TextboxPosition != 2 ||
+        OracleGame game = OracleAssetPack.GameFor(AssetRoot);
+        var wram = OracleWramLayout.Shared.Value;
+        if (_constants.Count != 35 || _texts.Count != 47 || _animations.Count != (game == OracleGame.Ages ? 11 : 10) ||
+            Group != (game == OracleGame.Ages ? 2 : 3) || Room != (game == OracleGame.Ages ? 0xee : 0x91) || TextboxPosition != 2 ||
             SnakeProximityRadius != 0x18 || RedSnakeWait != 30 ||
             BlueSnakeCableTimeout != 0x200 || VasuRadiusY != 0x12 ||
             VasuRadiusX != 6 || SnakeRadius != 6 || AButtonPointOffset != 10 ||
             RingBoxGrabMode != 2 || RingGrabMode != 1 ||
-            ObtainedRingBoxAddress != 0xc615 || RingsObtainedAddress != 0xc616 ||
-            RingsObtainedByteCount != 8 || RingsAppraisedAddress != 0xc6ce ||
+            ObtainedRingBoxAddress != wram.Require(game, "wObtainedRingBox") || RingsObtainedAddress != wram.Require(game, "wRingsObtained") ||
+            RingsObtainedByteCount != 8 || RingsAppraisedAddress != wram.Require(game, "wNumRingsAppraised") ||
             LinkedFirstMask != 1 || AppraisalCost != 20 || DuplicateRefund != 30 ||
             MenuCloseWait != 10 || AppraisalResultWait != 40 || MenuExitWait != 60 ||
             GlobalEarnedSlayer != 0 || GlobalEarnedWealth != 1 ||
@@ -161,7 +165,7 @@ internal sealed class VasuShopDatabase
             !_texts[0x301d].Contains("\\secret2", StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
-                "Vasu Jewelers data does not match the imported room $2:$ee contract.");
+                $"{AssetRoot}: Vasu Jewelers data does not match its native room/WRAM contract.");
         }
     }
 

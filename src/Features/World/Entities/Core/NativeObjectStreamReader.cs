@@ -32,7 +32,6 @@ internal sealed class NativeObjectStreamReader(NativeObjectStreamDatabase data, 
                     {
                         var skipped=data.At(address,source);
                         if (skipped.Header && skipped.Opcode is 0 or 0xfe or 0xff) break;
-                        if (skipped.Opcode==0xfd) throw new NotSupportedException($"{skipped.Source}: conditional skip reached native garbage data.");
                         address=skipped.Next;
                     }
                     break;
@@ -51,7 +50,8 @@ internal sealed class NativeObjectStreamReader(NativeObjectStreamDatabase data, 
                     if (returns.Count!=0) throw new NotSupportedException($"{source}: obj_End would return through a native object pointer.");
                     yield break;
                 case 0xfd:
-                    throw new NotSupportedException($"{source}: native garbage object data is unsupported.");
+                    // The importer proves obj_Garbage selects only empty native opcode $7/$8 runs.
+                    break;
                 default:
                     _skipRun=false;
                     yield return instruction;
@@ -60,7 +60,6 @@ internal sealed class NativeObjectStreamReader(NativeObjectStreamDatabase data, 
                     {
                         var skipped=data.At(address,source);
                         if (skipped.Header) break;
-                        if (skipped.Opcode==0xfd) throw new NotSupportedException($"{skipped.Source}: allocation skip reached native garbage data.");
                         address=skipped.Next;
                     }
                     break;

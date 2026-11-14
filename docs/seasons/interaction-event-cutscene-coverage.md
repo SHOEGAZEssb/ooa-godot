@@ -43,8 +43,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 29 | 57 | 139 | 7 | 232 |
-| Expanded placed interaction contexts | 205 | 13 | 817 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 29 | 58 | 138 | 7 | 232 |
+| Expanded placed interaction contexts | 207 | 14 | 814 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -78,6 +78,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Old man's rupee cave `$5:03` | Runtime route from `$0:97`, one-time 100-rupee gift, completed dialogue and return doorway; other `$99` variants remain unbound |
 | Rosa's overworld chase | Runtime route through `$cb/$bb/$ab/$9b/$9a`, first/repeat introduction, both patrol patterns, detection/caught escape and the covered portal; dating remains unbound |
 | Subrosia portal travel | Link's native spinning/height sequence and Cutscene `$15` through `$0:9a ↔ $1:05`; other destination object streams remain outside this route |
+| Vasu Jewelers `$3:91` | Ring Box/Friendship Ring tutorial, appraisal, duplicates, ring list/box, special rewards, Red Snake ring-secret exchange, help books and Blue Snake no-cable timeout; successful Game Link services remain unbound |
 | Missing character rows and family variants in the NPC ledger | Quest, trade, secret, minigame, event and family progression remain missing |
 | Other room placements listed as **M** below | Missing |
 | Additional native/script variants of **P** dispatch families | Missing beyond the explicit runtime boundary |
@@ -246,7 +247,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$86` | [templeSinkingExplosion](../../external/oracles-disasm/object_code/seasons/interactions/templeSinkingExplosion.s) | — | — | — | 1 | **R** — Opening temple explosions `$00-$04`. |
 | `$87` | [makuTree](../../external/oracles-disasm/object_code/seasons/interactions/makuTree.s) | `$00` | `$01-$02` | — | 0 | **P** — Standard first story stage in native group `$02` room `$0b`, Gnarled Key and repeat advice; later stages and endgame variants remain unbound. |
 | `$88` | [88](../../external/oracles-disasm/object_code/seasons/interactions/88.s) | `$01` | — | — | 1 | **P** — Opening castle lightning `$00-$01`; the later room/story branches are missing. |
-| `$89` | [vasu](../../external/oracles-disasm/object_code/common/interactions/vasu.s) | `$00-$01, $06` | — | — | 0 | **M** — No Seasons production route. |
+| `$89` | [vasu](../../external/oracles-disasm/object_code/common/interactions/vasu.s) | `$00-$01, $06` | — | — | 0 | **P** — Ring tutorial, appraisal/list/box, special rewards, Red Snake ring-secret exchange and Blue Snake no-cable timeout; successful cable fortune and transfer remain unbound. |
 | `$8a` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$04` | — | — | 1 | **R** — Sunken-stage flooded-house dialogue and visibility. |
 | `$8b` | [sunkenCityNpcs](../../external/oracles-disasm/object_code/seasons/interactions/sunkenCityNpcs.s) | `$00-$04` | — | — | 2 | **R** — Sunken-stage wife dialogue and Moblin Keep room relocation. |
 | `$8c` | [flyingRooster](../../external/oracles-disasm/object_code/seasons/interactions/flyingRooster.s) | `$00-$01` | — | — | 1 | **M** — No Seasons production route. |
@@ -570,7 +571,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `1:8b` | [M] `$40:$07/v$00` piratian<br>[M] `$40:$08/v$00` piratian<br>[R] `$42:$00/v$00` pirateHouseSubrosian |
 | `1:8e` | [M] `$53:$01/v$00` headSmelter<br>[R] `$30:$04/v$00` subrosian<br>[R] `$30:$05/v$00` subrosian<br>[M] `$6b:$22/v$00` miscellaneous1 |
 | `1:8f` | [M] `$5c:$00/v$00` lavaSoupSubrosian |
-| `1:91` | [M] `$89:$00/v$00` vasu<br>[M] `$89:$01/v$00` vasu<br>[M] `$89:$06/v$00` vasu<br>[R] `$e5:$00/v$00` ringHelpBook<br>[R] `$e5:$01/v$00` ringHelpBook |
+| `1:91` | [R] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu (no-cable timeout)<br>[R] `$89:$06/v$00` vasu<br>[R] `$e5:$00/v$00` ringHelpBook<br>[R] `$e5:$01/v$00` ringHelpBook |
 | `1:92` | [M] `$ac:$00/v$00` bipinBlossomFamilySpawner |
 | `1:93` | [M] `$4c:$01/v$00` miscStatusObjects<br>[M] `$4c:$01/v$00` miscStatusObjects<br>[M] `$ac:$01/v$00` bipinBlossomFamilySpawner |
 | `1:94` | [M] `$8f:$00/v$00` oldManWithJewel |

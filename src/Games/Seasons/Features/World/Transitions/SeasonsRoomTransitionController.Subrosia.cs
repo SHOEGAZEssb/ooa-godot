@@ -13,6 +13,7 @@ internal sealed partial class SeasonsRoomTransitionController
         { base.ApplyWarp(player, warp); return; }
         RequireActive();
         if (IsTransitioning) return;
+        if (!CanBeginWarp(player, warp, sourceAlreadyHandled: true)) return;
         _pendingWarp = warp; _subrosiaWarp = _warpActive = true; _suppressDestinationMusic = true;
         _dialogue.Close(); ClearRoomLoadColumnReveal(); SetFade(0);
         _entities.RuntimeState.SetField("wWarpTransition", 8);

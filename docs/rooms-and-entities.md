@@ -852,6 +852,16 @@ streams produce explicit source-aware navigation-only diagnostics. Preload is no
 room entry: counters, RNG, music, checkpoints,
 events, and persistence change only at the original boundary.
 
+Seasons imports the complete standard room catalog independently of the narrower
+object and quest bindings. Native group aliases retain their physical identity;
+incompatible unused layout assignments and custom WRAM renderers remain explicit
+unsupported records. Before beginning a Seasons warp, the transition owner checks
+destination availability and handler support without committing the pending native
+index. An unsupported destination shows an unavailable message and suppresses
+the current entrance until Link leaves it, preserving the current room and file
+slot. Supported requests still resolve their live destination at the full-load
+boundary.
+
 Native cutscene handlers that precede objects advance before Link and item
 dispatch, including their release update. Their ownership of post-object work
 lasts through that update. Selecting a main-thread handler does not replace

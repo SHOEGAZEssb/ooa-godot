@@ -117,7 +117,12 @@ public sealed class RoomEventController
             () => new BusinessScrubEvent(_context),
             () => new LynnaShopEvent(_context),
             () => new SyrupShopEvent(_context),
-            () => new VasuShopEvent(_context),
+            () => new VasuShopEvent(_context.Rooms, _context.Entities, _context.Inventory,
+                _context.Player, _context.Dialogue, (id, message, position, choice) =>
+                {
+                    if (choice) _context.ShowChoiceDialogue(message, textboxPosition: position, sourceTextId: id);
+                    else _context.ShowDialogue(message, position, sourceTextId: id);
+                }),
             () => new ShootingGalleryEvent(_context),
             () => new ComedianEvent(_context),
             () => new MaskSalesmanEvent(_context),

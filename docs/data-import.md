@@ -130,6 +130,9 @@ index. Ages' sixteen histories and Seasons' eight histories use different bit
 orders; consumers must not infer the flag bit from the row index. Room object
 streams likewise retain source order and conditional pointers, including
 branches whose runtime handlers are explicitly unsupported.
+Imported `obj_Garbage` records are executable no-ops only after the producer
+proves their compiled bytes select empty native object runs; arbitrary garbage
+must still fail import.
 Enemy admission metadata is projected from these native instructions and labels;
 it does not require a second placement table or an address-binding table.
 Live allocation and conditional execution remain owned by the native stream reader.
