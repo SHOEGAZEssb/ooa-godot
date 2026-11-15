@@ -7,6 +7,16 @@ internal sealed class SeasonsOpeningWorld(SeasonsOpeningSession session)
 {
     private SubrosiaKeyDoorController? _subrosiaKeys;
     private GhiniTileSpawner? _ghiniSpawner;
+    private RodOfSeasonsController Rod => session.Entities.RodOfSeasons ??= new(session);
+    public bool RodOfSeasonsActive => session.Entities.RodOfSeasons?.Active == true;
+    public void BeginRodOfSeasons(Player player) => Rod.Begin(player);
+    public void UpdateRodOfSeasonsParent() => session.Entities.RodOfSeasons?.UpdateParent();
+    public void ClearRodOfSeasonsParent() => session.Entities.RodOfSeasons?.ClearParent();
+    public override void ClearItemParents(Player player)
+    {
+        base.ClearItemParents(player);
+        ClearRodOfSeasonsParent();
+    }
     protected override bool UpdateNativeTileContact(byte handler,Vector2 position,Vector2I facing,Vector2 input) =>
         handler switch
         {

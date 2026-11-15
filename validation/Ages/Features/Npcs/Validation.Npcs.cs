@@ -793,7 +793,7 @@ public sealed partial class ValidationRoot
 
         _activeGroup = 0;
         _currentRoom = _world.LoadRoom(_activeGroup, 0x66);
-        _roomView.SetRoom(_currentRoom.Texture);
+        _roomView.SetRoom(_currentRoom);
         RefreshRoomObjects();
         NpcCharacter? woman = _npcNodes.Find(npc =>
             npc.Record.Id == 0x3b && npc.Record.SubId == 0x01);

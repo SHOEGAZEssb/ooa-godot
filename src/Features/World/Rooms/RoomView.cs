@@ -3,6 +3,14 @@ namespace Oracles;
 
 public partial class RoomView : Node2D
 {
+    private OracleRoomData? _room, _previousRoom;
+    private RoomPriorityView? _priorityView;
+    public override void _Ready() => _priorityView = GetNodeOrNull<RoomPriorityView>("Priority");
+    private void RedrawRoom()
+    {
+        QueueRedraw();
+        _priorityView?.QueueRedraw();
+    }
     private Texture2D? _current;
     private bool _nativeTilemap;
     private int _nativeScrollY;
@@ -12,10 +20,10 @@ public partial class RoomView : Node2D
     {
         Vector2 offset=fullScreen?new(0,-OracleRoomData.GameplayScreenTop):Vector2.Zero;
         if(_nativePresentationOffset==offset)return;
-        _nativePresentationOffset=offset;QueueRedraw();
+        _nativePresentationOffset=offset;RedrawRoom();
     }
-    internal void SetNativeScrollOffset(Vector2 offset){_nativeBackgroundOffset=-offset;QueueRedraw();}
-    internal void SetNativeScrollY(int value){_nativeScrollY=value&255;QueueRedraw();}
+    internal void SetNativeScrollOffset(Vector2 offset){_nativeBackgroundOffset=-offset;RedrawRoom();}
+    internal void SetNativeScrollY(int value){_nativeScrollY=value&255;RedrawRoom();}
     private Texture2D? _previous;
     private Vector2I _direction;
     private Vector2 _transitionTextureOffset;
@@ -53,11 +61,18 @@ public partial class RoomView : Node2D
         _underwaterWaveActive = active;
         _underwaterBackground = _underwaterWaveActive ? room.UnderwaterBackgroundTexture : null;
         _underwaterWavePhase = (frameCounter - OracleRoomData.StatusBarHeight) & 0x7f;
-        QueueRedraw();
+        RedrawRoom();
+    }
+
+    public void SetRoom(OracleRoomData room)
+    {
+        SetRoom(room.Texture);
+        _room = room;
     }
 
     public void SetRoom(Texture2D texture)
     {
+        _room = _previousRoom = null;
         _nativeTilemap=false;_nativeScrollY=0;_nativeBackgroundOffset=Vector2.Zero;
         _current = texture;
         _underwaterWaveActive = false;
@@ -68,7 +83,7 @@ public partial class RoomView : Node2D
         _roomLoadColumnReveal = false;
         _roomLoadRevealLoadedColumns = 0;
         _roomLoadClearedTilemap = null;
-        QueueRedraw();
+        RedrawRoom();
     }
     internal void SetNativeTilemap(Texture2D texture)
     {
@@ -79,26 +94,28 @@ public partial class RoomView : Node2D
     {
         _underwaterWaveSuspended=suspended;
         if(suspended){_underwaterWaveActive=false;_underwaterBackground=null;}
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void StartScreenTransition(
-        Texture2D texture,
+        OracleRoomData room,
         Vector2I direction,
         float distance,
         Vector2 sourceCameraOrigin,
         Vector2 destinationCameraOrigin)
     {
         _previous = _current;
+        _previousRoom = _room;
+        _room = room;
         _underwaterWaveActive = false;
         _underwaterBackground = null;
-        _current = texture;
+        _current = room.Texture;
         _direction = direction;
         _transitionDistance = distance;
         _transitionTextureOffset = sourceCameraOrigin - destinationCameraOrigin;
         _transitionFrame = 0.0f;
         _transitionFrames = Mathf.Max(1, Mathf.RoundToInt(distance / 4.0f));
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void SetTransitionFrame(float frame)
@@ -107,14 +124,15 @@ public partial class RoomView : Node2D
             return;
 
         _transitionFrame = Mathf.Clamp(frame, 0.0f, _transitionFrames);
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void FinishTransition()
     {
         _previous = null;
+        _previousRoom = null;
         _transitionFrame = 0.0f;
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void SetHorizontalWave(int amplitude, int phase, int step = 1, bool normalEvenSamples = false,
@@ -128,27 +146,27 @@ public partial class RoomView : Node2D
         _waveInvertEvenSamples = invertEvenSamples;
         _waveCameraX = (int)cameraOrigin.X;
         _waveBackground = background;
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void ClearHorizontalWave()
     {
         _waveActive = false;
         _waveBackground = null;
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void SetBackgroundFade(Color color, float alpha)
     {
         _backgroundFade = new Color(
             color.R, color.G, color.B, Mathf.Clamp(alpha, 0.0f, 1.0f));
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void ClearBackgroundFade()
     {
         _backgroundFade = new Color(0, 0, 0, 0);
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void SetRoomLoadColumnReveal(
@@ -161,7 +179,7 @@ public partial class RoomView : Node2D
             loadedColumns,
             0,
             RoomTransitionController.RoomLoadRevealColumnUpdates);
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void SetRoomLoadRevealLoadedColumns(int loadedColumns)
@@ -172,7 +190,7 @@ public partial class RoomView : Node2D
             loadedColumns,
             0,
             RoomTransitionController.RoomLoadRevealColumnUpdates);
-        QueueRedraw();
+        RedrawRoom();
     }
 
     public void ClearRoomLoadColumnReveal()
@@ -180,41 +198,45 @@ public partial class RoomView : Node2D
         _roomLoadColumnReveal = false;
         _roomLoadRevealLoadedColumns = 0;
         _roomLoadClearedTilemap = null;
-        QueueRedraw();
+        RedrawRoom();
     }
 
     internal float BackgroundFadeAlpha => _backgroundFade.A;
-    internal Color BackgroundFadeColorForValidation => _backgroundFade;
+    internal Color BackgroundFadeColor => _backgroundFade;
     internal bool RoomLoadColumnRevealActive => _roomLoadColumnReveal;
     internal int RoomLoadRevealLoadedColumns => _roomLoadRevealLoadedColumns;
     internal Texture2D? RoomLoadClearedTilemap => _roomLoadClearedTilemap;
 
-    public override void _Draw()
+    public override void _Draw() => DrawRoom(this, priority: false);
+
+    internal void DrawRoom(Node2D canvas, bool priority)
     {
         if (_current is null)
             return;
+        Texture2D? current = priority ? _room?.GetPriorityTexture() : _current;
+        if (current is null) return;
 
         if(_nativeTilemap)
         {
             // Native fullscreen SCY=$00 includes the rows above the room.
             // World coordinates retain the ordinary gameplay-field origin.
             int first=Mathf.Min(144,256-_nativeScrollY);
-            DrawTextureRectRegion(_current,new Rect2(0,-OracleRoomData.GameplayScreenTop,160,first),new Rect2(0,_nativeScrollY,160,first));
-            if(first<144)DrawTextureRectRegion(_current,new Rect2(0,first-OracleRoomData.GameplayScreenTop,160,144-first),new Rect2(0,0,160,144-first));
+            canvas.DrawTextureRectRegion(current,new Rect2(0,-OracleRoomData.GameplayScreenTop,160,first),new Rect2(0,_nativeScrollY,160,first));
+            if(first<144)canvas.DrawTextureRectRegion(current,new Rect2(0,first-OracleRoomData.GameplayScreenTop,160,144-first),new Rect2(0,0,160,144-first));
             return;
         }
 
         if (_previous is null)
         {
             if (_roomLoadColumnReveal && _roomLoadClearedTilemap is not null)
-                DrawRoomLoadColumnReveal(_current, _roomLoadClearedTilemap);
+                DrawRoomLoadColumnReveal(canvas, current, priority ? null : _roomLoadClearedTilemap);
             else if (_waveActive)
-                DrawWavedTexture(_waveBackground ?? _current, _waveAmplitude, _wavePhase, _waveStep, _waveNormalEvenSamples, _waveCameraX, _waveInvertEvenSamples);
+                DrawWavedTexture(canvas, priority ? _room!.GetPriorityTexture(_waveBackground is not null) : _waveBackground ?? current, _waveAmplitude, _wavePhase, _waveStep, _waveNormalEvenSamples, _waveCameraX, _waveInvertEvenSamples);
             else if (_underwaterWaveActive && _underwaterBackground is not null)
-                DrawWavedTexture(_underwaterBackground, 0x02, _underwaterWavePhase);
+                DrawWavedTexture(canvas, priority ? _room!.GetPriorityTexture(true) : _underwaterBackground, 0x02, _underwaterWavePhase);
             else
-                DrawTexture(_current, _nativeBackgroundOffset+_nativePresentationOffset);
-            DrawBackgroundFade();
+                canvas.DrawTexture(current, _nativeBackgroundOffset+_nativePresentationOffset);
+            if (!priority) DrawBackgroundFade();
             return;
         }
 
@@ -223,16 +245,19 @@ public partial class RoomView : Node2D
         Vector2 distance = new(
             _direction.X * _transitionDistance,
             _direction.Y * _transitionDistance);
-        DrawTexture(_previous, -scroll);
-        DrawTexture(_current, _transitionTextureOffset + distance - scroll);
-        DrawBackgroundFade();
+        Texture2D? previous = priority ? _previousRoom?.GetPriorityTexture() : _previous;
+        if (previous is not null) canvas.DrawTexture(previous, -scroll);
+        canvas.DrawTexture(current, _transitionTextureOffset + distance - scroll);
+        if (!priority) DrawBackgroundFade();
     }
 
     private void DrawRoomLoadColumnReveal(
+        Node2D canvas,
         Texture2D texture,
-        Texture2D clearedTilemap)
+        Texture2D? clearedTilemap)
     {
-        DrawTextureRect(clearedTilemap, new Rect2(Vector2.Zero, texture.GetSize()), tile: true);
+        if (clearedTilemap is not null)
+            canvas.DrawTextureRect(clearedTilemap, new Rect2(Vector2.Zero, texture.GetSize()), tile: true);
         (int left, int right) =
             RoomTransitionController.RoomLoadRevealBounds(
                 _roomLoadRevealLoadedColumns);
@@ -244,7 +269,7 @@ public partial class RoomView : Node2D
             0,
             right - left,
             texture.GetHeight());
-        DrawTextureRectRegion(texture, revealed, revealed);
+        canvas.DrawTextureRectRegion(texture, revealed, revealed);
     }
 
     private void DrawBackgroundFade()
@@ -257,7 +282,7 @@ public partial class RoomView : Node2D
             _backgroundFade);
     }
 
-    private void DrawWavedTexture(Texture2D texture, int amplitude, int phase,
+    private void DrawWavedTexture(Node2D canvas, Texture2D texture, int amplitude, int phase,
         int step = 1, bool normalEvenSamples = false, int cameraX = 0, bool invertEvenSamples = false)
     {
         int width = texture.GetWidth();
@@ -269,9 +294,9 @@ public partial class RoomView : Node2D
             if (invertEvenSamples && (sample & 1) == 0) offset = -offset;
             Rect2 source = new(0, y, width, 1);
             Rect2 target = new(-offset, y, width, 1);
-            DrawTextureRectRegion(texture, target, source);
-            DrawTextureRectRegion(texture, new Rect2(target.Position + new Vector2(width, 0), target.Size), source);
-            DrawTextureRectRegion(texture, new Rect2(target.Position - new Vector2(width, 0), target.Size), source);
+            canvas.DrawTextureRectRegion(texture, target, source);
+            canvas.DrawTextureRectRegion(texture, new Rect2(target.Position + new Vector2(width, 0), target.Size), source);
+            canvas.DrawTextureRectRegion(texture, new Rect2(target.Position - new Vector2(width, 0), target.Size), source);
         }
     }
 

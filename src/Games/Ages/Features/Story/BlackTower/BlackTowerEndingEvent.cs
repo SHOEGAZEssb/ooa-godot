@@ -44,7 +44,7 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
         context.Player.CancelCreditsLink();
         _restoreTerrain?.Invoke();_restoreTerrain=null;
         var room=context.Rooms.LoadCutsceneRoom(group,id,restartAnimations);
-        context.Entities.LoadCutsceneRoom(group,room,includeTimePortals:false);context.RoomView.SetRoom(room.Texture);
+        context.Entities.LoadCutsceneRoom(group,room,includeTimePortals:false);context.RoomView.SetRoom(room);
         context.Sound.SelectRoomMusic(group,id,context.Rooms.SaveData);
         context.Player.EndCutsceneControl();context.Player.WarpTo(Vector2.Zero,recordSafe:false);context.Player.Visible=false;
         _linkEnabled=false;context.Transitions.ResetCamera();Write(AgesWramAddress.wScrollMode,1);

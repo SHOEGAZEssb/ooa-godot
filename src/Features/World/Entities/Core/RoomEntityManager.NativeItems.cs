@@ -5,6 +5,7 @@ public sealed partial class RoomEntityManager
 {
     internal void UpdateNativeItemsPost()
     {
+        RodOfSeasons?.UpdatePost();
         // bank0.updateAllObjects: after bank1.func_4000, rider/held-object
         // copies and any yielded interactions, independently of main-item gates.
         foreach (object owner in _dynamicItems.LiveOwners())

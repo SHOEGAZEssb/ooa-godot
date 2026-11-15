@@ -101,10 +101,8 @@ them; they do not depend on a game's NPC or enemy-story bundle.
 ## Boundary
 
 The importer converts the supported ROM and `oracles-disasm` sources into
-address-independent runtime assets in game packs under `assets/oracle/`. The
-current entry point generates Ages plus the Seasons launcher, frontend menus,
-opening, inventory presentation, overworld, Subrosia and admitted side-view layouts for
-navigation. Dungeon floor layouts and metadata use one importer for both games,
+address-independent runtime assets in game packs under `assets/oracle/`.
+Dungeon floor layouts and metadata use one importer for both games,
 checked against their compiled native pointers and property bytes. Each pack
 has its own table manifest; table/cache identity includes the full pack path.
 The `common` pack contains normalized engine contracts and source tables whose

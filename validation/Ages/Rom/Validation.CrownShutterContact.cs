@@ -33,7 +33,7 @@ public partial class ValidationRoot
                     {
                         Vector2 point = door.Position+(horizontal ? new Vector2(distance,0) : new Vector2(0,distance));
                         _player.WarpTo(point); _player.SetScriptedZHigh(z);
-                        rom[0xd00b] = (byte)point.Y; rom[0xd00d] = (byte)point.X; rom[0xd00f] = z;
+                        rom[0xd00b] = unchecked((byte)(int)point.Y); rom[0xd00d] = unchecked((byte)(int)point.X); rom[0xd00f] = z;
                         rom.Call(0x1c6f,bank:0,objectPage:0xd2); // objectCheckCollidedWithLink_ignoreZ.
                         bool native = (rom[0xc201]&0x10) != 0;
                         FailIf(native != expected || (bool)contact.Invoke(door,[_player])! != native,

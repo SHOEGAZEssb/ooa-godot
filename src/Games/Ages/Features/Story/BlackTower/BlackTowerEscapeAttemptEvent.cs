@@ -53,7 +53,7 @@ internal sealed class BlackTowerEscapeAttemptEvent(RoomEventContext context,Acti
                 if(context.Transitions.NativePaletteFadeActive)return;
                 context.Sound.PlaySound(SoundId.SndCtrlStopMusic);State=3;
                 var room=context.Rooms.LoadCutsceneBackground(4,0xf3);
-                context.Entities.RebindCutsceneBackground(room);context.RoomView.SetRoom(room.Texture);
+                context.Entities.RebindCutsceneBackground(room);context.RoomView.SetRoom(room);
                 context.Sound.SelectRoomMusic(4,0xf3,context.Rooms.SaveData);
                 context.Player.SetScriptedPosition(new(0x78+context.Player.PrecisePosition.X%1,0x78+context.Player.PrecisePosition.Y%1));
                 context.Transitions.ResetCamera();context.Transitions.BeginNativeWhiteFade(false,4);return;

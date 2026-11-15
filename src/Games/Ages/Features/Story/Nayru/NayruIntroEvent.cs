@@ -1816,7 +1816,7 @@ internal sealed class NayruIntroEvent :
         // ordinary entry path does.
         RestoreCompletedPortal(group, loaded);
         _nayruRoom = loaded;
-        _roomView.SetRoom(loaded.Texture);
+        _roomView.SetRoom(loaded);
         _entities.LoadCutsceneRoom(group, loaded, includeTimePortals);
         _transitions.ResetCamera();
     }

@@ -43,7 +43,7 @@ internal sealed partial class RoomOfRitesBattleEvent
     {
         Write(TwinrovaArenaDatabase.ModeAddress,3);
         var room=context.Rooms.LoadCutsceneBackground(5,0xf5);room.CopyLayoutToUnderlying();
-        context.Entities.RebindCutsceneBackground(room);context.RoomView.SetRoom(room.Texture);
+        context.Entities.RebindCutsceneBackground(room);context.RoomView.SetRoom(room);
         context.Sound.SelectRoomMusic(5,0xf5,context.Rooms.SaveData);
         context.Player.WarpTo(new(0x78,0x88),recordSafe:false);context.Player.Face(Vector2I.Up);
         context.Player.Visible=false; // Ganon writes XYZ/enabled; Link's next state-$00 visit reveals him.

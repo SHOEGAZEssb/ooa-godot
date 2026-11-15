@@ -202,7 +202,7 @@ public partial class GameRoot : IGameplayObjectPhases, IGameplayForegroundPhases
         if (initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
             _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
         TryDisplayEraInfoAfterInitialRoomLoad(initialRoomLoadKind);
-        _roomView.SetRoom(_rooms.CurrentRoom.Texture);
+        _roomView.SetRoom(_rooms.CurrentRoom);
         _roomView.UpdateUnderwaterWave(_rooms.CurrentRoom, _entities.FrameCounter);
         if (!useSavedSpawn && !useDebugSavestate)
             spawn = FindSpawn();
@@ -805,7 +805,7 @@ public partial class GameRoot : IGameplayObjectPhases, IGameplayForegroundPhases
         {
             loaded = _rooms.Load(group + 2, room);
         }
-        _roomView.SetRoom(loaded.Texture);
+        _roomView.SetRoom(loaded);
         _entities.LoadRoom(_rooms.ActiveGroup, loaded);
         _roomView.UpdateUnderwaterWave(loaded, _entities.FrameCounter);
         _hud.Refresh();

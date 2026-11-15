@@ -1371,7 +1371,7 @@ public sealed partial class ValidationRoot
         FailIf(_interactions.ChestRewardActive, "The chest reward remained after its textbox closed.");
 
         _currentRoom = _rooms.GetRoom(0, 0x49);
-        _roomView.SetRoom(_currentRoom.Texture);
+        _roomView.SetRoom(_currentRoom);
         FailIf(
             _currentRoom.GetMetatile(chestPoint) != 0xf0 || TryInteract(_player),
             "The opened chest room flag did not persist for the session.");

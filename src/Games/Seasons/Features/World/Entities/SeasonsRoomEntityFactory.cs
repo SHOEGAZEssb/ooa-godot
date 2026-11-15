@@ -18,6 +18,8 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
     private DungeonEntranceInteractionDatabase? _dungeonEntrances;
     private DungeonEntranceInteractionDatabase DungeonEntrances => _dungeonEntrances ??= new(AssetRoot);
     private SeasonsTalkNpcDatabase? _talkNpcs;
+    private RodOfSeasonsDatabase? _rod;
+    private RodOfSeasonsDatabase Rod => _rod ??= new();
     private SeasonsTalkNpcDatabase TalkNpcs => _talkNpcs ??= new();
     private NativeNpcRoomEntity CreateTalkNpc(NativeObjectInstruction source, OracleRoomData room)
     {
@@ -280,6 +282,12 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
                 yield return new SeasonsNpcSpringBloomRoomEntity(session, TalkNpcs, instruction, room);
                 continue;
             }
+            if (instruction.Id is 0x23 or 0xe6 || instruction.Id == 0x4c && instruction.SubId is >= 0x0a and <= 0x0d)
+            {
+                if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
+                yield return CreateStreamInteraction(instruction, room, placement);
+                continue;
+            }
             if (SeasonsTalkNpcDatabase.Supports(instruction.Id,instruction.SubId))
             {
                 if (!owner.InteractionSlotAvailable) { reader.AllocationFailed(); continue; }
@@ -293,6 +301,10 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
         _common.TryCreateStreamInteraction(source,room,placement,_torches) ??
         (source switch
         {
+            { Id: 0x23 } => new SeasonsTempleScriptRoomEntity(session, TalkNpcs, Rod, source, room),
+            { Id: 0xe6, SubId: >= 0 and <= 3 } => new SeasonsRodAcquisitionRoomEntity(session, TalkNpcs, Rod, source, room),
+            { Id: 0x50, SubId: >= 0 and <= 3 } => new SeasonsSpiritRoomEntity(session, TalkNpcs, source, room, Rod),
+            { Id: 0x4c, SubId: >= 0x0a and <= 0x0d } => new SeasonsTempleDecorationRoomEntity(session, TalkNpcs, source, room),
             {Id:InteractionId.Vasu or InteractionId.RingHelpBook} when room.Group == 3 && room.Id == 0x91 => CreateVasuActor(source, room),
             {Id:0x6c,SubId:0 or 1}=>new SeasonsRosaChaseRoomEntity(session,TalkNpcs,source,room),
             {Id:0xe1,SubId:0}=>new SeasonsPortalSpawnerRoomEntity(session,TalkNpcs,source,room),

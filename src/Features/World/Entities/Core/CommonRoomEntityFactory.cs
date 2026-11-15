@@ -216,7 +216,11 @@ internal sealed class CommonRoomEntityFactory(RoomEntityManager owner, Func<Swor
         return changed;
     }
 
-    internal IRoomEntity? TryCreatePlacedPart(RoomObjectRecord source,OracleRoomData room) => source.Id==0x05
+    internal IRoomEntity? TryCreatePlacedPart(RoomObjectRecord source,OracleRoomData room) => source.Id==PartId.Orb
+        ?new DungeonOrbRoomEntity(source.Group,source.Room,source.PackedPosition,
+            1 << (source.SubId & PartOrbDatabase.For(AssetRoot).SubidMask),SoundId.SndSwitch,
+            PartOrbDatabase.For(AssetRoot).Visual,room,owner.RuntimeState,()=>owner.FrameCounter,owner.OnSoundRequested)
+        :source.Id==0x05
         ?CreateDungeonSwitch(new(source.Group,source.Room,source.Order,source.Id,source.SubId,source.PackedPosition,
             0,TriggerPredicate.None,true),room):source.Id==PartId.Button
         ?new GroundButtonRoomEntity(new(source.Group,source.Room,source.Order,source.Id,source.SubId,source.PackedPosition,

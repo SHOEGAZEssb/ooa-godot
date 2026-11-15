@@ -60,7 +60,7 @@ public partial class Player
         CollectFreeItemParents(parents);
         var memory = _inventory.RuntimeState;
         bool fixedParent = IsAttacking || _forcedSwordParentInitializing || IsUsingShovel || IsUsingPunch ||
-            IsUsingSeedShooter || IsUsingSwitchHook || IsUsingSomaria || IsUsingBiggoron ||
+            IsUsingSeedShooter || IsUsingSwitchHook || IsUsingSomaria || IsUsingBiggoron || IsUsingRodOfSeasons ||
             _world.BombParentActive || _world.BraceletParentActive;
         int id = memory.ReadWramByte(0xd201);
         if (fixedParent && id != 0) parents[0] = new(1, (byte)id);

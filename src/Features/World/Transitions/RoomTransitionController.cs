@@ -759,7 +759,7 @@ public class RoomTransitionController : IDisposable
 			player.SetScriptedPosition(start);
 		_deathRespawnPoints.RecordRoomInitialization();
 		_roomView.StartScreenTransition(
-			target.Texture, direction, _scroll.Distance, sourceCameraOrigin, destinationCameraOrigin);
+			target, direction, _scroll.Distance, sourceCameraOrigin, destinationCameraOrigin);
 		_entities.BeginScreenTransition(
 			_rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction,
 			target.GetPackedPosition(transitionEnd), player);
@@ -785,6 +785,19 @@ public class RoomTransitionController : IDisposable
 			_scrollPlayerOwner.SetScreenTransitionPosition(
 				start, Vector2.Zero, player);
 		}
+	}
+
+	private protected void BeginRoomReload(Player player)
+	{
+		RequireActive();
+		if (IsTransitioning) return;
+		OracleRoomData room = _rooms.CurrentRoom;
+		Vector2 arrival = player.PrecisePosition;
+		var warp = new Warp(_rooms.ActiveGroup, room.Id, -1, 0, 0, _rooms.ActiveGroup, room.Id,
+			room.GetPackedPosition(arrival), 0, WarpDestinationTransition.Basic) { PreserveDestinationSeason = true };
+		BeginWarp(player, warp, false, forceFadeOut: true);
+		_roomPackArrival = arrival;
+		_scrollDirection = Vector2I.Zero;
 	}
 
 	public void UpdateScroll(double delta)
@@ -1200,7 +1213,7 @@ public class RoomTransitionController : IDisposable
 			}
 		}
 		OracleRoomData room = LoadDestinationRoom(warp);
-		_roomView.SetRoom(room.Texture);
+		_roomView.SetRoom(room);
 		if (_roomLoadColumnReveal)
 		{
 			_roomView.SetRoomLoadColumnReveal(

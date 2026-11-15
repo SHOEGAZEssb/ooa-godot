@@ -70,7 +70,7 @@ function ConvertTo-NpcProgramRows {
                     $binding=@{Opcode='checkmemoryeq';Arg0='01';Payload=('cfc0bit'+$c.Operands)}
                 }
                 'xorcfc0bit' {
-                    if ($c.Operands -notin @('0','1')) { throw "$($c.Path):$($c.Line): unsupported cfc0 bit." }
+                    if ($c.Operands -notin @('0','1','2','3','4','5','6','7')) { throw "$($c.Path):$($c.Line): unsupported cfc0 bit." }
                     $binding=@{Opcode='nativeyield';Payload=('ClearCfc0Bit'+$c.Operands)}
                 }
             }

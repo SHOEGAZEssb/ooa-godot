@@ -42,7 +42,7 @@ internal sealed class PalaceBootEvent(RoomEventContext context) : IRoomEvent
                 // clearScreenVariablesAndWramBank1 clears Link's whole page;
                 // state$0f writes the visible throw position two updates later.
                 context.Player.WarpTo(Vector2.Zero, recordSafe: false);
-                context.RoomView.SetRoom(room.Texture); context.Transitions.ResetCamera();
+                context.RoomView.SetRoom(room); context.Transitions.ResetCamera();
                 context.Entities.LoadNativeCutsceneRoomObjects(1, room);
                 context.Sound.PlayRoomMusic(1, 0x46, context.Rooms.SaveData);
                 context.Transitions.BeginNativeWhiteFade(false); State++; break;

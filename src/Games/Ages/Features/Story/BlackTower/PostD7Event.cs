@@ -308,7 +308,7 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
     {
         var loaded = context.Rooms.LoadCutsceneRoom(group, room);
         context.Entities.LoadCutsceneRoom(group, loaded, false);
-        context.RoomView.SetRoom(loaded.Texture); context.Transitions.ResetCamera();
+        context.RoomView.SetRoom(loaded); context.Transitions.ResetCamera();
         context.RoomView.ClearBackgroundFade();
         context.Player.WarpTo(Vector2.Zero, recordSafe: false); context.Player.Visible = false;
         if (scene is null) return;

@@ -212,7 +212,7 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
         _ownedEntities.Clear();
         var room = Context.Rooms.LoadCutsceneRoom(row.Group, row.Room);
         Context.Entities.LoadCutsceneRoom(row.Group, room, includeTimePortals: false);
-        Context.RoomView.SetRoom(room.Texture); Context.RoomView.ClearBackgroundFade();
+        Context.RoomView.SetRoom(room); Context.RoomView.ClearBackgroundFade();
         Context.Transitions.ResetCamera();
         _reward = null;
         // disableLcdAndLoadRoom clears the object/menu mask before parsing the set.

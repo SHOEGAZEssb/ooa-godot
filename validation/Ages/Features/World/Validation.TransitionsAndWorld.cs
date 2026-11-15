@@ -508,7 +508,7 @@ public sealed partial class ValidationRoot
         _activeGroup = 2;
         ClearDeactivatedWarp();
         _currentRoom = _world.LoadRoom(_activeGroup, 0xeb);
-        _roomView.SetRoom(_currentRoom.Texture);
+        _roomView.SetRoom(_currentRoom);
         _player.WarpTo(new Vector2(-2, _currentRoom.Height / 2.0f));
         UpdatePushingStateForValidation(_player,Vector2.Left);
         CheckRoomExit(_player);

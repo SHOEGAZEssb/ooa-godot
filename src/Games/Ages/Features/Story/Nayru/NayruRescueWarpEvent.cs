@@ -22,7 +22,7 @@ internal sealed class NayruRescueWarpEvent(RoomEventContext context) : IRoomEven
     {
         var room=context.Rooms.LoadCutsceneRoom(group,id);
         context.Entities.LoadCutsceneRoom(group,room,includeTimePortals:false);
-        context.RoomView.SetRoom(room.Texture);context.Transitions.ResetCamera();
+        context.RoomView.SetRoom(room);context.Transitions.ResetCamera();
         context.Player.WarpTo(Vector2.Zero,recordSafe:false);context.Player.Visible=false;
         if(id==0x38) {Actor(0x87,3,0x40,0x50);Actor(0x37,4,0x56,0x38);Actor(0x36,2,0x48,0x50);}
         else if(group==2 && id==0x0e) {Actor(0x3c,5,0x48,0x38);Actor(0x3d,3,0x48,0x48);}

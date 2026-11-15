@@ -43,8 +43,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 29 | 58 | 138 | 7 | 232 |
-| Expanded placed interaction contexts | 207 | 14 | 814 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 33 | 59 | 133 | 7 | 232 |
+| Expanded placed interaction contexts | 218 | 14 | 803 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -78,6 +78,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Old man's rupee cave `$5:03` | Runtime route from `$0:97`, one-time 100-rupee gift, completed dialogue and return doorway; other `$99` variants remain unbound |
 | Rosa's overworld chase | Runtime route through `$cb/$bb/$ab/$9b/$9a`, first/repeat introduction, both patrol patterns, detection/caught escape and the covered portal; dating remains unbound |
 | Subrosia portal travel | Link's native spinning/height sequence and Cutscene `$15` through `$0:9a ↔ $1:05`; other destination object streams remain outside this route |
+| Rod of Seasons and temple powers | Runtime route for acquisition in `$3:ac`, four spirit rewards, repeat dialogue, native swings and stump season reloads |
 | Vasu Jewelers `$3:91` | Ring Box/Friendship Ring tutorial, appraisal, duplicates, ring list/box, special rewards, Red Snake ring-secret exchange, help books and Blue Snake no-cable timeout; successful Game Link services remain unbound |
 | Missing character rows and family variants in the NPC ledger | Quest, trade, secret, minigame, event and family progression remain missing |
 | Other room placements listed as **M** below | Missing |
@@ -131,7 +132,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$12` | [dungeonStuff](../../external/oracles-disasm/object_code/common/interactions/dungeonStuff.s) | `$00-$02, $04` | — | — | 0 | **P** — Hero's Cave dungeon$00 and Gnarled Root dungeon$01 entry; Hero's Cave enemy-clear stairs, Gnarled Root `$4:19` enemy-clear chest and `$4:1b` falling key; other placements and variants remain unbound. |
 | `$13` | [pushblockTrigger](../../external/oracles-disasm/object_code/common/interactions/pushblockTrigger.s) | `$01` | — | — | 0 | **P** — Hero's Cave $4:05/$4:07 and Gnarled Root $4:1a push-block triggers; other placements remain unbound. |
 | `$14` | [pushblock](../../external/oracles-disasm/object_code/common/interactions/pushblock.s) | — | — | — | 2 | **P** — Shared tile contact constructs reserved normal/sliding blocks; additional scripted producers remain unbound. |
-| `$15` | [usedRodOfSeasons](../../external/oracles-disasm/object_code/seasons/interactions/usedRodOfSeasons.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$15` | [usedRodOfSeasons](../../external/oracles-disasm/object_code/seasons/interactions/usedRodOfSeasons.s) | — | — | — | 1 | **R** — Rod child on a stump, unlocked-season selection and room reload. |
 | `$16` | [minecart](../../external/oracles-disasm/object_code/common/interactions/minecart.s) | — | — | — | 1 | **P** — Native static cart in Gnarled Root $4:15, shared boarding/D1/ITEM lifecycle and rail travel to $4:0f; other placed contexts and dungeon routes remain unbound. |
 | `$17` | [dungeonKeySprite](../../external/oracles-disasm/object_code/common/interactions/dungeonKeySprite.s) | — | — | — | 1 | **P** — Dungeon-key and Subrosia-door tile contacts construct checked shared key sprites; placed contexts remain unbound. |
 | `$18` | [overworldKeySprite](../../external/oracles-disasm/object_code/common/interactions/overworldKeySprite.s) | — | — | — | 0 | **P** — Gnarled Key contact producer; other entrance producers remain unbound. |
@@ -145,7 +146,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$20` | [dungeonScript](../../external/oracles-disasm/object_code/seasons/interactions/dungeonScript.s) | `$00-$0e` | — | — | 0 | **P** — Exact-trigger key chests in Hero's Cave `$4:03` and Gnarled Root `$4:11`, Gnarled Root `$4:0b` miniboss reward and `$4:12` boss/heart-container reward; other dungeon scripts remain unbound. |
 | `$21` | [gnarledKeyhole](../../external/oracles-disasm/object_code/seasons/interactions/gnarledKeyhole.s) | `$00` | — | — | 0 | **R** — Native Gnarled Root entrance, script, collision, graphics and rising-stone producer. |
 | `$22` | [makuCutscenes](../../external/oracles-disasm/object_code/seasons/interactions/makuCutscenes.s) | `$00-$08, $0a` | — | — | 1 | **P** — Sword gate `$0a` and first-Essence remote Maku `$00` in `$0:96`; other remote variants remain unbound. |
-| `$23` | [seasonSpiritsScripts](../../external/oracles-disasm/object_code/seasons/interactions/seasonSpiritsScripts.s) | `$01, $11, $21, $30-$31, $40` | — | — | 0 | **M** — No Seasons production route. |
+| `$23` | [seasonSpiritsScripts](../../external/oracles-disasm/object_code/seasons/interactions/seasonSpiritsScripts.s) | `$01, $11, $21, $30-$31, $40` | — | — | 0 | **R** — Temple entry, winter orb bridge, four seasonal rewards and repeat spirit dialogue. |
 | `$24` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00, $03` | — | — | 1 | **M** — No Seasons production route. |
 | `$25` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 0 | **P** — Native dialogue, room-flag selection and jump consumer; the trade-owner `$26:$00` producer remains unbound. |
 | `$26` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 1 | **P** — Post-trade `$01` dialogue and room-flag `$40` predicate; the `$00` trade sequence remains unbound. |
@@ -186,11 +187,11 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$49` | [syrupCucco](../../external/oracles-disasm/object_code/common/interactions/syrupCucco.s) | `$80` | — | — | 0 | **M** — No Seasons production route. |
 | `$4a` | [introSprites1](../../external/oracles-disasm/object_code/common/interactions/introSprites1.s) | — | — | — | 5 | **M** — No Seasons production route. |
 | `$4b` | [d1RisingStones](../../external/oracles-disasm/object_code/seasons/interactions/d1RisingStones.s) | — | — | — | 2 | **P** — Gnarled entrance dust/stone subids `$00/$01`; subid `$02` producer remains unbound. |
-| `$4c` | [miscStatusObjects](../../external/oracles-disasm/object_code/seasons/interactions/miscStatusObjects.s) | `$00-$03, $07-$0d` | `$07-$08` | `$09` | 2 | **M** — No Seasons production route. |
+| `$4c` | [miscStatusObjects](../../external/oracles-disasm/object_code/seasons/interactions/miscStatusObjects.s) | `$00-$03, $07-$0d` | `$07-$08` | `$09` | 2 | **P** — Rod chamber statues `$0a-$0d`; other variants remain unbound. |
 | `$4d` | [pirateSkull](../../external/oracles-disasm/object_code/seasons/interactions/pirateSkull.s) | `$00-$01` | — | — | 2 | **M** — No Seasons production route. |
 | `$4e` | [dinDancingEvent](../../external/oracles-disasm/object_code/seasons/interactions/dinDancingEvent.s) | `$0a-$0b` | `$00-$06, $08-$09` | — | 1 | **P** — Standard opening `$00-$07,$0b` and finished-game village dialogue `$0a`; other native/linked variants remain unbound. |
 | `$4f` | [dinImprisonedEvent](../../external/oracles-disasm/object_code/seasons/interactions/dinImprisonedEvent.s) | — | — | — | 6 | **P** — Standard imprisonment `$00-$04`; later variants are missing. |
-| `$50` | [seasonsFairy](../../external/oracles-disasm/object_code/common/interactions/seasonsFairy.s) | — | — | — | 1 | **M** — No Seasons production route. |
+| `$50` | [seasonsFairy](../../external/oracles-disasm/object_code/common/interactions/seasonsFairy.s) | — | — | — | 1 | **R** — Four seasonal spirits, grant/repeat variants and native script handshake. |
 | `$51` | [smallVolcano](../../external/oracles-disasm/object_code/seasons/interactions/smallVolcano.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
 | `$52` | [biggoron](../../external/oracles-disasm/object_code/seasons/interactions/biggoron.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$53` | [headSmelter](../../external/oracles-disasm/object_code/seasons/interactions/headSmelter.s) | `$00-$01` | — | — | 0 | **M** — No Seasons production route. |
@@ -242,7 +243,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$81` | [subrosianShop](../../external/oracles-disasm/object_code/seasons/interactions/subrosianShop.s) | `$00, $04, $0a, $0c-$0d` | — | — | 0 | **M** — No Seasons production route. |
 | `$82` | [horonDog](../../external/oracles-disasm/object_code/seasons/interactions/horonDog.s) | — | — | — | 1 | **R** — Native dog allocated by ball `$83`, consuming and publishing shared `$cceb` handoff. |
 | `$83` | [ballThrownToDog](../../external/oracles-disasm/object_code/seasons/interactions/ballThrownToDog.s) | — | — | — | 1 | **R** — Native ball allocated by boy `$3e`, spawning dog `$82` and preserving shared RNG/bounce/return order. |
-| `$84` | [sparkle](../../external/oracles-disasm/object_code/seasons/interactions/sparkle.s) | — | — | — | 19 | **P** — Native `$02` component movement and animation through the first-Essence Maku leaf producer; other producers and variants remain unbound. |
+| `$84` | [sparkle](../../external/oracles-disasm/object_code/seasons/interactions/sparkle.s) | — | — | — | 19 | **P** — Native `$00/$01/$07` temple sparkles and `$02` first-Essence Maku leaf components; other producers and variants remain unbound. |
 | `$85` | [introSceneMusic](../../external/oracles-disasm/object_code/seasons/interactions/introSceneMusic.s) | `$00` | — | — | 0 | **R** — Opening carnival-music route `$00`. |
 | `$86` | [templeSinkingExplosion](../../external/oracles-disasm/object_code/seasons/interactions/templeSinkingExplosion.s) | — | — | — | 1 | **R** — Opening temple explosions `$00-$04`. |
 | `$87` | [makuTree](../../external/oracles-disasm/object_code/seasons/interactions/makuTree.s) | `$00` | `$01-$02` | — | 0 | **P** — Standard first story stage in native group `$02` room `$0b`, Gnarled Key and repeat advice; later stages and endgame variants remain unbound. |
@@ -340,7 +341,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$e3` | [vire](../../external/oracles-disasm/object_code/seasons/interactions/vire.s) | — | — | — | 0 | **M** — No Seasons production route. |
 | `$e4` | [linkedHerosCaveOldMan](../../external/oracles-disasm/object_code/seasons/interactions/linkedHerosCaveOldMan.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$e5` | [ringHelpBook](../../external/oracles-disasm/object_code/common/interactions/ringHelpBook.s) | `$00-$01` | — | — | 0 | **R** — Source book palettes, bottom-positioned non-exitable dialogue, choices and reset/fallthrough paths. |
-| `$e6` | [getRodOfSeasons](../../external/oracles-disasm/object_code/seasons/interactions/getRodOfSeasons.s) | `$00` | — | `$02` | 3 | **M** — No Seasons production route. |
+| `$e6` | [getRodOfSeasons](../../external/oracles-disasm/object_code/seasons/interactions/getRodOfSeasons.s) | `$00` | — | `$02` | 3 | **R** — Rod pedestal controller, orbiters, physical reward and linked aura. |
 | `$e7` | [loneZora](../../external/oracles-disasm/object_code/seasons/interactions/loneZora.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 
 ## Room interaction inventory
@@ -511,7 +512,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `1:22` | [R] `$30:$1b/v$00` subrosian |
 | `1:25` | [R] `$30:$1c/v$00` subrosian<br>[R] `$c8:$00/v$00` boomerangSubrosian<br>[R] `$32:$03/v$00` subrosianWithBuckets |
 | `1:26` | [R] `$30:$1d/v$00` subrosian |
-| `1:29` | [M] `$23:$40/v$00` seasonSpiritsScripts |
+| `1:29` | [R] `$23:$40/v$00` seasonSpiritsScripts |
 | `1:2a` | [M] `$22:$08/v$00` makuCutscenes |
 | `1:2b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
 | `1:2c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
@@ -594,7 +595,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `1:a9` | [M] `$30:$26/v$00` subrosian |
 | `1:aa` | [M] `$95:$00/v$00` kingMoblin |
 | `1:ab` | [M] `$e1:$00/v$00` portalSpawner<br>[M] `$6b:$17/v$00` miscellaneous1 |
-| `1:ac` | [M] `$4c:$0a/v$00` miscStatusObjects<br>[M] `$4c:$0b/v$00` miscStatusObjects<br>[M] `$4c:$0d/v$00` miscStatusObjects<br>[M] `$4c:$0c/v$00` miscStatusObjects<br>[M] `$e6:$00/v$00` getRodOfSeasons |
+| `1:ac` | [R] `$4c:$0a/v$00` miscStatusObjects<br>[R] `$4c:$0b/v$00` miscStatusObjects<br>[R] `$4c:$0d/v$00` miscStatusObjects<br>[R] `$4c:$0c/v$00` miscStatusObjects<br>[R] `$e6:$00/v$00` getRodOfSeasons |
 | `1:ad` | [M] `$d5:$00/v$00` greatFairy |
 | `1:af` | [M] `$47:$0e/v$00` shopItem<br>[M] `$47:$0f/v$00` shopItem<br>[M] `$47:$10/v$00` shopItem<br>[M] `$46:$02/v$00` shopkeeper<br>[R] `$37:$86/v$00` miscNpcs |
 | `1:b0` | [M] `$47:$00/v$00` shopItem<br>[M] `$47:$02/v$00` shopItem<br>[M] `$47:$05/v$00` shopItem<br>[M] `$46:$01/v$00` shopkeeper |
@@ -880,11 +881,11 @@ An opening implementation of the same ID does not cover another room's placement
 | `5:e5` | [M] `$90:$01/v$00` jewelHelper |
 | `5:e8` | [M] `$cd:$01/v$00` linkedMasterDiver |
 | `5:ea` | [M] `$cd:$02/v$00` linkedMasterDiver |
-| `5:f0` | [M] `$23:$30/v$00` seasonSpiritsScripts |
-| `5:f2` | [M] `$23:$31/v$00` seasonSpiritsScripts |
-| `5:f5` | [M] `$23:$01/v$00` seasonSpiritsScripts |
-| `5:f8` | [M] `$23:$11/v$00` seasonSpiritsScripts |
-| `5:fb` | [M] `$23:$21/v$00` seasonSpiritsScripts |
+| `5:f0` | [R] `$23:$30/v$00` seasonSpiritsScripts |
+| `5:f2` | [R] `$23:$31/v$00` seasonSpiritsScripts |
+| `5:f5` | [R] `$23:$01/v$00` seasonSpiritsScripts |
+| `5:f8` | [R] `$23:$11/v$00` seasonSpiritsScripts |
+| `5:fb` | [R] `$23:$21/v$00` seasonSpiritsScripts |
 
 ## Additional object-list records
 

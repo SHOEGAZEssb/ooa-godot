@@ -62,6 +62,23 @@ public sealed class OracleRoomData
         }
     }
     private Texture2D? _underwaterBackgroundTexture;
+    private Texture2D? _priorityTexture, _underwaterPriorityTexture;
+    internal Texture2D GetPriorityTexture(bool storageWidth = false)
+    {
+        ref Texture2D? texture = ref (storageWidth ? ref _underwaterPriorityTexture : ref _priorityTexture);
+        if (texture is null)
+        {
+            using Image priority = RenderPriorityBackground(storageWidth);
+            texture = ImageTexture.CreateFromImage(priority);
+            RememberRoomTextureInputs();
+        }
+        return texture;
+    }
+    internal Image RenderPriorityBackground(bool storageWidth = false)
+    {
+        using Image background = RenderRoom(_activeAnimationHeaders, storageWidth ? 256 : 0);
+        return PriorityImage(storageWidth);
+    }
     internal Texture2D UnderwaterBackgroundTexture
     {
         get
@@ -114,6 +131,7 @@ public sealed class OracleRoomData
     private int _renderedAnimationSignature;
     private bool _roomTextureDirty;
     private byte[]? _renderPixels, _underwaterRenderPixels;
+    private byte[]? _priorityPixels, _underwaterPriorityPixels;
     private readonly byte[] _palettePixels = new byte[128];
     private readonly Color[,] _capturedPalette = new Color[8, 4];
     private bool _paletteCaptured;
@@ -1258,8 +1276,24 @@ public sealed class OracleRoomData
             ReplaceTextureImage(_texture, RenderRoom(activeHeaders));
         if (_underwaterBackgroundTexture is not null)
             ReplaceTextureImage(_underwaterBackgroundTexture, RenderRoom(activeHeaders, storageWidth: 256));
+        if (_priorityTexture is not null)
+        {
+            if (_texture is null)
+                using (RenderRoom(activeHeaders)) { }
+            ReplaceTextureImage(_priorityTexture, PriorityImage(false));
+        }
+        if (_underwaterPriorityTexture is not null)
+        {
+            if (_underwaterBackgroundTexture is null)
+                using (RenderRoom(activeHeaders, storageWidth: 256)) { }
+            ReplaceTextureImage(_underwaterPriorityTexture, PriorityImage(true));
+        }
         RememberRoomTextureInputs();
     }
+
+    private Image PriorityImage(bool storageWidth) => Image.CreateFromData(
+        storageWidth ? 256 : Width, Height, false, Image.Format.Rgba8,
+        (storageWidth ? _underwaterPriorityPixels : _priorityPixels)!);
 
     private Image RenderRoom(int[] activeHeaders, int storageWidth = 0)
     {
@@ -1267,6 +1301,9 @@ public sealed class OracleRoomData
         byte[] output = storageWidth == 0
             ? _renderPixels ??= new byte[outputWidth * Height * 4]
             : _underwaterRenderPixels ??= new byte[outputWidth * Height * 4];
+        byte[] priority = storageWidth == 0
+            ? _priorityPixels ??= new byte[output.Length]
+            : _underwaterPriorityPixels ??= new byte[output.Length];
         byte[] colors = CapturePalettePixels();
         int tileCount = outputWidth / 16 * HeightInTiles * 4;
         RasterTile[] tiles = storageWidth == 0
@@ -1339,6 +1376,10 @@ public sealed class OracleRoomData
                     int writeY = roomY * 16 + quarterY * 8 + pixelY;
                     colors.AsSpan((rawPalette * 4 + shade) * 4, 4)
                         .CopyTo(output.AsSpan((writeY * outputWidth + writeX) * 4, 4));
+                    int offset = (writeY * outputWidth + writeX) * 4;
+                    output.AsSpan(offset, 4).CopyTo(priority.AsSpan(offset, 4));
+                    // CGB BG attribute bit 7 covers OBJ only for nonzero color indices.
+                    priority[offset + 3] = (attributes & 0x80) != 0 && shade != 0 ? (byte)255 : (byte)0;
                 }
             }
         }
@@ -1450,7 +1491,8 @@ public sealed class OracleRoomData
     internal void RefreshPaletteTextures()
     {
         if (_texturePublication?.TryDefer(this) == true) return;
-        if (_texture is null && _underwaterBackgroundTexture is null)
+        if (_texture is null && _underwaterBackgroundTexture is null &&
+            _priorityTexture is null && _underwaterPriorityTexture is null)
         {
             RefreshClearedTilemap();
             return;
@@ -1473,7 +1515,7 @@ public sealed class OracleRoomData
     private bool UsesBackgroundPalettes(int palettes)
     {
         if (palettes == 0) return false;
-        int columns = _underwaterBackgroundTexture is null ? WidthInTiles : 16;
+        int columns = _underwaterBackgroundTexture is null && _underwaterPriorityTexture is null ? WidthInTiles : 16;
         for (int y = 0; y < HeightInTiles; y++)
         for (int x = 0; x < columns; x++)
         {

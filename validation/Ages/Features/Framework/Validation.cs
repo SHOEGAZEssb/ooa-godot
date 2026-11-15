@@ -342,6 +342,12 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeasonsWorldRooms, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsNativeWarpDestinations, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsUnavailableWarps);
+        RunIsolatedValidation(ValidateSeasonsWaterfallPriority);
+        RunIsolatedValidation(ValidateSeasonsRodAcquisition, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsSeasonPowers);
+        RunIsolatedValidation(ValidateSeasonsRodUse);
+        RunIsolatedValidation(ValidateSeasonsTempleRoutes);
+        RunIsolatedValidation(ValidateSeasonsRodSelectionRom, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsVasuShopDoorway);
         RunIsolatedValidation(ValidateSeasonsTickTockDoorway);
         RunIsolatedValidation(ValidateSeasonsVasuTutorial);

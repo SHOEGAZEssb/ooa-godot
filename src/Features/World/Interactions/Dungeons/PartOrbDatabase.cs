@@ -10,9 +10,13 @@ internal sealed class PartOrbDatabase
         static root => new Lazy<PartOrbDatabase>(() => new PartOrbDatabase(root))).Value;
 
     private readonly int[] _lockouts = new int[32];
-    internal int Speed { get; }
-    internal int Right { get; }
-    internal int Left { get; }
+    private (int Speed, int Right, int Left)? _movement;
+    private DungeonInteractionVisual? _visual;
+    internal DungeonInteractionVisual Visual => _visual ??= LoadVisual();
+    internal int Speed => Movement.Speed;
+    internal int Right => Movement.Right;
+    internal int Left => Movement.Left;
+    private (int Speed, int Right, int Left) Movement => _movement ??= LoadMovement();
     internal byte BackgroundTile { get; }
     internal byte TileCollision { get; }
     internal int SubidMask { get; }
@@ -34,11 +38,6 @@ internal sealed class PartOrbDatabase
                 throw row.Invalid(0, "ordered source orb collision responses");
             _lockouts[i] = row.Decimal(1, 0, 1) == 1 ? lockout : -1;
         }
-        var script = GeneratedTable.Load(AssetRoot + "objects/moving_orb_script.tsv",
-            new GeneratedTableSchema("moving orb script", GeneratedTableKeySemantics.Unique,
-                ["subid", "speed", "initial-direction", "right", "left", "source"], ["subid"], headerRequired: true)).SingleRow();
-        if (script.HexByte(0) != 0 || script.HexByte(2) != 0) throw script.Invalid(0, "orb script00/DIR_UP");
-        Speed = script.HexByte(1); Right = script.HexByte(3); Left = script.HexByte(4);
         var init = GeneratedTable.Load(AssetRoot + "objects/part_orb_initialization.tsv",
             new GeneratedTableSchema("PART_ORB initialization", GeneratedTableKeySemantics.Unique,
                 ["id", "background-tile", "tile-collision", "subid-mask", "radius-y", "radius-x", "source"], ["id"], headerRequired: true)).SingleRow();
@@ -47,4 +46,19 @@ internal sealed class PartOrbDatabase
         SubidMask = init.HexByte(3); RadiusY = init.HexByte(4); RadiusX = init.HexByte(5);
     }
     internal int HitLockout(int collision) => collision is >= 0 and < 32 ? _lockouts[collision] : -1;
+    private (int, int, int) LoadMovement()
+    {
+        var script = GeneratedTable.Load(AssetRoot + "objects/moving_orb_script.tsv",
+            new GeneratedTableSchema("moving orb script", GeneratedTableKeySemantics.Unique,
+                ["subid", "speed", "initial-direction", "right", "left", "source"], ["subid"], headerRequired: true)).SingleRow();
+        if (script.HexByte(0) != 0 || script.HexByte(2) != 0) throw script.Invalid(0, "orb script00/DIR_UP");
+        return (script.HexByte(1), script.HexByte(3), script.HexByte(4));
+    }
+    private DungeonInteractionVisual LoadVisual()
+    {
+        var row = GeneratedTable.Load(AssetRoot + "objects/part_orb_visual.tsv", new("PART$03 visual", GeneratedTableKeySemantics.Ordered,
+            ["sprite","tile-base","palette","inverted","animation-base64","source"], headerRequired:true)).SingleRow();
+        _ = row.RequiredString(5);
+        return new(AssetRoot,"orb",[row.RequiredString(0)],row.UnsignedDecimal(1),row.UnsignedDecimal(2),row.Boolean01(3),[row.Base64Utf8(4)]);
+    }
 }

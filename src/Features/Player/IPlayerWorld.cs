@@ -113,6 +113,10 @@ public interface IPlayerWorld
     void ClearBombchuParent() { }
     bool SomariaActive => false;
     bool BiggoronActive => false;
+    bool RodOfSeasonsActive => false;
+    void BeginRodOfSeasons(Player player) { }
+    void UpdateRodOfSeasonsParent() { }
+    void ClearRodOfSeasonsParent() { }
     void BeginBiggoron(Player player) { }
     void UpdateBiggoronParent(bool prohibited) { }
     void CancelBiggoron() { }

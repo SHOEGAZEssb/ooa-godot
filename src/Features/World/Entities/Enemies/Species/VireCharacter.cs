@@ -335,7 +335,8 @@ internal sealed partial class VireCharacter : EnemyCharacter
     private void MoveBatBoundary()
     {
         var walls = EnemyAdjacentWallResolver.Shared.Probe(Position,Angle,p =>
-            (byte)p.X >= _room.Width || (byte)p.Y >= _room.Height || _room.GetTerrainInfo(new((byte)p.X,(byte)p.Y)).Collision == 0xff);
+            OracleObjectPosition.HighByte(p.X) >= _room.Width || OracleObjectPosition.HighByte(p.Y) >= _room.Height ||
+            _room.GetTerrainInfo(new(OracleObjectPosition.HighByte(p.X),OracleObjectPosition.HighByte(p.Y))).Collision == 0xff);
         if (walls.Bitset == 0) Move(Speed,Angle);
     }
     private void SpawnOutside()
@@ -370,8 +371,8 @@ internal sealed partial class VireCharacter : EnemyCharacter
     private void LeftScreen() { State = 9; Substate = 0; Counter1 = _data.HiddenWait; _collision = false; Visible = false; }
     private bool OnScreen() => (byte)OracleObjectPosition.HighByte(Position.Y) < _data.BoundsY && (byte)OracleObjectPosition.HighByte(Position.X) < _data.BoundsX;
     private int Aim(Vector2 target) => OracleObjectMovement.Shared.RelativeAngle(Position.Floor(),target.Floor());
-    private bool Near(Vector2 target,int radius) => (byte)(OracleObjectPosition.HighByte(Position.X) - target.X + radius) < radius * 2 + 1 &&
-        (byte)(OracleObjectPosition.HighByte(Position.Y) - target.Y + radius) < radius * 2 + 1;
+    private bool Near(Vector2 target,int radius) => ((OracleObjectPosition.HighByte(Position.X) - OracleObjectPosition.HighByte(target.X) + radius) & 255) < radius * 2 + 1 &&
+        ((OracleObjectPosition.HighByte(Position.Y) - OracleObjectPosition.HighByte(target.Y) + radius) & 255) < radius * 2 + 1;
     private void Dec() => Counter1 = (Counter1 - 1) & 255;
     private void Move(int speed,int angle)
     {

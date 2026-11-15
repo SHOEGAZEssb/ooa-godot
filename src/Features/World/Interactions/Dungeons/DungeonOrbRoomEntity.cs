@@ -9,7 +9,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
     ISwitchHookHittableRoomEntity, IScreenTransitionPreloadRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, INativePartHealthRoomEntity
 {
-    private readonly DungeonMechanicDatabase _data;
+    private readonly int _switchSound;
     private PartOrbDatabase? _orbDataSourceCache;
     private PartOrbDatabase _orbData => _orbDataSourceCache ??= PartOrbDatabase.For(AssetRoot);
     private readonly OracleRoomData _room;
@@ -58,7 +58,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
             record.Room,
             record.PackedPosition,
             1 << (record.SubId & PartOrbDatabase.For(roomData.AssetRoot).SubidMask),
-            data,
+            data.SwitchSound,
             visual,
             roomData,
             runtime,
@@ -75,7 +75,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         int room,
         int packedPosition,
         int toggleMask,
-        DungeonMechanicDatabase data,
+        int switchSound,
         DungeonInteractionVisual visual,
         OracleRoomData roomData,
         OracleRuntimeState runtime,
@@ -85,7 +85,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         AssetRoot = visual.AssetRoot;
         if (toggleMask is <= 0 or > 0x80 || (toggleMask & (toggleMask - 1)) != 0)
             throw new ArgumentOutOfRangeException(nameof(toggleMask));
-        _data = data;
+        _switchSound = switchSound;
         _room = roomData;
         _animationTick = animationTick;
         _runtime = runtime;
@@ -137,7 +137,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         _runtime.SetField("wToggleBlocksState",
             (byte)(_runtime.ReadField("wToggleBlocksState") ^ ToggleMask));
         Palette = (Palette & 1) + 1;
-        _playSound(_data.SwitchSound);
+        _playSound(_switchSound);
         QueueRedraw();
     }
 

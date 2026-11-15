@@ -81,8 +81,8 @@ internal sealed partial class VireProjectile : TransitionOffsetNode2D
         if (SubId == 2 && State == 1)
         {
             int tolerance = _data.ArrivalRadius;
-            if (unchecked((byte)(OracleObjectPosition.HighByte(Position.X) - Target.X + tolerance)) < tolerance * 2 + 1 &&
-                unchecked((byte)(OracleObjectPosition.HighByte(Position.Y) - Target.Y + tolerance)) < tolerance * 2 + 1)
+            if (((OracleObjectPosition.HighByte(Position.X) - OracleObjectPosition.HighByte(Target.X) + tolerance) & 255) < tolerance * 2 + 1 &&
+                ((OracleObjectPosition.HighByte(Position.Y) - OracleObjectPosition.HighByte(Target.Y) + tolerance) & 255) < tolerance * 2 + 1)
             {
                 int slot = _puff(Position.Floor());
                 if (slot >= 0) { PuffSlot = slot; State = 2; Visible = false; }

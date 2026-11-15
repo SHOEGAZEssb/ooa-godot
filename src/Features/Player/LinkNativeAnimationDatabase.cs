@@ -73,23 +73,24 @@ internal sealed class LinkNativeAnimationDatabase
         return (frame.SourceOffset, frame.Oam);
     }
 
-    internal void Set(OracleRuntimeState memory, int mode)
+    internal void Set(OracleRuntimeState memory, int mode, int page = 0xd0)
     {
         RequireGame(memory);
         if ((uint)mode >= _pointers.Length)
             throw new NotSupportedException($"specialObjectSetAnimation: Link mode ${mode:x2} is outside the native $00..$37 table.");
         var frame = ReadFrame(_pointers[mode], _sources[mode]);
-        memory.SetWramByte(0xd030, (byte)mode);
-        Publish(memory, frame);
+        memory.SetWramByte((page << 8) | 0x30, (byte)mode);
+        Publish(memory, frame, page);
     }
 
-    internal void Animate(OracleRuntimeState memory)
+    internal void Animate(OracleRuntimeState memory, int page = 0xd0)
     {
         RequireGame(memory);
-        byte counter = unchecked((byte)(memory.ReadWramByte(0xd020) - 1));
-        if (counter != 0) { memory.SetWramByte(0xd020, counter); return; }
-        int cursor = memory.ReadWramByte(0xd022) | memory.ReadWramByte(0xd023) << 8;
-        Publish(memory, ReadFrame(cursor, "specialObjectAnimate: w1Link.animPointer"));
+        int address = page << 8;
+        byte counter = unchecked((byte)(memory.ReadWramByte(address | 0x20) - 1));
+        if (counter != 0) { memory.SetWramByte(address | 0x20, counter); return; }
+        int cursor = memory.ReadWramByte(address | 0x22) | memory.ReadWramByte(address | 0x23) << 8;
+        Publish(memory, ReadFrame(cursor, $"specialObjectAnimate: page${page:x2}.animPointer"), page);
     }
 
     internal int FrameIndex(OracleRuntimeState memory, int mode, int frameCount)
@@ -118,13 +119,14 @@ internal sealed class LinkNativeAnimationDatabase
         return (Read(pointer), Read(pointer + 1), Read(pointer + 2), pointer + 3);
     }
 
-    private static void Publish(OracleRuntimeState memory, (byte Counter, byte Graphics, byte Parameter, int Cursor) frame)
+    private static void Publish(OracleRuntimeState memory, (byte Counter, byte Graphics, byte Parameter, int Cursor) frame, int page)
     {
-        memory.SetWramByte(0xd020, frame.Counter);
-        memory.SetWramByte(0xd021, frame.Parameter);
-        memory.SetWramByte(0xd022, (byte)frame.Cursor);
-        memory.SetWramByte(0xd023, (byte)(frame.Cursor >> 8));
-        memory.SetWramByte(0xd031, frame.Graphics);
+        int address = page << 8;
+        memory.SetWramByte(address | 0x20, frame.Counter);
+        memory.SetWramByte(address | 0x21, frame.Parameter);
+        memory.SetWramByte(address | 0x22, (byte)frame.Cursor);
+        memory.SetWramByte(address | 0x23, (byte)(frame.Cursor >> 8));
+        memory.SetWramByte(address | 0x31, frame.Graphics);
     }
 
     private void RequireGame(OracleRuntimeState memory)

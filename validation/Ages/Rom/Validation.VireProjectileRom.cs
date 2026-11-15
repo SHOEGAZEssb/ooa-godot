@@ -103,7 +103,10 @@ public sealed partial class ValidationRoot
                 }
                 list.Clear();
             }
-            var original = Spawn(floor + new Vector2(-16, 4));
+            // Exercise source arrival checks from both sides of each coordinate.
+            Vector2 launchOffset = subid == 2 ? health switch
+            { 15 => new(16,20), 9 => new(0,-12), _ => new(-16,4) } : new(-16,4);
+            var original = Spawn(floor + launchOffset);
             Step(3); // Source state0 runs during text, initialized parts freeze.
             FailIf(original.State != 1 || original.Counter1 != (subid == 3 ? 240 : 0), "PART$3a initialization/text admission differs.");
             text = false;
@@ -152,7 +155,7 @@ public sealed partial class ValidationRoot
                 $"PART$3a sub${subid:x2} HP${health:x2} batch={batched} must execute its complete source flight/split/expiry lifetime: peak={peak}, remaining={parts.Keys.Count(entity => entity.Node is VireProjectile)}.");
             // Repopulate the freed slot and publish an overlapping sword hit.
             // Its pending signal survives text, then deletes with one puff.
-            var repeated = Spawn(floor + new Vector2(-16, 4)); Step();
+            var repeated = Spawn(floor + launchOffset); Step();
             var target = parts.Single(pair => ReferenceEquals(pair.Key.Node, repeated));
             ((ISwordHittableRoomEntity)target.Key).ApplySwordHit(repeated.CollisionBounds, floor, 1,
                 EnemyKnockbackStrength.Low, new List<RoomEntitySpawn>());

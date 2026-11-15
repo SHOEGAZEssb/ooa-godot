@@ -867,7 +867,7 @@ internal sealed class DekuForestPalaceEvent :
 
         OracleRoomData loaded = _context.Rooms.LoadCutsceneRoom(
             _record.Group, _record.EntranceRoom);
-        _context.RoomView.SetRoom(loaded.Texture);
+        _context.RoomView.SetRoom(loaded);
         _context.Entities.LoadCutsceneRoom(
             _record.Group, loaded, includeTimePortals: false);
         _context.Transitions.ResetCamera();

@@ -278,7 +278,7 @@ internal sealed class FairiesWoodsEvent : RoomCutsceneCommandHost, IRoomEvent
         _runtime.SetField("wScrollMode", 1);
         _context.Player.WarpTo(Vector2.Zero, recordSafe: false);
         _context.Player.Visible = false;
-        _context.RoomView.SetRoom(loaded.Texture);
+        _context.RoomView.SetRoom(loaded);
         _context.Entities.LoadCutsceneRoom(
             _record.Group, loaded, includeTimePortals: false);
         _context.Transitions.ResetCamera();

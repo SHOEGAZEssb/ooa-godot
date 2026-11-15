@@ -56,9 +56,9 @@ public sealed partial class ValidationRoot
                 if (owner.Stage == PostD7Stage.Complete && (linked ? owner.State is 3 or 4 : owner.State == 5))
                 {
                     FailIf(_hud.Visible || !_transitions.NativeRoomUsesFullScreen || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
-                        _roomView.BackgroundFadeColorForValidation != Colors.Black || _player.Visible ||
+                        _roomView.BackgroundFadeColor != Colors.Black || _player.Visible ||
                         rom[0xc48a] != 0 || rom[0xc48c] != 0 || rom[0xd000] != 0 && (rom[0xd01a] & 0x80) != 0,
-                        $"Post-D7 update{update}: linked={linked} black backdrop must cover the HUD strip; HUD={_hud.Visible}/{_hud.StatusBarHidden}/{_hud.HiddenStatusBarColorForValidation}, BG={_roomView.BackgroundFadeColorForValidation}, Link={_player.Visible}/${rom[0xd000]:x2}:${rom[0xd01a]:x2}, native LYC=${rom[0xc48a]:x2}/SCY=${rom[0xc48c]:x2}.");
+                        $"Post-D7 update{update}: linked={linked} black backdrop must cover the HUD strip; HUD={_hud.Visible}/{_hud.StatusBarHidden}/{_hud.HiddenStatusBarColorForValidation}, BG={_roomView.BackgroundFadeColor}, Link={_player.Visible}/${rom[0xd000]:x2}:${rom[0xd01a]:x2}, native LYC=${rom[0xc48a]:x2}/SCY=${rom[0xc48c]:x2}.");
                     if (linked && owner.State == 4 && rom[0xcbba] == 1)
                     {
                         flashGaps++;

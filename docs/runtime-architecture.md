@@ -246,7 +246,7 @@ src/
 |-- Application/       composition, fixed updates, input, pause ownership
 |-- Features/          shared gameplay/presentation, including Dialogue and Scripting
 |-- Games/Ages/        source-specific content, data bindings and composition
-|-- Games/Seasons/     implemented Seasons content (launcher and standard opening)
+|-- Games/Seasons/     source-specific content, data bindings and composition
 |-- Infrastructure/    generated-data and external boundaries
 `-- Shared/            small behavior-neutral primitives
 ```

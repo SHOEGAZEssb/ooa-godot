@@ -299,7 +299,7 @@ public sealed partial class ValidationRoot
                 _roomView.BackgroundFadeAlpha != 1.0f ||
                 _hud.HiddenStatusBarFadeAlphaForValidation != 1.0f ||
                 _hud.HiddenStatusBarColorForValidation !=
-                    _roomView.BackgroundFadeColorForValidation,
+                    _roomView.BackgroundFadeColor,
                 "Remote Maku fadeoutToBlackWithDelay(2) did not reach one " +
                 "matching black across the room and hidden status-bar strip.");
             StepRoomEventFrames(1);

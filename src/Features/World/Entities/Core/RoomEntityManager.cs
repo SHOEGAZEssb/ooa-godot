@@ -524,6 +524,7 @@ public sealed partial class RoomEntityManager : IDisposable
     internal SwitchHookController? SwitchHook { get; set; }
     internal SomariaController? Somaria { get; set; }
     internal BiggoronSwordController? Biggoron { get; set; }
+    internal RodOfSeasonsController? RodOfSeasons { get; set; }
     internal ShovelController? Shovel { get; set; }
     private BoomerangParent? BoomerangParentSourceCache;
     internal BoomerangParent BoomerangParent => BoomerangParentSourceCache ??= new(AssetRoot, _runtimeState);
@@ -1274,6 +1275,7 @@ public sealed partial class RoomEntityManager : IDisposable
                     ProcessSpawns(frame);
                 }
             Shovel?.UpdateChild(itemPassFrozen);
+            RodOfSeasons?.UpdateItem(itemPassFrozen);
             SwitchHook?.UpdateItem(player, itemPassFrozen);
             Somaria?.UpdateItem(player, itemPassFrozen);
             Biggoron?.UpdateItem();
@@ -2275,6 +2277,7 @@ public sealed partial class RoomEntityManager : IDisposable
         Shovel?.ClearChild();
         Somaria?.Cancel();
         Biggoron?.Cancel();
+        RodOfSeasons?.Cancel();
         BoomerangParentSourceCache?.Clear();
         BombchuParentSourceCache?.Clear();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
@@ -2375,6 +2378,7 @@ public sealed partial class RoomEntityManager : IDisposable
         SwitchHook?.Cancel();
         Somaria?.Cancel();
         Biggoron?.Cancel();
+        RodOfSeasons?.Cancel();
         BoomerangParentSourceCache?.Clear();
         BombchuParentSourceCache?.Clear();
         _specialObjectsUpdatedBeforePlayer.Clear();

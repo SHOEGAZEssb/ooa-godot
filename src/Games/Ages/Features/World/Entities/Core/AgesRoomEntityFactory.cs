@@ -2802,7 +2802,7 @@ internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
             orb.Room,
             Resources.DungeonMechanics.MoonlitOrbPosition,
             Resources.DungeonMechanics.MoonlitOrbMask,
-            Resources.DungeonMechanics,
+            Resources.DungeonMechanics.SwitchSound,
             Resources.DungeonVisuals.Visual("grotto-orb"),
             room,
             _runtimeState,

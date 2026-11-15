@@ -11,7 +11,7 @@ internal sealed partial class BlackTowerEndingEvent
     {
         // pickaxeWorker.s: forceLoadRoom retains every live object/script.
         var room=context.Rooms.LoadCutsceneBackground(1,0x38);context.Entities.RebindCutsceneBackground(room);
-        context.RoomView.SetRoom(room.Texture);context.Sound.SelectRoomMusic(1,0x38,context.Rooms.SaveData);
+        context.RoomView.SetRoom(room);context.Sound.SelectRoomMusic(1,0x38,context.Rooms.SaveData);
         Screens.ApplyPalette(0x30,context.Rooms.BackgroundPalettes,context.Entities);
         Screen.Load("credits-maku-past",room,context.RoomView);Write(AgesWramAddress.wTilesetAnimation,255);
     }

@@ -4,6 +4,42 @@ namespace Oracles;
 internal sealed partial class SeasonsRoomTransitionController : RoomTransitionController
 {
     private readonly SeasonsWorldData _data;
+    internal void BeginSeasonChange(Player player)
+    {
+        // cutscene01 consumes wcc4c after objects; CUTSCENE_05 reloads the same room.
+        BeginRoomReload(player);
+    }
+
+    private protected override void BeforeDestinationLoad()
+    {
+        if (_entities.RuntimeState.ReadField("wcc4c") == 0) return;
+        OracleRoomData room = _rooms.CurrentRoom;
+        byte[] layout = room.Layout;
+        int stump = Array.IndexOf(layout, (byte)0x20);
+        if (stump >= 0)
+        {
+            int position = (stump / room.WidthInTiles << 4) | stump % room.WidthInTiles;
+            int[] probes = [position - 1, position + 1, position + 0x10, position - 0x10];
+            byte[] collisions = room.CaptureStorageCollisions();
+            int selected = probes.FirstOrDefault(probe =>
+            {
+                int x = probe & 15, y = unchecked((byte)probe) >> 4;
+                return x >= room.WidthInTiles || y >= room.HeightInTiles || collisions[y * room.WidthInTiles + x] == 0;
+            }, probes[^1]);
+            int y = (selected >> 4) * 16 + 8, x = (selected & 15) * 16 + 8;
+            _entities.RuntimeState.SetField("wRememberedCompanionY", (byte)y); _entities.RuntimeState.SetField("wRememberedCompanionX", (byte)x);
+            if (_entities.RuntimeState.ReadWramByte(0xd100) != 0 &&
+                _entities.RuntimeState.ReadWramByte(0xd101) is not (SpecialObjectId.Minecart or SpecialObjectId.Maple))
+            {
+                _entities.RuntimeState.SetWramByte(0xd104, 0); _entities.RuntimeState.SetWramByte(0xd103, 0);
+                _entities.RuntimeState.SetWramByte(0xd10b, (byte)y); _entities.RuntimeState.SetWramByte(0xd10d, (byte)x);
+                _entities.RuntimeState.SetWramByte(0xd10f, 0);
+            }
+            else _entities.RuntimeState.SetField("wRememberedCompanionId", 0);
+        }
+        else _entities.RuntimeState.SetField("wRememberedCompanionId", 0);
+        _entities.RuntimeState.SetField("wcc4c", 0);
+    }
 
     internal SeasonsRoomTransitionController(RoomSession rooms, SeasonsWorldData data, GameplaySceneGraph scene,
         RoomEntityManager entities, DeathRespawnPointController checkpoints, OracleSoundEngine sound)

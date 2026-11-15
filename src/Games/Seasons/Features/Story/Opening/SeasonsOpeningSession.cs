@@ -132,7 +132,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         if (!restored) LoadRoom(0xa7, 0, spawn: false, preserveActors: true);
         else
         {
-            RoomView.SetRoom(Room.Texture);
+            RoomView.SetRoom(Room);
             if (startingGroup == 0)
             {
                 Memory.SetField("wRoomPack", (byte)Data.World.RoomPack(startingRoom));
@@ -226,12 +226,14 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
 
     private void UpdateRoomAnimation()
     {
-        if (!_foregroundScroll && !_screen.Visible && Room.UpdateAnimation(++_roomTicks)) RoomView.SetRoom(Room.Texture);
+        if (!_foregroundScroll && !_screen.Visible && Room.UpdateAnimation(++_roomTicks)) RoomView.SetRoom(Room);
     }
 
     bool IGameplayObjectPhases.PrepareObjectUpdate(double delta)
     {
         Transitions.AdvanceSubrosiaBeforeObjects();
+        foreach (var actor in Entities.EntityAdapters<SeasonsRodAcquisitionRoomEntity>()) actor.Host?.AdvancePaletteBeforeObjects();
+        foreach (var actor in Entities.EntityAdapters<SeasonsTempleScriptRoomEntity>()) actor.Host?.AdvancePaletteBeforeObjects();
         foreach(var maku in Entities.EntityAdapters<SeasonsRemoteMakuRoomEntity>())maku.AdvancePaletteBeforeObjects();
         _essenceEvent?.AdvancePaletteBeforeObjects();
         if (Transitions.AdvanceFadeOutWarpBeforeObjects(delta)) return false;
@@ -276,6 +278,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         if (!_foregroundScroll && !_foregroundTransition && !Transitions.IsTransitioning)
         {
             Transitions.CheckRequestedTileWarp(Link);
+            if (!Transitions.IsTransitioning && Memory.ReadField("wcc4c") != 0) Transitions.BeginSeasonChange(Link);
             if (!Transitions.IsTransitioning) Transitions.CommitRoomExit(Link);
         }
     }
@@ -322,7 +325,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         }
         if (preserveActors) Rooms.LoadCutsceneBackground(group, room);
         else Rooms.Load(group, room);
-        RoomView.SetRoom(Room.Texture);
+        RoomView.SetRoom(Room);
         Memory.SetField("wScrollMode", 1);
         if (preserveActors) Entities.RebindCutsceneBackground(Room);
         else if (spawn) Entities.LoadRoom(group, Room);

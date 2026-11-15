@@ -1,7 +1,8 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://src/Application/GameplaySceneGraph.cs" id="1_gameplay"]
 [ext_resource type="Script" path="res://src/Features/World/Rooms/RoomView.cs" id="2_room_view"]
+[ext_resource type="Script" path="res://src/Features/World/Rooms/RoomPriorityView.cs" id="15_room_priority"]
 [ext_resource type="Script" path="res://src/Features/Player/Player.cs" id="3_player"]
 [ext_resource type="Script" path="res://src/Features/Interface/Hud.cs" id="4_hud"]
 [ext_resource type="Script" path="res://src/Features/Dialogue/DialogueBox.cs" id="5_dialogue"]
@@ -27,6 +28,10 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 z_index = 0
 script = ExtResource("2_room_view")
+
+[node name="Priority" type="Node2D" parent="World/RoomView"]
+z_index = 14
+script = ExtResource("15_room_priority")
 
 [node name="Link" type="Node2D" parent="World"]
 unique_name_in_owner = true

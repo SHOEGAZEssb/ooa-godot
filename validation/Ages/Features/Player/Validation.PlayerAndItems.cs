@@ -3673,7 +3673,7 @@ public sealed partial class ValidationRoot
             source.CurrentAnimationSignature == staleTargetSignature,
             "Animation phase-lock validation chose indistinguishable ticks.");
 
-        _roomView.SetRoom(source.Texture);
+        _roomView.SetRoom(source);
         _entities.LoadRoom(_activeGroup, source);
         _player.WarpTo(new Vector2(source.Width + 2.0f, source.Height / 2.0f));
         UpdatePushingStateForValidation(_player,Vector2.Right);

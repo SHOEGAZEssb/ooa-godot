@@ -409,6 +409,7 @@ public partial class Player : Node2D
 	public bool IsUsingSwitchHook => _world is not null && _world.SwitchHookActive;
 	internal bool IsUsingSomaria => _world is not null && _world.SomariaActive;
 	internal bool IsUsingBiggoron => _world is not null && _world.BiggoronActive;
+	internal bool IsUsingRodOfSeasons => _world is not null && _world.RodOfSeasonsActive;
 	internal bool IsUsingBoomerang => _world is not null && _world.BoomerangParentActive;
 	internal bool IsUsingBombchu => _world is not null && _world.BombchuParentActive;
 	private int _seedSatchelParentSlot = 3;
@@ -432,6 +433,7 @@ public partial class Player : Node2D
 		Started(TreasureId.SwitchHook, IsUsingSwitchHook) ||
 		Started(TreasureId.CaneOfSomaria, IsUsingSomaria) ||
 		Started(TreasureId.BiggoronSword, IsUsingBiggoron) ||
+		Started(TreasureId.RodOfSeasons, IsUsingRodOfSeasons) ||
 		Started(TreasureId.Boomerang, IsUsingBoomerang) ||
 		Started(TreasureId.Bombchus, true) ||
 		Started(0x02, IsUsingPunch);
@@ -444,6 +446,7 @@ public partial class Player : Node2D
 		Signals(TreasureId.SeedSatchel,IsUsingSeedSatchel) || Signals(TreasureId.Shooter,IsUsingSeedShooter) ||
 		Signals(TreasureId.SwitchHook,IsUsingSwitchHook) || Signals(TreasureId.CaneOfSomaria,IsUsingSomaria) ||
 		Signals(TreasureId.BiggoronSword,IsUsingBiggoron) || Signals(TreasureId.Boomerang,IsUsingBoomerang) ||
+		Signals(TreasureId.RodOfSeasons,IsUsingRodOfSeasons) ||
 		Signals(TreasureId.Punch,IsUsingPunch);
 	private bool Signals(int id,bool active) => active && _linkItems.ParentAnimationSignalsItemUse(id);
 	internal void NotifyParentItemAnimationStarted(int id, int slot = 2)
@@ -456,7 +459,7 @@ public partial class Player : Node2D
 	private bool OtherItemAnimationActive =>
 		IsUsingShovel || IsUsingSeedSatchel ||
 		IsUsingSeedShooter || IsUsingHarp || IsUsingPunch || IsUsingSwitchHook || IsUsingSomaria || IsUsingBiggoron || IsUsingBoomerang ||
-		IsUsingBombchu || Started(TreasureId.Bombchus, true);
+		IsUsingRodOfSeasons || IsUsingBombchu || Started(TreasureId.Bombchus, true);
 	internal bool IsPushing => _world.TilePushingDirection != 0xff && _inventory.RuntimeState.ReadWramByte(0xd034) == 0x10;
 	internal SwordActionState SwordState => _swordState;
 	internal SwordActionState SwordCollisionState =>
@@ -7041,6 +7044,8 @@ public partial class Player : Node2D
 			_world.UpdateBiggoronParent(_world.SwordDisabled || _world.SwordJinxed || _world.Underwater ||
 				_world.SideScrolling && HasMermaidSuit &&
 				(_world.SideScrollActiveTiles.ActiveType&SideScrollTileType.Water)!=0);
+		if (!Started(TreasureId.RodOfSeasons, IsUsingRodOfSeasons))
+			_world.UpdateRodOfSeasonsParent();
 		// ParentItem5 follows lower parents within checkUseItems, before
 		// Link movement/standing animation can publish Pegasus dust cues.
 		AdvanceSwordParentBeforeMovement(input);
@@ -7104,6 +7109,7 @@ public partial class Player : Node2D
 	private void CollectFreeItemParents(Span<ParentItemSlotState> slots)
 	{
 		slots.Clear();
+		if (IsUsingRodOfSeasons) slots[0] = new(_inventory.RuntimeState.ReadWramByte(0xd200), TreasureId.RodOfSeasons);
 		if (IsUsingSeedSatchel) slots[_seedSatchelParentSlot - 2] = new(1, TreasureId.SeedSatchel);
 		if (IsUsingBoomerang) slots[_world.BoomerangParentSlot - 2] = new(1, TreasureId.Boomerang);
 		if (_world.BombchuParentAllocated) slots[_world.BombchuParentSlot - 2] = new(1, TreasureId.Bombchus);
@@ -7223,7 +7229,7 @@ public partial class Player : Node2D
 			secondaryUsage.Enabled >= primaryUsage.Enabled;
 		if (_activeTransformation == 0 &&
 			!secondaryReplacesPrimary &&
-			Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
+			Input.IsActionJustPressed("attack") && !_world.SwordDisabled && AdmitItemOverRod(_inventory.EquippedA))
 		{
 			if (!IsUsingItem || IsUsingSomaria)
 			{
@@ -7265,6 +7271,8 @@ public partial class Player : Node2D
 			}
 			else if (_inventory.EquippedA == TreasureId.Sword)
 				StartSwordAttack("attack", input);
+			else if (_inventory.EquippedA == TreasureId.RodOfSeasons)
+				StartRodOfSeasonsAction(input, primaryButton: true);
 			else if (_inventory.EquippedA == TreasureId.CaneOfSomaria)
 				StartSomariaAction(input, braceletParentAtInput: braceletParentAtInput);
 			else if (_inventory.EquippedA == TreasureId.Boomerang)
@@ -7292,7 +7300,7 @@ public partial class Player : Node2D
 			}
 		}
 		if (_activeTransformation == 0 && !SecondaryItemAllocationSuppressed &&
-			Input.IsActionJustPressed("item") && !_world.SwordDisabled)
+			Input.IsActionJustPressed("item") && !_world.SwordDisabled && AdmitItemOverRod(_inventory.EquippedB))
 		{
 			if (!_minecartRideControlled && !_raftRideControlled &&
 				!IsUsingItem &&
@@ -7337,6 +7345,8 @@ public partial class Player : Node2D
 			{
 				StartSwordAttack("item", input);
 			}
+			else if (_inventory.EquippedB == TreasureId.RodOfSeasons)
+				StartRodOfSeasonsAction(input, primaryButton: false);
 			else if (_inventory.EquippedB == TreasureId.CaneOfSomaria)
 				StartSomariaAction(input, primaryItemInputSuppressed, braceletParentAtInput);
 			else if (_inventory.EquippedB == TreasureId.Boomerang)
@@ -7456,6 +7466,7 @@ public partial class Player : Node2D
 
 	private void StartSwordAttack(string? buttonAction, Vector2 facingInput)
 	{
+		if (!AdmitItemOverRod(TreasureId.Sword)) return;
 		// ITEM_SWORD can allocate w1ParentItem2 while the Harp occupies
 		// w1ParentItem5, but clearParentItemIfCantUseSword observes the
 		// Harp's wcc95 bit 7 and deletes the sword before state 0 can run.
@@ -7722,7 +7733,7 @@ public partial class Player : Node2D
 	{
 		// Satchel selector2 uses ParentItem3/4; Cane owns ParentItem2.
 		// Retain the satchel's own single-parent cap during that overlap.
-		if (IsUsingItem && !IsUsingSomaria && !IsUsingBiggoron && !IsUsingBombchu && !IsUsingBoomerang || IsUsingSeedSatchel)
+		if (IsUsingItem && !IsUsingSomaria && !IsUsingBiggoron && !IsUsingRodOfSeasons && !IsUsingBombchu && !IsUsingBoomerang || IsUsingSeedSatchel)
 			return;
 
 		Span<ParentItemSlotState> slots = stackalloc ParentItemSlotState[4];

@@ -32,7 +32,7 @@ internal sealed class PalacePassageEvent(RoomEventContext context) : IRoomEvent
                 Counter = 60; State = 1;
                 var room = context.Rooms.LoadCutsceneRoom(1, 0x27);
                 context.Entities.LoadCutsceneRoom(1, room, includeTimePortals: false);
-                context.RoomView.SetRoom(room.Texture); context.Transitions.ResetCamera();
+                context.RoomView.SetRoom(room); context.Transitions.ResetCamera();
                 context.Player.WarpTo(Vector2.Zero, recordSafe: false); context.Player.Visible = false;
                 context.Transitions.BeginNativeWhiteFade(false); return;
             case 1 when Phase == 0:

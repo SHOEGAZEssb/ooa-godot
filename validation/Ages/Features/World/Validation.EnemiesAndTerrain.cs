@@ -6483,7 +6483,7 @@ public sealed partial class ValidationRoot
         ClearDeactivatedWarp();
 
         _currentRoom = _world.LoadRoom(_activeGroup, 0xb8);
-        _roomView.SetRoom(_currentRoom.Texture);
+        _roomView.SetRoom(_currentRoom);
         Vector2 waterSafe = new(40, 8);
         _player.WarpTo(waterSafe);
         _player.WarpTo(new Vector2(8, 8), recordSafe: false);
@@ -6492,7 +6492,7 @@ public sealed partial class ValidationRoot
             "Expected room b8/$00 to be water terrain.");
 
         _currentRoom = _world.LoadRoom(_activeGroup, 0x03);
-        _roomView.SetRoom(_currentRoom.Texture);
+        _roomView.SetRoom(_currentRoom);
         Vector2 lavaSafe = new(56, 8);
         _player.WarpTo(lavaSafe);
         _player.WarpTo(new Vector2(8, 24), recordSafe: false);
@@ -6513,7 +6513,7 @@ public sealed partial class ValidationRoot
         _activeGroup = holeGroup;
         ClearDeactivatedWarp();
         _currentRoom = _world.LoadRoom(_activeGroup, holeRoom);
-        _roomView.SetRoom(_currentRoom.Texture);
+        _roomView.SetRoom(_currentRoom);
         _player.WarpTo(holeSafe);
         Vector2 offCenterHoleEntry = holeCenter + new Vector2(3, -2);
         int beforeHoleHealth = _player.HealthQuarters;
@@ -7039,7 +7039,7 @@ public sealed partial class ValidationRoot
     {
         _activeGroup = 0;
         _currentRoom = _world.LoadRoom(_activeGroup, 0x56);
-        _roomView.SetRoom(_currentRoom.Texture);
+        _roomView.SetRoom(_currentRoom);
         RefreshRoomObjects();
 
         // The left end of bridge metatiles $1d/$1e starts at x=$30. These two
@@ -7090,7 +7090,7 @@ public sealed partial class ValidationRoot
         _activeGroup = 0;
         ClearDeactivatedWarp();
         _currentRoom = _world.LoadRoom(_activeGroup, 0x01);
-        _roomView.SetRoom(_currentRoom.Texture);
+        _roomView.SetRoom(_currentRoom);
 
         FailIf(
             !TryFindHoleWithSafeNeighbor(_currentRoom, out Vector2 holeCenter, out Vector2 safePosition),

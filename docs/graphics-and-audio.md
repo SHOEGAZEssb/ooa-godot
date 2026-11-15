@@ -64,6 +64,9 @@ Room rasterization reuses its CPU buffers and retains the input identity of
 each composed background tile. Only tiles whose art, mapping, attributes or
 palette changed are recomposed; the complete image still uses a fresh backing
 upload. Mutable VRAM always receives a fresh snapshot and invalidates its tiles.
+The room's priority pass draws BG attribute bit 7 above world sprites, with
+color index zero transparent regardless of its palette color. It shares the
+background's animation, mapping, palette, scrolling, reveal and wave transforms.
 A newly decoded room prepares logical state without rasterizing or allocating
 room or cleared-tilemap textures. Each texture is first published when a presenter
 requests it, using the palette, layout, animation and live VRAM at that boundary.

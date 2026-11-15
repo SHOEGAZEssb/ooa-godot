@@ -41,7 +41,7 @@ internal sealed partial class RoomOfRitesBattleEvent(RoomEventContext context) :
         Write(TwinrovaArenaDatabase.ModeAddress,mode);
         var room=context.Rooms.ReloadCurrentRoomBackground();
         context.Entities.RebindCutsceneBackground(room);
-        context.RoomView.SetRoom(room.Texture);
+        context.RoomView.SetRoom(room);
     }
     internal void AdvanceBeforeObjects()
     {
@@ -110,7 +110,7 @@ internal sealed partial class RoomOfRitesBattleEvent(RoomEventContext context) :
         // clearScreenVariablesAndWramBank1 does not clear wNumEnemies $cdd1.
         // parseGivenObjectData also bypasses parseObjectData's zero write.
         context.Entities.SetNativeRoomEnemyCount(enemyCount);
-        context.RoomView.SetRoom(room.Texture);
+        context.RoomView.SetRoom(room);
         context.Sound.SelectRoomMusic(5, roomId, context.Rooms.SaveData);
         context.Player.ClearNativeItemParents(); context.Player.WarpTo(link, recordSafe: false); context.Player.Visible = false;
         context.Player.Face(Vector2I.Up); _linkCleared = true;

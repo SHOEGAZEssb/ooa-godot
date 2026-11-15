@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
                     StepGameplayUpdates(2, Vector2.Zero, batched: batch);
                 FailIf(blackOwner.Stage != PostD7Stage.Complete || blackOwner.State != blackState ||
                     !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
-                    _roomView.BackgroundFadeColorForValidation != Colors.Black,
+                    _roomView.BackgroundFadeColor != Colors.Black,
                     $"Linked post-D7 cancellation must reach black state ${blackState:x2}, including an uncovered flash gap in state $04.");
                 LoadValidationRoom(1, 0x36); StepGameplayUpdates(4, Vector2.Zero, batched: batch);
                 FailIf(blackOwner.HasState || !_player.Visible || !_hud.Visible || _hud.StatusBarHidden ||

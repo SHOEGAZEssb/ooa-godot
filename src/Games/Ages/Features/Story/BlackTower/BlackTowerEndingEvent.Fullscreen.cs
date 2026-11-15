@@ -93,7 +93,7 @@ internal sealed partial class BlackTowerEndingEvent
     {
         if(!_screenActive)return;
         Screen.Release();context.Hud.Visible=_hudWasVisible;context.Transitions.NativeRoomUsesFullScreen=false;
-        context.RoomView.SetRoom(context.Rooms.CurrentRoom.Texture);
+        context.RoomView.SetRoom(context.Rooms.CurrentRoom);
         context.Rooms.BackgroundPalettes.Restore(_oldBackground!);context.Entities.SetNativeObjectPalette(_oldSprites);
         _restoreTerrain?.Invoke();_restoreTerrain=null;_oldBackground=null;_oldSprites=null;_screenActive=false;
     }

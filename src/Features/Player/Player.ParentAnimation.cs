@@ -22,6 +22,11 @@ public partial class Player
         Vector2 offset = NormalSpriteOrigin;
         switch (_publishedParentId)
         {
+            case TreasureId.RodOfSeasons when IsUsingRodOfSeasons:
+            {
+                var body = Sprites.NativeFrame(_inventory.RuntimeState.ReadWramByte(0xd231), (int)_facing, DamagePaletteActive);
+                return (body.Texture, null, body.Offset + Vector2.Down * EnemyContactZ);
+            }
             case TreasureId.Bracelet:
             case TreasureId.Bombs:
             {

@@ -245,7 +245,7 @@ internal sealed class PostD3RemoteMakuEvent :
         PostD3RemoteMakuRecord record = _database.Record;
         OracleRoomData loaded = _context.Rooms.LoadCutsceneRoom(
             record.PalaceGroup, record.PalaceRoom);
-        _context.RoomView.SetRoom(loaded.Texture);
+        _context.RoomView.SetRoom(loaded);
         _context.Entities.LoadCutsceneRoom(
             record.PalaceGroup, loaded, includeTimePortals: false);
         _context.Transitions.ResetCamera();
@@ -310,7 +310,7 @@ internal sealed class PostD3RemoteMakuEvent :
         RemoveTowerScreen();
         OracleRoomData loaded = _context.Rooms.LoadCutsceneRoom(
             record.Group, record.Room);
-        _context.RoomView.SetRoom(loaded.Texture);
+        _context.RoomView.SetRoom(loaded);
         _context.Entities.LoadCutsceneRoom(
             record.Group, loaded, includeTimePortals: false);
         _context.Transitions.ResetCamera();

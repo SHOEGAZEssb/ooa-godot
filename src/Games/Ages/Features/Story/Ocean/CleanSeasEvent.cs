@@ -104,7 +104,7 @@ internal sealed class CleanSeasEvent(RoomEventContext context) : IRoomEvent
         var location = _data.Rooms[RoomIndex];
         var room = context.Rooms.LoadCutsceneRoom(location.Group, location.Room);
         context.Entities.LoadCutsceneRoom(location.Group, room, includeTimePortals: false);
-        context.RoomView.SetRoom(room.Texture); context.Transitions.ResetCamera();
+        context.RoomView.SetRoom(room); context.Transitions.ResetCamera();
         context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 1);
         context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 1);
         context.Player.Visible = RoomIndex == 4;

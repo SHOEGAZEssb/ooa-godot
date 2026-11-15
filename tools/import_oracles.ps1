@@ -444,6 +444,9 @@ $stageContracts = @(
         -functionInputs @('Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-AssemblyNpcProgramRows', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'seasons-room-runtime' 'Seasons/Import-RoomRuntime.ps1' `
         -inputs @('seasonsRomBytes', 'seasonsSymbols')
+    New-ImportStageContract 'seasons-rod' 'Seasons/Import-RodOfSeasons.ps1' `
+        -inputs @('seasonsRomBytes', 'seasonsSymbols', 'seasonsGlobalFlagValues', 'treasureIds', 'seasonNpcTexts', 'seasonTreasureTexts', 'cutsceneCommandHeader') `
+        -functionInputs @('Read-AssemblyNpcProgramRows', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'vasu-shop' 'Shared/Import-VasuShop.ps1' `
         -inputs @('allTexts', 'seasonNpcTexts', 'agesSymbols', 'seasonsSymbols') `
         -functionInputs @('Resolve-NpcAnimation', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
@@ -625,6 +628,9 @@ $stageContracts = @(
     New-ImportStageContract 'boomerang' 'Shared/Import-Boomerang.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes', 'soundIds') `
         -functionInputs @('Read-MenuRomBytes', 'Read-NativeObjectPointerLabels', 'Read-NativeItemAnimation', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')
+    New-ImportStageContract 'seasons-temple-orb' 'Seasons/Import-TempleOrb.ps1' `
+        -inputs @('seasonsSymbols','seasonsRomBytes') `
+        -functionInputs @('Read-MenuRomBytes','Read-NativeObjectPointerLabels','Read-NativeEnemyAnimation','Start-AssemblySourceHost','Invoke-AssemblySourceHost','Find-ImportSpriteSource','Get-ImportSpriteSourceGrayscaleInverted')
     New-ImportStageContract 'ricky-data' 'Shared/Import-RickyData.ps1' `
         -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes') `
         -functionInputs @('Read-MenuRomBytes', 'Read-NativeObjectPointerLabels', 'Read-NativeItemAnimation', 'Start-AssemblySourceHost', 'Invoke-AssemblySourceHost')

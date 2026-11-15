@@ -168,8 +168,8 @@ internal sealed partial class OctogonCharacter : EnemyCharacter
             case 9:
                 DecAttack();
                 if ((frame&3) == 0 && DecPhase()) { State = 0x0d; CollisionType &= 0x7f; Depth = 1; Counter1 = _data.SubmergeWait; AttackCounter = _data.WaterWait; Direction = 0x15; SetDirectionAnimation(); return; }
-                if (((byte)(link.Y-Position.Floor().Y+_data.AlignmentRadius) < _data.AlignmentRadius*2+1 ||
-                    (byte)(link.X-Position.Floor().X+_data.AlignmentRadius) < _data.AlignmentRadius*2+1) && AttackCounter == 0)
+                if ((((OracleObjectPosition.HighByte(link.Y)-OracleObjectPosition.HighByte(Position.Y)+_data.AlignmentRadius) & 255) < _data.AlignmentRadius*2+1 ||
+                    ((OracleObjectPosition.HighByte(link.X)-OracleObjectPosition.HighByte(Position.X)+_data.AlignmentRadius) & 255) < _data.AlignmentRadius*2+1) && AttackCounter == 0)
                 {
                     AttackCounter = _data.InitialWait;
                     if (((Direction&12)*2) == ((Aim(target)+0x14)&0x18)) { State = 11; Counter1 = _data.FireWindup; return; }
@@ -272,7 +272,8 @@ internal sealed partial class OctogonCharacter : EnemyCharacter
     }
     private void MoveTarget()
     {
-        if ((byte)(Position.Floor().X-Target.X+1) < 3 && (byte)(Position.Floor().Y-Target.Y+1) < 3)
+        if (((OracleObjectPosition.HighByte(Position.X)-OracleObjectPosition.HighByte(Target.X)+1) & 255) < 3 &&
+            ((OracleObjectPosition.HighByte(Position.Y)-OracleObjectPosition.HighByte(Target.Y)+1) & 255) < 3)
         { CopyHigh(Target); State++; Counter1 = _data.TargetWait; return; }
         Angle = Aim(Target);
         var velocity = NativeObjectMovement.Velocity(_memory,Speed,Angle);

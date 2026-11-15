@@ -79,9 +79,9 @@ foreach ($pack in @(
             $cells = @(for ($cell = 0; $cell -lt $count; $cell++) { $start = 1 + $cell * 4; $oam[$start..($start + 3)] -join ',' }) -join ';'
             $metadata = if ($frame[2] -eq 0) { '127' } else { "127,$($frame[2])" }
             if ($animation -ne "$metadata@$cells") { throw "${source}:${animationLabel}: imported treasure frame differs from compiled OAM bytes." }
-            $inverted = [int](Get-ImportSpriteSourceGrayscaleInverted $sprite)
+            $inverted = [int](Get-ImportSpriteSourceGrayscaleInverted $sprite $pack.Name)
             $rows.Add("$($graphic.ToString('x2'))`t$sprite`t$($tile.ToString('x2'))`t$($palette.ToString('x2'))`t$($animationIndex.ToString('x2'))`t$animation`t$inverted")
-            $spriteSource = Find-ImportSpriteSource $sprite
+            $spriteSource = Find-ImportSpriteSource $sprite $pack.Name
             Copy-Item -LiteralPath $spriteSource.FullName -Destination (Join-Path $pack.Root "gfx/$sprite.png") -Force
         }
         Write-GeneratedTable((Join-Path $pack.Root 'metadata/treasure_object_visuals.tsv'), $rows)

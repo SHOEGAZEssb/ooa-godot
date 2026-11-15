@@ -250,35 +250,37 @@ $animationLabels=@{}
 foreach($name in @($presentation.Definitions.Keys | Sort-Object)){
     if($seasonsSymbols.ContainsKey($name)){$animationLabels[$seasonsSymbols[$name]]=$name}
 }
-foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4b,0x4e,0x6c,0x80,0x82,0x83,0x87,0x89,0x8a,0x8b,0x8d,0x8e,0x99,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe1,0xe5)){
+foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4b,0x4c,0x4e,0x50,0x6c,0x80,0x82,0x83,0x84,0x87,0x89,0x8a,0x8b,0x8d,0x8e,0x99,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe1,0xe5,0xe6)){
     $hex=$id.ToString('x2')
     $entry=@(Read-AssemblyMacroInvocations $dataPath '' 'm_InteractionData' | Where-Object Comment -eq "`$$hex")
     if($entry.Count -ne 1){throw "NPC `$$hex has no unique graphics data."}
     $records=@(if($entry[0].Operands[0].StartsWith('$')){$entry}else{Read-AssemblyMacroInvocations $dataPath $entry[0].Operands[0] 'm_InteractionSubidData'})
     $lastAnimation=$presentation.Tables["interaction${hex}Animations"].Count-1
     for($subid=0;$subid -lt $records.Count;$subid++){
+        if($id -eq 0xe6 -and $subid -eq 0){continue} # Invisible script controller has no OBJ graphics.
+        if($id -eq 0x84 -and $subid -notin @(0,1,7)){continue}
         $fields=$records[$subid].Operands;$header=Convert-AssemblyInteger $fields[0];$tile=(Convert-AssemblyInteger $fields[1]) -band 0x7f;$flags=Convert-AssemblyInteger $fields[2]
         $lastAnimation=[Math]::Max($lastAnimation,$flags -band 15)
         # addIndexToLoadedObjectGfx returns zero without loading: bank1 uses the resident common sheet.
         $sprite=if($header -ne 0){$gfx[$header].Operands[0]}
             elseif(($flags -band 0x80) -ne 0){'spr_common_sprites'}
             else{throw "data/seasons/interactionData.s:`$$hex subid`$$($subid.ToString('x2')): unbound resident bank0 OBJ graphics."}
-        $relative=[IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $sprite).FullName)
+        $relative=[IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $sprite 'seasons').FullName)
         Copy-GeneratedFile $relative "gfx/$sprite.png" $root
         $append=''
         if($sprite -eq 'spr_din_1'){
             $extra='spr_din_2'
-            Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $extra).FullName)) "gfx/$extra.png" $root
-            $append="${extra}:$([int](Get-ImportSpriteSourceGrayscaleInverted $extra))"
+            Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $extra 'seasons').FullName)) "gfx/$extra.png" $root
+            $append="${extra}:$([int](Get-ImportSpriteSourceGrayscaleInverted $extra 'seasons'))"
         }
         if($sprite -eq 'spr_maku_tree_1'){
             $append=@(foreach($extra in @('spr_maku_tree_2','spr_maku_tree_3')){
-                Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $extra).FullName)) "gfx/$extra.png" $root
-                "${extra}:$([int](Get-ImportSpriteSourceGrayscaleInverted $extra))"
+                Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $extra 'seasons').FullName)) "gfx/$extra.png" $root
+                "${extra}:$([int](Get-ImportSpriteSourceGrayscaleInverted $extra 'seasons'))"
             }) -join ','
         }
         $offset=if($header -ne 0 -and $gfx[$header].Operands.Count -ge 3){$gfx[$header].Operands[2].TrimStart('$')}else{'0000'}
-        $visuals.Add("$hex`t$($subid.ToString('x2'))`t$sprite`t$tile`t$(($flags -shr 4) -band 7)`t$($flags -band 15)`t$append`t$offset`tdata/seasons/interactionData.s:`$$hex`t$([int](Get-ImportSpriteSourceGrayscaleInverted $sprite))")
+        $visuals.Add("$hex`t$($subid.ToString('x2'))`t$sprite`t$tile`t$(($flags -shr 4) -band 7)`t$($flags -band 15)`t$append`t$offset`tdata/seasons/interactionData.s:`$$hex`t$([int](Get-ImportSpriteSourceGrayscaleInverted $sprite 'seasons'))")
     }
     # Native indexing continues through adjacent .dw labels (notably $36 animation $04).
     while($presentation.Tables["interaction${hex}Animations"].Count -le $lastAnimation){
@@ -287,7 +289,9 @@ foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x3
         if(!$animationLabels.ContainsKey($target)){throw "NPC `$${hex}: native animation pointer `$$($target.ToString('x5')) has no source definition."}
         $presentation.Tables["interaction${hex}Animations"]+=@($animationLabels[$target])
     }
-    for($index=0;$index -lt $presentation.Tables["interaction${hex}Animations"].Count;$index++){
+    # Fairy code only uses animation 0; Rod children use 0-2. Their following pointers contain empty OAM.
+    $animationCount=if($id -eq 0x50){1}elseif($id -eq 0xe6){3}elseif($id -eq 0x84){2}else{$presentation.Tables["interaction${hex}Animations"].Count}
+    for($index=0;$index -lt $animationCount;$index++){
         $animation=Resolve-InteractionPresentation $presentation $id $index
         if(!$animation -or $animation -match '@(?:\||$)'){throw "NPC `$$hex animation $index has unresolved OAM."}
         $animations.Add("$hex`t$($index.ToString('x2'))`t$animation`tdata/seasons/interactionAnimations.s")
@@ -351,15 +355,15 @@ if($sequences.Count -ne 3){throw 'PART$32 must retain three bubble animation ent
 $part=@($bytes[($seasonsSymbols['partData']+0x32*8)..($seasonsSymbols['partData']+0x32*8+7)])
 if(($part -join ',') -ne '56,242,34,0,1,2,1,0'){throw 'Seasons PART$32 attributes changed.'}
 $sprite=$gfx[$part[0]].Operands[0]
-Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $sprite).FullName)) "gfx/$sprite.png" $root
+Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $sprite 'seasons').FullName)) "gfx/$sprite.png" $root
 Write-GeneratedTable((Join-Path $root 'npcs/bubble_visual.tsv'),@("# sprite`ttile-base`tpalette`tinverted`tanimations-base64`tsource",
-    "$sprite`t$($part[5])`t$($part[6] -band 7)`t$([int](Get-ImportSpriteSourceGrayscaleInverted $sprite))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($sequences -join "`n")))`tdata/seasons/partData.s:PART`$32"))
+    "$sprite`t$($part[5])`t$($part[6] -band 7)`t$([int](Get-ImportSpriteSourceGrayscaleInverted $sprite 'seasons'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($sequences -join "`n")))`tdata/seasons/partData.s:PART`$32"))
 Write-GeneratedTable((Join-Path $root 'npcs/native_tables.tsv'),$tables)
 
 $snore=$bytes[$seasonsSymbols['interactiona0SubidData']..($seasonsSymbols['interactiona0SubidData']+2)]
 if(($snore -join ',') -ne '56,0,48'){throw 'Seasons INTERAC$a0:$00 native snore graphics changed.'}
 $snoreSprite=$gfx[$snore[0]].Operands[0]
-Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $snoreSprite).FullName)) "gfx/$snoreSprite.png" $root
+Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $snoreSprite 'seasons').FullName)) "gfx/$snoreSprite.png" $root
 $snoreAnimation=Resolve-InteractionPresentation $presentation 0xa0 0
 Write-GeneratedTable((Join-Path $root 'effects/snore.tsv'),@(
     '# tile-base`tpalette`tduration`tspeed-raw`tleft-angle`tright-angle`tsway`tanimation`tsource`tsprite',
