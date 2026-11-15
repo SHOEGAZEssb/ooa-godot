@@ -8,6 +8,16 @@ public sealed partial class ValidationRoot
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var root = typeof(GameRoot);
+        var dormantPlayer = new Player();
+        try
+        {
+            dormantPlayer.SetCutsceneSpriteFrame(null);
+            dormantPlayer.SetCutsceneSpriteFrame(null);
+            FailIf(typeof(Player).GetField("_cutsceneSpriteRenderer", flags)!.GetValue(dormantPlayer) is not null ||
+                dormantPlayer.World is not null || dormantPlayer.AssetRoot != string.Empty,
+                "Cancelling a dormant Link pose must not allocate graphics before content/world binding.");
+        }
+        finally { dormantPlayer.Free(); }
         void Invoke(string name, params object[] args) => root.GetMethod(name, flags)!.Invoke(this, args);
         T? Read<T>(string name) where T : class => (T?)root.GetField(name, flags)!.GetValue(this);
         static bool SamePayloadExceptPlaytime(byte[] before, OracleSaveData save)
@@ -174,7 +184,14 @@ public sealed partial class ValidationRoot
         FailIf(ReferenceEquals(_roomEvents,retiredEvents) || _player.World is not null ||
             !ReferenceEquals(RegisteredRoomEventContext(_roomEvents).Entities,_entities),
             "Partial-preparation cleanup fixture missed new events before Player.Initialize.");
+        while (!RegisteredRoomEvents(_roomEvents).ContainsKey(typeof(ImpaIntroEvent)) &&
+            preparationSteps++ < 768 && partial.MoveNext()) { }
+        FailIf(_player.World is not null || !RegisteredRoomEvents(_roomEvents).ContainsKey(typeof(ImpaIntroEvent)),
+            "Partial-preparation cleanup fixture missed registered events before Player.Initialize.");
+        _runtimeState.SetField("wForceLinkPushAnimation", 1);
         ValidateRoomEventsBeforeReset();
+        FailIf(_runtimeState.ReadField("wForceLinkPushAnimation") != 0,
+            "Cancelling pre-initialized Impa events did not clear the authoritative push-animation byte.");
         ReinitializeGameplayForValidation();
         GD.Print("Validated staged intro preparation and original handoff through individual and batched host updates.");
         ValidatePreparedSavedGameHandoff();

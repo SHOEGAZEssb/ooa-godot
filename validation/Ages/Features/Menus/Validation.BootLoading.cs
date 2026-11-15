@@ -34,6 +34,16 @@ public sealed partial class ValidationRoot
             OracleAssetCache.ImageResourcePath(sourcePng + ".remap") != sourcePng ||
             OracleAssetCache.ImageResourcePath(sourcePng) != sourcePng,
             "Exported Android image sidecars must preload the same logical graphics resource.");
+        using (var cancellation = new System.Threading.CancellationTokenSource())
+        {
+            cancellation.Cancel();
+            try
+            {
+                OracleAssetCache.Preload(AgesGameContent.AssetRoot, cancellation.Token);
+                throw new InvalidOperationException("Cancelled boot source I/O must stop before preparing assets.");
+            }
+            catch (OperationCanceledException) { }
+        }
         var screen = ResourceLoader.Load<PackedScene>("res://scenes/launcher/boot_loading.tscn")
             .Instantiate<BootLoadingScreen>();
         AddChild(screen);
@@ -92,6 +102,27 @@ public sealed partial class ValidationRoot
                     yield return steps.Current;
                 }
         }
+        var dataField = typeof(GameRoot).GetField("_bootDataTask", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var dataGate = new TaskCompletionSource();
+        Task data = (Task)dataField.GetValue(this)!;
+        dataField.SetValue(this, typeof(ValidationRoot).GetMethod(nameof(HoldBootData),
+            BindingFlags.NonPublic | BindingFlags.Static)!.MakeGenericMethod(dataField.FieldType.GenericTypeArguments)
+            .Invoke(null, [data, dataGate.Task]));
+        try
+        {
+            for (int host = 0; screen.Progress == 0 && host < 1000; host++) base._Process(1.0 / 60.0);
+            FailIf(screen.Progress == 0 || _frontendIntro is not null,
+                "Boot scripts must prepare while source I/O is pending, without entering the frontend.");
+            for (int host = 0; host < 2; host++)
+            {
+                stepsThisHost = 0;
+                base._Process(1.0 / 60.0);
+                FailIf(stepsThisHost != 1 || !save.SequenceEqual(_saveData.Serialize()) ||
+                    _random.Calls != rng || _currentRoom != room || Application.UpdateCount != updates,
+                    "Pending boot I/O must yield after one poll and preserve live game state.");
+            }
+        }
+        finally { dataGate.SetResult(); }
         double longestHostMs = 0;
         var bootDeadline = System.Diagnostics.Stopwatch.StartNew();
         for (int host = 0; _frontendIntro is null && bootDeadline.Elapsed.TotalSeconds < 30; host++)
@@ -164,6 +195,12 @@ public sealed partial class ValidationRoot
             "The retained asset cache exposed mutable shared room bytes.");
         GD.Print($"Boot preparation longest host step: {longestHostMs:F2} ms; elapsed {bootDeadline.Elapsed.TotalMilliseconds:F2} ms.");
         GD.Print("Validated boot loading progress, singing Nayru and notes, frozen original clocks/save/RNG and logo handoff.");
+    }
+
+    private static async Task<T> HoldBootData<T>(Task<T> data, Task gate)
+    {
+        await gate.ConfigureAwait(false);
+        return await data.ConfigureAwait(false);
     }
 
     private async Task CaptureBootLoadingScreen()

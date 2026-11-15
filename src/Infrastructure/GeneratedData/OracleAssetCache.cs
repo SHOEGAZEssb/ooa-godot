@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Oracles;
 
@@ -28,7 +29,18 @@ internal static class OracleAssetCache
         if (OracleAssetPack.RootFor(root + "preload") != root)
             throw new ArgumentException($"Preload requires a pack root: {root}.", nameof(root));
         var images = new HashSet<string>(StringComparer.Ordinal);
+        var sources = new List<string>();
         Visit(root);
+        Parallel.ForEach(sources, new ParallelOptions
+        {
+            CancellationToken = cancellation,
+            MaxDegreeOfParallelism = 4
+        }, path =>
+        {
+            _ = ReadShared(path);
+            if (path.EndsWith(".tsv", StringComparison.Ordinal))
+                _ = GeneratedTableSource.Load(path);
+        });
         var orderedImages = new List<string>(images);
         orderedImages.Sort(StringComparer.Ordinal);
         return orderedImages.ToArray();
@@ -46,9 +58,7 @@ internal static class OracleAssetCache
                     file.EndsWith(".bin", StringComparison.Ordinal) ||
                     file.EndsWith(".2bpp", StringComparison.Ordinal))
                 {
-                    _ = ReadShared(path);
-                    if (file.EndsWith(".tsv", StringComparison.Ordinal))
-                        _ = GeneratedTableSource.Load(path);
+                    sources.Add(path);
                 }
                 else if (ImageResourcePath(path) is string image)
                     images.Add(image);

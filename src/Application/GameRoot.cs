@@ -23,7 +23,7 @@ public partial class GameRoot : Node2D
     private int _bootTaskCount;
     private int _bootHostFrames;
     private bool _bootFinishing;
-    private const double BootWorkBudgetMilliseconds = 3;
+    private const double BootWorkBudgetMilliseconds = 10;
     private CancellationTokenSource? _bootCancellation;
     private Task<PreparedBootData>? _bootDataTask;
     internal OracleSoundEngine _sound = null!;
@@ -167,8 +167,8 @@ public partial class GameRoot : Node2D
         if (game == OracleGame.Ages) _gameplaySceneResource.BeginPreload();
         // Only retained resources are warmed here. A selected file and its
         // gameplay owners are still created by their normal later handoff.
-        _bootTasks.Enqueue(() => PrepareBootSources().GetEnumerator());
         _bootTasks.Enqueue(() => _gameplayScriptResources.Prepare().GetEnumerator());
+        _bootTasks.Enqueue(() => PrepareBootSources().GetEnumerator());
         if (game == OracleGame.Seasons)
             _bootTasks.Enqueue(() => _preparedSeasonsOpening!.PrepareResources().GetEnumerator());
         else
@@ -190,7 +190,7 @@ public partial class GameRoot : Node2D
     private IEnumerable<bool> PrepareBootSources()
     {
         Task<PreparedBootData> task = _bootDataTask!;
-        while (!task.IsCompleted) yield return false;
+        while (!task.IsCompleted) yield return true;
         PreparedBootData prepared = task.GetAwaiter().GetResult();
         prepared.Install();
         string[] images = prepared.Images;
@@ -208,9 +208,6 @@ public partial class GameRoot : Node2D
         screen.AdvancePresentation(delta);
         // Give the vignette a rendered frame before executing resource work.
         if (++_bootHostFrames < 2) return;
-        // A pending data worker cannot make progress by polling it repeatedly
-        // within one host frame. Leave the render thread available immediately.
-        if (_bootDataTask is { IsCompleted: false }) return;
         // Yield on elapsed work, not on asset count: one tiny image per frame
         // imposed seconds of idle waiting at 60 Hz. Individual Godot operations
         // remain atomic, so this is a soft budget checked between operations.
@@ -219,7 +216,13 @@ public partial class GameRoot : Node2D
         {
             if (_bootResourceSteps is not null)
             {
-                if (_bootResourceSteps.MoveNext()) continue;
+                if (_bootResourceSteps.MoveNext())
+                {
+                    // A pending worker yields the frame; independent script
+                    // preparation runs first while that worker reads the pack.
+                    if (_bootResourceSteps.Current) return;
+                    continue;
+                }
                 _bootResourceSteps.Dispose();
                 _bootResourceSteps = null;
                 screen.SetProgress((float)++_bootCompletedTasks / _bootTaskCount);

@@ -419,7 +419,8 @@ internal sealed class ImpaIntroEvent :
         _stonePushCounter = 0;
         _stoneMoveCounter = 0;
         _waitingNpcInitialized = false;
-        _context.Player.SetNativePushAnimationOverride(0);
+        // Staged event registration precedes Player.Initialize.
+        _context.Entities.RuntimeState.SetField("wForceLinkPushAnimation", 0);
         if (_context.Player.IsCutsceneControlOwner(this)) _context.Player.SetCutsceneSpriteFrame(null);
         _context.Player.EndCutsceneControl(this);
     }

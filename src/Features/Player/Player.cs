@@ -2703,7 +2703,7 @@ public partial class Player : Node2D
 
 	internal void SetCutsceneSpriteFrame(ObjectSpriteFrame? frame)
 	{
-		_cutsceneSpriteRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
+		if (frame is not null) _cutsceneSpriteRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
 		_cutsceneSpriteFrame = frame;
 		QueueRedraw();
 	}

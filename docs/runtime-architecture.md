@@ -151,10 +151,13 @@ audio or change either session's save.
 Application menu/development accessors resolve that session directly instead of
 retaining separate controller references in a game binding.
 
-Boot resource steps share a soft 3 ms work budget per host frame. Small steps
-can finish together; asset count must not impose one rendered frame per asset.
+Boot and file-entry resource steps share a soft 10 ms work budget per host frame.
+Small steps can finish together; asset count must not impose one rendered frame per asset.
 The budget is checked between operations, so an individual resource load can
-exceed it. A pending data worker yields immediately instead of busy-polling.
+exceed it. Script metadata preparation overlaps the data worker, which reads
+immutable pack inputs with at most four concurrent operations. A pending data
+worker yields immediately instead of busy-polling. Room construction still
+waits for source preparation to complete.
 
 For Ages, the new-game intro prepares file-dependent gameplay owners incrementally across
 host frames, consuming those retained resources. The prepared scene, interface layer and camera remain hidden and

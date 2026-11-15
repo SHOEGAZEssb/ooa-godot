@@ -249,7 +249,7 @@ public partial class GameRoot : IGameplayObjectPhases, IGameplayForegroundPhases
             if (!_gameplayPreparation.MoveNext())
                 throw new InvalidOperationException("Gameplay preparation missed its handoff boundary.");
             GameplayPrepared = _gameplayPreparation.Current;
-        } while (!GameplayPrepared && budget.Elapsed.TotalMilliseconds < 2);
+        } while (!GameplayPrepared && budget.Elapsed.TotalMilliseconds < BootWorkBudgetMilliseconds);
         if (_loadingSavedGame && GameplayPrepared)
         {
             // Resource preparation has no original updates. Commit entry and
