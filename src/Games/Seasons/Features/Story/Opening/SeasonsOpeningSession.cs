@@ -232,6 +232,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
     bool IGameplayObjectPhases.PrepareObjectUpdate(double delta)
     {
         Transitions.AdvanceSubrosiaBeforeObjects();
+        foreach (var actor in Entities.EntityAdapters<SeasonsDanceRoomEntity>()) actor.AdvancePaletteBeforeObjects();
         foreach (var actor in Entities.EntityAdapters<SeasonsRodAcquisitionRoomEntity>()) actor.Host?.AdvancePaletteBeforeObjects();
         foreach (var actor in Entities.EntityAdapters<SeasonsTempleScriptRoomEntity>()) actor.Host?.AdvancePaletteBeforeObjects();
         foreach(var maku in Entities.EntityAdapters<SeasonsRemoteMakuRoomEntity>())maku.AdvancePaletteBeforeObjects();
@@ -275,6 +276,7 @@ internal partial class SeasonsOpeningSession : GameplaySceneGraph, IGameplayObje
         !_foregroundScroll && !_foregroundTransition && !Transitions.IsTransitioning;
     void IGameplayForegroundPhases.AfterCutsceneRequests(double delta)
     {
+        if (Transitions.BeginRequestedNativeWarp(Link)) return;
         if (!_foregroundScroll && !_foregroundTransition && !Transitions.IsTransitioning)
         {
             Transitions.CheckRequestedTileWarp(Link);

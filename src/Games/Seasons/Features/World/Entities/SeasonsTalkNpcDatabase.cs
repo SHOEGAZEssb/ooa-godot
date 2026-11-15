@@ -76,7 +76,7 @@ internal sealed class SeasonsTalkNpcDatabase
         int graphicsSubid = source.Id == 0x3e ? source.SubId >> 4 : source.Id == 0x3b ? source.SubId & 15 : source.SubId & 0x7f;
         int last = _visuals.Keys.Where(key => key.Id == source.Id).Max(key => key.Subid);
         bool faces = UsesMiscNpcHandler(source.Id) ? (source.SubId & 0x80) == 0 :
-            source.Id is 0x25 or 0x30 or 0x42 or 0x3b or 0x99 or 0x9d or 0xb1 or 0xb8;
+            source.Id is 0x25 or 0x30 or 0x42 or 0x3b or 0x6a or 0x99 or 0x9d or 0xb1 or 0xb8;
         var npc = SeasonsNpcPresentation.CreateActor(_visuals[(source.Id, Math.Min(graphicsSubid, last))], source.Id, source.SubId,
             new(source.X, source.Y), index => Animation(source.Id, index), palettes, room.Group, room.Id, faces,presenter,
             UsesMiscNpcHandler(source.Id) ? NpcImplementationClassification.OrdinaryGeneric : NpcImplementationClassification.SpecializedNative, source.Var03);

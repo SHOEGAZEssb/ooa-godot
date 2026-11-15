@@ -1002,6 +1002,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
 
     private void SetFacingAndRestartAnimation(NpcCharacterFacing facing)
     {
+        _scriptAnimationSource = string.Empty;
+        _scriptAnimationSourceOffsets = null;
+        _scriptAnimationActive = false;
         _facing = facing;
         _animationFrame = 0;
         _animationTicks = 0.0;

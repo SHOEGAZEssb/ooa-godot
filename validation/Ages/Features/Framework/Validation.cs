@@ -359,6 +359,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeasonsTalkNpcConversations);
         RunIsolatedValidation(ValidateSeasonsOldManCave);
         RunIsolatedValidation(ValidateSeasonsRosaChase);
+        RunIsolatedValidation(ValidateSeasonsDance);
+        RunIsolatedValidation(ValidateSeasonsDanceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsDancePrizes);
         RunIsolatedValidation(ValidateSeasonsRosaChaseRom, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsSubrosiaPortal, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsTalkNpcNativeUpdates);

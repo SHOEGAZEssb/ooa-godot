@@ -307,6 +307,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
             { Id: 0x4c, SubId: >= 0x0a and <= 0x0d } => new SeasonsTempleDecorationRoomEntity(session, TalkNpcs, source, room),
             {Id:InteractionId.Vasu or InteractionId.RingHelpBook} when room.Group == 3 && room.Id == 0x91 => CreateVasuActor(source, room),
             {Id:0x6c,SubId:0 or 1}=>new SeasonsRosaChaseRoomEntity(session,TalkNpcs,source,room),
+            {Id:0x6a,SubId:>=0 and <=3}=>new SeasonsDanceRoomEntity(session,TalkNpcs,source,room),
             {Id:0xe1,SubId:0}=>new SeasonsPortalSpawnerRoomEntity(session,TalkNpcs,source,room),
             {Id:0x27,SubId:1}=>CreateTalkNpc(source,room),
             {Id:0x21}=>new SeasonsGnarledKeyholeRoomEntity(session,TalkNpcs,source),
@@ -361,6 +362,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
             int address=((0xd0+slot)<<8)|0x40;
             if(memory.ReadWramByte(address)==0)continue;
             int id=memory.ReadWramByte(address+1),subid=memory.ReadWramByte(address+2);
+            if(id==0x6a)throw new NotSupportedException($"danceHallMinigame.s: INTERAC$6a:${subid:x2} slot${slot:x2} has no transient script/dance reconstruction.");
             if(id==0x6c)throw new NotSupportedException($"subrosiansHiding.s: INTERAC$6c:${subid:x2} slot${slot:x2} chase cursors and detection rays cannot be reconstructed.");
             // shortcut: restore the script cursor and entrance graphics before admitting active captures.
             if(id is 0x21 or 0x4b)

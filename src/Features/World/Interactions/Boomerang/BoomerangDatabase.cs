@@ -22,7 +22,6 @@ internal sealed class BoomerangDatabase
     internal Vector2I Radius { get; }
     internal int Damage { get; }
     internal int OamFlags { get; }
-    internal bool SourceInverted => false;
     internal string Animation { get; }
 
     private BoomerangDatabase(string assetRoot, int subId)

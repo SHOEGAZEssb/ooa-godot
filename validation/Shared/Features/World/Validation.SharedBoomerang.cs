@@ -16,6 +16,7 @@ public sealed partial class ValidationRoot
         var tiles = (from y in Enumerable.Range(1,6) from x in Enumerable.Range(1,8)
             let point = new Vector2(x*16+8,y*16+8)
             select (Point:point,Tile:room.GetMetatile(point),Collision:room.GetTerrainInfo(point).Collision)).ToArray();
+        var spriteFrames = new HashSet<(int SubId,int Frame)>();
         try
         {
             foreach (int subid in game == OracleGame.Seasons ? new[] {0,1} : new[] {0})
@@ -69,6 +70,17 @@ public sealed partial class ValidationRoot
                         if (child!=0)
                         {
                             var item=children.Single();
+                            var visual=SomariaPrivate<EnemyAnimationPlayer>(item,"_animation");
+                            if(item.Visible && spriteFrames.Add((item.SubId,visual.FrameIndex)))
+                            {
+                                var rom=ValidationRom.LoadCleanUs(game);
+                                var vram=new byte[0x1000];
+                                // Clean-US spr_boomerang uploads and the executed item's live OAM pointer.
+                                rom.Span.Slice((game==OracleGame.Ages?0x6ada0:0x6ad40)+item.SubId*0x40,0x40).CopyTo(vram);
+                                int oam=(game==OracleGame.Ages?0x13:0x12)*0x4000+(native.Word(child+0x1e)&0x3fff);
+                                CheckNativeOamTexture(rom,vram,oam,visual.CurrentTexture,new(-16,-16),native[child+0x1c]&7,false,
+                                    context+$" rotation{visual.FrameIndex}",positionedOam:false);
+                            }
                             FailIf(item.State!=native[child+4] || item.SubId!=native[child+2] || item.Counter!=native[child+6] || item.Angle!=native[child+9] ||
                                 item.TargetAngle!=native[child+0x34] || item.PrecisePosition!=new Vector2(native.Word(child+0x0c)/256f,native.Word(child+0x0a)/256f) ||
                                 item.CollisionEnabled!=((native[child+0x24]&0x80)!=0),
@@ -119,6 +131,8 @@ public sealed partial class ValidationRoot
                 for (int guard=0; entities.Entities<BoomerangItem>().Count!=0 && guard<220; guard++) Step();
                 FailIf(entities.Entities<BoomerangItem>().Count!=0,$"{game}: repeated Boomerang use did not complete.");
             }
+            FailIf(spriteFrames.Count!=(game==OracleGame.Seasons?8:4),
+                $"{game}: thrown Boomerang pixel comparison must cover all four rotations of every native variant.");
         }
         finally
         {

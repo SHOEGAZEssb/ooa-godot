@@ -26,6 +26,9 @@ $scripts = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 [void]$scripts.Add('makuTreeScript_gateHit')
 [void]$scripts.Add('gnarledKeyholeScript')
 [void]$scripts.Add('subrosianScript_templeFallenText')
+foreach($name in @('dancecLeaderScript_promptToStartDancing','danceLeaderScript_promptForTutorial',
+    'danceLeaderScript_boomerang','danceLeaderScript_giveFlute','danceLeaderScript_gashaSeed',
+    'danceLeaderScript_giveOreChunks','danceLeaderScript_itemGiven','danceLeaderScript_showLoadedText')){[void]$scripts.Add($name)}
 function Add-NpcSelector([int]$id,[int]$variant,[int]$state,[int]$address,[string]$source) {
     $target = $scriptBankBase + ((Read-NpcWord $address) -band 0x3fff)
     if (!$scriptAddress.ContainsKey($target)) { throw "${source}: unresolved script pointer at `$$($address.ToString('x5'))." }
@@ -155,7 +158,7 @@ foreach($spec in @(@(0,@('treasure/-/-/40/0')),@(0,@('essence/-/-/fc/0')),
 Add-NpcVisibility 0xb8 4 0 @("$linked/1",'global/-/-/13/1') 'ambi.s:func_740a'
 Write-GeneratedTable((Join-Path $root 'objects/npc_visibility.tsv'),$visibility)
 $texts=[Collections.Generic.List[string]]::new();$texts.Add("# id`tmessage-base64`tsource")
-foreach($id in @((0x1700..0x1703)+(0x3200..0x3213)+@(0x3300,0x3301,0x3302,0x3700,0x3019,0x301a,0x3020,0x3025,0x3026,0x303d))){
+foreach($id in @((0x0100..0x0115)+(0x1700..0x1703)+(0x3200..0x3213)+@(0x3300,0x3301,0x3302,0x3700,0x3019,0x301a,0x3020,0x3025,0x3026,0x303d))){
     $texts.Add("$($id.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($seasonNpcTexts[$id])))`ttext/seasons/text.yaml")
 }
 Write-GeneratedTable((Join-Path $root 'npcs/texts.tsv'),$texts)
@@ -193,6 +196,8 @@ foreach($row in $programRows | Select-Object -Skip 1){
     switch($op){
         'checkrupeedisplayupdated'{$binding=@{Opcode='checkrupeedisplayupdated'}}
         'setsubstate'{$binding=@{Opcode='nativeyield';Payload=($op+' '+$operands)}}
+        'spawninteraction'{$binding=@{Opcode='nativeyield';Payload=($op+' '+$operands)}}
+        'setcounter1'{$binding=@{Opcode='nativeyield';Payload=($op+' '+$operands)}}
         {$_ -in @('setangleandanimation','settilehere')}{$binding=@{Opcode='native';Payload=($op+' '+$operands)}}
         'resetmusic'{$binding=@{Opcode='setmusic';Arg0='ff'}}
         'delay'{
@@ -225,8 +230,10 @@ foreach($row in $programRows | Select-Object -Skip 1){
             $binding=@{Opcode='setmusic';Arg0='f0'}
         }
         'giveitem'{
-            if($operands -ne 'ITEM_SWORD, $03'){throw "Maku gate: unexpected grant $operands."}
-            $binding=@{Opcode='nativeyield';Payload='gate-sword-grant'}
+            if($operands -eq 'ITEM_SWORD, $03'){$binding=@{Opcode='nativeyield';Payload='gate-sword-grant'}}
+            elseif($p[0] -notin @('TREASURE_BOOMERANG','TREASURE_FLUTE','TREASURE_GASHA_SEED','TREASURE_ORE_CHUNKS') -or $p[1] -ne '$00'){
+                throw "Seasons NPC: unexpected grant $operands."
+            }
         }
         'playsound'{$value=if($p[0].StartsWith('$')){Convert-AssemblyInteger $p[0]}else{[int]$symbols[$p[0]]};$binding=@{Opcode='playsound';Arg0=$value.ToString('x2')}}
     }
@@ -235,9 +242,11 @@ foreach($row in $programRows | Select-Object -Skip 1){
 $animations=@{};foreach($i in 0..15){$animations[$i]=[string]$i}
 $makuRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -in @('stage0','makuTreeScript_gateHit')})
 $rosaRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]).StartsWith('rosaHidingScript_')})
-$talkRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -notin @('stage0','makuTreeScript_gateHit') -and !($_.Split([char]9)[0]).StartsWith('rosaHidingScript_')})
+$danceRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -match '^dance(c?Leader)Script_'})
+$talkRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -notin @('stage0','makuTreeScript_gateHit') -and !($_.Split([char]9)[0]).StartsWith('rosaHidingScript_') -and ($_.Split([char]9)[0]) -notmatch '^dance(c?Leader)Script_'})
 $commands=@(ConvertTo-NpcProgramRows $talkRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnJump $true)
 $commands+=@(ConvertTo-NpcProgramRows $rosaRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings | Select-Object -Skip 1)
+$commands+=@(ConvertTo-NpcProgramRows $danceRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings | Select-Object -Skip 1)
 # Seasons scriptCmd_jump has no copied-buffer branch and continues at its ROM target.
 $commands+=@(ConvertTo-NpcProgramRows $makuRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnMemoryJumpTable $true | Select-Object -Skip 1)
 Write-CutsceneGeneratedTable((Join-Path $root 'npcs/commands.tsv'),$commands)
@@ -250,7 +259,7 @@ $animationLabels=@{}
 foreach($name in @($presentation.Definitions.Keys | Sort-Object)){
     if($seasonsSymbols.ContainsKey($name)){$animationLabels[$seasonsSymbols[$name]]=$name}
 }
-foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4b,0x4c,0x4e,0x50,0x6c,0x80,0x82,0x83,0x84,0x87,0x89,0x8a,0x8b,0x8d,0x8e,0x99,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe1,0xe5,0xe6)){
+foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x39,0x3b,0x3c,0x3d,0x3e,0x40,0x42,0x4b,0x4c,0x4e,0x50,0x6a,0x6c,0x80,0x82,0x83,0x84,0x87,0x89,0x8a,0x8b,0x8d,0x8e,0x99,0x9c,0x9d,0xa5,0xb1,0xb8,0xc2,0xc8,0xc9,0xe1,0xe5,0xe6)){
     $hex=$id.ToString('x2')
     $entry=@(Read-AssemblyMacroInvocations $dataPath '' 'm_InteractionData' | Where-Object Comment -eq "`$$hex")
     if($entry.Count -ne 1){throw "NPC `$$hex has no unique graphics data."}
@@ -268,8 +277,9 @@ foreach($id in @(0x25,0x26,0x27,0x2a,0x2d,0x2e,0x30,0x32,0x33,0x36,0x37,0x38,0x3
         $relative=[IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $sprite 'seasons').FullName)
         Copy-GeneratedFile $relative "gfx/$sprite.png" $root
         $append=''
-        if($sprite -eq 'spr_din_1'){
-            $extra='spr_din_2'
+        if($sprite -in @('spr_din_1','spr_subrosian')){
+            # Subrosian animation $04 ends on tiles $30/$32 from object-GFX header $08.
+            $extra=if($sprite -eq 'spr_subrosian'){'spr_subrosian_2'}else{'spr_din_2'}
             Copy-GeneratedFile ([IO.Path]::GetRelativePath($Disassembly,(Find-ImportSpriteSource $extra 'seasons').FullName)) "gfx/$extra.png" $root
             $append="${extra}:$([int](Get-ImportSpriteSourceGrayscaleInverted $extra 'seasons'))"
         }
@@ -307,11 +317,24 @@ foreach($spec in @(@('gnarled-positions','table_5482',9,0x21),
     @('gnarled-stone-subids','table_54e4',4,0x21),@('gnarled-stone-speed-z','interactionCode4b@table_7260',8,0x4b),
     @('gnarled-stone-speeds','interactionCode4b@table_7268',4,0x4b),@('gnarled-stone-gravity','interactionCode4b@table_726c',4,0x4b),
     @('gnarled-stone-angles','interactionCode4b@table_7270',16,0x4b),
-    @('rosa-start-positions','rosaSubId0@table_67f1',10,0x6c),@('rosa-rooms','rosaSubId0@table_686c',5,0x6c))){
-    $address=Npc-Symbol $spec[1] $spec[3]
+    @('rosa-start-positions','rosaSubId0@table_67f1',10,0x6c),@('rosa-rooms','rosaSubId0@table_686c',5,0x6c),
+    @('dance-speed-tempo','interactionCode6a@subid1@state4@table_5ced',30,0x6a),
+    @('dance-round-counts','interactionCode6a@subid1@state4@table_5d0b',9,0x6a),
+    @('dance-random-moves','interactionCode6a@table_5ed1',16,0x6a),
+    @('dance-cues','interactionCode6a@table_5f17',6,0x6a),
+    @('dance-grid','interactionCode6a@subid2@table_5ff1',40,0x6a),
+    @('dance-texts','interactionCode6a@subid2@table_5f72',9,0x6a),
+    @('dance-tutorial-poses','interactionCode6a@table_60e2',12,0x6a),
+    @('dance-link-animations','specialObject01AnimationDataPointers',6,-1),
+    @('dance-prize-rings','seasonsFunc_15_5e20@table_5e4a',4,-1))){
+    $address=if($spec[3] -lt 0){$seasonsSymbols[$spec[1]]}else{Npc-Symbol $spec[1] $spec[3]}
+    if(!$address){throw "Missing Seasons native NPC table $($spec[1])."}
     $values=@($bytes[$address..($address+$spec[2]-1)] | ForEach-Object {$_.ToString('x2')})
     $tables.Add("$($spec[0])`t$($values -join ',')`tobject_code/seasons/interactions:$($spec[1])")
 }
+
+$danceWarp=Npc-Symbol 'interactionCode6a@subid1@state4@warpDestVariables' 0x6a
+$tables.Add("dance-exit`t$((@($bytes[$danceWarp..($danceWarp+4)] | ForEach-Object {$_.ToString('x2')})) -join ',')`tdanceHallMinigame.s:warpDestVariables")
 
 # ENEMY$56 shares Maku's three uploaded sprite sheets, but has its own OAM stream.
 $enemyPath=Join-Path $Disassembly 'data/seasons/enemyAnimations.s'

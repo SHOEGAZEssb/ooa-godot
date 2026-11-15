@@ -110,9 +110,9 @@ public sealed partial class ValidationRoot
                         "Linked reveal room-set $13 must restore Link and both Twinrova halves before committing the reveal flag.");
                 }
                 if (!_dialogue.IsOpen) continue;
-                if (_dialogue.SourceTextId is null)
+                if (_dialogue.SourceTextId == 0x0033)
                     FailIf(!_dialogue.CurrentMessage.Contains("Maku Seed", StringComparison.Ordinal),
-                        "The shared treasure grant must show the Huge Maku Seed pickup text TX_004f.");
+                        "The shared treasure grant must show the Huge Maku Seed pickup text TX_0033.");
                 texts.Add(_dialogue.SourceTextId ?? -1);
                 _dialogue.Close();
             }
@@ -120,8 +120,8 @@ public sealed partial class ValidationRoot
                 !_saveData.HasGlobalFlag(AgesGlobalFlag.GotMakuSeed) ||
                 !_saveData.HasGlobalFlag(AgesGlobalFlag.SawTwinrovaBeforeEndgame) ||
                 !texts.SequenceEqual(linked
-                    ? new[] { -1, 0x2815, 0x2816, 0x2817, 0x251b, 0x0600, 0x2818, 0x2819, 0x055f, 0x0560 }
-                    : new[] { -1, 0x2810, 0x2811, 0x2812, 0x2813, 0x2814, 0x055b, 0x055c }) ||
+                    ? new[] { 0x0033, 0x2815, 0x2816, 0x2817, 0x251b, 0x0600, 0x2818, 0x2819, 0x055f, 0x0560 }
+                    : new[] { 0x0033, 0x2810, 0x2811, 0x2812, 0x2813, 0x2814, 0x055b, 0x055c }) ||
                 linked && (!sawLinkedScene || !sawLinkedReturn),
                 $"Maku Seed/Twinrova sequence failed its reward, flags, dialogue sequence or $0e->$0f handoff: state=${_saveData.MakuTreeState:x2}, texts={string.Join(',', texts.Select(id => $"${id:x4}"))}, native={seed.NativeState}, command={seed.CurrentCommandIndex}.");
             Step(4);

@@ -8,7 +8,7 @@ public partial class ValidationRoot
         var data = BoomerangDatabase.For(AgesGameContent.AssetRoot);
         FailIf(data.Speed != 0x41 || data.OutwardUpdates != 40 || data.CatchUpdates != 4 ||
             data.NearRadius != 10 || data.CatchRadius != 2 || data.Sound != 0x78 || data.Collision != 0x97 ||
-            data.Radius != new Vector2I(6, 6) || data.Damage != 2 || data.OamFlags != 0x0d || data.SourceInverted,
+            data.Radius != new Vector2I(6, 6) || data.Damage != 2 || data.OamFlags != 0x0d,
             "ITEM$06 must preserve the clean-US L1 speed/timers/radii/damage/graphics attributes.");
         var animation = OracleGraphicsCache.GetAnimationDefinition(data.Animation);
         FailIf(animation.Frames.Length != 4 || animation.LoopStart != 0 ||

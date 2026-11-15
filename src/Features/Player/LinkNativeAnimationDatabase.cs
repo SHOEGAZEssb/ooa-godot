@@ -93,6 +93,13 @@ internal sealed class LinkNativeAnimationDatabase
         Publish(memory, ReadFrame(cursor, $"specialObjectAnimate: page${page:x2}.animPointer"), page);
     }
 
+    internal void SetPointer(OracleRuntimeState memory, int mode, int pointer, string source)
+    {
+        RequireGame(memory);
+        memory.SetWramByte(0xd030, checked((byte)mode));
+        Publish(memory, ReadFrame(pointer, source), 0xd0);
+    }
+
     internal int FrameIndex(OracleRuntimeState memory, int mode, int frameCount)
     {
         // JUMP/CAPE atlases follow contiguous native triples; the live cursor owns their phase.

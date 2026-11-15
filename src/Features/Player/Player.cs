@@ -1910,6 +1910,7 @@ public partial class Player : Node2D
 	private void AdvanceLinkPhysics(double delta, bool advanceElectricShock)
 	{
 		_ringUpdatedInPhysics = false;
+		if (AdvanceSubrosianDance()) return;
 		if(AdvanceCreditsLink())return;
 		if(_nativeInitializationPending&&!_world.LinkDisabled)
 		{
@@ -3697,6 +3698,11 @@ public partial class Player : Node2D
 				this,
 				_harpFrames[_harpFrame],
 				z: 0);
+		}
+		else if (SubrosianDanceActive)
+		{
+			var frame = NativeLinkBodyFrame;
+			DrawTexture(frame.Texture, frame.Offset);
 		}
 		else if (_scriptedLinkAnimationMode.HasValue && _publishedParentPage == 0xd0)
 		{

@@ -57,13 +57,8 @@ internal sealed class GroundTreasureController : IDisposable
 
     private void ShowDialogue(GroundTreasurePickup treasure, TreasureObjectRecord record, Player player)
     {
-        if (treasure.Record.TextboxFlags != 0)
-            _dialogue.ShowGameplayMessageWithFlags(record.Message, _worldToScreen(player.Position).Y,
-                treasure.Record.TextboxFlags, treasure.Record.TextboxPosition);
-        else if (treasure.Record.TextboxPosition is int position)
-            _dialogue.ShowGameplayMessage(record.Message, _worldToScreen(player.Position).Y, position);
-        else
-            _dialogue.ShowGameplayMessage(record.Message, _worldToScreen(player.Position).Y);
+        _dialogue.ShowGameplayMessageWithFlags(record.Message, _worldToScreen(player.Position).Y,
+            treasure.Record.TextboxFlags, treasure.Record.TextboxPosition, sourceTextId: record.TextId);
     }
 
     private void HeartPieceSetFilled()

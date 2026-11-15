@@ -54,7 +54,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
         _animation = new(this, 1);
         // The $84e1 upload maps item tile base$4e to sprite offset zero.
         _animation.Load(OracleGraphicsCache.LoadTwoBitSpriteSheet(AssetRoot + $"metadata/boomerang_gfx_{subId}.bin", 64, 2),
-            [_data.Animation], 0, _data.OamFlags & 7, sourceGrayscaleInverted: _data.SourceInverted);
+            [_data.Animation], 0, _data.OamFlags & 7);
         Visible = false;
     }
 

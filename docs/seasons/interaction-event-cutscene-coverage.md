@@ -43,8 +43,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 33 | 59 | 133 | 7 | 232 |
-| Expanded placed interaction contexts | 218 | 14 | 803 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 34 | 59 | 132 | 7 | 232 |
+| Expanded placed interaction contexts | 219 | 14 | 802 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -80,6 +80,7 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Subrosia portal travel | Link's native spinning/height sequence and Cutscene `$15` through `$0:9a ↔ $1:05`; other destination object streams remain outside this route |
 | Rod of Seasons and temple powers | Runtime route for acquisition in `$3:ac`, four spirit rewards, repeat dialogue, native swings and stump season reloads |
 | Vasu Jewelers `$3:91` | Ring Box/Friendship Ring tutorial, appraisal, duplicates, ring list/box, special rewards, Red Snake ring-secret exchange, help books and Blue Snake no-cable timeout; successful Game Link services remain unbound |
+| Subrosian dance hall `$3:95` | Native leader/dancers, optional tutorial, remembered steps, difficulty progression, failures, boomerang and repeat prizes, and return to `$1:24` |
 | Missing character rows and family variants in the NPC ledger | Quest, trade, secret, minigame, event and family progression remain missing |
 | Other room placements listed as **M** below | Missing |
 | Additional native/script variants of **P** dispatch families | Missing beyond the explicit runtime boundary |
@@ -217,7 +218,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$67` | [swordShieldMazeArmosPatternPuzzle](../../external/oracles-disasm/object_code/seasons/interactions/swordShieldMazeArmosPatternPuzzle.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$68` | [swordShieldMazeGrabbableIce](../../external/oracles-disasm/object_code/seasons/interactions/swordShieldMazeGrabbableIce.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$69` | [swordShieldMazeFreezingLavaEvent](../../external/oracles-disasm/object_code/seasons/interactions/swordShieldMazeFreezingLavaEvent.s) | `$00` | — | — | 4 | **M** — No Seasons production route. |
-| `$6a` | [danceHallMinigame](../../external/oracles-disasm/object_code/seasons/interactions/danceHallMinigame.s) | `$00` | `$01-$02` | `$03` | 1 | **M** — No Seasons production route. |
+| `$6a` | [danceHallMinigame](../../external/oracles-disasm/object_code/seasons/interactions/danceHallMinigame.s) | `$00` | `$01-$02` | `$03` | 1 | **R** — Dance hall spawner, leader, dancers, tutorial and prize scripts. |
 | `$6b` | [miscellaneous1](../../external/oracles-disasm/object_code/seasons/interactions/miscellaneous1.s) | `$00-$13, $15, $17-$24, $26` | — | `$14, $16` | 3 | **P** — Native `$20` side-view Seed Satchel producer and `$26` uninitialized script owner in `$1:05`; other subids and placements remain unbound. |
 | `$6c` | [subrosiansHiding](../../external/oracles-disasm/object_code/seasons/interactions/subrosiansHiding.s) | `$00` | — | — | 1 | **R** — Standard overworld chase controller, spawned `$01`, first/repeat introduction, both patrol patterns, detection/escape and portal completion. |
 | `$6d` | [subrosiansHiding](../../external/oracles-disasm/object_code/seasons/interactions/subrosiansHiding.s) | `$00` | — | — | 2 | **M** — No Seasons production route. |
@@ -576,7 +577,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `1:92` | [M] `$ac:$00/v$00` bipinBlossomFamilySpawner |
 | `1:93` | [M] `$4c:$01/v$00` miscStatusObjects<br>[M] `$4c:$01/v$00` miscStatusObjects<br>[M] `$ac:$01/v$00` bipinBlossomFamilySpawner |
 | `1:94` | [M] `$8f:$00/v$00` oldManWithJewel |
-| `1:95` | [M] `$6a:$00/v$00` danceHallMinigame |
+| `1:95` | [R] `$6a:$00/v$00` danceHallMinigame |
 | `1:96` | [R] `$30:$23/v$00` subrosian |
 | `1:97` | [M] `$34:$00/v$00` subrosianSmiths<br>[M] `$34:$01/v$00` subrosianSmiths<br>[M] `$a4:$00/v$00` subrosianSmithy |
 | `1:98` | [M] `$7f:$00/v$00` essence |
@@ -981,6 +982,7 @@ Coordinates are `(Y, X)`. The default var03 is `$00` for this command.
 | Cutscene `$08` | Temple sinking and season changes | Runtime route |
 | Cutscene `$15`, Link `$0a` source `$08` | Subrosia portal round trip `$0:9a ↔ $1:05` | Runtime route |
 | Link `$08:$01` | Dance and tornado | Runtime route |
+| Link `$01` | Subrosian dance input, movement, spin and collapse | Runtime route |
 | Link `$08:$02` | Collapsed wake-up | Runtime route |
 | Link `$08:$0a` | Pregame summons | Runtime route |
 | Interaction `$a5:$09` | Din discovers Link | Runtime route |

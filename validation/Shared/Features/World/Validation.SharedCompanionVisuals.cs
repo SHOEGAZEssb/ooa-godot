@@ -103,7 +103,7 @@ public sealed partial class ValidationRoot
                     memory.SetWramByte(0xd11e,(byte)expectedOam);
                     if(gfx!=previous) { Upload(vram,Word(graphics+gfx*3+1)); previous=gfx; }
                     int oam=Oam(oamTable,rom.Span[graphics+gfx*3]);
-                    CheckNativeCompanionTexture(rom,vram,oam,animation.CurrentTexture,animation.CurrentOffset,palette,false,
+                    CheckNativeOamTexture(rom,vram,oam,animation.CurrentTexture,animation.CurrentOffset,palette,false,
                         $"{game} SPECIALOBJECT ${id:x2} animation${mode:x2} frame{frame}");
                     // Dimitri's partial-upload entries revisit these cursors with different retained VRAM.
                     bool ambiguous=dimitri && (mode==0x14 && gfx==0x32 || mode==0x27 && gfx==8);
@@ -159,15 +159,15 @@ public sealed partial class ValidationRoot
             int upload=parameter==0x32?0x2f:parameter;
             Upload(vram,Word(linkGraphics+upload*3+1));
             int oam=Oam(linkOam,rom.Span[linkGraphics+parameter*3]);
-            CheckNativeCompanionTexture(rom,vram,oam,linkTextures[parameter],linkOffsets[parameter],0,false,
+            CheckNativeOamTexture(rom,vram,oam,linkTextures[parameter],linkOffsets[parameter],0,false,
                 $"{game} riding Link pose${parameter:x2}");
-            CheckNativeCompanionTexture(rom,vram,oam,linkDamageTextures[parameter],linkOffsets[parameter],5,true,
+            CheckNativeOamTexture(rom,vram,oam,linkDamageTextures[parameter],linkOffsets[parameter],5,true,
                 $"{game} hurt riding Link pose${parameter:x2}");
         }
     }
 
-    private static void CheckNativeCompanionTexture(ReadOnlyMemory<byte> rom,byte[] vram,int oam,
-        Texture2D texture,Vector2 offset,int palette,bool forcedPalette,string context)
+    private static void CheckNativeOamTexture(ReadOnlyMemory<byte> rom,byte[] vram,int oam,
+        Texture2D texture,Vector2 offset,int palette,bool forcedPalette,string context,bool positionedOam=true)
     {
         int count=rom.Span[oam];
         FailIf(count is <1 or >32,context+": invalid native OAM extent.");
@@ -179,6 +179,7 @@ public sealed partial class ValidationRoot
             left=Math.Min(left,X(cell)); top=Math.Min(top,Y(cell));
             right=Math.Max(right,X(cell)+8); bottom=Math.Max(bottom,Y(cell)+16);
         }
+        if(!positionedOam) { left=top=0; right=bottom=32; }
         int width=right-left,height=bottom-top;
         using Image image=texture.GetImage();
         FailIf(offset!=new Vector2(left-16,top-16) || image.GetWidth()!=width || image.GetHeight()!=height,
@@ -195,11 +196,12 @@ public sealed partial class ValidationRoot
                 int at=tile*16+sy*2;
                 int shade=(vram[at]>>(7-sx)&1)|((vram[at+1]>>(7-sx)&1)<<1);
                 if(shade==0) continue;
-                // Native standard OBJ palettes0/1/2/5, expressed as RGB555.
+                // Native standard OBJ palettes, expressed as RGB555.
                 int rgb=(nativePalette,shade) switch
                 {
                     (0 or 1 or 2 or 3,1)=>0, (0,2)=>0x22a2, (1,2)=>0x7e03, (2,2)=>0x143f, (3,2)=>0x05ff,
                     (0 or 1 or 2 or 3,3)=>0x475f, (5,1)=>0x1adf, (5,2)=>0x001b, (5,3)=>0,
+                    (4,1)=>0x7eae, (4,2)=>0x7c00, (4,3)=>0,
                     _=>throw new InvalidOperationException(context+$": untraced native palette${nativePalette:x2}.")
                 };
                 pixels[(Y(cell)-top+y)*width+X(cell)-left+x]=rgb;

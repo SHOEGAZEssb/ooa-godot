@@ -84,6 +84,8 @@ public static class TreasureId
     public const int GashaSeed = 0x34;
     // constants/common/treasure.s: TREASURE_MAKU_SEED
     public const int MakuSeed = 0x36;
+    // constants/common/treasure.s: TREASURE_ORE_CHUNKS
+    public const int OreChunks = 0x37;
     // constants/common/treasure.s: TREASURE_ESSENCE
     public const int Essence = 0x40;
     // constants/common/treasure.s: TREASURE_TRADEITEM

@@ -64,10 +64,10 @@ linked-game and later-progression branches remain outside that supported boundar
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 159 | Standard-opening, talk-only, cave-gift and Vasu ring-service records with traced source scripts, visibility gates and focused NPC scenarios. |
+| **I** | 169 | Standard-opening, talk-only, cave-gift, Vasu ring-service and Subrosian dance records with traced source scripts, visibility gates and focused NPC scenarios. |
 | **P** | 8 | Maku `$87:$00` supports the first story stage; Maku-room Impa `$9d:$03` and Zelda `$44:$08` support unlinked deletion; Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch, Mittens `$25:$00` trade-owner producer, Sokra `$27:$01` autumn portal dialogue and Blue Snake `$89:$01` successful cable services remain incomplete. |
 | **D** | 0 | No listed source record is classified as a deliberately suppressed import. |
-| **M** | 139 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
+| **M** | 129 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
 | **Total** | **306** | **150 rooms and 265 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -75,10 +75,10 @@ linked-game and later-progression branches remain outside that supported boundar
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 31 | 0 | 31 |
-| Specialized native interaction | 125 | 0 | 125 |
+| Specialized native interaction | 135 | 0 | 135 |
 | Event-owned actor | 11 | 0 | 11 |
 | Deliberately unsupported | 0 | 0 | 0 |
-| No production owner | 139 | 72 | 211 |
+| No production owner | 129 | 72 | 201 |
 | **Total** | **306** | **72** | **378** |
 
 ## Bipin and Blossom family variants
@@ -188,7 +188,7 @@ generated Seasons NPC records.
 | `1:8f` | [M] `$5c:$00/v$00` lavaSoupSubrosian |
 | `1:91` | [I] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu (no-cable timeout)<br>[I] `$89:$06/v$00` vasu<br>[I] `$e5:$00/v$00` ringHelpBook<br>[I] `$e5:$01/v$00` ringHelpBook |
 | `1:94` | [M] `$8f:$00/v$00` oldManWithJewel |
-| `1:95` | [M] `$6a:$01/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame |
+| `1:95` | [I] `$6a:$01/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame<br>[I] `$6a:$02/v$00` danceHallMinigame |
 | `1:96` | [I] `$30:$23/v$00` subrosian |
 | `1:97` | [M] `$34:$00/v$00` subrosianSmiths<br>[M] `$34:$01/v$00` subrosianSmiths<br>[M] `$a4:$00/v$00` subrosianSmithy |
 | `1:99` | [M] `$57:$00/v$00` ingo |
