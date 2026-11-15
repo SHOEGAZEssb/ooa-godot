@@ -1,236 +1,126 @@
 # Oracles Godot port: agent guide
 
-## Goal and source of truth
-
-This repository reconstructs *The Legend of Zelda: Oracle of Ages* and
-*Oracle of Seasons* using a shared engine in Godot 4.7.1/.NET. Ages is playable;
-Seasons supports its standard opening and Hero's Cave through the first sword.
-See the README and coverage ledgers for remaining content boundaries. Each game
-targets its supported clean US source, not a reinterpretation.
-
-Always go for 1:1 fidelity using the disassembly.
-When behavior is uncertain, use evidence in this order:
-
-1. Executed behavior in the clean US ROM.
-2. Code and data in `oracles-disasm`.
-3. Generated typed data in this repository.
-4. Runtime code and headless validations.
-5. Assumptions, memory, screenshots, or visual approximation.
-
-Read [Project principles](docs/project-principles.md) before changing gameplay.
-Use the [documentation index](docs/README.md) to select the one subsystem guide
-needed for the task. Do not read every guide by default.
-For gameplay implementations, apply the
-[shared-system integration checklist](docs/shared-system-integration.md) to
-the changed objects and their producers/consumers before designing the change.
-Trace each applicable contract through the runtime owner and regression; a
-matching helper name or implemented interface does not establish correct use.
-For cross-game reuse and shared-engine completion claims, first apply its
-[cross-game readiness checks](docs/shared-system-integration.md#cross-game-readiness).
-Trace selected-game construction and data dependencies, including spawned
-children; common file placement and passing Ages tests do not prove Seasons
-readiness.
-
-Local paths:
-
-```text
-Disassembly:    .\external\oracles-disasm (pinned submodule)
-```
-
-Add the Godot 4.7.1 .NET executable's directory to `PATH`. The examples use
-the original Windows filename `Godot_v4.7.1-stable_mono_win64_console.exe`;
-substitute the installed executable's filename on other platforms. Pass its
-executable name or resolved path through `-Godot` to override the validation
-launcher's automatic lookup of that Windows filename on `PATH`.
+Reconstruct *Oracle of Ages* and *Oracle of Seasons* in Godot 4.7.1/.NET with
+1:1 fidelity to each supported clean US source. Scope and content boundaries
+live in the README and coverage ledgers. The pinned disassembly is
+`external/oracles-disasm`.
 
 ## Start every task this way
 
 1. Run `git status --short`; preserve unrelated user changes.
-2. Locate the runtime owner, importer stage, generated data, and validation for
-   the feature. Search callers and source tables, not only a promising label.
-3. Trace the original inputs, order, counters, arithmetic, side effects, and
-   persistent state before designing the change. Verify required room routes
-   and branches before expanding content bindings; keep optional work separate.
-4. Extend the importer first if the runtime lacks source information. Never
-   hand-edit `assets/oracle/`.
-5. Implement the smallest general rule supported by the source. Do not add a
-   room exception unless the original has one. Reuse existing behavior and fix
-   missing construction, ownership or data bindings before adding another handler.
-6. Add or extend a focused headless regression.
-7. If actual game source files changed, build with optimization and run the full
-   suite through `tools/validate_parallel.ps1` with 8 workers. Documentation-only edits do not
-   require a build or gameplay validation. Update only documentation whose
-   durable contract or high-level coverage changed.
+2. Use the [task map](docs/README.md#task-map) and
+   [code entry points](docs/README.md#code-entry-points) to locate the runtime
+   owner, importer stage, generated data and validation. Read only the relevant
+   guide sections; setup instructions are needed only for setup work.
+3. Before changing gameplay, read [Project principles](docs/project-principles.md)
+   and apply the relevant [integration checks](docs/shared-system-integration.md).
+   Evidence order: executed clean US ROM, disassembly, generated typed data,
+   runtime/validations, then assumptions or visual approximation.
+4. Trace source inputs, callers, tables, branches, order, counters, arithmetic,
+   side effects and persistent state before designing the change. Verify room
+   routes before expanding content bindings; keep optional work separate.
+5. Extend the importer first if source information is missing. Implement the
+   smallest source-supported rule; fix existing construction, ownership or data
+   bindings before adding another handler. Never hand-edit `assets/oracle/`.
+6. Add or extend a focused headless regression. Follow
+   [regression design](docs/validation.md#regression-design) and
+   [shared-system regressions](docs/validation.md#shared-system-regressions).
+7. Run the required checks below and update only durable contracts or changed
+   coverage. Report what was verified and unresolved paths; a suite pass alone
+   does not prove ROM parity.
 
-Use `rg` or `rg --files` for searches and `apply_patch` for edits.
+Use `rg` or `rg --files` for searches and `apply_patch` for edits. Perform
+one-off cleanup directly; do not add cleanup scripts or legacy-deletion blocks.
 
-Perform one-off repository cleanup directly. Do not add cleanup scripts or
-legacy-file deletion blocks to checked-in scripts.
-
-## Evidence and regression requirements
-
-- Keep validation focused on individual systems and their immediate
-  interactions. Do not add whole-dungeon progression or long playthrough tests.
-- Trace each behavior gate through its callers and the code that writes or
-  clears its inputs. Include object-update eligibility, collision/input masks,
-  and the lifetime of shared signals across update phases. A variable name or
-  a check in the target handler alone does not establish when it can run.
-- Follow data control flow beyond named labels. For dialogue, resolve calls,
-  jumps, aliases, missing terminators and fallthrough, and preserve position,
-  page and formatting commands through import and presentation.
-- Derive regression expectations independently from ROM behavior or traced
-  source. Comparing runtime output only with the generated data it consumes
-  cannot detect an incomplete or incorrect import. Assert source-derived
-  content, boundaries and side effects as well.
-- For behavior spanning systems, exercise the actual gameplay update loop.
-  Check before, during, on completion, after completion and cancellation;
-  compare individual updates with multiple updates in one host frame. Direct
-  event stepping alone cannot verify a player/item/interaction handoff.
-- Interaction regressions must approach through the room's actual collision
-  geometry and repeat the action after completion. Teleporting Link inside a
-  solid obstacle or NPC hitbox cannot establish that a conversation is reachable.
-- Report what was actually verified and any unresolved paths. Passing a build
-  or the full suite does not by itself establish parity with the original.
-
-## Non-negotiable implementation rules
+## Implementation rules
 
 - Preserve original object/table order, global RNG consumption, integer and
   fixed-point arithmetic, and exact 60-update counter boundaries.
-- Keep gameplay state in room/world coordinates. Camera offsets are
-  presentation. HUD, dialogue, fades, menus, and debug overlays use screen
-  space.
-- Production runtime reads generated assets, never disassembly source files.
-- Unsupported imported behavior must fail with source-aware diagnostics or be
-  represented explicitly and safely. Never silently skip an opcode, row, or
-  state transition.
+- Trace behavior gates through writers, callers and consumers, including object
+  eligibility, collision/input masks and signal lifetime across update phases.
+  A helper name or implemented interface does not establish correct use.
 - Keep one authoritative owner for room identity, save bytes, inventory, RNG,
-  transitions, modal state, and audio. Do not mirror their state in a feature.
-- Stable nodes belong in scenes; content-dependent entities and effects are
-  created by their runtime owner.
-- Validation-only traces and orchestration stay in the validation assembly.
-- Preserve hexadecimal IDs in diagnostics, validation failures, and source
-  comments when they identify original rooms, objects, interactions,
-  treasures, flags, transitions, or sounds.
+  transitions, modal state and audio. Production reads generated assets, never
+  disassembly. Unsupported behavior must fail with source context or be
+  represented explicitly and safely; never silently skip a row, opcode or state.
+- Gameplay coordinates are room/world space; camera offsets are presentation.
+  HUD, dialogue, fades, menus and debug overlays use screen space.
+- Stable nodes belong in scenes; runtime owners create content-dependent actors
+  and effects. Validation-only traces and orchestration stay in validation.
+- Keep hexadecimal source IDs in diagnostics, failures and source comments.
+- Place types with their owning feature and original dispatch boundary. Keep
+  one class/interface per matching C# file; narrow records/enums may stay beside
+  their owner. Shared behavior does not belong to its first consuming dungeon.
 
-Important world invariants:
+`src/Application/` composes the game; `src/Features/` owns shared behavior;
+`src/Games/{game}/` owns content and source-specific bindings;
+`src/Infrastructure/` owns external/generated-data boundaries; `src/Shared/`
+holds small behavior-neutral primitives.
 
-- Small rooms are 10 by 8 metatiles (160 by 128 pixels).
-- Large-room storage is 16 by 11 metatiles with a 16-byte row stride; the last
-  column is padding and the playable area is 15 by 11.
-- The viewport is 160 by 144. The HUD is 16 pixels high and the gameplay field
-  is 160 by 128.
-- Dungeon neighbors come from imported floor layouts, not room-ID arithmetic.
-- Destination entities and room events remain frozen during scrolling.
-- Enemy placement consumes one ordered object stream and the shared placement
-  buffer generated from the game RNG.
-- Live WRAM-style state is written to disk only by explicit save flows.
+Before cross-game reuse or shared-engine completion claims, apply
+[cross-game readiness](docs/shared-system-integration.md#cross-game-readiness).
+Trace selected-game construction and data through spawned children; common file
+placement and passing Ages tests do not prove Seasons readiness.
 
-## Repository map
+World invariants: small rooms are 10 by 8 metatiles (160 by 128 pixels); large-room
+storage is 16 by 11 with a 16-byte stride and a padded last column (15 by 11 playable).
+The viewport is 160 by 144 with a 16-pixel HUD and 160 by 128 gameplay field. Dungeon
+neighbors come from imported floor layouts. Destination entities/events freeze
+during scrolling. Enemy placement consumes one ordered object stream and the
+shared RNG placement buffer. Only explicit save flows write live state to disk.
 
-| Path | Ownership |
+## Checks and commands
+
+| Change | Required checks |
 | --- | --- |
-| `src/Application/` | Composition, fixed-update scheduling, input, pause ownership |
-| `src/Features/` | Shared gameplay and presentation features by owning use case |
-| `src/Games/Ages/` | Ages content, source-specific catalogs, state layout and composition |
-| `src/Games/Seasons/` | Seasons content, source-specific catalogs, state layout and composition |
-| `src/Infrastructure/` | Generated-data and external boundaries |
-| `src/Shared/` | Small behavior-neutral primitives |
-| `scenes/` | Stable Godot scene trees |
-| `tools/import_oracles.ps1` | Import entry point and stage contracts |
-| `tools/import_oracles/` | Shared import infrastructure and per-game producers |
-| `assets/oracle/` | Generated runtime data; never hand-edit |
-| `validation/Ages/` | Ages fixtures and ROM expectations in the separate validation project |
-| `docs/` | Durable engineering guides and high-level status |
-
-Place a production type with the feature that owns it. Follow the original
-dispatch boundary: a shared enemy or interaction does not belong to the first
-dungeon that happens to use it. Keep one class or interface per C# file, with
-the filename matching the type; narrow records and enums may stay beside their
-owner.
-
-## Commands
+| Documentation only, including `AGENTS.md` | Diff and relevant links; no build or gameplay validation, even with unrelated pre-existing source changes |
+| Actual game source files in this handoff | Optimized rebuild, focused regression and full parallel suite |
+| Import code or generated inputs | Run importer; parser, stage-boundary, schema or determinism changes also require import verification |
 
 ```powershell
-& .\tools\import_oracles.ps1
-& .\tools\verify_oracle_import.ps1
+& .\tools\import_oracles.ps1                  # only when import inputs/code changed
+& .\tools\verify_oracle_import.ps1            # required for the import changes above
 dotnet build -t:Rebuild -p:Optimize=true
-
-& .\tools\validate_parallel.ps1
-
+& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName # development
+& .\tools\validate_parallel.ps1              # full suite; 8 workers by default
 git diff --check
 git status --short
 ```
 
-Run the importer only when import code or generated inputs changed.
-`verify_oracle_import.ps1` is required for parser, stage-boundary, schema, or
-determinism changes. The build must have zero warnings and errors.
-Agents must always build production and validation assemblies with optimization:
-`dotnet build -t:Rebuild -p:Optimize=true`. This keeps the Debug output paths
-used by Godot while enabling compiler optimization. An incremental build can
-retain the previous optimization setting, so use the explicit rebuild command.
-Reuse the optimized assemblies for focused and full validation runs until
-source changes require another build. Do not switch to an unoptimized build
-unless the user explicitly requests it for debugging.
+Always rebuild production and validation assemblies with optimization and zero
+warnings/errors. This preserves Godot's Debug output paths; incremental builds
+can retain old optimization settings. Build once and reuse assemblies until
+source changes require rebuilding. Unoptimized builds require an explicit user
+request for debugging. Before a game-source handoff, require success from all
+workers and the complete registered scenario count. Focused or serial runs do
+not replace the full parallel run; report failures or incomplete runs. Use 8
+workers unless the user explicitly requests otherwise.
 
-For performance work, always report measured before/after validation times,
-worker counts, and passed/skipped scenario counts. Compare optimized builds
-under the same conditions, separate build time from validation time, and repeat
-the final measurement to expose run-to-run variation. Never reduce coverage
-to claim a speed improvement.
+Put the Godot 4.7.1 .NET executable on `PATH`, or pass `-Godot PATH` to the
+launcher. Its default filename is `Godot_v4.7.1-stable_mono_win64_console.exe`;
+substitute the installed filename on other platforms. See
+[validation commands](docs/validation.md#run-validations) for options and
+[performance measurements](docs/validation.md#performance-measurements) for
+required before/after evidence.
 
-The full gameplay validation suite is required only when actual game source
-files changed in the work being handed off. Documentation-only changes,
-including edits to `AGENTS.md`, require neither a build nor gameplay validation;
-check the diff and relevant documentation links instead. Unrelated pre-existing
-source changes do not make a documentation-only task require validation.
-When required, run the suite through `tools/validate_parallel.ps1` using its
-8-worker default unless the user explicitly requests a different worker count.
-Build once before launching workers. A serial full-suite run does not replace
-the required parallel run; use serial runs only for additional debugging.
+## Documentation rules
 
-For a focused validation during development:
+Guides explain durable evidence, ownership, invariants, formats and workflow.
+Put source-specific detail beside implementation, importer diagnostics and
+focused validations. Do not duplicate class inventories, generated tables,
+per-room implementation notes or validation method contents.
 
-```powershell
-& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
-```
+Keep audits and working findings untracked under `local-audits/`, excluded
+through `.git/info/exclude`. Never put audit narratives in tracked docs or link
+tracked docs to local audits.
 
-Before a handoff involving changes to actual game source files, run
-the full validation command above and require success from all workers and the
-complete registered scenario count. Focused validations do not replace this
-check. If the parallel run fails or cannot complete, report the failure rather
-than treating a focused or serial run as sufficient.
+The [coverage ledgers](docs/README.md#documentation-boundary) are the inventory
+exceptions. Any implemented, extended, partial, suppressed or reclassified NPC
+record requires affected table entries and summary counts to change together.
+Only edit NPC ledger tables, recording resulting status without bugfix history,
+regression details or progress notes. A bugfix without a coverage change needs
+no ledger update. Source-wide interaction/event/cutscene coverage changes must
+update the affected ledger statuses, counts and proof checklist items together.
 
-## Documentation rule
-
-Keep fidelity audits and working findings in untracked files under
-`local-audits/`, excluded through `.git/info/exclude`. Never put audit reports
-in tracked documentation, including `docs/ages/npc-interaction-coverage.md`, or link
-tracked documentation to local audit files. The coverage ledger records current
-statuses, room entries, and counts in its tables only.
-
-Documentation explains durable decisions: evidence, ownership, invariants,
-file-format contracts, and contributor workflow. It does not duplicate class
-inventories, generated tables, per-room implementation notes, or validation
-method contents that are easier to discover with `rg`.
-
-The intentional exceptions are the navigable
-`docs/ages/npc-interaction-coverage.md` and
-`docs/ages/interaction-event-cutscene-coverage.md` ledgers. The latter records
-source dispatch coverage and outstanding implementation/proof checklist items;
-update its affected statuses, counts and checklist items together when coverage
-changes, without adding audit narratives. Any change that implements, extends,
-partially supports, suppresses, or reclassifies an imported NPC record must
-update the affected table entries and summary counts in the same change.
-Only update the tables in the NPC ledger; do not keep a diary, append dated
-snapshots, or add progress notes. Keep bugfix descriptions, implementation
-history, and regression details out of the tables as well. A bugfix that does
-not change NPC coverage requires no ledger update; when coverage does change,
-record only the resulting coverage status.
-
-- Change `README.md` only for project scope, setup, quick start, or navigation.
-- Change a subsystem guide when its ownership or durable contract changes.
-- Change `docs/ages/npc-interaction-coverage.md` whenever NPC coverage changes.
-- Change `docs/ages/interaction-event-cutscene-coverage.md` whenever its source-wide
-  interaction, event or cutscene coverage changes.
-- Put source-specific detail in importer diagnostics, code comments beside the
-  implementation, and focused validations.
+Change the root README only for scope, setup, quick start or navigation; change
+a subsystem guide only when its durable contract changes.

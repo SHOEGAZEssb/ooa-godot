@@ -360,6 +360,14 @@ git status --short
 The build must have zero warnings and errors. Preserve unrelated worktree
 changes and review every generated diff.
 
+## Performance measurements
+
+For performance work, report measured before/after validation times, worker
+counts and passed/skipped scenario counts. Compare optimized builds under the
+same conditions, separate build time from validation time, and repeat the final
+measurement to expose run-to-run variation. Never reduce coverage to claim a
+speed improvement.
+
 ## Scenario isolation
 
 Each top-level scenario starts from a newly constructed standard gameplay graph.
@@ -408,6 +416,12 @@ Cover as applicable:
 Use canonical rooms that consume real imported data. Failure messages include
 hexadecimal group, room, object/interaction, flag, treasure, or sound IDs plus
 expected and actual values.
+
+Trace dialogue calls, jumps, aliases, missing terminators and fallthrough;
+preserve position, page and formatting commands through import and presentation.
+Interaction regressions must approach through the room's actual collision
+geometry and repeat the action after completion. Teleporting Link into a solid
+obstacle or NPC hitbox does not prove a conversation is reachable.
 
 Keep expected arithmetic independent of the production helper being tested.
 For movement, calculate source vectors and boundary cases separately instead of
