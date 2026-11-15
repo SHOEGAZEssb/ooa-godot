@@ -170,14 +170,25 @@ use an unoptimized build only when the user explicitly requests it for debugging
 The launcher's elapsed time includes worker startup and shutdown, but excludes
 the preceding build.
 
-Run one exact registered method while developing:
+Discover registered names, optionally filtering with PowerShell. Listing also
+includes complete matrix-family aliases, skips gameplay initialization and does
+not resolve ROMs:
+
+```powershell
+& .\tools\validate_parallel.ps1 -ListValidations | Select-String 'Npc|Cutscene'
+```
+
+Run one or several exact registered names in one worker while developing:
 
 ```powershell
 & .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
+& .\tools\validate_parallel.ps1 -ValidateOnly ValidateApplicationValidationFixture,ValidateMatrixRangePlanning
 ```
 
-An unknown name fails. A focused run is a development aid; run the complete
-suite before handoff.
+Every name must resolve before any selected scenario executes. Names are case
+sensitive; repeated names execute once, in registration order. A focused run
+is a development aid; run the complete suite before handoff. Listings and focused
+runs cannot write full-suite result reports or use distributed partitions.
 
 ROM-backed comparisons are registered in the normal suite. The launcher
 automatically resolves both clean US ROMs through the importer's verified cache,
@@ -275,7 +286,8 @@ skip runs do not overwrite complete-suite timing history.
 Large independent matrices register named `RangeXXToYY` scenarios. Registration
 covers each domain value once, and each range asserts its original case count.
 The original family name remains an exact focused command that executes the
-complete matrix in one worker; a range name selects that range alone. Existing
+complete matrix in one worker; a range name selects that range alone. Select
+either the family or its ranges, not both in one batch. Existing
 family timings seed missing range weights proportionally until individual
 measurements exist. The launcher reports case counts and summed range times by
 family, with comparisons against the supplied timing profile. Summed scenario
@@ -292,8 +304,9 @@ A partition success is not a full-suite pass.
 `tools/Merge-ValidationResults.ps1` verifies every partition report and writes
 the complete timing profile only after exact scenario coverage is established.
 Ordinary local runs still default to one complete eight-worker suite.
-Use this launcher for focused runs too: `-ValidateOnly` selects one scenario
-in one worker. Each run uses a writable, unique engine log instead of Godot's
+Use this launcher for focused runs too: `-ValidateOnly` selects scenarios
+in one worker, sharing process startup while retaining each scenario's fresh
+gameplay graph and cleanup. Each run uses a writable, unique engine log instead of Godot's
 shared user-log rotation. On Windows, workers inherit an error mode that
 suppresses native crash dialogs; crashes still fail the run and retain logs.
 The calling PowerShell process's original error mode is restored on exit.

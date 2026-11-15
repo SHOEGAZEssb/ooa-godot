@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         string family = run.Method.Name;
         // Preserve the original exact focused command as one complete-family
         // execution. Full runs register disjoint ranges instead of a duplicate.
-        if (_validationFilter == family)
+        if (_validationFilters?.Contains(family) == true)
         {
             _registeredValidations.Add(new(family, (Action)(() => run(0, domain)), true));
             return;
@@ -53,5 +53,33 @@ public sealed partial class ValidationRoot
         ValidationCaseRanges.SeedTimingWeights(scenarios, weights);
         FailIf(weights["ValidateRangeA"] != 50 || weights["ValidateRangeB"] != 300 || weights.ContainsKey("ValidateOther"),
             "Historical family cost must seed only missing range weights without overwriting measurements.");
+
+        string[] names = ["ValidateA", "ValidateB"];
+        ValidateRequestedScenarios(names, null);
+        ValidateRequestedScenarios(names, new(["ValidateB", "ValidateA", "ValidateA"], StringComparer.Ordinal));
+        foreach (string missing in new[] { "ValidateMissing", "validateA", "" })
+        {
+            bool rejected = false;
+            try { ValidateRequestedScenarios(names, new(["ValidateA", missing], StringComparer.Ordinal)); }
+            catch (InvalidOperationException exception) { rejected = exception.Message.Contains($"'{missing}'"); }
+            FailIf(!rejected, "Every focused name must resolve exactly before any selected scenario executes.");
+        }
+        var selection = new ValidationRoot();
+        try
+        {
+            Action<int, int> run = selection.ValidateFloormasterPlacementPublicationRom;
+            string family = run.Method.Name;
+            selection._validationFilters = new([family, "ValidateOther"], StringComparer.Ordinal);
+            selection.RegisterValidationMatrix(run, 8, 4);
+            FailIf(selection._registeredValidations.Count != 1 || selection._registeredValidations[0].Name != family,
+                "A matrix family in a batch must register one complete-family execution.");
+            selection._registeredValidations.Clear();
+            selection._validationFilters = new([$"{family}Range00To03", "ValidateOther"], StringComparer.Ordinal);
+            selection.RegisterValidationMatrix(run, 8, 4);
+            FailIf(!selection._registeredValidations.Select(scenario => scenario.Name)
+                .SequenceEqual(new[] { $"{family}Range00To03", $"{family}Range04To07" }),
+                "Selecting a matrix range must preserve its ordered, disjoint registrations.");
+        }
+        finally { selection.Free(); }
     }
 }

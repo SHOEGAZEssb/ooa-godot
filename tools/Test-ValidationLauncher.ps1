@@ -15,6 +15,7 @@ try {
     # Framework executable so this same fixture exercises both shell editions.
     $source = @'
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Diagnostics;
 using System.Reflection;
@@ -45,10 +46,12 @@ public static class ValidationLauncherFixture {
         bool continueOnFailure = false;
         bool profileMemory = false;
         bool disableScriptRetention = false;
+        bool list = false;
         string timingProfile = null;
         foreach (string arg in args) {
             if (arg.StartsWith("--validate-shard=")) shard = arg.Substring(17);
             if (arg.StartsWith("--validate-only=")) selected = arg.Substring(16);
+            if (arg == "--validate-list") list = true;
             if (arg.StartsWith("--validation-rom=")) rom = arg.Substring(17);
             const string seasonsPrefix = "--validation-seasons-rom=";
             if (arg.StartsWith(seasonsPrefix)) seasonsRom = arg.Substring(seasonsPrefix.Length);
@@ -58,6 +61,30 @@ public static class ValidationLauncherFixture {
             if (arg == "--validate-no-script-retention") disableScriptRetention = true;
             const string timingPrefix = "--validate-timing-profile=";
             if (arg.StartsWith(timingPrefix)) timingProfile = arg.Substring(timingPrefix.Length);
+        }
+        if (list) {
+            if (rom != null || seasonsRom != null || timingProfile != null || selected != null) return 106;
+            string fault = Environment.GetEnvironmentVariable("OOA_TEST_VALIDATION_LIST");
+            Console.WriteLine("VALIDATION_SCENARIO ValidateFixture");
+            Console.WriteLine("VALIDATION_SCENARIO " + (fault == "duplicate" ? "ValidateFixture" : "ValidateRomArgument"));
+            if (fault != "missing") Console.WriteLine("VALIDATION_LIST_COMPLETE count=" + (fault == "count" ? 3 : 2));
+            return 0;
+        }
+        if (selected != null && selected.IndexOf(',') >= 0) {
+            int passed = 0, excluded = 0;
+            foreach (string name in new HashSet<string>(selected.Split(','), StringComparer.Ordinal)) {
+                if (name == "ValidateMissingMarker") continue;
+                if (name == "ValidateSkipRomArgument" && skipRom) {
+                    excluded++;
+                    Console.WriteLine("VALIDATION_SKIPPED name=" + name + " reason=rom-required");
+                } else {
+                    passed++;
+                    Console.WriteLine("VALIDATION_TIMING name=" + name + " setup_ms=0 total_ms=1.500");
+                }
+            }
+            Console.WriteLine("VALIDATION_COMPLETE shard=" + shard + " executed=" + passed +
+                " skipped=" + excluded + " registered=8 failed=0");
+            return 0;
         }
         string expectedProfile = Environment.GetEnvironmentVariable("OOA_TEST_VALIDATION_TIMING_PROFILE");
         if (expectedProfile != null && (timingProfile == null ||
@@ -144,6 +171,46 @@ public static class ValidationLauncherFixture {
     if ($LASTEXITCODE -ne 0) { throw 'Could not compile the validation launcher fixture.' }
     # Load the launcher's interop type and exercise a successful focused run.
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
+    $listed = @(& $launcher -Godot $fixture -ListValidations -FailOnEngineDiagnostics -TimeoutSeconds 15)
+    if (($listed -join ',') -ne 'ValidateFixture,ValidateRomArgument') {
+        throw 'Listing lost registry names or returned launcher diagnostics as scenario names.'
+    }
+    $previousListFault = $env:OOA_TEST_VALIDATION_LIST
+    try {
+        foreach ($fault in @('missing', 'duplicate', 'count')) {
+            $env:OOA_TEST_VALIDATION_LIST = $fault
+            $failure = $null
+            try { & $launcher -Godot $fixture -ListValidations -TimeoutSeconds 15 }
+            catch { $failure = $_.ToString() }
+            if ($null -eq $failure -or $failure -notmatch 'Validation listing') {
+                throw "Listing accepted $fault or failed unexpectedly: $failure"
+            }
+        }
+    }
+    finally { $env:OOA_TEST_VALIDATION_LIST = $previousListFault }
+    & $launcher @fixtureParameters -ValidateOnly ValidateFixture,ValidateRomArgument -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateFixture,ValidateFixture -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateFixture,ValidateSkipRomArgument -SkipRomValidation -TimeoutSeconds 15
+    $failure = $null
+    try { & $launcher @fixtureParameters -ValidateOnly ValidateFixture,ValidateMissingMarker -TimeoutSeconds 15 }
+    catch { $failure = $_.ToString() }
+    if ($null -eq $failure -or -not $failure.Contains('Parallel validation incomplete')) {
+        throw "Batch selection accepted an incomplete scenario count: $failure"
+    }
+    foreach ($invalid in @(
+        @{ ListValidations = $true; ValidateOnly = 'ValidateFixture' },
+        @{ ListValidations = $true; Workers = 2 },
+        @{ ListValidations = $true; PartitionCount = 2 },
+        @{ ListValidations = $true; ResultPath = (Join-Path $temporary 'listing.json') },
+        @{ ValidateOnly = @() },
+        @{ ValidateOnly = @('ValidateFixture', '') }
+    )) {
+        $failure = $null
+        try { & $launcher -Godot $fixture @invalid -TimeoutSeconds 15 }
+        catch { $failure = $_.ToString() }
+        if ($null -eq $failure) { throw 'Discovery accepted incompatible options or an empty focused selection.' }
+    }
+    Write-Host 'Scenario discovery tests passed (registry listing without ROM resolution, malformed listing rejection, batch counts, duplicate selection, explicit skips and incompatible options).'
     $previousPath = $env:PATH
     $discoveryResult = Join-Path $temporary 'discovery-result.json'
     try {

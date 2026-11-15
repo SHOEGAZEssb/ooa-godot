@@ -2,8 +2,10 @@ param(
     [ValidateRange(1, 64)]
     [int]$Workers = 8,
     [string]$Godot = 'Godot_v4.7.1-stable_mono_win64_console.exe',
+    [ValidateNotNullOrEmpty()]
     [ValidatePattern('^Validate[A-Za-z0-9_]+$')]
-    [string]$ValidateOnly,
+    [string[]]$ValidateOnly,
+    [switch]$ListValidations,
     [string]$Rom,
     [string]$SeasonsRom,
     [switch]$SkipRomValidation,
@@ -23,13 +25,17 @@ param(
 
 $ErrorActionPreference = 'Stop'
 if ($PartitionIndex -gt $PartitionCount) { throw 'PartitionIndex exceeds PartitionCount.' }
-if ($PartitionCount -gt 1 -and ($ValidateOnly -or $SkipRomValidation -or -not $ResultPath)) {
-    throw 'Distributed validation requires -ResultPath and cannot use -ValidateOnly or -SkipRomValidation.'
+if ($ListValidations -and $ValidateOnly) { throw '-ListValidations cannot be combined with -ValidateOnly.' }
+if (($ListValidations -or $ValidateOnly) -and $ResultPath) {
+    throw 'Focused runs and listings cannot write full-suite result reports.'
+}
+if ($PartitionCount -gt 1 -and ($ValidateOnly -or $ListValidations -or $SkipRomValidation -or -not $ResultPath)) {
+    throw 'Distributed validation requires -ResultPath and cannot use -ValidateOnly, -ListValidations or -SkipRomValidation.'
 }
 $totalWorkers = $Workers * $PartitionCount
-if ($ValidateOnly) {
+if ($ValidateOnly -or $ListValidations) {
     if ($PSBoundParameters.ContainsKey('Workers') -and $Workers -ne 1) {
-        throw '-ValidateOnly cannot be combined with multiple workers.'
+        throw 'Focused runs and listings cannot be combined with multiple workers.'
     }
     $Workers = 1
     $totalWorkers = 1
@@ -71,7 +77,7 @@ if (-not ('OracleValidation.ValidationProcessJob' -as [type])) {
 }
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $validationArguments = @()
-if (-not $Rom -and -not $SkipRomValidation) {
+if (-not $Rom -and -not $SkipRomValidation -and -not $ListValidations) {
     . (Join-Path $PSScriptRoot 'Resolve-OracleRom.ps1')
     $Rom = Resolve-OracleRom
 }
@@ -79,7 +85,7 @@ if ($Rom) {
     $romPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Rom)
     $validationArguments += '"--validation-rom=' + $romPath + '"'
 }
-if (-not $SeasonsRom -and -not $SkipRomValidation) {
+if (-not $SeasonsRom -and -not $SkipRomValidation -and -not $ListValidations) {
     . (Join-Path $PSScriptRoot 'Resolve-OracleRom.ps1')
     $SeasonsRom = Resolve-OracleRom -Game seasons
 }
@@ -104,7 +110,7 @@ $logRoot = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-' + [Guid]::New
 $defaultTimingProfile = Join-Path $projectRoot '.godot/validation-timings.tsv'
 $profileHash = 'round-robin'
 $comparisonTimings = [Collections.Generic.Dictionary[string, double]]::new([StringComparer]::Ordinal)
-if (-not $ValidateOnly) {
+if (-not $ValidateOnly -and -not $ListValidations) {
     $profile = if ($TimingProfile) {
         $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($TimingProfile)
     } else { $defaultTimingProfile }
@@ -142,7 +148,9 @@ try {
         $stdout = Join-Path $logRoot "$globalIndex.stdout.log"
         $stderr = Join-Path $logRoot "$globalIndex.stderr.log"
         $engineLog = Join-Path $logRoot "$globalIndex.godot.log"
-        $selection = if ($ValidateOnly) { "--validate-only=$ValidateOnly" } else { "--validate-shard=$globalIndex/$totalWorkers" }
+        $selection = if ($ListValidations) { '--validate-list' }
+            elseif ($ValidateOnly) { '--validate-only=' + ($ValidateOnly -join ',') }
+            else { "--validate-shard=$globalIndex/$totalWorkers" }
         # Deferred draw scenarios await host frames. The runner quits when all
         # assigned scenarios finish; a positive TimeoutSeconds bounds an incomplete run.
         $arguments = (@('--headless', '--path', ('"' + $projectRoot + '"'),
@@ -180,6 +188,23 @@ try {
             }
         }
         $output = [string](Get-Content -LiteralPath $worker.Out -Raw)
+        if ($ListValidations) {
+            if ($failed -or $worker.Process.ExitCode -ne 0 -or
+                $output -notmatch '(?m)^VALIDATION_LIST_COMPLETE count=(\d+)\r?$') {
+                Write-Host $output
+                Get-Content -LiteralPath $worker.Err | Write-Host
+                throw "Validation listing failed. Logs: $logRoot"
+            }
+            $expectedNames = [int]$Matches[1]
+            $names = @([regex]::Matches($output, '(?m)^VALIDATION_SCENARIO (Validate[A-Za-z0-9_]+)\r?$') |
+                ForEach-Object { $_.Groups[1].Value })
+            if ($expectedNames -lt 1 -or $names.Count -ne $expectedNames -or
+                [Collections.Generic.HashSet[string]]::new([string[]]$names, [StringComparer]::Ordinal).Count -ne $expectedNames) {
+                throw "Validation listing is incomplete or contains duplicate names. Logs: $logRoot"
+            }
+            $names
+            return
+        }
         $pattern = "(?m)^VALIDATION_COMPLETE shard=$($worker.Index)/$totalWorkers executed=(\d+) skipped=(\d+) registered=(\d+)(?: failed=(\d+))?\r?$"
         if ($output -notmatch $pattern) {
             $failed = $true
@@ -234,7 +259,9 @@ try {
         })
         Write-Host "Worker $($worker.Index): $workerExecuted scenarios passed, $workerSkipped skipped."
     }
-    $expected = if ($ValidateOnly) { 1 } elseif ($PartitionCount -gt 1) { $timings.Count } else { $registered }
+    $expected = if ($ValidateOnly) {
+        [Collections.Generic.HashSet[string]]::new($ValidateOnly, [StringComparer]::Ordinal).Count
+    } elseif ($PartitionCount -gt 1) { $timings.Count } else { $registered }
     if ($PartitionCount -eq 1 -and -not $ValidateOnly -and -not $SkipRomValidation -and -not $TimingProfile -and -not $DisableScriptRetention -and
         $executed + $failedScenarios -eq $registered -and $timings.Count -eq $registered) {
         $lines = [Collections.Generic.List[string]]::new()
@@ -306,11 +333,7 @@ try {
     if ($PartitionCount -gt 1) {
         Write-Host ("Validated partition {0}/{1}: {2} scenarios passed, 0 skipped in {3:N1}s with {4} workers; full coverage requires merging every partition." -f $PartitionIndex, $PartitionCount, $executed, $timer.Elapsed.TotalSeconds, $Workers)
     } elseif ($ValidateOnly) {
-        if ($skipped -gt 0) {
-            Write-Host "Skipped $ValidateOnly (ROM required)."
-        } else {
-            Write-Host ("Validated {0} in {1:N1}s." -f $ValidateOnly, $timer.Elapsed.TotalSeconds)
-        }
+        Write-Host ("Focused validation complete: {0} passed, {1} skipped in {2:N1}s with 1 worker." -f $executed, $skipped, $timer.Elapsed.TotalSeconds)
     } elseif ($skipped -gt 0) {
         Write-Host ("Validation complete: {0} passed, {1} skipped, {2} registered in {3:N1}s with {4} workers." -f $executed, $skipped, $registered, $timer.Elapsed.TotalSeconds, $Workers)
     } else {

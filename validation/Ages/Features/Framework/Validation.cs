@@ -13,7 +13,8 @@ public sealed partial class ValidationRoot : GameRoot
     private int _failedValidationCount;
     private bool _continueOnFailure;
     private bool _skipRomValidation;
-    private string? _validationFilter;
+    private HashSet<string>? _validationFilters;
+    private bool _listValidations;
     private int _validationOrdinal;
     private int _shardIndex;
     private int _shardCount = 1;
@@ -29,6 +30,19 @@ public sealed partial class ValidationRoot : GameRoot
             BeginStartupProfile();
             return;
         }
+        _listValidations = OS.GetCmdlineUserArgs().Contains("--validate-list");
+        foreach (string argument in OS.GetCmdlineUserArgs())
+        {
+            const string prefix = "--validate-only=";
+            if (argument.StartsWith(prefix, StringComparison.Ordinal))
+                _validationFilters = new(argument[prefix.Length..].Split(','), StringComparer.Ordinal);
+        }
+        if (_listValidations)
+        {
+            SetProcess(false);
+            RunValidation();
+            return;
+        }
         if (!OS.GetCmdlineUserArgs().Contains("--validate-no-script-retention"))
             _scriptResources = new ValidationScriptResources();
         base._Ready();
@@ -39,12 +53,6 @@ public sealed partial class ValidationRoot : GameRoot
         // through GameRoot's live application scheduler.
         _player.ApplicationUpdateOwned = false;
         _dialogue.ApplicationUpdateOwned = false;
-        foreach (string argument in OS.GetCmdlineUserArgs())
-        {
-            const string prefix = "--validate-only=";
-            if (argument.StartsWith(prefix, StringComparison.Ordinal))
-                _validationFilter = argument[prefix.Length..];
-        }
         ResetValidationInput();
         _scene.ProcessMode = ProcessModeEnum.Disabled;
     }
@@ -96,10 +104,23 @@ public sealed partial class ValidationRoot : GameRoot
                 }
                 _shardIndex = index - 1;
                 _shardCount = count;
-                FailIf(_validationFilter is not null,
-                    "--validate-shard cannot be combined with --validate-only.");
+                FailIf(_validationFilters is not null || _listValidations,
+                    "--validate-shard cannot be combined with --validate-only or --validate-list.");
             }
-            await ValidateAll();
+            FailIf(_listValidations && _validationFilters is not null,
+                "--validate-list cannot be combined with --validate-only.");
+            RegisterValidations();
+            await RunRegisteredValidations();
+            if (_listValidations)
+            {
+                GetTree().Quit(0);
+                return;
+            }
+            GD.Print($"Validation finished: {_executedValidationCount} passed, " +
+                $"{_skippedValidationCount} skipped, {_failedValidationCount} failed.");
+            GD.Print($"VALIDATION_COMPLETE shard={_shardIndex + 1}/{_shardCount} " +
+                $"executed={_executedValidationCount} skipped={_skippedValidationCount} " +
+                $"registered={_validationOrdinal} failed={_failedValidationCount}");
             ReportRoomEventCleanup();
             // AudioStreamPlayer.Stop queues its native playback for the
             // AudioServer mixer/update handoff. Let those engine phases run
@@ -203,14 +224,23 @@ public sealed partial class ValidationRoot : GameRoot
 
     private async Task RunRegisteredValidations()
     {
+        string[] names = _registeredValidations.Select(scenario => scenario.Name).ToArray();
+        FailIf(names.Distinct(StringComparer.Ordinal).Count() != names.Length, "Validation names must be unique, including matrix ranges.");
+        ValidateRequestedScenarios(names, _validationFilters);
+        if (_listValidations)
+        {
+            string[] listed = names.Concat(_registeredValidations.Select(scenario => scenario.TimingFamily)
+                .OfType<string>()).Distinct(StringComparer.Ordinal).ToArray();
+            foreach (string name in listed) GD.Print($"VALIDATION_SCENARIO {name}");
+            GD.Print($"VALIDATION_LIST_COMPLETE count={listed.Length}");
+            return;
+        }
         Dictionary<string, double>? weights = null;
         const string prefix = "--validate-timing-profile=";
         foreach (string argument in OS.GetCmdlineUserArgs())
             if (argument.StartsWith(prefix, StringComparison.Ordinal))
                 weights = ValidationShardPlanner.ParseWeights(File.ReadLines(argument[prefix.Length..]), argument[prefix.Length..]);
         if (weights is not null) ValidationCaseRanges.SeedTimingWeights(_registeredValidations, weights);
-        string[] names = _registeredValidations.Select(scenario => scenario.Name).ToArray();
-        FailIf(names.Distinct(StringComparer.Ordinal).Count() != names.Length, "Validation names must be unique, including matrix ranges.");
         int[] assignments = ValidationShardPlanner.Assign(names, _shardCount, weights);
         GD.Print($"VALIDATION_SCHEDULING mode={(weights is null ? "round-robin" : "timings")} registered={assignments.Length}");
         foreach (var scenario in _registeredValidations)
@@ -220,15 +250,19 @@ public sealed partial class ValidationRoot : GameRoot
         }
     }
 
+    private static void ValidateRequestedScenarios(string[] names, HashSet<string>? requested)
+    {
+        if (requested is null) return;
+        foreach (string name in requested)
+            FailIf(!names.Contains(name, StringComparer.Ordinal),
+                $"No validation method named '{name}' was registered.");
+    }
+
     private async Task ExecuteIsolatedValidation(ValidationScenario scenario)
     {
         Delegate validation = scenario.Run;
         string name = scenario.Name;
-        if (_validationFilter is not null &&
-            !string.Equals(
-                name,
-                _validationFilter,
-                StringComparison.Ordinal))
+        if (_validationFilters is not null && !_validationFilters.Contains(name))
         {
             return;
         }
@@ -297,7 +331,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateSymmetryTransition();
     }
 
-    private async Task ValidateAll()
+    private void RegisterValidations()
     {
         RunIsolatedValidation(ValidateGameplaySceneGraph);
         RunIsolatedValidation(ValidateApplicationFixedUpdateScheduler);
@@ -1959,17 +1993,5 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateWingDungeon, requiresRom:true);
         RunIsolatedValidation(ValidateHeadThwompFidelity);
 
-        await RunRegisteredValidations();
-        if (_validationFilter is not null &&
-            _executedValidationCount + _skippedValidationCount + _failedValidationCount == 0)
-        {
-            throw new InvalidOperationException(
-                $"No validation method named '{_validationFilter}' was registered.");
-        }
-        GD.Print($"Validation finished: {_executedValidationCount} passed, " +
-            $"{_skippedValidationCount} skipped, {_failedValidationCount} failed.");
-        GD.Print($"VALIDATION_COMPLETE shard={_shardIndex + 1}/{_shardCount} " +
-            $"executed={_executedValidationCount} skipped={_skippedValidationCount} " +
-            $"registered={_validationOrdinal} failed={_failedValidationCount}");
     }
 }
