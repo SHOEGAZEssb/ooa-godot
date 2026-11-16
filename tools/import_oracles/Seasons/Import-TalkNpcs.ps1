@@ -64,8 +64,11 @@ foreach ($subid in 0x10..0x16) {
     Add-NpcSelector 0xb1 $subid 0 ((Npc-Symbol 'table_6f4b' 0xb1)+$subid*2) 'shipPiratian.s:table_6f4b'
 }
 foreach($spec in @(@(0xc2,'mayorsHouseGirlScript'),@(0x40,'piratianRoofScript'),@(0xa5,'dinScript_subid8Init'),@(0x4e,'troupeScript_inHoronVillage'),
-    @(0x25,'mittensScript'),@(0x26,'mittensOwnerScript'),@(0x27,'sokraScript_needSummerForD3'))) {
+    @(0x25,'mittensScript'),@(0x26,'mittensOwnerScript'))) {
     [void]$scripts.Add($spec[1]);$selectors.Add("$($spec[0].ToString('x2'))`t00`t0`t$($spec[1])`tscripts/seasons/scripts.s:$($spec[1])")
+}
+foreach($spec in @(@(0,'sokraScript_inVillage'),@(1,'sokraScript_easternSuburbsPortal'),@(2,'sokraScript_needSummerForD3'))){
+    [void]$scripts.Add($spec[1]);$selectors.Add("27`t$($spec[0].ToString('x2'))`t0`t$($spec[1])`tscripts/seasons/scripts.s:$($spec[1])")
 }
 foreach($subid in 0..1){
     $name="ringHelpBookSubid${subid}Script";[void]$scripts.Add($name)
@@ -140,6 +143,9 @@ Add-NpcVisibility 0x40 9 0 @('global/-/-/13/0') 'piratian.s'
 Add-NpcVisibility 0xa5 8 0 @('global/-/-/28/1') 'din.s'
 Add-NpcVisibility 0x4e 0x0a 0 @('global/-/-/28/1') 'dinDancingEvent.s'
 Add-NpcVisibility 0x27 2 0 @('global/-/-/28/0',"wram/-/$($seasonsSymbols['wObtainedSeasons'].ToString('x4'))/02/0") 'sokra.s'
+Add-NpcVisibility 0x27 0 0 @('global/-/-/28/0',"wram/-/$($seasonsSymbols['wObtainedSeasons'].ToString('x4'))/02/1") 'sokra.s'
+Add-NpcVisibility 0x27 0 1 @('global/-/-/28/0','specific-room/0/71/40/0') 'sokra.s'
+Add-NpcVisibility 0x27 1 0 @('global/-/-/28/0') 'sokra.s'
 Add-NpcVisibility 0x2a 0x0b 0 @('global/-/-/22/1','global/-/-/23/0') 'bird.s'
 Add-NpcVisibility 0x9d 5 0 @('global/-/-/28/0','global/-/-/22/1','global/-/-/23/0') 'impa.s'
 $linked="runtime-equals/-/$($seasonsSymbols['wIsLinkedGame'].ToString('x4'))/01"
@@ -186,7 +192,7 @@ foreach($key in $nativeConstants.Keys){
     $prefix=if($key.StartsWith('GLOBALFLAG_')){'flag:'}else{'treasure:'}
     $memoryBindings[$key]=$prefix+$nativeConstants[$key].ToString('x2')
 }
-$symbols['SPEED_080']=0x14;$symbols['SPEED_100']=0x28;$symbols['ANGLE_LEFT']=0x18;$symbols['ANGLE_RIGHT']=8
+$symbols['SPEED_080']=0x14;$symbols['SPEED_100']=0x28;$symbols['ANGLE_LEFT']=0x18;$symbols['ANGLE_RIGHT']=8;$symbols['ANGLE_DOWN']=0x10
 foreach($match in [regex]::Matches((Read-ImportText (Join-Path $Disassembly 'constants/common/music.s')),'(?m)^\s*(?<name>\w+)\s+db\s*;\s*\$(?<value>[0-9a-f]+)')){
     $symbols[$match.Groups['name'].Value]=[Convert]::ToInt32($match.Groups['value'].Value,16)
 }
@@ -211,7 +217,10 @@ foreach($row in $programRows | Select-Object -Skip 1){
             if($p[0] -notmatch 'TX_([0-9a-f]{4})$'){throw "$($fields[7]):$($fields[3]): unresolved text $($p[0])."}
             $binding=@{Opcode='nativeyield';Payload=('nonexitabletext '+$Matches[1])}
         }
-        {$_ -in @('asm15','cplinkx','setanimationfromobjectbyte','setzspeed','addobjectbyte','setanimationfromangle')}{
+        {$_ -in @('setanimationfromobjectbyte','setanimationfromangle')}{
+            $binding=@{Opcode='nativeyield';Payload=($op+' '+$operands).Trim()}
+        }
+        {$_ -in @('asm15','cplinkx','setzspeed','addobjectbyte')}{
             $binding=@{Opcode='native';Payload=($op+' '+$operands).Trim()}
         }
         {$_ -in @('jumpifmemoryeq','writememory','checkmemoryeq','checkobjectbyteeq')}{$symbols[$p[0]]=$p[0]}
@@ -243,10 +252,12 @@ $animations=@{};foreach($i in 0..15){$animations[$i]=[string]$i}
 $makuRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -in @('stage0','makuTreeScript_gateHit')})
 $rosaRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]).StartsWith('rosaHidingScript_')})
 $danceRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -match '^dance(c?Leader)Script_'})
-$talkRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -notin @('stage0','makuTreeScript_gateHit') -and !($_.Split([char]9)[0]).StartsWith('rosaHidingScript_') -and ($_.Split([char]9)[0]) -notmatch '^dance(c?Leader)Script_'})
+$sokraRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]).StartsWith('sokraScript_')})
+$talkRows=@($programRows[0])+@($programRows | Select-Object -Skip 1 | Where-Object {($_.Split([char]9)[0]) -notin @('stage0','makuTreeScript_gateHit') -and !($_.Split([char]9)[0]).StartsWith('rosaHidingScript_') -and !($_.Split([char]9)[0]).StartsWith('sokraScript_') -and ($_.Split([char]9)[0]) -notmatch '^dance(c?Leader)Script_'})
 $commands=@(ConvertTo-NpcProgramRows $talkRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnJump $true)
 $commands+=@(ConvertTo-NpcProgramRows $rosaRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings | Select-Object -Skip 1)
 $commands+=@(ConvertTo-NpcProgramRows $danceRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings | Select-Object -Skip 1)
+$commands+=@(ConvertTo-NpcProgramRows $sokraRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings | Select-Object -Skip 1)
 # Seasons scriptCmd_jump has no copied-buffer branch and continues at its ROM target.
 $commands+=@(ConvertTo-NpcProgramRows $makuRows 'Self' $seasonNpcTexts $animations $symbols -sourceBindings $bindings -memoryBindings $memoryBindings -yieldOnMemoryJumpTable $true | Select-Object -Skip 1)
 Write-CutsceneGeneratedTable((Join-Path $root 'npcs/commands.tsv'),$commands)

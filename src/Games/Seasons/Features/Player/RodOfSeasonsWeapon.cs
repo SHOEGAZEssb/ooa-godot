@@ -17,8 +17,9 @@ internal sealed partial class RodOfSeasonsWeapon : TransitionOffsetNode2D
         Write(0, 1); Write(1, ItemId.RodOfSeasons); Write(0x17, 0xd2);
         for (int offset = 8; offset <= 15; offset++) Write(offset, Memory.ReadWramByte(0xd000 + offset));
         _visual = new(this, 8);
+        // OBJ tile $52 is the first tile of this weapon-only sheet.
         _visual.Load(OracleGraphicsCache.LoadTwoBitSpriteSheet(AssetRoot + "rod/weapon.2bpp", 160), data.WeaponPoses,
-            data.TileBase & 0x7f, data.Flags & 7, positionedOam: true);
+            0, data.Flags & 7, positionedOam: true);
         _visual.SetAnimation(0); ZIndex = ObjectDrawPriority.BehindLinkZIndex; Visible = false;
         Write(0x24, data.Collision); Write(0x28, -data.Damage); Write(0x3a, -data.Damage); Write(0x29, data.Health);
         Write(0x1b, data.Flags); Write(0x1c, data.Flags); Write(0x1d, data.TileBase);

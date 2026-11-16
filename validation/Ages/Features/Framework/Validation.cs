@@ -380,6 +380,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeasonsRodAcquisition, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsSeasonPowers);
         RunIsolatedValidation(ValidateSeasonsRodUse);
+        RunIsolatedValidation(ValidateSeasonsRodSwingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeasonsSokra, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsTempleRoutes);
         RunIsolatedValidation(ValidateSeasonsRodSelectionRom, requiresRom: true);
         RunIsolatedValidation(ValidateSeasonsVasuShopDoorway);

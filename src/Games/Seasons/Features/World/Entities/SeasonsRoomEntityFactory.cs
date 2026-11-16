@@ -24,17 +24,7 @@ internal sealed class SeasonsRoomEntityFactory(SeasonsOpeningSession session, Ro
     private NativeNpcRoomEntity CreateTalkNpc(NativeObjectInstruction source, OracleRoomData room)
     {
         var data = TalkNpcs;
-        if (source is { Id: 0x27, SubId: 1 })
-            return new(data.Create(source, room, session.Data.World.SpritePalettes), session.Memory, session.Link,
-                index => data.Animation(source.Id, index), data.Text, (npc, player) =>
-                {
-                    if (session.Save.HasGlobalFlag(SeasonsGlobalFlag.FinishedGame)) { npc.Delete(); return; }
-                    npc.WriteByte(0x44, 1); npc.WriteByte(0x73, 0x52);
-                    if ((session.Save.ReadField("wObtainedSeasons") & 8) != 0 && !session.Save.HasRoomFlag(room.Group, room.Id, 0x40))
-                        throw new NotSupportedException("sokra.s: $27:$01 autumn-power portal dialogue is not bound.");
-                    owner.ParseNativeObjectStream("objectData7e4a", EnemyPlacementContext.Unrestricted);
-                    npc.Delete();
-                });
+        if (source.Id == 0x27) return new SeasonsSokraRoomEntity(session, data, source, room);
         if (!SeasonsTalkNpcDatabase.UsesMiscNpcHandler(source.Id)) return new SeasonsTalkNpcRoomEntity(session, data, source, room);
         return new(data.Create(source, room, session.Data.World.SpritePalettes), session.Memory, session.Link,
             index => data.Animation(source.Id, index), data.Text, (owner, player) =>

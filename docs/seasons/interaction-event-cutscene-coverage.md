@@ -43,8 +43,8 @@ Enemies, items and parts are dependencies rather than additional interaction IDs
 
 | Inventory | R | P | M | D | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e7` | 34 | 59 | 132 | 7 | 232 |
-| Expanded placed interaction contexts | 219 | 14 | 802 | 0 | 1035 |
+| Interaction IDs `$00-$e7` | 35 | 58 | 132 | 7 | 232 |
+| Expanded placed interaction contexts | 221 | 13 | 801 | 0 | 1035 |
 
 | Source placement inventory | Count |
 | --- | ---: |
@@ -74,7 +74,8 @@ Shared Ages helpers and visual-only data do not close a Seasons item.
 | Hero's Cave first sword | Runtime route through shared push blocks, floor buttons, key chest, door contacts, shutters and scripted sword return; optional side-view Gasha producer remains unbound |
 | Gnarled Root Dungeon 1 | Runtime route from `$4:1c` through the keys, map, compass, minecart/switch, torches, Bomb passage, traps, Brother Goriyas/portal, `$6:09` Seed Satchel, Floormasters, boss key, Aquamentus/heart container and `$4:13` Fertile Soil Essence, returning to `$0:96`'s first-Essence Maku message; optional Gasha/ring chests and the wise man's room are reachable |
 | First Maku Tree story and sword gate | Runtime route through gate `$22:$0a`, Maku `$87:$00` stage0, unlinked Impa/Zelda initialization, sleeping bubble, quest choice, Gnarled Key drop/pickup and repeated advice; later Maku stages remain unbound |
-| Talk-only characters, source story predicates and native child handoffs | Runtime route for 149 positioned rows; spring-boy Link launch and Mittens' trade-owner producer retain their external-system limitations |
+| Talk-only characters, source story predicates and native child handoffs | Runtime route for 150 positioned rows; spring-boy Link launch and Mittens' trade-owner producer retain their external-system limitations |
+| Sokra `$27:$00-$02` | Runtime route for the village introduction and progression hints, autumn portal explanation and departure, summer hint, native effects, cancellation and re-entry |
 | Old man's rupee cave `$5:03` | Runtime route from `$0:97`, one-time 100-rupee gift, completed dialogue and return doorway; other `$99` variants remain unbound |
 | Rosa's overworld chase | Runtime route through `$cb/$bb/$ab/$9b/$9a`, first/repeat introduction, both patrol patterns, detection/caught escape and the covered portal; dating remains unbound |
 | Subrosia portal travel | Link's native spinning/height sequence and Cutscene `$15` through `$0:9a ↔ $1:05`; other destination object streams remain outside this route |
@@ -151,7 +152,7 @@ dispatch ID is retained even when no literal placement or symbol site exists.
 | `$24` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00, $03` | — | — | 1 | **M** — No Seasons production route. |
 | `$25` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 0 | **P** — Native dialogue, room-flag selection and jump consumer; the trade-owner `$26:$00` producer remains unbound. |
 | `$26` | [mittensAndOwner](../../external/oracles-disasm/object_code/seasons/interactions/mittensAndOwner.s) | `$00-$01` | — | — | 1 | **P** — Post-trade `$01` dialogue and room-flag `$40` predicate; the `$00` trade sequence remains unbound. |
-| `$27` | [sokra](../../external/oracles-disasm/object_code/seasons/interactions/sokra.s) | `$00-$02` | — | — | 0 | **P** — Summer hint `$02` and `$01` pre-autumn initialization/deletion with its native enemy stream; village and autumn portal dialogue remain unbound. |
+| `$27` | [sokra](../../external/oracles-disasm/object_code/seasons/interactions/sokra.s) | `$00-$02` | — | — | 0 | **R** — Village introduction and progression hints, autumn portal dialogue and departure, summer hint, visibility and native enemy-stream handoff. |
 | `$28` | [bipin](../../external/oracles-disasm/object_code/common/interactions/bipin.s) | — | — | — | 23 | **M** — No Seasons production route. |
 | `$29` | [miscNpcs](../../external/oracles-disasm/object_code/seasons/interactions/miscNpcs.s) | `$00` | — | — | 0 | **M** — No Seasons production route. |
 | `$2a` | [bird](../../external/oracles-disasm/object_code/seasons/interactions/bird.s) | `$00-$09, $0b` | — | — | 1 | **P** — Know-It-All `$00-$09` and panic `$0b` dialogue, shared bird body and native story gates; Impa event `$0a` remains unbound. |
@@ -433,7 +434,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:97` | [R] `$85:$00/v$00` introSceneMusic |
 | `0:98` | [R] `$4e:$0b/v$00` dinDancingEvent |
 | `0:9a` | [R] `$e1:$00/v$00` portalSpawner |
-| `0:9b` | [P] `$27:$01/v$00` sokra (pre-autumn initialization) |
+| `0:9b` | [R] `$27:$01/v$00` sokra |
 | `0:a1` | [M] `$d0:$04/v$00` companionTutorial |
 | `0:a6` | [M] `$b6:$0a/v$00` gashaSpot |
 | `0:a7` | [R] `$a5:$09/v$00` din |
@@ -475,7 +476,7 @@ An opening implementation of the same ID does not cover another room's placement
 | `0:e4` | [M] `$90:$02/v$00` jewelHelper |
 | `0:e6` | [R] `$2d:$82/v$00` miscNpcs |
 | `0:e7` | [R] `$3d:$80/v$00` miscNpcs<br>[M] `$d8:$00/v$00` linkedFountainLady<br>[M] `$4c:$07/v$00` miscStatusObjects<br>[M] `$4c:$08/v$00` miscStatusObjects |
-| `0:e9` | [M] `$27:$00/v$00` sokra<br>[R] `$37:$83/v$00` miscNpcs<br>[R] `$80:$01/v$00` fickleOldMan<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[R] `$3e:$00/v$00` miscBoyNpcs<br>[R] `$3e:$01/v$00` miscBoyNpcs<br>[R] `$3e:$03/v$00` miscBoyNpcs<br>[R] `$3e:$12/v$00` miscBoyNpcs<br>[R] `$3e:$13/v$00` miscBoyNpcs<br>[M] `$c4:$00/v$00` zeldaVillagersRoom |
+| `0:e9` | [R] `$27:$00/v$00` sokra<br>[R] `$37:$83/v$00` miscNpcs<br>[R] `$80:$01/v$00` fickleOldMan<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[M] `$6b:$0b/v$00` miscellaneous1<br>[R] `$3e:$00/v$00` miscBoyNpcs<br>[R] `$3e:$01/v$00` miscBoyNpcs<br>[R] `$3e:$03/v$00` miscBoyNpcs<br>[R] `$3e:$12/v$00` miscBoyNpcs<br>[R] `$3e:$13/v$00` miscBoyNpcs<br>[M] `$c4:$00/v$00` zeldaVillagersRoom |
 | `0:ea` | [M] `$98:$00/v$00` woodenTunnel |
 | `0:ec` | [M] `$c7:$bc/v$00` createObjectAtEachTileindex |
 | `0:ed` | [M] `$c7:$bc/v$00` createObjectAtEachTileindex |

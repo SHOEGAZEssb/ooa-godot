@@ -64,10 +64,10 @@ linked-game and later-progression branches remain outside that supported boundar
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 169 | Standard-opening, talk-only, cave-gift, Vasu ring-service and Subrosian dance records with traced source scripts, visibility gates and focused NPC scenarios. |
-| **P** | 8 | Maku `$87:$00` supports the first story stage; Maku-room Impa `$9d:$03` and Zelda `$44:$08` support unlinked deletion; Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch, Mittens `$25:$00` trade-owner producer, Sokra `$27:$01` autumn portal dialogue and Blue Snake `$89:$01` successful cable services remain incomplete. |
+| **I** | 171 | Standard-opening, talk-only, cave-gift, Vasu ring-service, Sokra and Subrosian dance records with traced source scripts, visibility gates and focused NPC scenarios. |
+| **P** | 7 | Maku `$87:$00` supports the first story stage; Maku-room Impa `$9d:$03` and Zelda `$44:$08` support unlinked deletion; Impa `$9d:$04` linked activation, spring boy `$3e:$20` shared-flower Link launch, Mittens `$25:$00` trade-owner producer and Blue Snake `$89:$01` successful cable services remain incomplete. |
 | **D** | 0 | No listed source record is classified as a deliberately suppressed import. |
-| **M** | 129 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
+| **M** | 128 | Quest, trade, shop, secret, minigame and event records without a Seasons production route in their placed context. |
 | **Total** | **306** | **150 rooms and 265 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -75,10 +75,10 @@ linked-game and later-progression branches remain outside that supported boundar
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 31 | 0 | 31 |
-| Specialized native interaction | 135 | 0 | 135 |
+| Specialized native interaction | 136 | 0 | 136 |
 | Event-owned actor | 11 | 0 | 11 |
 | Deliberately unsupported | 0 | 0 | 0 |
-| No production owner | 129 | 72 | 201 |
+| No production owner | 128 | 72 | 200 |
 | **Total** | **306** | **72** | **378** |
 
 ## Bipin and Blossom family variants
@@ -112,7 +112,7 @@ generated Seasons NPC records.
 | `0:90` | [M] `$73:$00/v$00` animalMoblinBullies<br>[M] `$73:$01/v$00` animalMoblinBullies<br>[M] `$73:$02/v$00` animalMoblinBullies |
 | `0:92` | [M] `$73:$00/v$00` animalMoblinBullies<br>[M] `$73:$01/v$00` animalMoblinBullies<br>[M] `$73:$02/v$00` animalMoblinBullies |
 | `0:98` | [I] `$4e:$00/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$01/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$02/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$03/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$04/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$05/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$06/v$00` dinDancingEvent (room flag $40 clear) |
-| `0:9b` | [P] `$27:$01/v$00` sokra (pre-autumn initialization) |
+| `0:9b` | [I] `$27:$01/v$00` sokra |
 | `0:a7` | [I] `$a5:$09/v$00` din |
 | `0:b6` | [I] `$9d:$00/v$00` impa<br>[P] `$9d:$04/v$00` impa |
 | `0:b7` | [M] `$26:$00/v$00` mittensAndOwner<br>[I] `$26:$01/v$00` mittensAndOwner<br>[P] `$25:$00/v$00` mittensAndOwner<br>[I] `$25:$01/v$00` mittensAndOwner |
@@ -126,7 +126,7 @@ generated Seasons NPC records.
 | `0:e2` | [I] `$b1:$10/v$00` shipPiratian |
 | `0:e6` | [I] `$2d:$82/v$00` miscNpcs (ordinary) |
 | `0:e7` | [I] `$3d:$80/v$00` miscNpcs (ordinary)<br>[M] `$d8:$00/v$00` linkedFountainLady |
-| `0:e9` | [M] `$27:$00/v$00` sokra<br>[I] `$37:$83/v$00` miscNpcs (ordinary)<br>[I] `$80:$01/v$00` fickleOldMan<br>[I] `$3e:$00/v$00` miscBoyNpcs<br>[I] `$3e:$01/v$00` miscBoyNpcs<br>[I] `$3e:$03/v$00` miscBoyNpcs<br>[I] `$3e:$12/v$00` miscBoyNpcs<br>[I] `$3e:$13/v$00` miscBoyNpcs |
+| `0:e9` | [I] `$27:$00/v$00` sokra<br>[I] `$37:$83/v$00` miscNpcs (ordinary)<br>[I] `$80:$01/v$00` fickleOldMan<br>[I] `$3e:$00/v$00` miscBoyNpcs<br>[I] `$3e:$01/v$00` miscBoyNpcs<br>[I] `$3e:$03/v$00` miscBoyNpcs<br>[I] `$3e:$12/v$00` miscBoyNpcs<br>[I] `$3e:$13/v$00` miscBoyNpcs |
 | `0:f2` | [I] `$b1:$11/v$00` shipPiratian |
 | `0:f6` | [I] `$3e:$02/v$00` miscBoyNpcs |
 | `0:f7` | [I] `$80:$00/v$00` fickleOldMan<br>[I] `$80:$03/v$00` fickleOldMan<br>[I] `$37:$85/v$00` miscNpcs (ordinary) |

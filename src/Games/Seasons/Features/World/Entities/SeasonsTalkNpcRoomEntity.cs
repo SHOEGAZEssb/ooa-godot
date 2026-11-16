@@ -47,8 +47,6 @@ internal sealed class SeasonsTalkNpcRoomEntity : NativeNpcRoomEntity,
     }
     protected override bool InitializeNpc(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if(_source.Id==0x27&&!_session.Save.HasGlobalFlag(SeasonsGlobalFlag.FinishedGame))
-            _session.Save.SetRoomFlag(_room.Group,_room.Id,0x40,(_session.Save.ReadField("wObtainedSeasons")&2)==0);
         var selected = _data.Select(Entity.Record, _session.Save, _session.Memory);
         if (!selected.Visible) { Delete(); return false; }
         WriteByte(0x44, 1);
@@ -70,7 +68,6 @@ internal sealed class SeasonsTalkNpcRoomEntity : NativeNpcRoomEntity,
         }
         if(_source.Id is 0x25 or 0x26)
         {WriteByte(0x44,_source.Id==0x26?2:1);SetAnimation(2);Entity.AnimateAsNpcOneUpdate(frame.Player);return false;}
-        if(_source.Id==0x27){Script.AdvanceObjectUpdate(frame.Player);Script.AdvanceObjectUpdate(frame.Player);return false;}
         if (_source.Id == 0x2a)
         {
             ((KnowItAllBirdCharacter)Entity).InitializeNative();return false;
@@ -132,12 +129,6 @@ internal sealed class SeasonsTalkNpcRoomEntity : NativeNpcRoomEntity,
         if (Entity is KnowItAllBirdCharacter bird) { bird.UpdateBird(frame.Player); return true; }
         if(_source.Id==0xe5){Script?.AdvanceObjectUpdate(frame.Player);Entity.UpdateDrawPriority(frame.Player.Position,withTerrainEffects:true);return true;}
         if(_source.Id==0x25){UpdateMittens(frame.Player);return true;}
-        if(_source.Id==0x27)
-        {
-            if((_session.DisabledObjects&1)==0&&(_session.FrameCounter&0x3f)==0)
-                FloatingMusicNoteRoomEntity.Spawn(_session.Entities,Entity.Position+new Vector2(-4,-6),true,"SokraSnore",subid:0);
-            Entity.AnimateAsNpcOneUpdate(frame.Player);Script?.AdvanceObjectUpdate(frame.Player);return true;
-        }
         if (_source.Id == 0x2e) { UpdateFickleGirl(frame.Player,true);return true; }
         if (_source.Id == 0xc8) { UpdateBoomerangSubrosian(frame.Player);return true; }
         if (_source.Id == 0x4e) {UpdateTroupe(frame.Player);return true;}

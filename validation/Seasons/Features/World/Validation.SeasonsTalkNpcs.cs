@@ -354,7 +354,7 @@ public sealed partial class ValidationRoot
             0:e2 b110
             0:e6 2d82
             0:e7 3d80
-            0:e9 3783,8001,3e00,3e01,3e03,3e12,3e13
+            0:e9 2700,3783,8001,3e00,3e01,3e03,3e12,3e13
             0:f2 b111
             0:f6 3e02
             0:f7 8000,8003,3785
@@ -436,6 +436,7 @@ public sealed partial class ValidationRoot
                 foreach(var row in rows)
                 {
                     int group=Convert.ToInt32(row[0][..1],16),room=Convert.ToInt32(row[0][2..],16);
+                    if(group==0&&room==0xe9)session.Save.SetRoomFlag(0,0x71,0x40,false);
                     EnterSeasonsNpcRoom(session,group,room);app.Step(6,Vector2.Zero);
                     foreach(var actor in session.Entities.EntityAdapters<NativeNpcRoomEntity>().Where(actor=>!actor.Finished &&
                         actor is not (SeasonsMakuTreeRoomEntity or SeasonsPortalSpawnerRoomEntity or SeasonsTempleFallenTextRoomEntity)))
@@ -453,7 +454,7 @@ public sealed partial class ValidationRoot
             }
             var missing=rows.SelectMany(row=>row[1].Split(',').Select(record=>row[0]+" "+record)).Where(key=>!seen.Contains(key)).ToArray();
             FailIf(missing.Length!=0,$"Seasons talk-only rows never constructed under their story predicates: {string.Join(',',missing)}.");
-            FailIf(seen.Count!=149,$"Expected 149 positioned talk-only source records, got {seen.Count}.");
+            FailIf(seen.Count!=150,$"Expected 150 positioned talk-only source records, got {seen.Count}.");
         }
         finally{root.Free();}
     }

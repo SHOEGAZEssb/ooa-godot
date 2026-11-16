@@ -59,7 +59,7 @@ internal sealed class SeasonsTalkNpcDatabase
         0x4e => subid == 0x0a,
         0x25 => subid is 0 or 1,
         0x26 => subid==1,
-        0x27 => subid==2,
+        0x27 => subid is >= 0 and <= 2,
         0xe5 => subid is 0 or 1,
         0x8d => subid is >=1 and <=3,
         0x2a => subid < 0x0a || subid == 0x0b,
@@ -128,7 +128,7 @@ internal sealed class SeasonsTalkNpcDatabase
         }
         else if(id is 0x2e or 0x36 or 0x39 or 0x8a or 0x8b)state=SeasonsNpcStoryState.SunkenStage(save);
         else if(id is 0x8d or 0x42 or 0xe5 or 0x33 or 0x32)state=subid;
-        else if(id is 0x30 or 0x99 or 0xb1 or 0xb8)variant=npc.SubId;
+        else if(id is 0x27 or 0x30 or 0x99 or 0xb1 or 0xb8)variant=npc.SubId;
         else if(id==0x2a && subid==0x0b)variant=0x0b;
         else if(id==0x3b){variant=subid&15;state=save.ReadField("wTradeItem")>=5&&save.HasTreasure(TreasureId.TradeItem)?1:0;}
         else if(id==0x9d)

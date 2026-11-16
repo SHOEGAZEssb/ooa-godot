@@ -1,7 +1,7 @@
 
 namespace Oracles;
 
-internal sealed class SeasonsTalkNpcScriptHost : NpcInteractionCommandHost
+internal class SeasonsTalkNpcScriptHost : NpcInteractionCommandHost
 {
     private readonly NativeNpcRoomEntity _owner;
     private readonly SeasonsOpeningSession _session;
@@ -16,6 +16,7 @@ internal sealed class SeasonsTalkNpcScriptHost : NpcInteractionCommandHost
     public override bool MemoryEquals(string binding, int value) => ReadMemory(binding) == value;
     public override int ReadMemory(string binding)
     {
+        if(binding.Length==3 && binding[0]=='$')return _owner.ReadByte(Hex(binding));
         if (binding == "wIsLinkedGame") return IsLinkedGame ? 1 : 0;
         if (binding == "wRoomStateModifier") return _session.Memory.ReadField(binding);
         if (binding is "$cfc0" or "$ccea") return _session.Memory.ReadWramByte(Hex(binding));
@@ -37,6 +38,7 @@ internal sealed class SeasonsTalkNpcScriptHost : NpcInteractionCommandHost
     }
     public override void ShowText(int textId, string message)
         =>ShowNativeText(textId,message,false);
+    public override void PlaySound(int sound) => _session.Sound.PlaySound(sound);
     private void ShowNativeText(int textId,string message,bool nonExitable)
     {
         int? position=_owner.Npc.Record.Id==0xe5?2:null;
@@ -54,6 +56,7 @@ internal sealed class SeasonsTalkNpcScriptHost : NpcInteractionCommandHost
         string[] args = fields.Length == 1 ? [] : fields[1].Split(',', StringSplitOptions.TrimEntries);
         switch (fields[0])
         {
+            case "setcounter1": _owner.WriteByte(0x46,Hex(args[0]));return;
             case "nonexitabletext":
                 int text=Hex(args[0]);ShowNativeText(text,_owner.Text(text),true);return;
             case "setanimationfromangle": _owner.SetAnimation((ActorAngle(new("Self")) >> 3) & 3); return;
